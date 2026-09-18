@@ -100,6 +100,21 @@ jobs:
             php -l "$f"
           done < <(find "$RUNNER_TEMP/source/site" -type f -name '*.php' -print0)
 
+      - name: Qualify V7.4 CORE bridge contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -S 127.0.0.1:18741 hotfix/v7.4/tests/mock_core_router.php >"$RUNNER_TEMP/aur-core-mock.log" 2>&1 &
+          MOCK_PID=$!
+          trap 'kill "$MOCK_PID" 2>/dev/null || true' EXIT
+          for i in {1..20}; do
+            if php -r 'exit(@file_get_contents("http://127.0.0.1:18741/api/health")===false?1:0);'; then break; fi
+            sleep 0.25
+          done
+          php hotfix/v7.4/tests/core_bridge_test.php
+          kill "$MOCK_PID" 2>/dev/null || true
+          trap - EXIT
+
       - name: Qualify approved website
         run: python3 "$RUNNER_TEMP/source/deployment/qualify_static.py" "$RUNNER_TEMP/source/site"
 
