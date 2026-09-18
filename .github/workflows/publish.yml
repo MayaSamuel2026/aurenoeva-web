@@ -1,0 +1,79 @@
+name: Qualify and publish Aurenoeva
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aurenoeva-production
+  cancel-in-progress: true
+
+jobs:
+  qualify-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Reconstruct approved V7 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat payload/part*.b64 | base64 --decode > "$RUNNER_TEMP/aurenoeva-v7.tar.xz"
+          echo "ded9b1fb9918c1c688e2a253b258f11ce0bdc0cda7d348da2c4c642c95e7e56d  $RUNNER_TEMP/aurenoeva-v7.tar.xz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/source"
+          tar -xJf "$RUNNER_TEMP/aurenoeva-v7.tar.xz" -C "$RUNNER_TEMP/source"
+
+      - name: JavaScript syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' f; do
+            node --check "$f"
+          done < <(find "$RUNNER_TEMP/source/site" -type f -name '*.js' -print0)
+
+      - name: PHP syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' f; do
+            php -l "$f"
+          done < <(find "$RUNNER_TEMP/source/site" -type f -name '*.php' -print0)
+
+      - name: Qualify approved website
+        run: python3 "$RUNNER_TEMP/source/deployment/qualify_static.py" "$RUNNER_TEMP/source/site"
+
+      - name: Build clean production branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEPLOY="$RUNNER_TEMP/aurenoeva-production"
+          rm -rf "$DEPLOY"
+          mkdir -p "$DEPLOY"
+          cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
+          printf '%s\n' "Aurenoeva V7 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          cd "$DEPLOY"
+          git init -q
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git add -A
+          git commit -qm "Aurenoeva production deploy ${GITHUB_SHA}"
+          git branch -M production
+          git push --force origin production
