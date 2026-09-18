@@ -84,18 +84,52 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.7 mobile parity release
+      - name: Apply V8.2.6 FINAL checkpoint
         shell: bash
         run: |
           set -euo pipefail
-          cp hotfix/v8.2.7/index.html "$RUNNER_TEMP/source/site/index.html"
-          cat hotfix/v8.2.7/mobile.css >> "$RUNNER_TEMP/source/site/assets/css/site.css"
-          base64 --decode hotfix/v8.2.6/hero-spare-parts.b64 > "$RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp"
-          echo "6b5a9889271a08dc881dff28347cc351e21422661a437e75003c0c56aaebad0e  $RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp" | sha256sum -c -
-          while IFS= read -r -d '' f; do
-            sed -i 's#assets/js/site.js\([?][^"]*\)\?#assets/js/site.js?v=8.2.7#g' "$f"
-            sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=8.2.7#g' "$f"
-          done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
+          cat \
+            hotfix/v8.2.6-final/index.part01 \
+            hotfix/v8.2.6-final/index.part02 \
+            hotfix/v8.2.6-final/index.part03 \
+            hotfix/v8.2.6-final/index.part04 \
+            hotfix/v8.2.6-final/index.part05 \
+            hotfix/v8.2.6-final/index.part06 \
+            hotfix/v8.2.6-final/index.part07 \
+            > "$RUNNER_TEMP/source/site/index.html"
+
+          echo "76397af0672b4c23ddb4ac0cbd7e9d43e811990028d4f2da37bd087bb7bc8bb4  $RUNNER_TEMP/source/site/index.html" | sha256sum -c -
+
+          mkdir -p "$RUNNER_TEMP/source/site/assets/img/v826"
+          cp hotfix/v8.2.6-final/assets/sector-lab.webp "$RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp"
+          cp hotfix/v8.2.6-final/assets/sector-test.webp "$RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp"
+          cat \
+            hotfix/v8.2.6-final/assets/sector-medical.b64.01 \
+            hotfix/v8.2.6-final/assets/sector-medical.b64.02 \
+            hotfix/v8.2.6-final/assets/sector-medical.b64.03 \
+            | base64 --decode > "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp"
+
+          echo "fcb36d331c90cc0113c1cbb1f690ceaa731e41ef7ac31fb1931990f4b52cadcf  $RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp" | sha256sum -c -
+          echo "3b3835eaae062a1ee92761ae90882123851545ea1c888421750332abcefb8b90  $RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp" | sha256sum -c -
+          echo "d8755a2862944340b153809cbc7910b754013fc159e03e496f964dc1f428878b  $RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp" | sha256sum -c -
+
+          # The checkpoint's remaining sector imagery is mapped to the existing
+          # production visual assets until their raster companions are promoted.
+          # This preserves the exact V8.2.6 layout instead of falling back to V7 markup.
+          sed -i \
+            -e 's#assets/img/v826/procurement-bg.webp#assets/img/sector-automation.svg#g' \
+            -e 's#assets/img/v826/sector-industrial.webp#assets/img/sector-automation.svg#g' \
+            -e 's#assets/img/v826/sector-energy.webp#assets/img/sector-energy.svg#g' \
+            -e 's#assets/img/v826/sector-marine.webp#assets/img/sector-marine.svg#g' \
+            -e 's#assets/img/v826/sector-aviation.webp#assets/img/sector-aviation.svg#g' \
+            "$RUNNER_TEMP/source/site/index.html"
+
+          grep -q 'class="procurement"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'class="journey"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'class="sectors"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'class="lens"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'class="decision"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'hero-spare-parts.webp' "$RUNNER_TEMP/source/site/index.html"
 
       - name: JavaScript syntax check
         shell: bash
@@ -139,7 +173,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.7 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6 FINAL production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
