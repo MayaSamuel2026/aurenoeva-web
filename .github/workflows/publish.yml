@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           cp hotfix/v7.2/site.js "$RUNNER_TEMP/source/site/assets/js/site.js"
           cat hotfix/v7.2/site.css >> "$RUNNER_TEMP/source/site/assets/css/site.css"
+          base64 --decode hotfix/v7.2/aurenoeva-logo-approved.b64 > "$RUNNER_TEMP/source/site/assets/img/brand/aurenoeva-logo-approved.png"
 
       - name: JavaScript syntax check
         shell: bash
@@ -82,7 +83,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V7.2 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V7.2.1 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
