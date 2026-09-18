@@ -79,6 +79,10 @@ jobs:
           cp hotfix/v7.4/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
           cp hotfix/v7.4/requirement-submit.php "$RUNNER_TEMP/source/site/requirement-submit.php"
           cp hotfix/v7.4/site.js "$RUNNER_TEMP/source/site/assets/js/site.js"
+          while IFS= read -r -d '' f; do
+            sed -i 's#assets/js/site.js\([?][^"]*\)\?#assets/js/site.js?v=7.4.1#g' "$f"
+            sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
+          done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
       - name: JavaScript syntax check
         shell: bash
@@ -107,7 +111,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V7.4 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V7.4.1 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
