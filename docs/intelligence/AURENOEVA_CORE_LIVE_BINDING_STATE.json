@@ -1,0 +1,26 @@
+{
+  "schema": "aurenoeva-core-live-binding-state/1.0",
+  "date": "2026-09-18",
+  "production": "Aurenoeva V7.4.1",
+  "adapter": {
+    "deployed": true,
+    "deterministic_contract_qualification": "PASS",
+    "live_requirement_contract": "PASS",
+    "public_search_fail_closed": "PASS"
+  },
+  "core_origin": {
+    "configured": false,
+    "reachable": false,
+    "public_origin": null
+  },
+  "stages": {
+    "canonical_catalogue": "BLOCKED_ON_PUBLIC_CORE_ORIGIN",
+    "public_safe_search_adapter": "LIVE",
+    "selected_canonical_parts_contract": "READY",
+    "requirement_contract": "LIVE",
+    "project50_operations_case": "READY_TO_BIND",
+    "project80_applicability": "DEFERRED_UNTIL_TRANSACTION_CONTEXT",
+    "project90_transaction": "DEFERRED_UNTIL_ACQUISITION_ROUTE_AND_ROLES",
+    "legacy_retirement": "NOT_ELIGIBLE"
+  }
+}
