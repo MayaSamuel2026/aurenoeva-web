@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: aurenoeva-production
+  group: aurenoeva-production-final
   cancel-in-progress: true
 
 jobs:
