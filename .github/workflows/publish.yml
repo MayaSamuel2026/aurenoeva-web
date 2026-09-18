@@ -84,13 +84,18 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6 approved website refresh
+      - name: Apply V8.2.7 mobile parity release
         shell: bash
         run: |
           set -euo pipefail
-          cp hotfix/v8.2.6/index.html "$RUNNER_TEMP/source/site/index.html"
+          cp hotfix/v8.2.7/index.html "$RUNNER_TEMP/source/site/index.html"
+          cat hotfix/v8.2.7/mobile.css >> "$RUNNER_TEMP/source/site/assets/css/site.css"
           base64 --decode hotfix/v8.2.6/hero-spare-parts.b64 > "$RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp"
           echo "6b5a9889271a08dc881dff28347cc351e21422661a437e75003c0c56aaebad0e  $RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp" | sha256sum -c -
+          while IFS= read -r -d '' f; do
+            sed -i 's#assets/js/site.js\([?][^"]*\)\?#assets/js/site.js?v=8.2.7#g' "$f"
+            sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=8.2.7#g' "$f"
+          done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
       - name: JavaScript syntax check
         shell: bash
@@ -134,7 +139,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.7 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
