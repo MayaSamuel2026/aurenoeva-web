@@ -1,0 +1,24 @@
+
+/* V7.1 production hotfix — preserve complete Aurenoeva lockups */
+.brand-digital,
+.footer-lockup,
+.brand-type,
+.footer-type{
+  overflow:visible;
+}
+.brand-symbol,
+.footer-symbol{
+  object-fit:contain !important;
+  object-position:center !important;
+  flex:0 0 auto;
+}
+.brand-wordmark,
+.footer-wordmark{
+  object-fit:contain !important;
+  object-position:left center !important;
+  max-width:none;
+}
+@media (min-width:721px){
+  .brand-symbol{width:48px;height:48px}
+  .footer-symbol{width:46px;height:46px}
+}
