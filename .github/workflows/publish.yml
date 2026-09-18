@@ -40,6 +40,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/source"
           tar -xJf "$RUNNER_TEMP/aurenoeva-v7.tar.xz" -C "$RUNNER_TEMP/source"
 
+      - name: Apply V7.1 production hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat hotfix/v7.1/site.css >> "$RUNNER_TEMP/source/site/assets/css/site.css"
+          cp hotfix/v7.1/_form_common.php "$RUNNER_TEMP/source/site/_form_common.php"
+          cp hotfix/v7.1/contact-submit.php "$RUNNER_TEMP/source/site/contact-submit.php"
+
       - name: JavaScript syntax check
         shell: bash
         run: |
@@ -67,7 +75,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V7 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V7.1 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
