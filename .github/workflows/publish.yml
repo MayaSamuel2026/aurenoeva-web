@@ -70,6 +70,16 @@ jobs:
           cp hotfix/v7.3/privacy.html "$RUNNER_TEMP/source/site/privacy.html"
           cp hotfix/v7.3/cookies.html "$RUNNER_TEMP/source/site/cookies.html"
 
+      - name: Apply V7.4 live CORE binding adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp hotfix/v7.4/_core_bridge.php "$RUNNER_TEMP/source/site/_core_bridge.php"
+          cp hotfix/v7.4/core-health.php "$RUNNER_TEMP/source/site/core-health.php"
+          cp hotfix/v7.4/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
+          cp hotfix/v7.4/requirement-submit.php "$RUNNER_TEMP/source/site/requirement-submit.php"
+          cp hotfix/v7.4/site.js "$RUNNER_TEMP/source/site/assets/js/site.js"
+
       - name: JavaScript syntax check
         shell: bash
         run: |
@@ -97,7 +107,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V7.3 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V7.4 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
