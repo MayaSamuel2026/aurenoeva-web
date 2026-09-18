@@ -1,0 +1,43 @@
+{
+  "schema": "aurenoeva-project-intelligence-authority/v1",
+  "status": "ACTIVE",
+  "established_at": "2026-09-18",
+  "scope": [
+    "AURENOEVA",
+    "NOEVA CORE",
+    "PROJECT 50 when operationally relevant",
+    "PROJECT 80",
+    "PROJECT 90",
+    "PROJECT 70/95 when shared capability is implicated"
+  ],
+  "current_authority": {
+    "core_architecture": "NOEVA CORE OS Architecture v1 / v1.2 consolidated authority",
+    "aurenoeva": "Project 10 V1 frozen procurement workflow + active REAL CORE binding",
+    "website": "Aurenoeva production website current qualified branch",
+    "compliance": "CORE Compliance / Project 80 applicability authority",
+    "transaction": "CORE Transaction & Settlement / Project 90 authority"
+  },
+  "mandatory_rules": [
+    "scan_project_intelligence_before_material_change",
+    "newer_accepted_authority_supersedes_historical_draft",
+    "do_not_duplicate_core_generic_capabilities",
+    "preserve_frozen_interfaces_unless_regression_proven",
+    "bind_then_prove_then_retire_legacy",
+    "canonical_product_ids_and_part_numbers_persist_without_reentry",
+    "project80_applicability_consumed_not_reimplemented",
+    "project90_transaction_role_and_settlement_boundaries_preserved"
+  ],
+  "required_scan_topics": [
+    "Aurenoeva Local Intelligence Lab",
+    "Resolution migration",
+    "Requirement Contract",
+    "Procurement Decision Journey",
+    "Acquisition Workspace and Supplier Engagement",
+    "NOEVA CORE authority and live binding",
+    "shared search and canonical product index",
+    "Project 80 compliance/applicability",
+    "Project 90 transaction/contract/settlement",
+    "Project 50 CRM/operations where relevant",
+    "current GitHub production implementation"
+  ]
+}
