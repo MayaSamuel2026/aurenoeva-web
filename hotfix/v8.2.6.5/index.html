@@ -1,0 +1,1222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aurenoeva — V8.2.6 Final Production Checkpoint</title>
+<style>
+:root{
+  --cream:#F8F7F3;
+  --paper:#FFFFFF;
+  --ink:#0E3A33;
+  --ink-deep:#082D28;
+  --forest:#3F6F62;
+  --forest-2:#2F675A;
+  --sage:#E9F1ED;
+  --sage-2:#F4F7F5;
+  --sand:#C9B896;
+  --sand-soft:#F5F0E7;
+  --line:#D7E0DC;
+  --muted:#66766F;
+  --muted-2:#7E8A85;
+  --shadow:0 22px 58px rgba(14,58,51,.08);
+  --shadow-deep:0 28px 76px rgba(14,58,51,.12);
+  --sans:'Avenir Next','Helvetica Neue',Aptos,'Segoe UI',Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--cream)}
+body{
+  margin:0;background:var(--cream);color:var(--ink);
+  font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased
+}
+a{color:inherit;text-decoration:none}
+button,input,select{font:inherit}
+button{cursor:pointer}
+img{display:block;max-width:100%}
+.wrap{width:min(1280px,calc(100% - 44px));margin:auto}
+.mock-badge{
+  position:fixed;right:18px;bottom:18px;z-index:1000;
+  background:#fff;border:1px solid var(--line);border-radius:999px;
+  padding:10px 14px;font-size:10px;letter-spacing:.13em;font-weight:800;color:var(--ink);
+  box-shadow:var(--shadow)
+}
+
+/* Header — production identity preserved */
+.site-header{
+  position:sticky;top:0;z-index:90;background:rgba(248,247,243,.97);
+  backdrop-filter:blur(18px);border-bottom:1px solid rgba(14,58,51,.12)
+}
+.header-inner{height:82px;display:flex;align-items:center;gap:22px}
+.brand{flex:0 0 auto;display:flex;align-items:center}
+.brand-logo{display:block;width:218px;height:auto;max-height:62px;object-fit:contain;object-position:left center}
+.nav{display:flex;gap:18px;margin-left:auto;align-items:center}
+.nav a{font-size:11.5px;font-weight:650;color:#536861}
+.nav a.active{color:var(--ink);box-shadow:inset 0 -2px 0 var(--sand)}
+.lang{display:flex;gap:2px}
+.lang button{border:0;background:transparent;font-size:10px;color:#74837c;padding:6px}
+.lang button.active{color:var(--ink);font-weight:800}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:11px;
+  padding:12px 17px;font-weight:720;font-size:12px
+}
+.btn.ghost{background:transparent;color:var(--ink);border-color:#BCC9C4}
+.btn.large{padding:15px 20px;border-radius:13px;font-size:13px}
+.eyebrow{
+  color:var(--forest);font-size:10px;font-weight:800;letter-spacing:.17em;text-transform:uppercase
+}
+.eyebrow:after{
+  content:"";display:inline-block;width:28px;height:1px;background:var(--sand);vertical-align:middle;margin-left:10px
+}
+
+/* Existing production hero copy, identity and proportions */
+.hero{
+  padding:52px 0 38px;
+  background:radial-gradient(circle at 88% 10%,rgba(201,184,150,.18),transparent 24%),var(--cream);
+  border-bottom:1px solid var(--line)
+}
+.hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:58px;align-items:end}
+.hero h1{
+  margin:13px 0 16px;font-size:clamp(50px,5.35vw,74px);line-height:1.005;
+  letter-spacing:-.038em;font-weight:700
+}
+.hero .lead{font-size:15px;line-height:1.62;color:#546A63;margin:0;max-width:720px}
+.hero-actions{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
+.trust-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.trust-row span{font-size:10px;color:#4D645D}
+.trust-row span:before{content:"✓";color:var(--forest);font-weight:900;margin-right:7px}
+.hero-note{
+  border-left:1px solid var(--line);padding-left:28px;margin-bottom:4px
+}
+.hero-note h3{font-size:15px;margin:0 0 10px}
+.hero-note p{margin:0;color:#60736C;font-size:13px;line-height:1.65}
+
+.hero-side-stack{display:grid;gap:14px;align-self:stretch}
+
+.source-signal{
+  border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#FFFFFF,#F8FBF9);
+  padding:18px 18px;box-shadow:0 12px 28px rgba(14,58,51,.045)
+}
+.source-signal .mini-eyebrow{
+  font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:#74847E;font-weight:800;margin-bottom:11px
+}
+.source-signal-layout{display:grid;grid-template-columns:1.1fr .72fr;gap:16px;align-items:stretch}
+.source-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.source-chip{
+  min-height:72px;border:1px solid #DDE6E2;border-radius:13px;background:#FBFCFB;
+  display:grid;grid-template-columns:32px 1fr;gap:10px;align-items:center;padding:11px 12px
+}
+.source-chip svg{width:25px;height:25px;stroke:var(--forest);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.source-chip b{display:block;font-size:10px;line-height:1.22}
+.source-chip span{display:block;margin-top:3px;font-size:8px;line-height:1.28;color:#73817C}
+.source-graphic{
+  min-height:154px;border:1px solid #E2E9E5;border-radius:15px;
+  background:
+    radial-gradient(circle at 62% 22%,rgba(115,174,153,.20),transparent 32%),
+    radial-gradient(circle at 18% 78%,rgba(201,184,150,.18),transparent 26%),
+    linear-gradient(180deg,#FCFEFD,#F4F8F6);
+  display:grid;place-items:center;padding:12px
+}
+.source-graphic svg{width:100%;height:100%;max-width:240px;max-height:130px}
+
+/* Procurement start — premium guided interface */
+.procurement{
+  padding:42px 0 52px;
+  position:relative;
+  overflow:hidden
+}
+.procurement-top{
+  position:relative;min-height:172px;margin-bottom:18px;
+  display:grid;grid-template-columns:1.08fr .92fr;gap:40px;align-items:end
+}
+.procurement-top:after{
+  content:"";position:absolute;right:-110px;top:-58px;width:620px;height:260px;z-index:-1;
+  background:
+    linear-gradient(90deg,var(--cream) 0%,rgba(248,247,243,.88) 15%,rgba(248,247,243,.18) 52%,rgba(8,45,40,.08) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.08),rgba(8,45,40,.10)),
+    url("assets/img/v826/procurement-bg.webp") center/cover no-repeat;
+  filter:saturate(.80) contrast(1.04);
+}
+.procurement-top h2{
+  margin:10px 0 9px;font-size:clamp(38px,4.15vw,58px);line-height:1.02;letter-spacing:-.035em;font-weight:700
+}
+.procurement-top .sub{
+  max-width:620px;margin:0;color:#4F665F;font-size:14px;line-height:1.58
+}
+.procurement-top .explain{
+  max-width:470px;margin-left:auto;padding:15px 20px 15px 24px;
+  border-left:1px solid rgba(14,58,51,.17);
+  color:#3E5750;font-size:11.5px;line-height:1.62;
+  background:linear-gradient(90deg,rgba(248,247,243,.96),rgba(248,247,243,.62))
+}
+.engine-shell{
+  display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start
+}
+.engine-main,.engine-side{
+  border:1px solid #CFD9D5;background:rgba(255,255,255,.92);border-radius:24px;box-shadow:var(--shadow)
+}
+.engine-main{padding:20px}
+.engine-side{padding:20px;background:linear-gradient(180deg,#fff,#F7FAF8)}
+.stage-row{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:12px}
+.stage-label{display:flex;align-items:center;gap:10px}
+.stage-no{
+  width:27px;height:27px;border-radius:999px;background:var(--sage);display:grid;place-items:center;
+  font-size:9px;font-weight:900
+}
+.stage-title{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.stage-help{font-size:10px;color:#73837D}
+.mode-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mode{
+  min-height:86px;display:grid;grid-template-columns:46px 1fr;gap:12px;align-items:center;
+  background:#FCFDFC;border:1px solid var(--line);border-radius:13px;padding:13px 14px;text-align:left
+}
+.mode.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mode-icon{
+  width:42px;height:42px;border-radius:11px;background:#F0F5F2;display:grid;place-items:center;color:var(--ink)
+}
+.mode.active .mode-icon{background:rgba(255,255,255,.10);color:#fff}
+.mode-icon svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mode b{display:block;font-size:12px}
+.mode span{display:block;margin-top:2px;font-size:9.5px;opacity:.78;line-height:1.35}
+.search-bar{
+  margin-top:12px;display:grid;grid-template-columns:1fr 145px;gap:7px;
+  border:1px solid var(--line);border-radius:14px;padding:6px;background:#fff
+}
+.search-input{display:flex;gap:11px;align-items:center;padding:0 11px}
+.search-input svg{width:17px;height:17px;stroke:#667A73;fill:none;stroke-width:1.8}
+.search-input input{width:100%;height:44px;border:0;outline:0;font-size:12px;background:transparent;color:var(--ink)}
+.search-input input::placeholder{color:#7C8C86}
+.search-go{border:0;border-radius:11px;background:var(--ink);color:#fff;font-size:11px;font-weight:800}
+.examples{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px}
+.examples strong{font-size:8.8px;letter-spacing:.14em;color:#6D7F79;font-weight:800}
+.chip{
+  border:1px solid var(--line);background:#FAFCFB;border-radius:999px;padding:8px 12px;
+  font-size:10px;color:#425B54;font-weight:560
+}
+.divider{height:1px;background:var(--line);margin:16px 0}
+.sector-mini{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:7px
+}
+.sector-mini button{
+  min-height:116px;padding:10px 6px 11px;background:#FCFDFC;border:1px solid var(--line);
+  border-radius:13px;display:grid;grid-template-rows:76px auto;justify-items:center;align-items:center;
+  transition:.16s;overflow:hidden
+}
+.sector-mini button.active{background:#fff;border-color:#2F6F62;box-shadow:inset 0 0 0 1px #2F6F62}
+.sector-mini button:hover{transform:translateY(-1px)}
+.sector-mini .visual{
+  width:78px;height:72px;display:grid;place-items:center;
+  border-radius:14px;background:radial-gradient(circle,#F2F7F4 0%,#F7F9F7 65%,transparent 66%)
+}
+.sector-mini img{
+  width:72px;height:68px;object-fit:contain;
+  image-rendering:auto;filter:drop-shadow(0 7px 9px rgba(14,58,51,.07))
+}
+.sector-mini span{font-size:9px;line-height:1.2;font-weight:700;color:#2E4B44;text-align:center}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 11px}
+.field label{display:block;font-size:7.5px;color:#73847D;margin-bottom:3px}
+.field select{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:10.5px;font-weight:650}
+.side-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.side-top strong{font-size:9px;letter-spacing:.14em}
+.clear{border:0;background:transparent;text-decoration:underline;font-size:9px;color:#627771}
+.summary-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.summary-head{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px;border-bottom:1px solid var(--line);align-items:center}
+.summary-image{
+  width:72px;height:72px;border-radius:12px;background:#F1F5F3;display:grid;place-items:center
+}
+.summary-image img{width:62px;height:62px;object-fit:contain}
+.summary-head small{display:block;font-size:8px;letter-spacing:.12em;color:#7A8984;margin-bottom:4px;font-weight:800}
+.summary-head b{font-size:16px;line-height:1.2}
+.summary-rows{padding:2px 12px 9px}
+.summary-row{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #EDF2EF}
+.summary-row:last-child{border-bottom:0}
+.summary-row span{font-size:8px;letter-spacing:.11em;text-transform:uppercase;color:#7A8A84;font-weight:800}
+.summary-row b{font-size:11.5px;font-weight:620;line-height:1.35}
+.guidance{
+  margin:13px 0;background:var(--sand-soft);border-radius:13px;padding:12px 13px;
+  display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start
+}
+.guidance svg{width:21px;height:21px;stroke:#6B665A;fill:none;stroke-width:1.7}
+.guidance p{margin:0;font-size:10px;line-height:1.48;color:#4C5B56}
+.side-cta{width:100%;border:0;border-radius:12px;padding:14px 14px;background:var(--ink);color:#fff;font-size:11.2px;font-weight:800}
+.side-foot{text-align:center;font-size:8.8px;color:#7B8984;margin-top:10px;line-height:1.4}
+.benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding-top:18px}
+.benefit{display:grid;grid-template-columns:31px 1fr;gap:10px;align-items:start}
+.benefit svg{width:26px;height:26px;stroke:var(--forest);fill:none;stroke-width:1.8}
+.benefit b{display:block;font-size:10px;margin-bottom:2px}
+.benefit span{font-size:8px;color:#6D7D77;line-height:1.4}
+
+/* Journey continuum — production copy retained */
+.journey{padding:68px 0;background:var(--ink);color:#fff}
+.section-head{display:grid;grid-template-columns:1.05fr .85fr;gap:48px;align-items:end}
+.section-head h2{
+  font-size:clamp(38px,4vw,56px);line-height:1.03;letter-spacing:-.033em;font-weight:690;margin:10px 0 0
+}
+.section-head p{font-size:13px;line-height:1.65;color:#D3E0DB;margin:0}
+.journey .eyebrow{color:#8FC4B7}
+.journey-chain{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:27px}
+.journey-chain article{
+  border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:15px 13px;background:rgba(255,255,255,.035)
+}
+.journey-chain article span{font-size:8px;color:#8FC4B7}
+.journey-chain article b{display:block;margin:7px 0 9px;color:#D7B66F;font-size:8px;letter-spacing:.14em}
+.journey-chain h3{margin:0 0 7px;font-size:15px}
+.journey-chain p{margin:0;font-size:9px;line-height:1.5;color:#D8E4DF}
+
+/* Premium sector cards — preferred screenshot adopted literally */
+.sectors{padding:52px 0 18px}
+.sector-head{display:grid;grid-template-columns:1fr .8fr;gap:38px;align-items:end;margin-bottom:18px}
+.sector-head h2{font-size:clamp(40px,4.25vw,58px);line-height:1.02;letter-spacing:-.033em;font-weight:690;margin:8px 0 0}
+.sector-head p{margin:0;font-size:12.5px;line-height:1.58;color:#62756E}
+.card-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}
+.sector-card{
+  grid-column:span 3;
+  position:relative;min-height:190px;padding:11px 12px;background:#fff;border:1px solid var(--line);
+  border-radius:17px;box-shadow:0 9px 24px rgba(14,58,51,.04);overflow:hidden
+}
+.sector-card:nth-child(n+5){grid-column:span 4}
+.card-inner{height:100%;display:grid;grid-template-columns:minmax(118px,43%) minmax(0,1fr) 32px;gap:9px;align-items:center;padding-top:4px}
+.object-stage{
+  height:148px;display:grid;place-items:center;
+  background:radial-gradient(circle,#F0F5F2 0%,#F6F8F6 57%,transparent 58%);border-radius:15px
+}
+.object-stage img{width:95%;height:137px;object-fit:contain;filter:drop-shadow(0 11px 15px rgba(14,58,51,.08))}
+.card-copy h3{font-size:15px;margin:0 0 7px;line-height:1.22}
+.card-copy p{font-size:10.5px;line-height:1.48;color:#60736D;margin:0;max-width:210px}
+.card-link{margin-top:18px;font-size:9.2px;font-weight:800;color:var(--forest)}
+.arrow-btn{width:34px;height:34px;border:1px solid var(--line);border-radius:999px;display:grid;place-items:center;font-size:14px}
+
+/* Requirement Lens — no counter-marketing percentage */
+.lens{
+  margin:12px 0 54px;border:1px solid var(--line);border-radius:18px;background:#fff;
+  display:grid;grid-template-columns:1.03fr .95fr .62fr;overflow:hidden;box-shadow:var(--shadow)
+}
+.lens-copy{padding:26px 27px}
+.lens-copy h3{font-size:38px;letter-spacing:-.035em;margin:9px 0 10px}
+.lens-copy p{font-size:12px;line-height:1.62;color:#5D716A;margin:0}
+.lens-copy .btn{margin-top:20px}
+.lens-visual{display:grid;place-items:center;background:linear-gradient(180deg,#FBFDFB,#F4F8F6);padding:20px}
+.stack{position:relative;width:270px;height:225px}
+.disk{
+  position:absolute;left:50%;transform:translateX(-50%);border-radius:50%;border:1px solid rgba(67,126,109,.17);
+  background:radial-gradient(circle at 50% 35%,rgba(220,255,238,.95) 0%,rgba(171,228,201,.68) 40%,rgba(130,193,168,.55) 68%,rgba(255,255,255,.24) 100%);
+  box-shadow:0 16px 24px rgba(78,141,120,.14),inset 0 8px 16px rgba(255,255,255,.55)
+}
+.d1{top:22px;width:215px;height:66px}.d2{top:79px;width:188px;height:61px}.d3{top:133px;width:215px;height:66px}
+.vline{position:absolute;left:50%;top:32px;bottom:30px;width:2px;background:rgba(67,126,109,.24)}
+.pin{position:absolute;width:9px;height:9px;border-radius:50%;background:#2F6F62;border:2px solid #EEF7F3}
+.p1{right:23px;top:32px}.p2{right:8px;top:93px}.p3{right:25px;top:152px}
+.lens-steps{padding:24px 23px;border-left:1px solid var(--line)}
+.lens-step{display:grid;grid-template-columns:45px 1fr;gap:12px;align-items:start;margin-bottom:17px}
+.lens-step:last-child{margin-bottom:0}
+.step-icon{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#F8FBF9;display:grid;place-items:center}
+.step-icon svg{width:22px;height:22px;stroke:var(--forest);fill:none;stroke-width:1.8}
+.lens-step b{display:block;font-size:9px;letter-spacing:.13em;color:var(--forest);margin-bottom:4px}
+.lens-step p{font-size:9px;color:#60736D;line-height:1.45;margin:0}
+.lens-outcome{border-top:1px solid var(--line);padding-top:15px;margin-top:4px}
+.lens-outcome strong{display:block;font-size:9px;letter-spacing:.14em;line-height:1.5}
+.lens-outcome p{font-size:9px;line-height:1.5;margin-top:7px;color:#60736D}
+
+/* Decision Field — qualitative state instead of 72% */
+.decision{padding:72px 0;background:var(--ink);color:#fff}
+.decision .section-head p{color:#D5E1DD}
+.decision-demo{margin-top:28px;border:1px solid rgba(255,255,255,.17);border-radius:18px;padding:12px}
+.decision-track{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.decision-track button{
+  border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.035);
+  color:#fff;padding:12px 10px;text-align:left;font-size:8px
+}
+.decision-track button.active{background:#fff;color:var(--ink)}
+.decision-track span{display:inline-grid;width:20px;height:20px;place-items:center;border-radius:50%;background:rgba(143,196,183,.14);margin-right:5px}
+.decision-readout{margin-top:9px;background:#fff;color:var(--ink);border-radius:13px;display:grid;grid-template-columns:1.2fr .5fr;overflow:hidden}
+.decision-main{padding:21px}
+.decision-main small{font-size:8.8px;letter-spacing:.11em;color:#657A73;font-weight:800}
+.decision-main strong{display:block;font-size:24px;margin:7px 0 9px;line-height:1.18}
+.decision-main p{font-size:12.5px;line-height:1.58;color:#5E726B;margin:0}
+.open-question{margin-top:14px;padding:12px 13px;background:var(--sand-soft);border-radius:10px;font-size:10px;color:#3F534D;line-height:1.45}
+.decision-meta{border-left:1px solid var(--line);padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#F5F8F6}
+.decision-meta span{border:1px solid var(--line);border-radius:9px;padding:9px;background:#fff}
+.decision-meta small{display:block;font-size:7.6px;letter-spacing:.08em;color:#81908B;font-weight:800}
+.decision-meta b{display:block;font-size:10.8px;line-height:1.35;margin-top:4px}
+
+/* CTA/footer */
+.tail{padding:70px 0;background:#fff;border-top:1px solid var(--line)}
+.tail-grid{display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center}
+.tail h2{font-size:43px;line-height:1.05;letter-spacing:-.033em;margin:0 0 10px}
+.tail p{margin:0;color:#5D716A;font-size:13px;line-height:1.6;max-width:720px}
+footer{background:#082D28;color:#fff;padding:25px 0}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+.foot-logo{width:205px;filter:brightness(0) invert(1)}
+.foot small{color:#B8CBC5}
+
+@media(max-width:1050px){
+  .hero-grid,.procurement-top,.section-head,.sector-head,.tail-grid{grid-template-columns:1fr}
+  .engine-shell{grid-template-columns:1fr}
+  .procurement-top:after{opacity:.55}
+  .card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sector-card,.sector-card:nth-child(n+5){grid-column:span 1}
+  .lens{grid-template-columns:1fr}
+  .lens-steps{border-left:0;border-top:1px solid var(--line)}
+  .journey-chain{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:980px){
+  .source-signal-layout{grid-template-columns:1fr}
+  .source-graphic{min-height:130px}
+}
+@media(max-width:760px){
+  .wrap{width:min(100% - 28px,1280px)}
+  .nav{display:none}.brand-logo{width:190px}
+  .hero{padding:48px 0 42px}.hero h1{font-size:48px}
+  .mode-tabs{grid-template-columns:1fr}
+  .search-bar{grid-template-columns:1fr}.search-go{height:42px}
+  .sector-mini{grid-template-columns:repeat(2,1fr)}
+  .field-grid,.benefits{grid-template-columns:1fr}
+  .card-grid,.journey-chain{grid-template-columns:1fr}
+  .sector-card.wide{grid-column:auto}
+  .card-inner,.sector-card.wide .card-inner{grid-template-columns:1fr}
+  .arrow-btn{display:none}
+  .decision-track{grid-template-columns:repeat(2,1fr)}
+  .decision-readout{grid-template-columns:1fr}
+  .decision-meta{border-left:0;border-top:1px solid var(--line)}
+}
+
+
+/* V8.2.6 — hero graphic corrected and layout aligned to the approved mockup */
+.hero{padding:56px 0 44px}
+.hero-grid{grid-template-columns:minmax(0,1.05fr) minmax(470px,.95fr);gap:54px;align-items:stretch}
+.hero .lead{font-size:17px;line-height:1.68;max-width:760px}
+.hero-actions{margin-top:22px;gap:11px}
+.trust-row{gap:22px;margin-top:18px}
+.trust-row span{font-size:12.5px;line-height:1.4}
+.eyebrow{font-size:11.5px}
+.nav a{font-size:13.5px}
+.lang button{font-size:12px}
+.btn{font-size:13.5px;padding:13px 19px}
+.btn.large{font-size:14px;padding:15px 21px}
+
+.hero-procurement-card{display:grid;grid-template-rows:auto auto;gap:14px;align-self:stretch}
+.hero-procurement-intro{
+  min-height:232px;display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:20px;align-items:center;
+  border:1px solid var(--line);border-radius:20px;background:linear-gradient(135deg,#FFFFFF 0%,#FAFCFB 68%,#F2F7F4 100%);
+  padding:26px 24px 24px 28px;box-shadow:0 14px 34px rgba(14,58,51,.05);overflow:hidden;position:relative
+}
+.hero-procurement-intro:after{content:"";position:absolute;right:-70px;top:-90px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(143,196,183,.20),rgba(143,196,183,0) 68%);pointer-events:none}
+.hero-procurement-copy{position:relative;z-index:1}
+.hero-procurement-copy .mini-eyebrow,.source-signal .mini-eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--forest);font-weight:800}
+.hero-procurement-copy h3{font-size:22px;line-height:1.22;letter-spacing:-.018em;margin:9px 0 11px;color:var(--ink-deep)}
+.hero-procurement-copy p{margin:0;color:#566B64;font-size:15.5px;line-height:1.62}
+.hero-procurement-visual{min-height:200px;display:grid;align-content:center;justify-items:end;gap:10px;position:relative;z-index:1}
+.hero-procurement-visual img{width:100%;max-width:285px;height:auto;display:block;filter:drop-shadow(0 18px 28px rgba(14,58,51,.10))}
+.hero-procurement-visual span{font-size:10.5px;color:#697C75;font-weight:700;letter-spacing:.06em;text-align:right;max-width:285px;text-transform:uppercase}
+.source-signal{border:1px solid var(--line);border-radius:20px;background:#fff;padding:22px 22px 21px;box-shadow:0 14px 34px rgba(14,58,51,.045)}
+.source-signal-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:15px}
+.source-signal-head p{margin:0;max-width:260px;text-align:right;font-size:12.5px;line-height:1.45;color:#6A7A74}
+.source-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.source-chip{min-height:92px;border:1px solid #DCE5E1;border-radius:15px;background:#FBFCFB;display:grid;grid-template-columns:44px 1fr;gap:13px;align-items:center;padding:14px 15px}
+.source-chip svg{width:32px;height:32px;stroke:var(--forest);fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+.source-chip b{display:block;font-size:14px;line-height:1.25;color:var(--ink-deep)}
+.source-chip span{display:block;margin-top:4px;font-size:12px;line-height:1.35;color:#6F7F79}
+
+/* Readability: the interface must remain comfortably legible at normal desktop zoom. */
+.procurement-top .explain{font-size:14.5px;line-height:1.68}
+.stage-no{width:30px;height:30px;font-size:11.5px}
+.stage-title{font-size:12.5px}
+.stage-help{font-size:12.5px}
+.mode{min-height:98px;grid-template-columns:50px 1fr;padding:14px 15px}
+.mode-icon{width:46px;height:46px}
+.mode b{font-size:14px}
+.mode span{font-size:12px;line-height:1.4}
+.search-input input{height:48px;font-size:14px}
+.search-go{font-size:13px}
+.examples strong{font-size:10.5px}
+.chip{font-size:12px;padding:8px 13px}
+.sector-mini button{min-height:124px;grid-template-rows:80px auto;padding:11px 7px 12px}
+.sector-mini span{font-size:11.5px;line-height:1.28}
+.field{padding:11px 12px}
+.field label{font-size:10.5px;margin-bottom:4px}
+.field select{font-size:13px}
+.side-top strong{font-size:11px}
+.clear{font-size:11px}
+.summary-head small{font-size:10px}
+.summary-head b{font-size:17px}
+.summary-row{grid-template-columns:105px 1fr;padding:12px 0}
+.summary-row span{font-size:10px;line-height:1.3}
+.summary-row b{font-size:13px}
+.guidance p{font-size:12px;line-height:1.55}
+.side-cta{font-size:13px;padding:15px 14px}
+.side-foot{font-size:10.5px}
+.benefit b{font-size:13px;line-height:1.3}
+.benefit span{font-size:11.5px;line-height:1.4}
+.journey-chain article span{font-size:10px}
+.journey-chain article b{font-size:11.5px}
+.card-copy p{font-size:13px;line-height:1.6}
+.card-link{font-size:11.5px}
+.lens-copy p{font-size:13.5px;line-height:1.65}
+.lens-step b{font-size:11px}
+.lens-step p{font-size:12px;line-height:1.5}
+.lens-outcome strong{font-size:11px}
+.lens-outcome p{font-size:12px;line-height:1.5}
+.decision-track button{font-size:10.5px;padding:13px 11px}
+.decision-main small{font-size:10.5px}
+.decision-main p{font-size:13.5px}
+.open-question{font-size:12px}
+.decision-meta small{font-size:9.5px}
+.decision-meta b{font-size:12.5px}
+.tail p{font-size:14px}
+
+@media(max-width:1120px){
+  .hero-grid{grid-template-columns:1fr;gap:30px}
+  .hero-procurement-card{grid-template-columns:1fr 1fr;grid-template-rows:auto;align-items:stretch}
+  .hero-procurement-intro{min-height:100%}
+  .source-signal{height:100%}
+}
+@media(max-width:820px){
+  .hero-procurement-card{grid-template-columns:1fr}
+  .hero-procurement-intro{grid-template-columns:1fr;min-height:auto}
+  .hero-procurement-visual{min-height:170px}
+  .source-signal-head{display:block}
+  .source-signal-head p{margin-top:7px;text-align:left;max-width:none}
+  .source-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .hero .lead{font-size:16px}
+  .hero-procurement-copy h3{font-size:20px}
+  .hero-procurement-copy p{font-size:14.5px}
+  .source-chip b{font-size:13.5px}
+  .source-chip span{font-size:11.5px}
+  .stage-title,.stage-help{font-size:11.5px}
+  .sector-mini span{font-size:11px}
+}
+
+
+/* V8.2.6.1 — compact desktop sourcing summary; V8.2.5/6 visual authority otherwise unchanged */
+@media(min-width:1121px){
+  .hero-procurement-card{align-self:start}
+  .source-signal{
+    padding:10px 12px 10px;
+    border-radius:18px;
+  }
+  .source-signal-head{
+    align-items:center;
+    gap:14px;
+    margin-bottom:7px;
+  }
+  .source-signal .mini-eyebrow{font-size:10.5px}
+  .source-signal-head p{
+    max-width:245px;
+    font-size:10.5px;
+    line-height:1.22;
+  }
+  .source-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:7px;
+  }
+  .source-chip{
+    min-height:48px;
+    grid-template-columns:22px minmax(0,1fr);
+    gap:7px;
+    padding:6px 7px;
+    border-radius:11px;
+  }
+  .source-chip svg{width:21px;height:21px}
+  .source-chip b{font-size:11.5px;line-height:1.12}
+  .source-chip span{font-size:9.2px;line-height:1.15;margin-top:2px}
+}
+.sector-card{cursor:pointer}
+.sector-card:focus-visible{outline:3px solid rgba(47,103,90,.35);outline-offset:3px}
+.arrow-btn{transition:transform .15s ease,background .15s ease}
+.sector-card:hover .arrow-btn,.sector-card:focus-visible .arrow-btn{transform:translateX(2px);background:#F3F7F5}
+
+
+/* V8.2.6.2 — restore the full production footer without altering the approved page body. */
+.site-footer{
+  padding:42px 0 20px;
+  background:var(--ink-deep);
+  color:#F3F7F5;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.footer-grid{
+  display:grid;
+  grid-template-columns:minmax(280px,1.65fr) repeat(3,minmax(150px,.7fr));
+  gap:34px;
+  align-items:start;
+}
+.footer-logo{width:215px;max-height:62px;object-fit:contain;object-position:left center;filter:brightness(0) invert(1)}
+.footer-brand p{max-width:430px;margin:17px 0 0;font-size:12.5px;line-height:1.62;color:#C9D8D3}
+.footer-brand .footer-company{color:#B8CBC5}
+.footer-brand a{color:#fff}
+.footer-col{display:grid;gap:9px}
+.footer-title{
+  margin-bottom:4px;
+  color:#D7B66F;
+  font-size:10px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.footer-col a{
+  width:max-content;
+  max-width:100%;
+  font-size:12.5px;
+  color:#D4E0DC;
+  transition:color .15s ease;
+}
+.footer-col a:hover,.footer-brand a:hover{color:#fff}
+.footer-bottom{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  margin-top:32px;
+  padding-top:17px;
+  border-top:1px solid rgba(255,255,255,.11);
+  color:#9FB6AF;
+  font-size:10px;
+  letter-spacing:.04em;
+}
+@media(max-width:900px){
+  .footer-grid{grid-template-columns:1.35fr 1fr 1fr}
+  .footer-brand{grid-column:1/-1}
+}
+@media(max-width:620px){
+  .site-footer{padding-top:34px}
+  .footer-grid{grid-template-columns:1fr 1fr;gap:28px 22px}
+  .footer-brand{grid-column:1/-1}
+  .footer-bottom{display:grid;gap:7px}
+}
+@media(max-width:420px){
+  .footer-grid{grid-template-columns:1fr}
+  .footer-brand{grid-column:auto}
+}
+
+</style>
+</head>
+<body>
+<!-- AURENOEVA V8.2.6.5: compact hero summary + restored production interactions -->
+<!-- V8.2.6 decision: correct the hero image crop and sizing so the graphic sits cleanly inside the card with no stray text. -->
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="#top"><img class="brand-logo" src="assets/img/brand/aurenoeva-logo-approved.png" alt="Aurenoeva"></a>
+    <nav class="nav">
+      <a class="active" href="#top" data-en="Home" data-de="Start"></a>
+      <a href="#procurement" data-en="Start sourcing" data-de="Beschaffung starten"></a>
+      <a href="#sectors" data-en="Sectors" data-de="Bereiche"></a>
+      <a href="#decision" data-en="How it works" data-de="So funktioniert es"></a>
+      <a href="about.html" data-en="About" data-de="Über uns"></a>
+    </nav>
+    <div class="lang"><button class="active" data-lang="en">EN</button><button data-lang="de">DE</button></div>
+    <a class="btn" href="#procurement" data-en="Start sourcing →" data-de="Beschaffung starten →"></a>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow" data-en="Industrial parts & procurement intelligence" data-de="Ersatzteile & technische Beschaffungsintelligenz"></div>
+      <h1 data-en="Find the right part. Even when it’s hard to source." data-de="Finden Sie das passende Teil – auch wenn es schwer zu beschaffen ist."></h1>
+      <p class="lead" data-en="From spare parts and obsolete components to refurbished technical equipment, you can start with whatever you have: a part number, model, category, application or a rough brief. Aurenoeva’s proprietary engines turn that starting point into a structured requirement, search relevant supply, resolve the exact item, verify evidence and condition, and compare credible acquisition options before you commit." data-de="Vom Ersatzteil über abgekündigte Komponenten bis hin zu überholten technischen Systemen: Starten Sie einfach mit dem, was Ihnen vorliegt – Teilenummer, Modell, Kategorie, Anwendung oder eine grobe Beschreibung. Die Aurenoeva Engines machen daraus einen strukturierten Bedarf, durchsuchen relevante Lieferquellen, ermitteln die exakte Identität, prüfen Nachweise und Zustand und vergleichen belastbare Beschaffungsoptionen, bevor Sie sich festlegen."></p>
+      <div class="hero-actions">
+        <a class="btn large" href="#procurement" data-en="Start sourcing →" data-de="Beschaffung starten →"></a>
+        <a class="btn ghost large" href="#journey" data-en="What Aurenoeva does" data-de="Was Aurenoeva übernimmt"></a>
+      </div>
+      <div class="trust-row">
+        <span data-en="Identify first" data-de="Zuerst identifizieren"></span>
+        <span data-en="Evidence visible" data-de="Nachweise sichtbar"></span>
+        <span data-en="Commercial comparison last" data-de="Kommerzieller Vergleich zuletzt"></span>
+      </div>
+    </div>
+    <aside class="hero-procurement-card">
+      <div class="hero-procurement-intro">
+        <div class="hero-procurement-copy">
+          <div class="mini-eyebrow" data-en="Managed procurement" data-de="Geführte Beschaffung"></div>
+          <h3 data-en="Managed procurement for difficult technical requirements" data-de="Geführte Beschaffung für anspruchsvolle technische Bedarfe"></h3>
+          <p data-en="Aurenoeva combines proprietary software with hands-on procurement expertise. The software structures the problem and narrows the search; the procurement workflow handles open questions, supplier engagement and the wider decision context." data-de="Aurenoeva verbindet eigene Software mit praktischer Beschaffungsexpertise. Die Software strukturiert das Problem und grenzt die Suche ein; der Beschaffungsprozess klärt offene Punkte, übernimmt die Lieferantenansprache und hält den Entscheidungskontext zusammen."></p>
+        </div>
+        <div class="hero-procurement-visual" aria-hidden="true">
+          <img src="assets/img/hero-spare-parts.webp" alt="">
+          <span data-en="Critical spare parts, large assemblies and complex components." data-de="Kritische Ersatzteile, große Baugruppen und komplexe Komponenten."></span>
+        </div>
+      </div>
+
+      <div class="source-signal">
+        <div class="source-signal-head">
+          <div class="mini-eyebrow" data-en="What we help you source" data-de="Was wir für Sie beschaffen"></div>
+          <p data-en="From a known part number to a complex technical brief." data-de="Von der bekannten Teilenummer bis zur komplexen technischen Anfrage."></p>
+        </div>
+        <div class="source-grid">
+          <div class="source-chip">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16v10H4z"/><path d="M7 4v3M17 4v3M8 12h8"/></svg>
+            <div><b data-en="Spare parts" data-de="Ersatzteile"></b><span data-en="Current or hard to source" data-de="Aktuell oder schwer zu beschaffen"></span></div>
+          </div>
+          <div class="source-chip">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/><path d="M4 4l3 3"/></svg>
+            <div><b data-en="Obsolete components" data-de="Abgekündigte Komponenten"></b><span data-en="Legacy and discontinued" data-de="Ausgelaufen oder abgekündigt"></span></div>
+          </div>
+          <div class="source-chip">
+            <svg viewBox="0 0 24 24"><path d="M5 18h14"/><path d="M7 18V9h10v9"/><path d="M9 9V6h6v3"/></svg>
+            <div><b data-en="Technical equipment" data-de="Technische Systeme"></b><span data-en="Specialist systems and modules" data-de="Spezialsysteme und Module"></span></div>
+          </div>
+          <div class="source-chip">
+            <svg viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/><path d="M4 12h3M17 12h3M12 4v3M12 17v3"/></svg>
+            <div><b data-en="Refurbished options" data-de="Überholte Komponenten"></b><span data-en="When evidence supports it" data-de="Wenn Nachweise und Zustand passen"></span></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="procurement" id="procurement">
+  <div class="wrap">
+    <div class="procurement-top">
+      <div>
+        <div class="eyebrow" data-en="Procurement start / Aurenoeva Engine" data-de="Beschaffungsstart / Aurenoeva Engine"></div>
+        <h2 data-en="What do you need?" data-de="Was benötigen Sie?"></h2>
+        <p class="sub" data-en="Part number, category, application or plain-language description — we structure the requirement from there." data-de="Teilenummer, Kategorie, Anwendung oder eine Beschreibung in eigenen Worten – wir formen daraus einen strukturierten Beschaffungsbedarf."></p>
+      </div>
+      <div class="explain" data-en="Start with the technical world you know. The interface adapts around what is already clear, then carries that context into the requirement instead of making you repeat it." data-de="Starten Sie in dem technischen Bereich, den Sie kennen. Die Oberfläche orientiert sich an dem, was bereits klar ist, und übernimmt diesen Kontext direkt in den Bedarf, statt Sie alles noch einmal eingeben zu lassen."></div>
+    </div>
+
+    <div class="engine-shell">
+      <div class="engine-main">
+        <div class="stage-row">
+          <div class="stage-label"><span class="stage-no">01</span><span class="stage-title" data-en="How would you like to start?" data-de="Wie möchten Sie starten?"></span></div>
+          <div class="stage-help" data-en="Choose the most natural way to describe what you need." data-de="Wählen Sie den natürlichsten Einstieg."></div>
+        </div>
+
+        <div class="mode-tabs">
+          <button class="mode" data-mode="exact">
+            <div class="mode-icon"><svg viewBox="0 0 24 24"><path d="M5 5v14M8 5v14M11 5v14M15 5v14M18 5v14"/></svg></div>
+            <div><b data-en="Exact part / model" data-de="Teil / Modell bekannt"></b><span data-en="Search by part number or model" data-de="Nach Teilenummer oder Modell suchen"></span></div>
+          </button>
+          <button class="mode active" data-mode="category">
+            <div class="mode-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/></svg></div>
+            <div><b data-en="Browse by category" data-de="Kategorie wählen"></b><span data-en="Explore the technical structure" data-de="Technische Struktur durchsuchen"></span></div>
+          </button>
+          <button class="mode" data-mode="requirement">
+            <div class="mode-icon"><svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7zM15 3v4h4M10 12h6M10 16h6"/></svg></div>
+            <div><b data-en="Describe the application" data-de="Anwendung beschreiben"></b><span data-en="Tell us what you are trying to achieve" data-de="Beschreiben Sie Ihr technisches Anliegen"></span></div>
+          </button>
+        </div>
+
+        <div class="search-bar">
+          <div class="search-input">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="queryInput" aria-label="Part, model or requirement">
+          </div>
+          <button class="search-go" data-en="Use →" data-de="Übernehmen →"></button>
+        </div>
+
+        <div class="examples">
+          <strong data-en="Examples" data-de="Beispiele"></strong>
+          <button class="chip">1260 Infinity</button>
+          <button class="chip">P/N 5190-2293</button>
+          <button class="chip">Centrifugal pump</button>
+          <button class="chip">D-Sub connector</button>
+          <button class="chip">Siemens 6ES7</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="stage-row">
+          <div class="stage-label"><span class="stage-no">02</span><span class="stage-title" data-en="Select a technical sector" data-de="Technischen Bereich wählen"></span></div>
+          <div class="stage-help" data-en="Narrow the context to get more relevant results." data-de="Grenzen Sie den Kontext für relevantere Ergebnisse ein."></div>
+        </div>
+
+        <div class="sector-mini">
+          <button class="active" data-sector="Laboratory" data-sector-de="Labor & Analytik"><div class="visual"><img src="assets/img/v8264/sector-lab.webp" alt=""></div><span data-en="Laboratory" data-de="Labor & Analytik"></span></button>
+          <button data-sector="Test & Measurement" data-sector-de="Mess- & Prüftechnik"><div class="visual"><img src="assets/img/v8264/sector-test.webp" alt=""></div><span data-en="Test & Measurement" data-de="Mess- & Prüftechnik"></span></button>
+          <button data-sector="Medical" data-sector-de="Medizintechnik"><div class="visual"><img src="assets/img/v8264/sector-medical.webp" alt=""></div><span data-en="Medical" data-de="Medizintechnik"></span></button>
+          <button data-sector="Industrial" data-sector-de="Industrie & Automation"><div class="visual"><img src="assets/img/v8264/sector-industrial.webp" alt=""></div><span data-en="Industrial" data-de="Industrie & Automation"></span></button>
+          <button data-sector="Energy" data-sector-de="Energie"><div class="visual"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><span data-en="Energy" data-de="Energie"></span></button>
+          <button data-sector="Marine" data-sector-de="Marine"><div class="visual"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><span data-en="Marine" data-de="Marine"></span></button>
+          <button data-sector="Aviation" data-sector-de="Luftfahrt"><div class="visual"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><span data-en="Aviation" data-de="Luftfahrt"></span></button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="stage-row">
+          <div class="stage-label"><span class="stage-no">03</span><span class="stage-title" data-en="Refine your request" data-de="Anfrage verfeinern"></span></div>
+          <div class="stage-help" data-en="Add detail now or refine it later." data-de="Details jetzt ergänzen oder später verfeinern."></div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label data-en="Category" data-de="Kategorie"></label>
+            <select id="categorySelect">
+              <option value="Chromatography / HPLC / GC">Chromatography / HPLC / GC</option>
+              <option value="Mass spectrometry">Mass spectrometry</option>
+              <option value="Spectroscopy">Spectroscopy</option>
+              <option value="Sample preparation">Sample preparation</option>
+              <option value="Balances & weighing">Balances & weighing</option>
+              <option value="Incubation / ovens / environmental">Incubation / ovens / environmental</option>
+              <option value="General laboratory equipment">General laboratory equipment</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-en="Condition" data-de="Zustand"></label>
+            <select id="conditionSelect">
+              <option value="any" data-en="Any condition" data-de="Zustand offen">Any condition</option>
+              <option value="new" data-en="New only" data-de="Nur neu">New only</option>
+              <option value="refurbished" data-en="Refurbished accepted" data-de="Überholt möglich">Refurbished accepted</option>
+              <option value="used" data-en="Used accepted" data-de="Gebraucht möglich">Used accepted</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <aside class="engine-side">
+        <div class="side-top"><strong data-en="YOUR STARTING POINT" data-de="IHR AUSGANGSPUNKT"></strong><button class="clear" id="clearBtn" data-en="Clear all" data-de="Alles löschen"></button></div>
+        <div class="summary-card">
+          <div class="summary-head">
+            <div class="summary-image"><img id="summaryImg" src="assets/img/v8264/sector-lab.webp" alt=""></div>
+            <div><small data-en="SECTOR" data-de="BEREICH"></small><b id="summarySector">Laboratory</b></div>
+          </div>
+          <div class="summary-rows">
+            <div class="summary-row"><span data-en="START TYPE" data-de="STARTTYP"></span><b id="summaryMode">Browse by category</b></div>
+            <div class="summary-row"><span data-en="IDENTIFIER" data-de="KENNUNG"></span><b id="summaryQuery" style="color:#70817B;font-style:italic">Not specified</b></div>
+            <div class="summary-row"><span data-en="CATEGORY" data-de="KATEGORIE"></span><b id="summaryCategory">Chromatography / HPLC / GC</b></div>
+            <div class="summary-row"><span data-en="CONDITION" data-de="ZUSTAND"></span><b id="summaryCondition">Any condition</b></div>
+          </div>
+        </div>
+        <div class="guidance">
+          <svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 1 6 6c0 2.2-1 3.5-2.2 4.8-.9 1-.8 1.7-.8 2.2h-6c0-.5.1-1.2-.8-2.2C7 12.5 6 11.2 6 9a6 6 0 0 1 6-6z"/><path d="M9 19h6M10 22h4"/></svg>
+          <p data-en="Next, Aurenoeva structures the requirement, identifies open questions and guides you toward relevant catalogue matches, supply, evidence and expertise." data-de="Als Nächstes strukturiert Aurenoeva den Bedarf, identifiziert offene Fragen und führt Sie zu relevanten Katalogtreffern, Bezugsquellen, Nachweisen und Expertise."></p>
+        </div>
+        <button class="side-cta" data-en="Continue to requirement →" data-de="Zum Bedarf weiter →"></button>
+        <div class="side-foot" data-en="Quantity, delivery location, timing and evidence needs can be added next. No account is required." data-de="Menge, Lieferort, Termin und benötigte Nachweise können Sie im nächsten Schritt ergänzen. Ein Konto ist nicht erforderlich."></div>
+      </aside>
+    </div>
+
+    <div class="benefits">
+      <div class="benefit"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><div><b data-en="Faster results" data-de="Schneller zum Ergebnis"></b><span data-en="Start your way. Get to relevant information sooner." data-de="Starten Sie auf Ihre Weise. Relevante Informationen kommen schneller zusammen."></span></div></div>
+      <div class="benefit"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.2-2.3 7.9-7 10-4.7-2.1-7-5.8-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><div><b data-en="Trusted and independent" data-de="Belastbar und unabhängig"></b><span data-en="Supplier data, evidence and expertise kept separate." data-de="Lieferantendaten, Nachweise und Expertise bleiben sauber getrennt."></span></div></div>
+      <div class="benefit"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><div><b data-en="Across the industrial world" data-de="Über die industrielle Welt hinweg"></b><span data-en="From laboratory to aviation and beyond." data-de="Von Labor bis Luftfahrt – und darüber hinaus."></span></div></div>
+      <div class="benefit"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zM8 13a3 3 0 1 0-3-3 3 3 0 0 0 3 3z"/><path d="M16 13c-3.2 0-6 1.4-6 3.5V20h12v-3.5c0-2.1-2.8-3.5-6-3.5zM8 14c-2.7 0-5 1.1-5 2.8V20h4"/></svg><div><b data-en="Built for professionals" data-de="Für Profis gebaut"></b><span data-en="Used by engineers, buyers and technical specialists." data-de="Für Ingenieure, Einkäufer und technische Spezialisten."></span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="journey" id="journey">
+  <div class="wrap">
+    <div class="section-head">
+      <div><div class="eyebrow" data-en="From search to completed acquisition" data-de="Von der Suche bis zur abgeschlossenen Beschaffung"></div><h2 data-en="Finding the part is only the beginning." data-de="Das Teil zu finden ist erst der Anfang."></h2></div>
+      <p data-en="Aurenoeva keeps the selected product identity, evidence and transaction context connected beyond the search. The process continues through qualification, case-dependent compliance checks, commercial agreement, funding conditions, fulfilment and a closed acquisition record." data-de="Aurenoeva hält die ausgewählte Produktidentität, die Nachweise und den Transaktionskontext auch nach der Suche zusammen. Der Prozess führt weiter über Qualifizierung, fallabhängige Compliance-Prüfungen, kommerzielle Vereinbarungen, Zahlungsbedingungen, Abwicklung und eine abgeschlossene Beschaffungsakte."></p>
+    </div>
+    <div class="journey-chain">
+      <article><span>01</span><b>SOURCE</b><h3 data-en="Find & identify" data-de="Finden & identifizieren"></h3><p data-en="Search by part number, model, category or application. Exact catalogue matches can be attached to the enquiry." data-de="Suche nach Teilenummer, Modell, Kategorie oder Anwendung. Exakte Katalogtreffer können direkt der Anfrage zugeordnet werden."></p></article>
+      <article><span>02</span><b>QUALIFY</b><h3 data-en="Evidence & risk" data-de="Nachweise & Risiko"></h3><p data-en="Identity, technical fit, condition, provenance, supplier evidence and open questions remain visible." data-de="Identität, technische Passung, Zustand, Herkunft, Lieferantennachweise und offene Fragen bleiben sichtbar."></p></article>
+      <article><span>03</span><b>DECIDE</b><h3 data-en="Compare the route" data-de="Beschaffungsweg vergleichen"></h3><p data-en="Credible options are compared on fit, evidence, risk and true acquisition economics." data-de="Belastbare Optionen werden nach Passung, Nachweisen, Risiko und tatsächlichen Beschaffungskosten verglichen."></p></article>
+      <article><span>04</span><b>CLEAR</b><h3 data-en="Compliance & conditions" data-de="Compliance & Bedingungen"></h3><p data-en="Where relevant, product, party, jurisdiction, end-use and documentary conditions are checked before the transaction advances." data-de="Wo relevant, werden Produkt, Parteien, Länderbezug, Endverwendung und Dokumentationsanforderungen geprüft, bevor die Transaktion weitergeht."></p></article>
+      <article><span>05</span><b>COMPLETE</b><h3 data-en="Agree, fulfil & close" data-de="Vereinbaren, abwickeln & abschließen"></h3><p data-en="Roles, transaction documents, funding conditions, release, delivery, acceptance and the final record stay connected to the same acquisition." data-de="Rollen, Transaktionsdokumente, Zahlungsbedingungen, Freigabe, Lieferung, Abnahme und Abschlussakte bleiben mit derselben Beschaffung verbunden."></p></article>
+    </div>
+  </div>
+</section>
+
+<section class="sectors" id="sectors">
+  <div class="wrap">
+    <div class="sector-head">
+      <div><div class="eyebrow" data-en="Sectors" data-de="Technische Bereiche"></div><h2 data-en="Start with the technical world you know." data-de="Starten Sie in dem technischen Bereich, den Sie kennen."></h2></div>
+      <p data-en="Every sector has its own standards, suppliers and constraints. Aurenoeva brings them together in one structured view so that the search begins in the right technical context." data-de="Jeder Bereich hat eigene Standards, Lieferanten und Randbedingungen. Aurenoeva führt sie in einer strukturierten Sicht zusammen, damit die Suche im richtigen technischen Kontext beginnt."></p>
+    </div>
+
+    <div class="card-grid">
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-lab.webp" alt=""></div><div class="card-copy"><h3 data-en="Laboratory" data-de="Labor & Analytik"></h3><p data-en="Analytical and scientific systems." data-de="Analyse- und Laborsysteme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-test.webp" alt=""></div><div class="card-copy"><h3 data-en="Test & Measurement" data-de="Mess- & Prüftechnik"></h3><p data-en="Precision instruments and calibration." data-de="Präzisionsmesstechnik und Kalibrierung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-medical.webp" alt=""></div><div class="card-copy"><h3 data-en="Medical" data-de="Medizintechnik"></h3><p data-en="Regulated technical equipment." data-de="Regulierte technische Systeme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-industrial.webp" alt=""></div><div class="card-copy"><h3 data-en="Industrial" data-de="Industrie & Automation"></h3><p data-en="Automation and process equipment." data-de="Automatisierungs- und Prozesskomponenten."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><div class="card-copy"><h3 data-en="Energy" data-de="Energie"></h3><p data-en="Power and generation assets." data-de="Komponenten für Energie und Erzeugung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><div class="card-copy"><h3 data-en="Marine" data-de="Marine"></h3><p data-en="Engines, pumps and ship systems." data-de="Motoren, Pumpen und Schiffssysteme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><div class="card-copy"><h3 data-en="Aviation" data-de="Luftfahrt"></h3><p data-en="Traceability-sensitive aerospace assets." data-de="Rückverfolgbare Luftfahrtkomponenten."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+    </div>
+
+    <div class="lens">
+      <div class="lens-copy">
+        <div class="eyebrow" data-en="Aurenoeva intelligence layer" data-de="Aurenoeva Intelligence Layer"></div>
+        <h3>Requirement Lens</h3>
+        <p data-en="Turns a part number, an application or a rough brief into a precise requirement. It separates what is already known from what still needs clarification, so the search starts with the right problem." data-de="Macht aus Teilenummer, Anwendung oder grobem Briefing einen klaren Beschaffungsbedarf. Bekannte Fakten werden von offenen Punkten getrennt, damit die Suche mit der richtigen Fragestellung beginnt."></p>
+        <a class="btn" href="#decision" data-en="How it works →" data-de="So funktioniert es →"></a>
+      </div>
+      <div class="lens-visual">
+        <div class="stack">
+          <div class="vline"></div><div class="disk d1"></div><div class="disk d2"></div><div class="disk d3"></div>
+          <div class="pin p1"></div><div class="pin p2"></div><div class="pin p3"></div>
+        </div>
+      </div>
+      <div class="lens-steps">
+        <div class="lens-step"><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7zM15 3v4h4M10 12h6"/></svg></div><div><b>CAPTURE</b><p data-en="Bring together what you know." data-de="Vorhandene Informationen bündeln."></p></div></div>
+        <div class="lens-step"><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M5 12h4l2-5 2 10 2-5h4M3 4h18M3 20h18"/></svg></div><div><b>STRUCTURE</b><p data-en="Clarify what still needs detail." data-de="Offene Punkte gezielt klären."></p></div></div>
+        <div class="lens-step"><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M6 12l4 4 8-8"/><circle cx="12" cy="12" r="9"/></svg></div><div><b>ENABLE</b><p data-en="Create a stronger, more complete requirement." data-de="Einen belastbareren Bedarf erzeugen."></p></div></div>
+        <div class="lens-outcome"><strong data-en="BETTER INPUT. BETTER OUTCOMES." data-de="BESSERER INPUT. BESSERE ERGEBNISSE."></strong><p data-en="Higher-quality requirements lead to more relevant supply, clearer comparisons and faster decisions." data-de="Hochwertigere Bedarfe führen zu relevanteren Bezugsquellen, klareren Vergleichen und schnelleren Entscheidungen."></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="decision" id="decision">
+  <div class="wrap">
+    <div class="section-head">
+      <div><div class="eyebrow">Decision Field / AU-DEMO-0021</div><h2 data-en="A decision you can inspect — not a score you simply have to trust." data-de="Eine Entscheidung, die Sie prüfen können – statt einer Zahl, der Sie einfach vertrauen sollen."></h2></div>
+      <p data-en="Aurenoeva keeps the intermediate reasoning visible. Requirement quality, discovered supply, evidence strength, risk and economics remain separate until the final decision, so a strong price cannot quietly hide a weak technical fit or a missing proof point." data-de="Aurenoeva hält die Zwischenschritte sichtbar. Bedarfsqualität, gefundene Lieferquellen, Nachweisstärke, Risiko und Wirtschaftlichkeit bleiben bis zur finalen Entscheidung getrennt. So kann ein attraktiver Preis weder eine schlechte technische Passung noch fehlende Nachweise verdecken."></p>
+    </div>
+    <div class="decision-demo">
+      <div class="decision-track">
+        <button class="active" data-stage="0"><span>01</span><b data-en="REQUIREMENT" data-de="BEDARF"></b></button>
+        <button data-stage="1"><span>02</span><b data-en="SUPPLY" data-de="QUELLEN"></b></button>
+        <button data-stage="2"><span>03</span><b data-en="EVIDENCE" data-de="NACHWEISE"></b></button>
+        <button data-stage="3"><span>04</span><b data-en="RISK" data-de="RISIKO"></b></button>
+        <button data-stage="4"><span>05</span><b data-en="ECONOMICS" data-de="KOSTEN"></b></button>
+        <button data-stage="5"><span>06</span><b data-en="DECISION" data-de="ENTSCHEIDUNG"></b></button>
+      </div>
+      <div class="decision-readout">
+        <div class="decision-main">
+          <small id="dLabel">REQUIREMENT RESOLUTION</small>
+          <strong id="dValue">Requirement profile established ✓</strong>
+          <p id="dText">Application, configuration, geography, budget and evidence posture are explicit. One material question remains open.</p>
+          <div class="open-question"><b data-en="OPEN QUESTION" data-de="OFFENE FRAGE"></b> · <span id="dOpen">Software or licence transferability</span></div>
+        </div>
+        <div class="decision-meta">
+          <span><small data-en="Decision record" data-de="Entscheidungsakte"></small><b>AU-DEMO-0021</b></span>
+          <span><small data-en="Vertical" data-de="Bereich"></small><b>Laboratory / HPLC</b></span>
+          <span><small data-en="State" data-de="Status"></small><b id="dState">Requirement active</b></span>
+          <span><small data-en="Authority" data-de="Verantwortung"></small><b data-en="Aurenoeva procurement record" data-de="Aurenoeva Beschaffungsakte"></b></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tail">
+  <div class="wrap tail-grid">
+    <div>
+      <h2 data-en="Hard to source. Easy to start." data-de="Schwer zu beschaffen. Einfach zu starten."></h2>
+      <p data-en="Bring the identifier, application, equipment or simply the problem. Aurenoeva turns it into a structured acquisition path while preserving the evidence trail and decision context." data-de="Bringen Sie Kennung, Anwendung, Gerät oder einfach Ihr technisches Problem mit. Aurenoeva macht daraus einen strukturierten Beschaffungsweg und hält dabei Nachweisweg und Entscheidungskontext zusammen."></p>
+    </div>
+    <a class="btn large" href="#procurement" data-en="Start sourcing →" data-de="Beschaffung starten →"></a>
+  </div>
+</section>
+
+</main>
+
+<footer id="footer" class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#top" aria-label="Aurenoeva home">
+          <img class="footer-logo" src="assets/img/brand/aurenoeva-logo-approved.png" alt="Aurenoeva — Procurement · Components · Intelligence">
+        </a>
+        <p data-en="Managed procurement and intelligence for scarce, obsolete, refurbished and high-value technical components." data-de="Geführte Beschaffung und Intelligence für schwer verfügbare, abgekündigte, überholte und hochwertige technische Komponenten."></p>
+        <p class="footer-company"><span data-en="A business of" data-de="Ein Geschäftsbereich von"></span> <strong>NOEVA Systems e.K.</strong><br>Marienburger Straße 16 · 56112 Lahnstein · Germany<br><a href="mailto:info@aurenoeva.com">info@aurenoeva.com</a></p>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-title" data-en="Aurenoeva" data-de="Aurenoeva"></span>
+        <a href="about.html" data-en="About" data-de="Über uns"></a>
+        <a href="about.html#contact" data-en="Contact" data-de="Kontakt"></a>
+        <a href="suppliers.html" data-en="Suppliers" data-de="Lieferanten"></a>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-title" data-en="Procurement" data-de="Beschaffung"></span>
+        <a href="#procurement" data-en="Start sourcing" data-de="Beschaffung starten"></a>
+        <a href="how-it-works.html" data-en="How it works" data-de="So funktioniert es"></a>
+        <a href="trust-methodology.html" data-en="Trust & methodology" data-de="Vertrauen & Methodik"></a>
+        <a href="industries.html" data-en="Technical sectors" data-de="Technische Bereiche"></a>
+      </div>
+
+      <div class="footer-col">
+        <span class="footer-title" data-en="Legal" data-de="Rechtliches"></span>
+        <a href="imprint.html" data-en="Imprint" data-de="Impressum"></a>
+        <a href="privacy.html" data-en="Privacy" data-de="Datenschutz"></a>
+        <a href="terms.html" data-en="Terms" data-de="Nutzungsbedingungen"></a>
+        <a href="accessibility.html" data-en="Accessibility" data-de="Barrierefreiheit"></a>
+        <a href="cookies.html" data-en="Cookie settings" data-de="Cookie-Einstellungen"></a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Aurenoeva · NOEVA Systems e.K.</span>
+      <span>PROCUREMENT · COMPONENTS · INTELLIGENCE</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const assets={
+  Laboratory:"assets/img/v8264/sector-lab.webp","Test & Measurement":"assets/img/v8264/sector-test.webp",Medical:"assets/img/v8264/sector-medical.webp",Industrial:"assets/img/v8264/sector-industrial.webp",Energy:"assets/img/v8264/sector-energy.webp",Marine:"assets/img/v8264/sector-marine.webp",Aviation:"assets/img/v8264/sector-aviation.webp"
+};
+const state={lang:"en",mode:"category",sector:"Laboratory"};
+const modeText={
+  exact:{en:"Exact part / model",de:"Teil / Modell bekannt"},
+  category:{en:"Browse by category",de:"Kategorie wählen"},
+  requirement:{en:"Describe the application",de:"Anwendung beschreiben"}
+};
+const sectorKeys={
+  Laboratory:"laboratory",
+  "Test & Measurement":"test",
+  Medical:"medical",
+  Industrial:"industrial",
+  Energy:"energy",
+  Marine:"marine",
+  Aviation:"aviation"
+};
+const sectorCategories={
+  laboratory:[
+    {v:"Chromatography / HPLC / GC",en:"Chromatography / HPLC / GC",de:"Chromatographie / HPLC / GC"},
+    {v:"Mass spectrometry",en:"Mass spectrometry",de:"Massenspektrometrie"},
+    {v:"Spectroscopy",en:"Spectroscopy",de:"Spektroskopie"},
+    {v:"Sample preparation",en:"Sample preparation",de:"Probenvorbereitung"},
+    {v:"Balances & weighing",en:"Balances & weighing",de:"Waagen & Wägetechnik"},
+    {v:"Incubation / ovens / environmental",en:"Incubation / ovens / environmental",de:"Inkubation / Öfen / Umwelttechnik"},
+    {v:"General laboratory equipment",en:"General laboratory equipment",de:"Allgemeine Laborausstattung"}
+  ],
+  test:[
+    {v:"Oscilloscopes",en:"Oscilloscopes",de:"Oszilloskope"},
+    {v:"Spectrum / signal analyzers",en:"Spectrum / signal analyzers",de:"Spektrum- / Signalanalysatoren"},
+    {v:"Signal sources / generators",en:"Signal sources / generators",de:"Signalquellen / Generatoren"},
+    {v:"Meters & power analyzers",en:"Meters & power analyzers",de:"Messgeräte & Leistungsanalysatoren"},
+    {v:"RF / microwave",en:"RF / microwave",de:"HF / Mikrowelle"},
+    {v:"Calibration equipment",en:"Calibration equipment",de:"Kalibriertechnik"},
+    {v:"Data acquisition",en:"Data acquisition",de:"Datenerfassung"}
+  ],
+  medical:[
+    {v:"Diagnostic equipment",en:"Diagnostic equipment",de:"Diagnostikgeräte"},
+    {v:"Imaging & visualization",en:"Imaging & visualization",de:"Bildgebung & Visualisierung"},
+    {v:"Patient monitoring",en:"Patient monitoring",de:"Patientenmonitoring"},
+    {v:"Laboratory / pathology",en:"Laboratory / pathology",de:"Labor / Pathologie"},
+    {v:"Surgical / procedural",en:"Surgical / procedural",de:"Chirurgie / Eingriffsgeräte"},
+    {v:"Sterilization & reprocessing",en:"Sterilization & reprocessing",de:"Sterilisation & Aufbereitung"},
+    {v:"Other medical equipment",en:"Other medical equipment",de:"Weitere Medizintechnik"}
+  ],
+  industrial:[
+    {v:"PLC / control modules",en:"PLC / control modules",de:"SPS / Steuerungsmodule"},
+    {v:"Drives / servo / motion",en:"Drives / servo / motion",de:"Antriebe / Servo / Motion"},
+    {v:"Motors / gearboxes",en:"Motors / gearboxes",de:"Motoren / Getriebe"},
+    {v:"Sensors / instrumentation",en:"Sensors / instrumentation",de:"Sensorik / Instrumentierung"},
+    {v:"Pneumatics / hydraulics",en:"Pneumatics / hydraulics",de:"Pneumatik / Hydraulik"},
+    {v:"Robotics / automation",en:"Robotics / automation",de:"Robotik / Automation"},
+    {v:"Machine / process equipment",en:"Machine / process equipment",de:"Maschinen- / Prozessequipment"}
+  ],
+  energy:[
+    {v:"Transformers",en:"Transformers",de:"Transformatoren"},
+    {v:"Switchgear & protection",en:"Switchgear & protection",de:"Schaltanlagen & Schutztechnik"},
+    {v:"Generators",en:"Generators",de:"Generatoren"},
+    {v:"Power conversion / inverters",en:"Power conversion / inverters",de:"Leistungsumwandlung / Wechselrichter"},
+    {v:"Power quality / monitoring",en:"Power quality / monitoring",de:"Netzqualität / Monitoring"},
+    {v:"Turbine / plant components",en:"Turbine / plant components",de:"Turbinen- / Anlagenkomponenten"},
+    {v:"Storage / auxiliary systems",en:"Storage / auxiliary systems",de:"Speicher- / Hilfssysteme"}
+  ],
+  marine:[
+    {v:"Engines & propulsion",en:"Engines & propulsion",de:"Motoren & Antrieb"},
+    {v:"Pumps / fluid systems",en:"Pumps / fluid systems",de:"Pumpen / Fluidsysteme"},
+    {v:"Electrical & switchgear",en:"Electrical & switchgear",de:"Elektrik & Schaltanlagen"},
+    {v:"Navigation / instrumentation",en:"Navigation / instrumentation",de:"Navigation / Instrumentierung"},
+    {v:"Deck machinery",en:"Deck machinery",de:"Deckmaschinen"},
+    {v:"HVAC / refrigeration",en:"HVAC / refrigeration",de:"Klima / Kälte"},
+    {v:"Safety / auxiliary systems",en:"Safety / auxiliary systems",de:"Sicherheits- / Hilfssysteme"}
+  ],
+  aviation:[
+    {v:"Avionics",en:"Avionics",de:"Avionik"},
+    {v:"Electrical components",en:"Electrical components",de:"Elektrische Komponenten"},
+    {v:"Hydraulic / pneumatic",en:"Hydraulic / pneumatic",de:"Hydraulik / Pneumatik"},
+    {v:"Engine / powerplant components",en:"Engine / powerplant components",de:"Triebwerkskomponenten"},
+    {v:"Landing gear / actuation",en:"Landing gear / actuation",de:"Fahrwerk / Aktuatoren"},
+    {v:"Ground support / test equipment",en:"Ground support / test equipment",de:"Boden- / Prüfequipment"},
+    {v:"Traceable specialist components",en:"Traceable specialist components",de:"Rückverfolgbare Spezialkomponenten"}
+  ]
+};
+function activeIndustry(){return sectorKeys[state.sector]||"laboratory"}
+function populateCategories(reset=false){
+  const select=document.getElementById("categorySelect");
+  if(!select)return;
+  const items=sectorCategories[activeIndustry()]||sectorCategories.laboratory;
+  const previous=reset?"":select.value;
+  select.innerHTML=items.map(item=>`<option value="${item.v.replaceAll("&","&amp;").replaceAll('"',"&quot;")}">${item[state.lang]||item.en}</option>`).join("");
+  if(previous&&items.some(item=>item.v===previous))select.value=previous;
+}
+const stages=[
+  {
+    label:"REQUIREMENT RESOLUTION",
+    value:"Requirement profile established ✓",
+    text:"Application, configuration, geography, budget and evidence posture are explicit. One material question remains open.",
+    open:"Software or licence transferability",
+    state:"Requirement active"
+  },
+  {
+    label:"SUPPLY DISCOVERY",
+    value:"Plausible supply identified ✓",
+    text:"Candidate manufacturers, specialist suppliers and changing availability have been separated by relevance and evidence quality.",
+    open:"Which sources can support the required evidence standard?",
+    state:"Supply review active"
+  },
+  {
+    label:"EVIDENCE REVIEW",
+    value:"Evidence trail assembled ✓",
+    text:"Manufacturer data, supplier claims, documents and condition evidence remain attached to the same candidate.",
+    open:"One candidate still needs configuration proof.",
+    state:"Evidence review active"
+  },
+  {
+    label:"RISK REVIEW",
+    value:"Risk picture separated ✓",
+    text:"Technical, supplier, documentary and fulfilment risks remain separate instead of disappearing into one opaque score.",
+    open:"Delivery certainty differs between the leading routes.",
+    state:"Risk review active"
+  },
+  {
+    label:"ACQUISITION ECONOMICS",
+    value:"Comparable cost view established ✓",
+    text:"Price, shipping, inspection, duties and other acquisition costs are compared on a like-for-like basis.",
+    open:"Final freight quotation pending for one route.",
+    state:"Economics active"
+  },
+  {
+    label:"DECISION RECORD",
+    value:"Acquisition route ready for decision ✓",
+    text:"Fit, evidence, risk and economics are brought together while the reasoning behind each dimension stays visible.",
+    open:"Proceed only if the evidence condition is satisfied.",
+    state:"Decision ready"
+  }
+];
+function translate(){
+  document.documentElement.lang=state.lang;
+  document.querySelectorAll("[data-en]").forEach(el=>{
+    const v=el.dataset[state.lang];
+    if(v!==undefined)el.textContent=v;
+  });
+  document.querySelectorAll(".lang button").forEach(b=>b.classList.toggle("active",b.dataset.lang===state.lang));
+  updateSummary();
+}
+function updateSummary(){
+  const q=document.getElementById("queryInput").value.trim();
+  document.getElementById("summaryMode").textContent=modeText[state.mode][state.lang];
+  document.getElementById("summarySector").textContent=
+    state.lang==="de"
+      ? document.querySelector(`.sector-mini button[data-sector="${state.sector}"]`).dataset.sectorDe
+      : state.sector;
+  document.getElementById("summaryImg").src=assets[state.sector];
+  document.getElementById("summaryQuery").textContent=q || (state.lang==="de"?"Nicht angegeben":"Not specified");
+  const category=document.getElementById("categorySelect");
+  document.getElementById("summaryCategory").textContent=category.options[category.selectedIndex]?.text || category.value;
+  document.getElementById("summaryCondition").textContent=document.getElementById("conditionSelect").options[document.getElementById("conditionSelect").selectedIndex].text;
+  const input=document.getElementById("queryInput");
+  input.placeholder=
+    state.mode==="exact"
+      ? (state.lang==="de"?"Teilenummer, Modell oder bekannte Kennung eingeben":"Enter part number, model or known identifier")
+      : state.mode==="category"
+        ? (state.lang==="de"?"Produkt, Funktion oder bekannte Kennung beschreiben":"Describe the item, function or known identifier")
+        : (state.lang==="de"?"Anwendung oder technisches Ziel beschreiben":"Describe the application or technical outcome");
+}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{state.lang=b.dataset.lang;populateCategories(false);translate()});
+document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".mode").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");state.mode=b.dataset.mode;updateSummary()
+});
+document.querySelectorAll(".sector-mini button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".sector-mini button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");state.sector=b.dataset.sector;populateCategories(true);updateSummary()
+});
+document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{document.getElementById("queryInput").value=b.textContent;updateSummary()});
+document.getElementById("queryInput").addEventListener("input",updateSummary);
+document.getElementById("categorySelect").addEventListener("change",updateSummary);
+document.getElementById("conditionSelect").addEventListener("change",updateSummary);
+document.getElementById("clearBtn").onclick=()=>{
+  document.getElementById("queryInput").value="";
+  document.getElementById("conditionSelect").value="any";
+  state.mode="category";state.sector="Laboratory";
+  document.querySelectorAll(".mode").forEach(x=>x.classList.toggle("active",x.dataset.mode==="category"));
+  document.querySelectorAll(".sector-mini button").forEach(x=>x.classList.toggle("active",x.dataset.sector==="Laboratory"));
+  populateCategories(true);
+  translate()
+};
+document.querySelectorAll(".decision-track button").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll(".decision-track button").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");
+  const s=stages[Number(btn.dataset.stage)];
+  document.getElementById("dLabel").textContent=s.label;
+  document.getElementById("dValue").textContent=s.value;
+  document.getElementById("dText").textContent=s.text;
+  document.getElementById("dOpen").textContent=s.open;
+  document.getElementById("dState").textContent=s.state;
+});
+populateCategories(true);
+translate();
+</script>
+
+<script>
+/* V8.2.6.5 compact sectors + unified navigation + requirement mail: keep the approved checkpoint UI while reconnecting live production journeys. */
+(function(){
+  const sectorRoutes=[
+    "industries.html#laboratory",
+    "industries.html#test",
+    "industries.html#medical",
+    "industries.html#industrial",
+    "industries.html#energy",
+    "industries.html#marine",
+    "industries.html#aviation"
+  ];
+  document.querySelectorAll(".sector-card").forEach((card,i)=>{
+    const href=sectorRoutes[i];
+    if(!href)return;
+    card.setAttribute("role","link");
+    card.setAttribute("tabindex","0");
+    card.dataset.href=href;
+    card.addEventListener("click",()=>{location.href=href});
+    card.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){e.preventDefault();location.href=href}
+    });
+  });
+
+  const industryMap={
+    "Laboratory":"laboratory",
+    "Test & Measurement":"test",
+    "Medical":"medical",
+    "Industrial":"industrial",
+    "Energy":"energy",
+    "Marine":"marine",
+    "Aviation":"aviation"
+  };
+    const conditionValues=["any","new","refurbished","used"];
+
+  function requirementURL(){
+    const industry=industryMap[state.sector]||"laboratory";
+    const categoryEl=document.getElementById("categorySelect");
+    const conditionEl=document.getElementById("conditionSelect");
+    const input=document.getElementById("queryInput");
+    const p=new URLSearchParams({
+      mode:state.mode||"category",
+      industry,
+      condition:conditionEl?.value||conditionValues[conditionEl?.selectedIndex||0]||"any"
+    });
+    const category=categoryEl?.value||"";
+    if(category)p.set("category",category);
+    const q=(input?.value||"").trim();
+    if(q)p.set("q",q);
+    return "requirement.html?"+p.toString();
+  }
+
+  const go=document.querySelector(".search-go");
+  const cta=document.querySelector(".side-cta");
+  function continueRequirement(){location.href=requirementURL()}
+  go?.addEventListener("click",continueRequirement);
+  cta?.addEventListener("click",continueRequirement);
+  document.getElementById("queryInput")?.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){e.preventDefault();continueRequirement()}
+  });
+
+  /* Make source overview cards useful without changing their visual treatment. */
+  document.querySelectorAll(".source-chip").forEach(chip=>{
+    chip.setAttribute("tabindex","0");
+    chip.setAttribute("role","button");
+    chip.addEventListener("click",()=>document.querySelector("#procurement")?.scrollIntoView({behavior:"smooth"}));
+    chip.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){e.preventDefault();document.querySelector("#procurement")?.scrollIntoView({behavior:"smooth"})}
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
