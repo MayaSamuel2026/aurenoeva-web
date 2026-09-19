@@ -85,7 +85,7 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6.5 compact-sectors/navigation/mail checkpoint
+      - name: Apply V8.2.6.6 cache-safe navigation checkpoint
         shell: bash
         run: |
           set -euo pipefail
@@ -102,6 +102,14 @@ jobs:
           cp hotfix/v8.2.6.5/site.js "$RUNNER_TEMP/source/site/assets/js/site.js"
           cat hotfix/v8.2.6.5/site.css >> "$RUNNER_TEMP/source/site/assets/css/site.css"
           cp hotfix/v8.2.6.5/requirement-submit.php "$RUNNER_TEMP/source/site/requirement-submit.php"
+
+          # Force every HTML page to load the new shared navigation and CSS.
+          # The prior query string stayed at 7.4.1, allowing browsers to reuse
+          # the older header JavaScript after deployment.
+          while IFS= read -r -d '' f; do
+            sed -i -E 's#assets/js/site\.js([?][^"]*)?#assets/js/site.js?v=8.2.6.6#g' "$f"
+            sed -i -E 's#assets/css/site\.css([?][^"]*)?#assets/css/site.css?v=8.2.6.6#g' "$f"
+          done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
           # Completely rebuilt About page; preserve the proven contact endpoint and shared shell.
           cp hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
@@ -205,7 +213,7 @@ jobs:
           kill "$MOCK_PID" 2>/dev/null || true
           trap - EXIT
 
-      - name: Qualify V8.2.6.5 compact-sectors/navigation/mail checkpoint
+      - name: Qualify V8.2.6.6 cache-safe navigation checkpoint
         shell: bash
         run: |
           set -euo pipefail
@@ -294,6 +302,9 @@ jobs:
           grep -q 'href="index.html#decision" data-en="How it works"' "$RUNNER_TEMP/source/site/assets/js/site.js"
           grep -q 'href="about.html" data-en="About"' "$RUNNER_TEMP/source/site/assets/js/site.js"
           ! grep -q 'href="requirement.html" data-t="cta"' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'assets/js/site.js?v=8.2.6.6' "$RUNNER_TEMP/source/site/requirement.html"
+          grep -q 'assets/css/site.css?v=8.2.6.6' "$RUNNER_TEMP/source/site/requirement.html"
+          ! grep -q 'assets/js/site.js?v=7.4.1' "$RUNNER_TEMP/source/site/requirement.html"
 
           # Requirement success may only be shown when mailbox transport itself succeeded.
           grep -q "data.delivery?.email!==true" "$RUNNER_TEMP/source/site/assets/js/site.js"
@@ -360,7 +371,7 @@ jobs:
           cd "$DEPLOY"
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.5 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.6 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
