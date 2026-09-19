@@ -85,17 +85,23 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6.4 sector-aware checkpoint
+      - name: Apply V8.2.6.5 compact-sectors/navigation/mail checkpoint
         shell: bash
         run: |
           set -euo pipefail
 
-          cp hotfix/v8.2.6.4/index.html "$RUNNER_TEMP/source/site/index.html"
-          cmp --silent hotfix/v8.2.6.4/index.html "$RUNNER_TEMP/source/site/index.html"
+          cp hotfix/v8.2.6.5/index.html "$RUNNER_TEMP/source/site/index.html"
+          cmp --silent hotfix/v8.2.6.5/index.html "$RUNNER_TEMP/source/site/index.html"
 
           # Contact transport repair: accept apex/www as the same origin and
           # add SMTP -> PHP mail() -> direct sendmail fallbacks.
           cp hotfix/v8.2.6.3/_form_common.php "$RUNNER_TEMP/source/site/_form_common.php"
+
+          # Unify all secondary-page navigation with the homepage and keep the
+          # requirement path on the same information architecture.
+          cp hotfix/v8.2.6.5/site.js "$RUNNER_TEMP/source/site/assets/js/site.js"
+          cat hotfix/v8.2.6.5/site.css >> "$RUNNER_TEMP/source/site/assets/css/site.css"
+          cp hotfix/v8.2.6.5/requirement-submit.php "$RUNNER_TEMP/source/site/requirement-submit.php"
 
           # Completely rebuilt About page; preserve the proven contact endpoint and shared shell.
           cp hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
@@ -199,14 +205,14 @@ jobs:
           kill "$MOCK_PID" 2>/dev/null || true
           trap - EXIT
 
-      - name: Qualify V8.2.6.4 sector-aware checkpoint
+      - name: Qualify V8.2.6.5 compact-sectors/navigation/mail checkpoint
         shell: bash
         run: |
           set -euo pipefail
           PAGE="$RUNNER_TEMP/source/site/index.html"
 
           test -s "$PAGE"
-          grep -q 'AURENOEVA V8.2.6.4' "$PAGE"
+          grep -q 'AURENOEVA V8.2.6.5' "$PAGE"
           grep -q 'hero-procurement-card' "$PAGE"
           grep -q 'id="procurement"' "$PAGE"
           grep -q 'id="journey"' "$PAGE"
@@ -240,7 +246,7 @@ jobs:
           grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
           grep -q 'industries.html#laboratory' "$PAGE"
           grep -q 'requirement.html?' "$PAGE"
-          grep -q 'V8.2.6.4 sector logic + cache-safe artwork' "$PAGE"
+          grep -q 'V8.2.6.5 compact sectors + unified navigation + requirement mail' "$PAGE"
 
           # Footer + separate About / contact route must remain present.
           grep -q 'class="site-footer"' "$PAGE"
@@ -276,6 +282,25 @@ jobs:
           grep -q 'Engines & propulsion' "$PAGE"
           grep -q 'if(category)p.set("category",category)' "$PAGE"
           grep -q 'populateCategories(true)' "$PAGE"
+
+          # Desktop sector geometry: 4 cards on row one, 3 equal cards on row two.
+          grep -q 'grid-template-columns:repeat(12,minmax(0,1fr))' "$PAGE"
+          grep -q 'sector-card:nth-child(n+5){grid-column:span 4}' "$PAGE"
+          ! grep -q 'sector-card wide' "$PAGE"
+
+          # Secondary-page menu must stay aligned with homepage navigation.
+          grep -q 'href="index.html#procurement" data-en="Start sourcing"' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'href="index.html#sectors" data-en="Sectors"' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'href="index.html#decision" data-en="How it works"' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'href="about.html" data-en="About"' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          ! grep -q 'href="requirement.html" data-t="cta"' "$RUNNER_TEMP/source/site/assets/js/site.js"
+
+          # Requirement success may only be shown when mailbox transport itself succeeded.
+          grep -q "data.delivery?.email!==true" "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q "if (!\$mailSent)" "$RUNNER_TEMP/source/site/requirement-submit.php"
+          grep -q "'error'=>'email_delivery'" "$RUNNER_TEMP/source/site/requirement-submit.php"
+          grep -q 'New Aurenoeva procurement enquiry' "$RUNNER_TEMP/source/site/requirement-submit.php"
+          ! grep -q 'Requirement Contract JSON:' "$RUNNER_TEMP/source/site/requirement-submit.php"
 
           # Verify the upper-left label region of every sector image is now clean.
           SITE_ROOT="$RUNNER_TEMP/source/site" php <<'PHP'
@@ -320,7 +345,7 @@ jobs:
           }
           PHP
 
-          echo "V8.2.6.4 sector logic + cache-safe artwork qualification: PASS"
+          echo "V8.2.6.5 compact sectors + unified navigation + requirement mail qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
@@ -335,7 +360,7 @@ jobs:
           cd "$DEPLOY"
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.4 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.5 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
