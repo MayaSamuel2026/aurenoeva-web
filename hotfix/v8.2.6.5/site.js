@@ -311,7 +311,7 @@ Email: ${val(fields.email.value)}`}
   const payload=new URLSearchParams({lang,mode:fields.mode.value,industry:industryLabel(fields.industry.value,lang),category:categoryLabel(fields.industry.value,fields.category.value,lang),identifier:fields.query.value.trim(),selected_parts:JSON.stringify(selectedParts),requirement:fields.description.value.trim(),condition:conditionLabel(fields.condition.value,lang),quantity:fields.quantity.value.trim(),delivery_location:fields.geography.value.trim(),need_by:fields.needBy.value.trim(),budget:fields.budget.value.trim(),evidence:evidenceText(),company:fields.company.value.trim(),name:fields.name.value.trim(),email:fields.email.value.trim(),website:''});
   try{
    const res=await fetch('requirement-submit.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','Accept':'application/json'},body:payload.toString()});const data=await res.json().catch(()=>({ok:false}));
-   if(!res.ok||!data.ok)throw new Error(data.error||'delivery');
+   if(!res.ok||!data.ok||data.delivery?.email!==true)throw new Error(data.error||'email_delivery');
    if(sendStatus){
   const rc=escapeHTML(data.requirement_contract_id||data.reference||'');
   sendStatus.className='form-status success';
