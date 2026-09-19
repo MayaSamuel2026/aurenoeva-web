@@ -110,6 +110,10 @@ jobs:
 
           mkdir -p "$RUNNER_TEMP/source/site/assets/img/v826"
 
+          # Freeze the corrected 350x375 hero engine visual explicitly.
+          base64 --decode hotfix/v8.2.6/hero-spare-parts.b64 > "$RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp"
+          echo "6b5a9889271a08dc881dff28347cc351e21422661a437e75003c0c56aaebad0e  $RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp" | sha256sum -c -
+
           base64 --decode hotfix/v8.2.6-final/assets/sector-lab.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp"
           base64 --decode hotfix/v8.2.6-final/assets/sector-test.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp"
           base64 --decode hotfix/v8.2.6-final/assets/sector-medical.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp"
@@ -122,11 +126,11 @@ jobs:
           echo "fcb36d331c90cc0113c1cbb1f690ceaa731e41ef7ac31fb1931990f4b52cadcf  $RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp" | sha256sum -c -
           echo "3b3835eaae062a1ee92761ae90882123851545ea1c888421750332abcefb8b90  $RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp" | sha256sum -c -
           echo "d8755a2862944340b153809cbc7910b754013fc159e03e496f964dc1f428878b  $RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp" | sha256sum -c -
-          echo "cb8744e4780fce0a10725f7c326063aac593200e965843111372909105397693  $RUNNER_TEMP/source/site/assets/img/v826/sector-industrial.webp" | sha256sum -c -
-          echo "e3e5bdbfe24d6d6003751385543442f63815475d0291fc5bf5c116fac614a3b5  $RUNNER_TEMP/source/site/assets/img/v826/sector-energy.webp" | sha256sum -c -
-          echo "40077a0fbad52215a3a2de01f31a20d92484c8291fb372806f0cd4eb1d4d0d58  $RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp" | sha256sum -c -
-          echo "8e0c7524f71c83c4b74ddc20a003e9dceb8bc76bd253f8021467255a74b7c8e4  $RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp" | sha256sum -c -
-          echo "5543c2341d44dd431bd6fcab576a7f5edfae48b0d10b3d317af1ba8033f7a874  $RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp" | sha256sum -c -
+          echo "cb8744e4780fce0ad3ca4ecd7ec6064b65ed7fef19f2d405847c3f0cdd25aba5  $RUNNER_TEMP/source/site/assets/img/v826/sector-industrial.webp" | sha256sum -c -
+          echo "e3e5bdbfe24d6d60f9d6626a728ba4f6d89f78b15f10885c4825c172cb3b824a  $RUNNER_TEMP/source/site/assets/img/v826/sector-energy.webp" | sha256sum -c -
+          echo "40077a0fbad52215c0ca0bed48cd8528a8afc8e43d80aba2ce1069ab31c0a8f2  $RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp" | sha256sum -c -
+          echo "8e0c7524f71c83c4a7d29609abf4ba4443c29151f72debff3e0edb247ef0faa9  $RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp" | sha256sum -c -
+          echo "5543c2341d44dd43f00ecaa5933f8375ab13c84b9bd8ab34171e7db4c20e085a  $RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp" | sha256sum -c -
 
       - name: JavaScript syntax check
         shell: bash
@@ -189,6 +193,13 @@ jobs:
           ! grep -q 'FINAL CHECKPOINT · NOT LIVE' "$PAGE"
           ! grep -q 'not deployed' "$PAGE"
           ! grep -q 'nicht deployt' "$PAGE"
+          ! grep -q 'v8.2.7' "$PAGE"
+          ! grep -q 'V8.2.7' "$PAGE"
+
+          # Visual-authority geometry: these are the only approved V8.2.5 -> V8.2.6 hero deltas.
+          grep -q 'grid-template-columns:minmax(0,1fr) 285px;gap:20px' "$PAGE"
+          grep -q 'align-content:center;justify-items:end;gap:10px' "$PAGE"
+          grep -q 'max-width:285px;height:auto' "$PAGE"
 
           echo "V8.2.6 FINAL checkpoint qualification: PASS"
 
