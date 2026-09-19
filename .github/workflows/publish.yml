@@ -84,29 +84,13 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6 FINAL checkpoint
+      - name: Apply V8.2.6.1 locked checkpoint
         shell: bash
         run: |
           set -euo pipefail
 
-          cat hotfix/v8.2.6-final/index.b64.* | base64 --decode > "$RUNNER_TEMP/source/site/index.html"
-          echo "d914d9b699c43bf033b2e3edcb748c6e666c964c261bdc0d723a0e739d82ed40  $RUNNER_TEMP/source/site/index.html" | sha256sum -c -
-
-          SITE_INDEX="$RUNNER_TEMP/source/site/index.html" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          p=Path(os.environ["SITE_INDEX"])
-          s=p.read_text(encoding="utf-8")
-          s=s.replace(
-              "V8.2.6 final production checkpoint · hero graphic corrected + layout fix · not deployed",
-              "Industrial parts & procurement intelligence"
-          )
-          s=s.replace(
-              "V8.2.6 finaler Produktions-Checkpoint · Hero-Grafik korrigiert + Layout-Fix · nicht deployt",
-              "Ersatzteile & technische Beschaffungsintelligenz"
-          )
-          p.write_text(s, encoding="utf-8")
-          PY
+          cp hotfix/v8.2.6.1/index.html "$RUNNER_TEMP/source/site/index.html"
+          cmp --silent hotfix/v8.2.6.1/index.html "$RUNNER_TEMP/source/site/index.html"
 
           mkdir -p "$RUNNER_TEMP/source/site/assets/img/v826"
 
@@ -163,14 +147,14 @@ jobs:
           kill "$MOCK_PID" 2>/dev/null || true
           trap - EXIT
 
-      - name: Qualify V8.2.6 FINAL checkpoint
+      - name: Qualify V8.2.6.1 locked checkpoint
         shell: bash
         run: |
           set -euo pipefail
           PAGE="$RUNNER_TEMP/source/site/index.html"
 
           test -s "$PAGE"
-          grep -q 'V8.2.6 Final Production Checkpoint' "$PAGE"
+          grep -q 'AURENOEVA V8.2.6.1' "$PAGE"
           grep -q 'hero-procurement-card' "$PAGE"
           grep -q 'id="procurement"' "$PAGE"
           grep -q 'id="journey"' "$PAGE"
@@ -201,7 +185,12 @@ jobs:
           grep -q 'align-content:center;justify-items:end;gap:10px' "$PAGE"
           grep -q 'max-width:285px;height:auto' "$PAGE"
 
-          echo "V8.2.6 FINAL checkpoint qualification: PASS"
+          grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
+          grep -q 'industries.html#laboratory' "$PAGE"
+          grep -q 'requirement.html?' "$PAGE"
+          grep -q 'V8.2.6.1 interaction restoration' "$PAGE"
+
+          echo "V8.2.6.1 locked checkpoint qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
@@ -211,7 +200,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6 FINAL production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.1 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
