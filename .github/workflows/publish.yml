@@ -92,6 +92,10 @@ jobs:
           cp hotfix/v8.2.6.1/index.html "$RUNNER_TEMP/source/site/index.html"
           cmp --silent hotfix/v8.2.6.1/index.html "$RUNNER_TEMP/source/site/index.html"
 
+          # Completely rebuilt About page; preserve the proven contact endpoint and shared shell.
+          cp hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
+          cmp --silent hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
+
           mkdir -p "$RUNNER_TEMP/source/site/assets/img/v826"
 
           # Freeze the corrected 350x375 hero engine visual explicitly.
@@ -202,12 +206,16 @@ jobs:
           grep -q 'href="cookies.html"' "$PAGE"
 
           test -s "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'Procurement gets interesting when the easy answers run out.' "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'Software does the machine work. People do the procurement work.' "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'Not a marketplace. Not another inventory catalogue.' "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'Built on NOEVA CORE' "$RUNNER_TEMP/source/site/about.html"
           grep -q 'data-contact-form' "$RUNNER_TEMP/source/site/about.html"
           grep -q 'action="contact-submit.php"' "$RUNNER_TEMP/source/site/about.html"
           grep -q 'info@aurenoeva.com' "$RUNNER_TEMP/source/site/about.html"
           grep -q "\$to = 'info@aurenoeva.com'" "$RUNNER_TEMP/source/site/_form_common.php"
 
-          echo "V8.2.6.2 footer/about/contact qualification: PASS"
+          echo "V8.2.6.2 new About/footer/contact qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
