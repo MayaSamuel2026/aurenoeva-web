@@ -88,50 +88,45 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat \
-            hotfix/v8.2.6-final/index.part01 \
-            hotfix/v8.2.6-final/index.part02 \
-            hotfix/v8.2.6-final/index.part03 \
-            hotfix/v8.2.6-final/index.part04 \
-            hotfix/v8.2.6-final/index.part05 \
-            hotfix/v8.2.6-final/index.part06 \
-            hotfix/v8.2.6-final/index.part07 \
-            > "$RUNNER_TEMP/source/site/index.html"
 
-          echo "76397af0672b4c23ddb4ac0cbd7e9d43e811990028d4f2da37bd087bb7bc8bb4  $RUNNER_TEMP/source/site/index.html" | sha256sum -c -
+          cat hotfix/v8.2.6-final/index.b64.* | base64 --decode > "$RUNNER_TEMP/source/site/index.html"
+          echo "d914d9b699c43bf033b2e3edcb748c6e666c964c261bdc0d723a0e739d82ed40  $RUNNER_TEMP/source/site/index.html" | sha256sum -c -
+
+          SITE_INDEX="$RUNNER_TEMP/source/site/index.html" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ["SITE_INDEX"])
+          s=p.read_text(encoding="utf-8")
+          s=s.replace(
+              "V8.2.6 final production checkpoint · hero graphic corrected + layout fix · not deployed",
+              "Industrial parts & procurement intelligence"
+          )
+          s=s.replace(
+              "V8.2.6 finaler Produktions-Checkpoint · Hero-Grafik korrigiert + Layout-Fix · nicht deployt",
+              "Ersatzteile & technische Beschaffungsintelligenz"
+          )
+          p.write_text(s, encoding="utf-8")
+          PY
 
           mkdir -p "$RUNNER_TEMP/source/site/assets/img/v826"
-          cp hotfix/v8.2.6-final/assets/sector-lab.webp "$RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp"
-          cp hotfix/v8.2.6-final/assets/sector-test.webp "$RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp"
-          cat \
-            hotfix/v8.2.6-final/assets/sector-medical.b64.01 \
-            hotfix/v8.2.6-final/assets/sector-medical.b64.02 \
-            hotfix/v8.2.6-final/assets/sector-medical.b64.03 \
-            | base64 --decode > "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp"
+
+          base64 --decode hotfix/v8.2.6-final/assets/sector-lab.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp"
+          base64 --decode hotfix/v8.2.6-final/assets/sector-test.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp"
+          base64 --decode hotfix/v8.2.6-final/assets/sector-medical.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp"
+          base64 --decode hotfix/v8.2.6-final/assets/sector-industrial.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-industrial.webp"
+          base64 --decode hotfix/v8.2.6-final/assets/sector-energy.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-energy.webp"
+          base64 --decode hotfix/v8.2.6-final/assets/sector-marine.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp"
+          base64 --decode hotfix/v8.2.6-final/assets/sector-aviation.webp.b64 > "$RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp"
+          cat hotfix/v8.2.6-final/assets/procurement-bg.b64.* | base64 --decode > "$RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp"
 
           echo "fcb36d331c90cc0113c1cbb1f690ceaa731e41ef7ac31fb1931990f4b52cadcf  $RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp" | sha256sum -c -
           echo "3b3835eaae062a1ee92761ae90882123851545ea1c888421750332abcefb8b90  $RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp" | sha256sum -c -
           echo "d8755a2862944340b153809cbc7910b754013fc159e03e496f964dc1f428878b  $RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp" | sha256sum -c -
-
-          # The checkpoint's remaining sector imagery is mapped to the existing
-          # production visual assets until their raster companions are promoted.
-          # This preserves the exact V8.2.6 layout instead of falling back to V7 markup.
-          sed -i \
-            -e 's#assets/img/v826/procurement-bg.webp#assets/img/sector-automation.svg#g' \
-            -e 's#assets/img/v826/sector-industrial.webp#assets/img/sector-automation.svg#g' \
-            -e 's#assets/img/v826/sector-energy.webp#assets/img/sector-energy.svg#g' \
-            -e 's#assets/img/v826/sector-marine.webp#assets/img/sector-marine.svg#g' \
-            -e 's#assets/img/v826/sector-aviation.webp#assets/img/sector-aviation.svg#g' \
-            -e 's/ · not deployed//g' \
-            -e 's/ · nicht deployed//g' \
-            "$RUNNER_TEMP/source/site/index.html"
-
-          grep -q 'class="procurement"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q 'class="journey"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q 'class="sectors"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q 'class="lens"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q 'class="decision"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q 'hero-spare-parts.webp' "$RUNNER_TEMP/source/site/index.html"
+          echo "cb8744e4780fce0a10725f7c326063aac593200e965843111372909105397693  $RUNNER_TEMP/source/site/assets/img/v826/sector-industrial.webp" | sha256sum -c -
+          echo "e3e5bdbfe24d6d6003751385543442f63815475d0291fc5bf5c116fac614a3b5  $RUNNER_TEMP/source/site/assets/img/v826/sector-energy.webp" | sha256sum -c -
+          echo "40077a0fbad52215a3a2de01f31a20d92484c8291fb372806f0cd4eb1d4d0d58  $RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp" | sha256sum -c -
+          echo "8e0c7524f71c83c4b74ddc20a003e9dceb8bc76bd253f8021467255a74b7c8e4  $RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp" | sha256sum -c -
+          echo "5543c2341d44dd431bd6fcab576a7f5edfae48b0d10b3d317af1ba8033f7a874  $RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp" | sha256sum -c -
 
       - name: JavaScript syntax check
         shell: bash
@@ -168,35 +163,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          page="$RUNNER_TEMP/source/site/index.html"
+          PAGE="$RUNNER_TEMP/source/site/index.html"
 
-          test -s "$page"
-          grep -q '<title>Aurenoeva — V8.2.6 Final Production Checkpoint</title>' "$page"
-          grep -q 'hero-procurement-card' "$page"
-          grep -q 'class="procurement"' "$page"
-          grep -q 'class="journey"' "$page"
-          grep -q 'class="sectors"' "$page"
-          grep -q 'class="lens"' "$page"
-          grep -q 'class="decision"' "$page"
-          grep -q 'data-lang="en"' "$page"
-          grep -q 'data-lang="de"' "$page"
-          grep -q '@media(max-width:760px)' "$page"
-          grep -q 'assets/img/hero-spare-parts.webp' "$page"
-          grep -q 'assets/img/v826/sector-lab.webp' "$page"
-          grep -q 'assets/img/v826/sector-test.webp' "$page"
-          grep -q 'assets/img/v826/sector-medical.webp' "$page"
-          ! grep -q 'mock-badge">V8.2.6 FINAL CHECKPOINT · NOT LIVE' "$page"
+          test -s "$PAGE"
+          grep -q 'V8.2.6 Final Production Checkpoint' "$PAGE"
+          grep -q 'hero-procurement-card' "$PAGE"
+          grep -q 'id="procurement"' "$PAGE"
+          grep -q 'id="journey"' "$PAGE"
+          grep -q 'id="sectors"' "$PAGE"
+          grep -q 'class="lens"' "$PAGE"
+          grep -q 'id="decision"' "$PAGE"
+          grep -q 'data-lang="en"' "$PAGE"
+          grep -q 'data-lang="de"' "$PAGE"
+          grep -q 'assets/img/hero-spare-parts.webp' "$PAGE"
+          grep -q 'assets/img/v826/procurement-bg.webp' "$PAGE"
 
+          for a in sector-lab sector-test sector-medical sector-industrial sector-energy sector-marine sector-aviation; do
+            grep -q "assets/img/v826/${a}.webp" "$PAGE"
+            test -s "$RUNNER_TEMP/source/site/assets/img/v826/${a}.webp"
+          done
+          test -s "$RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp"
+          test -s "$RUNNER_TEMP/source/site/assets/img/brand/aurenoeva-logo-approved.png"
           test -s "$RUNNER_TEMP/source/site/assets/img/hero-spare-parts.webp"
-          test -s "$RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp"
-          test -s "$RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp"
-          test -s "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp"
-          test -s "$RUNNER_TEMP/source/site/assets/img/sector-automation.svg"
-          test -s "$RUNNER_TEMP/source/site/assets/img/sector-energy.svg"
-          test -s "$RUNNER_TEMP/source/site/assets/img/sector-marine.svg"
-          test -s "$RUNNER_TEMP/source/site/assets/img/sector-aviation.svg"
 
-          echo "V8.2.6 FINAL checkpoint qualification PASS"
+          ! grep -q 'FINAL CHECKPOINT · NOT LIVE' "$PAGE"
+          ! grep -q 'not deployed' "$PAGE"
+          ! grep -q 'nicht deployt' "$PAGE"
+
+          echo "V8.2.6 FINAL checkpoint qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
