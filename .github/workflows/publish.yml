@@ -85,13 +85,13 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6.3 repaired checkpoint
+      - name: Apply V8.2.6.4 sector-aware checkpoint
         shell: bash
         run: |
           set -euo pipefail
 
-          cp hotfix/v8.2.6.3/index.html "$RUNNER_TEMP/source/site/index.html"
-          cmp --silent hotfix/v8.2.6.3/index.html "$RUNNER_TEMP/source/site/index.html"
+          cp hotfix/v8.2.6.4/index.html "$RUNNER_TEMP/source/site/index.html"
+          cmp --silent hotfix/v8.2.6.4/index.html "$RUNNER_TEMP/source/site/index.html"
 
           # Contact transport repair: accept apex/www as the same origin and
           # add SMTP -> PHP mail() -> direct sendmail fallbacks.
@@ -157,6 +157,17 @@ jobs:
           }
           PHP
 
+          # Publish cache-safe sector artwork under a new immutable path.
+          # This avoids browsers retaining the earlier numbered WebP files.
+          mkdir -p "$RUNNER_TEMP/source/site/assets/img/v8264"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-lab.webp"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-test.webp"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-medical.webp"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-industrial.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-industrial.webp"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-energy.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-energy.webp"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-marine.webp"
+          cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-aviation.webp"
+
       - name: JavaScript syntax check
         shell: bash
         run: |
@@ -188,14 +199,14 @@ jobs:
           kill "$MOCK_PID" 2>/dev/null || true
           trap - EXIT
 
-      - name: Qualify V8.2.6.3 repaired checkpoint
+      - name: Qualify V8.2.6.4 sector-aware checkpoint
         shell: bash
         run: |
           set -euo pipefail
           PAGE="$RUNNER_TEMP/source/site/index.html"
 
           test -s "$PAGE"
-          grep -q 'AURENOEVA V8.2.6.3' "$PAGE"
+          grep -q 'AURENOEVA V8.2.6.4' "$PAGE"
           grep -q 'hero-procurement-card' "$PAGE"
           grep -q 'id="procurement"' "$PAGE"
           grep -q 'id="journey"' "$PAGE"
@@ -208,8 +219,8 @@ jobs:
           grep -q 'assets/img/v826/procurement-bg.webp' "$PAGE"
 
           for a in sector-lab sector-test sector-medical sector-industrial sector-energy sector-marine sector-aviation; do
-            grep -q "assets/img/v826/${a}.webp" "$PAGE"
-            test -s "$RUNNER_TEMP/source/site/assets/img/v826/${a}.webp"
+            grep -q "assets/img/v8264/${a}.webp" "$PAGE"
+            test -s "$RUNNER_TEMP/source/site/assets/img/v8264/${a}.webp"
           done
           test -s "$RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp"
           test -s "$RUNNER_TEMP/source/site/assets/img/brand/aurenoeva-logo-approved.png"
@@ -229,7 +240,7 @@ jobs:
           grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
           grep -q 'industries.html#laboratory' "$PAGE"
           grep -q 'requirement.html?' "$PAGE"
-          grep -q 'V8.2.6.3 sector-number cleanup + mailer repair' "$PAGE"
+          grep -q 'V8.2.6.4 sector logic + cache-safe artwork' "$PAGE"
 
           # Footer + separate About / contact route must remain present.
           grep -q 'class="site-footer"' "$PAGE"
@@ -254,6 +265,17 @@ jobs:
 
           # Sector-card labels must not return in future releases.
           ! grep -q 'class="card-number"' "$PAGE"
+          ! grep -q 'assets/img/v826/sector-' "$PAGE"
+
+          # Sector/category logic must stay structurally coupled.
+          grep -q 'const sectorCategories=' "$PAGE"
+          grep -q 'Avionics' "$PAGE"
+          grep -q 'Diagnostic equipment' "$PAGE"
+          grep -q 'PLC / control modules' "$PAGE"
+          grep -q 'Power conversion / inverters' "$PAGE"
+          grep -q 'Engines & propulsion' "$PAGE"
+          grep -q 'if(category)p.set("category",category)' "$PAGE"
+          grep -q 'populateCategories(true)' "$PAGE"
 
           # Verify the upper-left label region of every sector image is now clean.
           SITE_ROOT="$RUNNER_TEMP/source/site" php <<'PHP'
@@ -298,7 +320,7 @@ jobs:
           }
           PHP
 
-          echo "V8.2.6.3 sector-number + contact-mailer qualification: PASS"
+          echo "V8.2.6.4 sector logic + cache-safe artwork qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
@@ -306,15 +328,21 @@ jobs:
           set -euo pipefail
           DEPLOY="$RUNNER_TEMP/aurenoeva-production"
           rm -rf "$DEPLOY"
-          mkdir -p "$DEPLOY"
-          cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.3 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+
+          # Keep production history fast-forward so Hostinger Git auto-deploy
+          # sees every qualified release as a normal new commit.
+          git clone -q --branch production "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$DEPLOY"
           cd "$DEPLOY"
-          git init -q
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
+          printf '%s\n' "Aurenoeva V8.2.6.4 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           git add -A
-          git commit -qm "Aurenoeva production deploy ${GITHUB_SHA}"
-          git branch -M production
-          git push --force origin production
+          if git diff --cached --quiet; then
+            echo "Production payload unchanged; nothing to publish."
+          else
+            git commit -qm "Aurenoeva production deploy ${GITHUB_SHA}"
+            git push origin production
+          fi
