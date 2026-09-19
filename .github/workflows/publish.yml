@@ -25,6 +25,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          extensions: gd
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -84,13 +85,17 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6.1 locked checkpoint
+      - name: Apply V8.2.6.3 repaired checkpoint
         shell: bash
         run: |
           set -euo pipefail
 
-          cp hotfix/v8.2.6.1/index.html "$RUNNER_TEMP/source/site/index.html"
-          cmp --silent hotfix/v8.2.6.1/index.html "$RUNNER_TEMP/source/site/index.html"
+          cp hotfix/v8.2.6.3/index.html "$RUNNER_TEMP/source/site/index.html"
+          cmp --silent hotfix/v8.2.6.3/index.html "$RUNNER_TEMP/source/site/index.html"
+
+          # Contact transport repair: accept apex/www as the same origin and
+          # add SMTP -> PHP mail() -> direct sendmail fallbacks.
+          cp hotfix/v8.2.6.3/_form_common.php "$RUNNER_TEMP/source/site/_form_common.php"
 
           # Completely rebuilt About page; preserve the proven contact endpoint and shared shell.
           cp hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
@@ -119,6 +124,38 @@ jobs:
           echo "40077a0fbad52215c0ca0bed48cd8528a8afc8e43d80aba2ce1069ab31c0a8f2  $RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp" | sha256sum -c -
           echo "8e0c7524f71c83c4a7d29609abf4ba4443c29151f72debff3e0edb247ef0faa9  $RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp" | sha256sum -c -
           echo "5543c2341d44dd43f00ecaa5933f8375ab13c84b9bd8ab34171e7db4c20e085a  $RUNNER_TEMP/source/site/assets/img/v826/procurement-bg.webp" | sha256sum -c -
+
+          # The approved sector artwork arrived with small sequence numbers
+          # baked into the upper-left corner. Remove only that corner label;
+          # preserve the product illustration and the rest of the checkpoint.
+          SITE_ROOT="$RUNNER_TEMP/source/site" php <<'PHP'
+          <?php
+          $root = getenv('SITE_ROOT');
+          $files = [
+              'sector-lab.webp','sector-test.webp','sector-medical.webp',
+              'sector-industrial.webp','sector-energy.webp',
+              'sector-marine.webp','sector-aviation.webp'
+          ];
+          foreach ($files as $name) {
+              $path = $root . '/assets/img/v826/' . $name;
+              $im = @imagecreatefromwebp($path);
+              if (!$im) { fwrite(STDERR, "Cannot open $name\n"); exit(1); }
+              $w = imagesx($im); $h = imagesy($im);
+              $white = imagecolorallocate($im, 255, 255, 255);
+              imagefilledrectangle(
+                  $im,
+                  0,
+                  0,
+                  max(18, (int)ceil($w * 0.18)),
+                  max(14, (int)ceil($h * 0.12)),
+                  $white
+              );
+              if (!imagewebp($im, $path, 92)) {
+                  fwrite(STDERR, "Cannot write $name\n"); exit(1);
+              }
+              imagedestroy($im);
+          }
+          PHP
 
       - name: JavaScript syntax check
         shell: bash
@@ -151,14 +188,14 @@ jobs:
           kill "$MOCK_PID" 2>/dev/null || true
           trap - EXIT
 
-      - name: Qualify V8.2.6.1 locked checkpoint
+      - name: Qualify V8.2.6.3 repaired checkpoint
         shell: bash
         run: |
           set -euo pipefail
           PAGE="$RUNNER_TEMP/source/site/index.html"
 
           test -s "$PAGE"
-          grep -q 'AURENOEVA V8.2.6.1' "$PAGE"
+          grep -q 'AURENOEVA V8.2.6.3' "$PAGE"
           grep -q 'hero-procurement-card' "$PAGE"
           grep -q 'id="procurement"' "$PAGE"
           grep -q 'id="journey"' "$PAGE"
@@ -192,7 +229,7 @@ jobs:
           grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
           grep -q 'industries.html#laboratory' "$PAGE"
           grep -q 'requirement.html?' "$PAGE"
-          grep -q 'V8.2.6.1 interaction restoration' "$PAGE"
+          grep -q 'V8.2.6.3 sector-number cleanup + mailer repair' "$PAGE"
 
           # Footer + separate About / contact route must remain present.
           grep -q 'class="site-footer"' "$PAGE"
@@ -215,7 +252,53 @@ jobs:
           grep -q 'info@aurenoeva.com' "$RUNNER_TEMP/source/site/about.html"
           grep -q "\$to = 'info@aurenoeva.com'" "$RUNNER_TEMP/source/site/_form_common.php"
 
-          echo "V8.2.6.2 new About/footer/contact qualification: PASS"
+          # Sector-card labels must not return in future releases.
+          ! grep -q 'class="card-number"' "$PAGE"
+
+          # Verify the upper-left label region of every sector image is now clean.
+          SITE_ROOT="$RUNNER_TEMP/source/site" php <<'PHP'
+          <?php
+          $root = getenv('SITE_ROOT');
+          $files = [
+              'sector-lab.webp','sector-test.webp','sector-medical.webp',
+              'sector-industrial.webp','sector-energy.webp',
+              'sector-marine.webp','sector-aviation.webp'
+          ];
+          foreach ($files as $name) {
+              $path = $root . '/assets/img/v826/' . $name;
+              $im = @imagecreatefromwebp($path);
+              if (!$im) { exit(1); }
+              $w = imagesx($im); $h = imagesy($im);
+              $xMax = max(18, (int)ceil($w * 0.18));
+              $yMax = max(14, (int)ceil($h * 0.12));
+              for ($y=0; $y <= $yMax; $y += max(1, (int)floor($yMax/6))) {
+                  for ($x=0; $x <= $xMax; $x += max(1, (int)floor($xMax/6))) {
+                      $rgb = imagecolorat($im, min($x,$w-1), min($y,$h-1));
+                      $r = ($rgb >> 16) & 0xFF; $g = ($rgb >> 8) & 0xFF; $b = $rgb & 0xFF;
+                      if ($r < 245 || $g < 245 || $b < 245) {
+                          fwrite(STDERR, "$name still has non-white pixels in label region\n");
+                          exit(1);
+                      }
+                  }
+              }
+              imagedestroy($im);
+          }
+          PHP
+
+          # Contact endpoint: apex/www must be accepted as one site, and the
+          # transport contract must return success in explicit test mode.
+          SITE_ROOT="$RUNNER_TEMP/source/site" AURENOEVA_FORM_TEST_MODE=1 php <<'PHP'
+          <?php
+          require getenv('SITE_ROOT') . '/_form_common.php';
+          $_SERVER['HTTP_ORIGIN'] = 'https://www.aurenoeva.com';
+          $_SERVER['HTTP_HOST'] = 'aurenoeva.com';
+          if (!aur_same_origin_ok()) { fwrite(STDERR, "www/apex origin alias failed\n"); exit(1); }
+          if (!aur_send('qualification', 'qualification', 'qa@example.com')) {
+              fwrite(STDERR, "contact transport test mode failed\n"); exit(1);
+          }
+          PHP
+
+          echo "V8.2.6.3 sector-number + contact-mailer qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
@@ -225,7 +308,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.2 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.3 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
