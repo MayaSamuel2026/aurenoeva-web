@@ -125,6 +125,7 @@ jobs:
 
           echo "fcb36d331c90cc0113c1cbb1f690ceaa731e41ef7ac31fb1931990f4b52cadcf  $RUNNER_TEMP/source/site/assets/img/v826/sector-lab.webp" | sha256sum -c -
           echo "3b3835eaae062a1ee92761ae90882123851545ea1c888421750332abcefb8b90  $RUNNER_TEMP/source/site/assets/img/v826/sector-test.webp" | sha256sum -c -
+          sha256sum "$RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp"
           echo "d8755a2862944340b153809cbc7910b754013fc159e03e496f964dc1f428878b  $RUNNER_TEMP/source/site/assets/img/v826/sector-medical.webp" | sha256sum -c -
           echo "cb8744e4780fce0ad3ca4ecd7ec6064b65ed7fef19f2d405847c3f0cdd25aba5  $RUNNER_TEMP/source/site/assets/img/v826/sector-industrial.webp" | sha256sum -c -
           echo "e3e5bdbfe24d6d60f9d6626a728ba4f6d89f78b15f10885c4825c172cb3b824a  $RUNNER_TEMP/source/site/assets/img/v826/sector-energy.webp" | sha256sum -c -
