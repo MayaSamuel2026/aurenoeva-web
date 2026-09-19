@@ -190,7 +190,24 @@ jobs:
           grep -q 'requirement.html?' "$PAGE"
           grep -q 'V8.2.6.1 interaction restoration' "$PAGE"
 
-          echo "V8.2.6.1 locked checkpoint qualification: PASS"
+          # Footer + separate About / contact route must remain present.
+          grep -q 'class="site-footer"' "$PAGE"
+          grep -q 'href="about.html"' "$PAGE"
+          grep -q 'href="about.html#contact"' "$PAGE"
+          grep -q 'mailto:info@aurenoeva.com' "$PAGE"
+          grep -q 'href="imprint.html"' "$PAGE"
+          grep -q 'href="privacy.html"' "$PAGE"
+          grep -q 'href="terms.html"' "$PAGE"
+          grep -q 'href="accessibility.html"' "$PAGE"
+          grep -q 'href="cookies.html"' "$PAGE"
+
+          test -s "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'data-contact-form' "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'action="contact-submit.php"' "$RUNNER_TEMP/source/site/about.html"
+          grep -q 'info@aurenoeva.com' "$RUNNER_TEMP/source/site/about.html"
+          grep -q "\$to = 'info@aurenoeva.com'" "$RUNNER_TEMP/source/site/_form_common.php"
+
+          echo "V8.2.6.2 footer/about/contact qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
@@ -200,7 +217,7 @@ jobs:
           rm -rf "$DEPLOY"
           mkdir -p "$DEPLOY"
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.1 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.2 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
           cd "$DEPLOY"
           git init -q
           git config user.name 'github-actions[bot]'
