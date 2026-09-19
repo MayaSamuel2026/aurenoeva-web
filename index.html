@@ -265,24 +265,23 @@ img{display:block;max-width:100%}
 .journey-chain p{margin:0;font-size:9px;line-height:1.5;color:#D8E4DF}
 
 /* Premium sector cards — preferred screenshot adopted literally */
-.sectors{padding:72px 0 28px}
-.sector-head{display:grid;grid-template-columns:1fr .8fr;gap:44px;align-items:end;margin-bottom:24px}
-.sector-head h2{font-size:clamp(42px,4.6vw,64px);line-height:1.03;letter-spacing:-.033em;font-weight:690;margin:10px 0 0}
-.sector-head p{margin:0;font-size:13px;line-height:1.65;color:#62756E}
-.card-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sectors{padding:52px 0 18px}
+.sector-head{display:grid;grid-template-columns:1fr .8fr;gap:38px;align-items:end;margin-bottom:18px}
+.sector-head h2{font-size:clamp(40px,4.25vw,58px);line-height:1.02;letter-spacing:-.033em;font-weight:690;margin:8px 0 0}
+.sector-head p{margin:0;font-size:12.5px;line-height:1.58;color:#62756E}
+.card-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}
 .sector-card{
-  position:relative;min-height:220px;padding:13px 14px;background:#fff;border:1px solid var(--line);
-  border-radius:17px;box-shadow:0 10px 28px rgba(14,58,51,.04);overflow:hidden
+  grid-column:span 3;
+  position:relative;min-height:190px;padding:11px 12px;background:#fff;border:1px solid var(--line);
+  border-radius:17px;box-shadow:0 9px 24px rgba(14,58,51,.04);overflow:hidden
 }
-.sector-card.wide{grid-column:span 2}
-.card-inner{height:100%;display:grid;grid-template-columns:145px 1fr 34px;gap:10px;align-items:center;padding-top:8px}
-.sector-card.wide .card-inner{grid-template-columns:230px 1fr 34px}
+.sector-card:nth-child(n+5){grid-column:span 4}
+.card-inner{height:100%;display:grid;grid-template-columns:minmax(118px,43%) minmax(0,1fr) 32px;gap:9px;align-items:center;padding-top:4px}
 .object-stage{
-  height:175px;display:grid;place-items:center;
-  background:radial-gradient(circle,#F0F5F2 0%,#F6F8F6 57%,transparent 58%);border-radius:16px
+  height:148px;display:grid;place-items:center;
+  background:radial-gradient(circle,#F0F5F2 0%,#F6F8F6 57%,transparent 58%);border-radius:15px
 }
-.object-stage img{width:95%;height:160px;object-fit:contain;filter:drop-shadow(0 13px 18px rgba(14,58,51,.08))}
-.sector-card.wide .object-stage img{height:165px}
+.object-stage img{width:95%;height:137px;object-fit:contain;filter:drop-shadow(0 11px 15px rgba(14,58,51,.08))}
 .card-copy h3{font-size:15px;margin:0 0 7px;line-height:1.22}
 .card-copy p{font-size:10.5px;line-height:1.48;color:#60736D;margin:0;max-width:210px}
 .card-link{margin-top:18px;font-size:9.2px;font-weight:800;color:var(--forest)}
@@ -290,7 +289,7 @@ img{display:block;max-width:100%}
 
 /* Requirement Lens — no counter-marketing percentage */
 .lens{
-  margin:18px 0 62px;border:1px solid var(--line);border-radius:18px;background:#fff;
+  margin:12px 0 54px;border:1px solid var(--line);border-radius:18px;background:#fff;
   display:grid;grid-template-columns:1.03fr .95fr .62fr;overflow:hidden;box-shadow:var(--shadow)
 }
 .lens-copy{padding:26px 27px}
@@ -355,7 +354,8 @@ footer{background:#082D28;color:#fff;padding:25px 0}
   .hero-grid,.procurement-top,.section-head,.sector-head,.tail-grid{grid-template-columns:1fr}
   .engine-shell{grid-template-columns:1fr}
   .procurement-top:after{opacity:.55}
-  .card-grid{grid-template-columns:repeat(2,1fr)}
+  .card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sector-card,.sector-card:nth-child(n+5){grid-column:span 1}
   .lens{grid-template-columns:1fr}
   .lens-steps{border-left:0;border-top:1px solid var(--line)}
   .journey-chain{grid-template-columns:1fr 1fr}
@@ -593,7 +593,7 @@ footer{background:#082D28;color:#fff;padding:25px 0}
 </style>
 </head>
 <body>
-<!-- AURENOEVA V8.2.6.4: compact hero summary + restored production interactions -->
+<!-- AURENOEVA V8.2.6.5: compact hero summary + restored production interactions -->
 <!-- V8.2.6 decision: correct the hero image crop and sizing so the graphic sits cleanly inside the card with no stray text. -->
 <header class="site-header">
   <div class="wrap header-inner">
@@ -828,9 +828,9 @@ footer{background:#082D28;color:#fff;padding:25px 0}
       <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-test.webp" alt=""></div><div class="card-copy"><h3 data-en="Test & Measurement" data-de="Mess- & Prüftechnik"></h3><p data-en="Precision instruments and calibration." data-de="Präzisionsmesstechnik und Kalibrierung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
       <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-medical.webp" alt=""></div><div class="card-copy"><h3 data-en="Medical" data-de="Medizintechnik"></h3><p data-en="Regulated technical equipment." data-de="Regulierte technische Systeme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
       <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-industrial.webp" alt=""></div><div class="card-copy"><h3 data-en="Industrial" data-de="Industrie & Automation"></h3><p data-en="Automation and process equipment." data-de="Automatisierungs- und Prozesskomponenten."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card wide"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><div class="card-copy"><h3 data-en="Energy" data-de="Energie"></h3><p data-en="Power and generation assets." data-de="Komponenten für Energie und Erzeugung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card wide"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><div class="card-copy"><h3 data-en="Marine" data-de="Marine"></h3><p data-en="Engines, pumps and ship systems." data-de="Motoren, Pumpen und Schiffssysteme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card wide"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><div class="card-copy"><h3 data-en="Aviation" data-de="Luftfahrt"></h3><p data-en="Traceability-sensitive aerospace assets." data-de="Rückverfolgbare Luftfahrtkomponenten."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><div class="card-copy"><h3 data-en="Energy" data-de="Energie"></h3><p data-en="Power and generation assets." data-de="Komponenten für Energie und Erzeugung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><div class="card-copy"><h3 data-en="Marine" data-de="Marine"></h3><p data-en="Engines, pumps and ship systems." data-de="Motoren, Pumpen und Schiffssysteme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
+      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><div class="card-copy"><h3 data-en="Aviation" data-de="Luftfahrt"></h3><p data-en="Traceability-sensitive aerospace assets." data-de="Rückverfolgbare Luftfahrtkomponenten."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
     </div>
 
     <div class="lens">
@@ -1146,7 +1146,7 @@ translate();
 </script>
 
 <script>
-/* V8.2.6.4 sector logic + cache-safe artwork: keep the approved checkpoint UI while reconnecting live production journeys. */
+/* V8.2.6.5 compact sectors + unified navigation + requirement mail: keep the approved checkpoint UI while reconnecting live production journeys. */
 (function(){
   const sectorRoutes=[
     "industries.html#laboratory",

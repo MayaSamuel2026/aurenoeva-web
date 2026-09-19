@@ -136,43 +136,50 @@ if ($selectedParts) {
     $selectedText=implode("\n",$lines);
 }
 
-$coreText=
-    "CORE binding: ".($core['bound']?'BOUND':'DEFERRED')."\n".
-    "CORE binding status: ".$core['status']."\n".
-    "Requirement Contract: {$contractId}\n".
-    "Operations case: ".($core['case_id']?:'Not yet bound')."\n".
-    "Party: ".($core['party_id']?:'Not yet bound')."\n".
-    "Compliance state: ".$core['compliance_state']."\n".
-    "Applicability manifest: ".($core['applicability_manifest_ref']?:'Not yet issued')."\n".
-    "Transaction state: ".$core['transaction_state']."\n".
-    "Canonical transaction: ".($core['transaction_id']?:'Not yet created')."\n";
-
-$subject='[Aurenoeva requirement '.$reference.'] '.($category!==''?$category:$industry);
-$body="AURENOEVA PROCUREMENT REQUIREMENT\n\n"
+// Keep the email notification deliberately concise. The complete structured
+// Requirement Contract is already retained by NOEVA CORE; duplicating the full
+// JSON contract in the email materially hurts deliverability and is unnecessary.
+$subject='Aurenoeva procurement enquiry — '.$reference;
+$body="New Aurenoeva procurement enquiry\n"
+    ."=================================\n\n"
     ."Reference: {$reference}\n"
-    ."Requirement Contract: {$contractId}\n"
-    ."Language: {$lang}\n"
-    ."Starting mode: {$mode}\n"
+    ."Requirement record: {$contractId}\n"
+    ."Company: {$company}\n"
+    ."Contact: {$name}\n"
+    ."Business email: {$email}\n\n"
+    ."Starting point: {$mode}\n"
     ."Sector: {$industry}\n"
-    ."Category: {$category}\n"
-    ."Raw identifier / search input: ".($identifier!==''?$identifier:'Not specified')."\n"
-    ."Selected catalogue parts:\n{$selectedText}\n"
-    ."Requirement: ".($requirement!==''?$requirement:'Not specified')."\n"
-    ."Condition: {$condition}\n"
+    ."Category: ".($category!==''?$category:'Not specified')."\n"
+    ."Identifier / search input: ".($identifier!==''?$identifier:'Not specified')."\n"
+    ."Condition: ".($condition!==''?$condition:'Not specified')."\n"
     ."Quantity: ".($quantity!==''?$quantity:'Not specified')."\n"
     ."Delivery location: ".($delivery!==''?$delivery:'Not specified')."\n"
     ."Need by: ".($needBy!==''?$needBy:'Not specified')."\n"
     ."Budget: ".($budget!==''?$budget:'Not specified')."\n"
     ."Evidence requested: ".($evidence!==''?$evidence:'None specified')."\n\n"
-    ."Company: {$company}\n"
-    ."Name: {$name}\n"
-    ."Email: {$email}\n\n"
-    .$coreText."\n"
-    ."Submitted: ".gmdate('Y-m-d H:i:s')." UTC\n"
-    ."Requirement Contract JSON: ".json_encode($contract,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";
+    ."Selected catalogue parts:\n{$selectedText}\n\n"
+    ."Requirement / notes:\n".($requirement!==''?$requirement:'Not specified')."\n\n"
+    ."NOEVA CORE: ".($core['bound']?'BOUND':'DEFERRED')." (".$core['status'].")\n"
+    ."Operations case: ".($core['case_id']?:'Not yet bound')."\n"
+    ."Submitted: ".gmdate('Y-m-d H:i:s')." UTC\n";
 
 $mailSent=aur_send($subject,$body,$email);
-if (!$mailSent && !$core['bound']) { aur_json(['ok'=>false,'error'=>'delivery'],500); }
+
+// A CORE record is not the same thing as a delivered mailbox notification.
+// Never show the buyer a generic "Sent" state when the mail transport failed.
+if (!$mailSent) {
+    aur_json([
+        'ok'=>false,
+        'error'=>'email_delivery',
+        'reference'=>$reference,
+        'requirement_contract_id'=>$contractId,
+        'delivery'=>[
+            'email'=>false,
+            'core_bound'=>(bool)$core['bound'],
+            'core_status'=>$core['status']
+        ]
+    ],502);
+}
 
 aur_json([
     'ok'=>true,
