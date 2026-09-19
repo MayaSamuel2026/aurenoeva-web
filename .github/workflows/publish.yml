@@ -90,8 +90,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          cp hotfix/v8.2.6.5/index.html "$RUNNER_TEMP/source/site/index.html"
-          cmp --silent hotfix/v8.2.6.5/index.html "$RUNNER_TEMP/source/site/index.html"
+          cp hotfix/v8.2.6.6/index.html "$RUNNER_TEMP/source/site/index.html"
+          cmp --silent hotfix/v8.2.6.6/index.html "$RUNNER_TEMP/source/site/index.html"
 
           # Contact transport repair: accept apex/www as the same origin and
           # add SMTP -> PHP mail() -> direct sendmail fallbacks.
@@ -220,7 +220,7 @@ jobs:
           PAGE="$RUNNER_TEMP/source/site/index.html"
 
           test -s "$PAGE"
-          grep -q 'AURENOEVA V8.2.6.5' "$PAGE"
+          grep -q 'AURENOEVA V8.2.6.6' "$PAGE"
           grep -q 'hero-procurement-card' "$PAGE"
           grep -q 'id="procurement"' "$PAGE"
           grep -q 'id="journey"' "$PAGE"
@@ -254,7 +254,7 @@ jobs:
           grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
           grep -q 'industries.html#laboratory' "$PAGE"
           grep -q 'requirement.html?' "$PAGE"
-          grep -q 'V8.2.6.5 compact sectors + unified navigation + requirement mail' "$PAGE"
+          grep -q 'V8.2.6.6 compact sectors + cache-safe unified navigation + requirement mail' "$PAGE"
 
           # Footer + separate About / contact route must remain present.
           grep -q 'class="site-footer"' "$PAGE"
@@ -356,7 +356,7 @@ jobs:
           }
           PHP
 
-          echo "V8.2.6.5 compact sectors + unified navigation + requirement mail qualification: PASS"
+          echo "V8.2.6.6 compact sectors + cache-safe unified navigation + requirement mail qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
