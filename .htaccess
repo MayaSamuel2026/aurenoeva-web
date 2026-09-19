@@ -1,0 +1,36 @@
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Preserve old WordPress public routes during the static cutover.
+RewriteRule ^how-it-works/?$ /how-it-works.html [R=301,L,NE]
+RewriteRule ^industries/?$ /industries.html [R=301,L,NE]
+RewriteRule ^trust-methodology/?$ /trust-methodology.html [R=301,L,NE]
+RewriteRule ^for-suppliers/?$ /suppliers.html [R=301,L,NE]
+RewriteRule ^about/?$ /about.html [R=301,L,NE]
+RewriteRule ^contact/?$ /about.html [R=301,L,NE]
+RewriteRule ^start-a-requirement/?$ /requirement.html [R=301,L,NE]
+RewriteRule ^requirement-lens/?$ /#what-site-does [R=301,L,NE]
+RewriteRule ^evidence-passport/?$ /#what-site-does [R=301,L,NE]
+RewriteRule ^acquisition-instrument/?$ /#what-site-does [R=301,L,NE]
+RewriteRule ^legal/company-information/?$ /imprint.html [R=301,L,NE]
+RewriteRule ^privacy/?$ /privacy.html [R=301,L,NE]
+RewriteRule ^terms/?$ /terms.html [R=301,L,NE]
+RewriteRule ^cookies/?$ /cookies.html [R=301,L,NE]
+
+# Never expose PHP helper source as a public document.
+RewriteRule ^_form_common\.php$ - [F,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+Header always set X-Content-Type-Options "nosniff"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>

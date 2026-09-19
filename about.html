@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Aurenoeva — Technical procurement for difficult requirements</title>
+<meta name="description" content="Aurenoeva combines proprietary procurement software with hands-on technical sourcing to resolve difficult requirements, verify evidence and build credible acquisition options.">
+<link rel="stylesheet" href="assets/css/site.css?v=7.4.1">
+<meta name="theme-color" content="#0E3A33">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/img/brand/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/img/brand/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<style>
+:root{
+  --about-ink:#0E3A33;
+  --about-deep:#082D28;
+  --about-forest:#3F6F62;
+  --about-sage:#E9F1ED;
+  --about-cream:#F8F7F3;
+  --about-paper:#fff;
+  --about-sand:#C9B896;
+  --about-line:#D7E0DC;
+  --about-muted:#5E716B;
+}
+.about-main{background:var(--about-cream);color:var(--about-ink)}
+.about-wrap{width:min(1240px,calc(100% - 44px));margin:auto}
+.about-eyebrow{font-size:10px;line-height:1.2;font-weight:850;letter-spacing:.17em;text-transform:uppercase;color:var(--about-forest)}
+.about-eyebrow:after{content:"";display:inline-block;width:30px;height:1px;background:var(--about-sand);margin-left:11px;vertical-align:middle}
+.about-hero{
+  position:relative;overflow:hidden;padding:76px 0 70px;border-bottom:1px solid var(--about-line);
+  background:
+    radial-gradient(circle at 84% 18%,rgba(201,184,150,.18),transparent 25%),
+    radial-gradient(circle at 66% 86%,rgba(63,111,98,.07),transparent 31%),
+    var(--about-cream);
+}
+.about-hero-grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(440px,.82fr);gap:70px;align-items:center}
+.about-hero h1{margin:15px 0 20px;max-width:710px;font-size:clamp(52px,5.5vw,78px);line-height:1.01;letter-spacing:-.046em;font-weight:720}
+.about-hero .lead{max-width:690px;margin:0;font-size:17px;line-height:1.67;color:#536A63}
+.about-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:27px}
+.about-hero-note{display:flex;gap:22px;flex-wrap:wrap;margin-top:21px;color:#587069;font-size:10.5px}
+.about-hero-note span:before{content:"✓";color:var(--about-forest);font-weight:900;margin-right:7px}
+
+.about-map{
+  position:relative;min-height:470px;border:1px solid rgba(14,58,51,.14);border-radius:30px;padding:24px;
+  background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(247,250,248,.95));
+  box-shadow:0 28px 78px rgba(14,58,51,.10);
+}
+.about-map-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:5px 4px 18px}
+.about-map-head strong{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.about-map-head span{max-width:215px;text-align:right;font-size:9.8px;line-height:1.45;color:#70817B}
+.about-flow{position:relative;display:grid;gap:10px}
+.about-flow:before{content:"";position:absolute;left:25px;top:33px;bottom:33px;width:1px;background:linear-gradient(var(--about-sand),rgba(63,111,98,.3))}
+.about-flow-card{
+  position:relative;display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:13px;align-items:center;
+  min-height:67px;padding:10px 11px;border:1px solid #DFE7E3;border-radius:15px;background:#fff;
+}
+.about-flow-no{position:relative;z-index:1;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--about-sage);font-size:9px;font-weight:900}
+.about-flow-card:nth-child(5) .about-flow-no{background:var(--about-ink);color:#fff}
+.about-flow-card b{display:block;font-size:13px}
+.about-flow-card small{display:block;margin-top:2px;font-size:9.5px;line-height:1.35;color:#71827C}
+.about-flow-state{font-size:8px;font-weight:850;letter-spacing:.11em;color:var(--about-forest);text-transform:uppercase}
+.about-map-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
+.about-map-foot div{border-radius:13px;padding:12px 13px;background:#F2F6F4}
+.about-map-foot small{display:block;font-size:8px;letter-spacing:.12em;color:#74857F;text-transform:uppercase}
+.about-map-foot b{display:block;margin-top:3px;font-size:11px;line-height:1.3}
+
+.about-section{padding:82px 0}
+.about-section.white{background:#fff}
+.about-section.dark{background:var(--about-deep);color:#fff}
+.about-section-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.72fr);gap:70px;align-items:end;margin-bottom:35px}
+.about-section-head h2{max-width:780px;margin:12px 0 0;font-size:clamp(39px,4.2vw,60px);line-height:1.02;letter-spacing:-.04em;font-weight:700}
+.about-section-head p{margin:0;font-size:14px;line-height:1.68;color:#5C716A}
+.about-section.dark .about-section-head p{color:#C8D8D3}
+.about-section.dark .about-eyebrow{color:#90C2B5}
+
+.about-reason-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:15px}
+.about-reason-main,.about-reason-side article{border:1px solid var(--about-line);border-radius:23px;background:#fff}
+.about-reason-main{padding:32px 34px;min-height:320px}
+.about-reason-main h3{max-width:700px;margin:0 0 18px;font-size:29px;line-height:1.16;letter-spacing:-.028em}
+.about-reason-main p{max-width:780px;margin:0;font-size:14px;line-height:1.75;color:#596F68}
+.about-reason-main .pull{margin-top:28px;padding-top:21px;border-top:1px solid var(--about-line);font-size:17px;line-height:1.5;color:var(--about-ink)}
+.about-reason-side{display:grid;gap:15px}
+.about-reason-side article{padding:22px 23px}
+.about-reason-side span{display:block;font-size:9px;font-weight:850;letter-spacing:.14em;color:var(--about-forest)}
+.about-reason-side h4{margin:7px 0 6px;font-size:16px}
+.about-reason-side p{margin:0;font-size:11.5px;line-height:1.55;color:#647770}
+
+.about-model{display:grid;grid-template-columns:1fr 70px 1fr;align-items:stretch}
+.about-model-card{border:1px solid rgba(255,255,255,.16);border-radius:24px;padding:29px;background:rgba(255,255,255,.045)}
+.about-model-card .icon{
+  width:46px;height:46px;border-radius:13px;display:grid;place-items:center;margin-bottom:20px;
+  background:rgba(143,196,183,.12);border:1px solid rgba(143,196,183,.18)
+}
+.about-model-card svg{width:26px;height:26px;stroke:#A4CEC4;fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+.about-model-card h3{font-size:26px;line-height:1.14;margin:0 0 11px}
+.about-model-card p{font-size:12.5px;line-height:1.7;color:#C9D8D3;margin:0}
+.about-model-card ul{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:8px}
+.about-model-card li{font-size:10.5px;color:#DDE8E4}
+.about-model-card li:before{content:"✓";margin-right:8px;color:#D7B66F;font-weight:900}
+.about-model-plus{display:grid;place-items:center;font-size:30px;color:#D7B66F}
+
+.about-cap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.about-cap{
+  position:relative;min-height:260px;border:1px solid var(--about-line);border-radius:22px;background:#fff;padding:25px 24px;
+  box-shadow:0 11px 32px rgba(14,58,51,.045);
+}
+.about-cap .num{font-size:9px;font-weight:900;letter-spacing:.13em;color:var(--about-forest)}
+.about-cap h3{margin:28px 0 10px;font-size:22px;line-height:1.17;letter-spacing:-.025em}
+.about-cap p{margin:0;font-size:12px;line-height:1.65;color:#60736D}
+.about-cap .cap-line{position:absolute;left:24px;right:24px;bottom:22px;height:1px;background:var(--about-line)}
+.about-cap .cap-line:after{content:"";display:block;width:38%;height:1px;background:var(--about-sand)}
+
+.about-not-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:34px;align-items:center}
+.about-not-visual{
+  min-height:330px;border:1px solid var(--about-line);border-radius:26px;background:
+  radial-gradient(circle at 50% 38%,rgba(63,111,98,.13),transparent 28%),#F7FAF8;
+  display:grid;place-items:center;padding:28px
+}
+.about-ring{position:relative;width:255px;height:255px;border-radius:50%;border:1px solid rgba(63,111,98,.22);display:grid;place-items:center}
+.about-ring:before,.about-ring:after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(63,111,98,.16)}
+.about-ring:before{width:185px;height:185px}.about-ring:after{width:115px;height:115px}
+.about-ring strong{position:relative;z-index:2;width:130px;text-align:center;font-size:14px;line-height:1.3}
+.about-not-copy h2{font-size:45px;line-height:1.03;letter-spacing:-.04em;margin:12px 0 17px}
+.about-not-copy>p{margin:0 0 25px;font-size:14px;line-height:1.7;color:#5D716A}
+.about-not-list{display:grid;gap:10px}
+.about-not-list div{display:grid;grid-template-columns:25px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--about-line)}
+.about-not-list div:last-child{border-bottom:1px solid var(--about-line)}
+.about-not-list b{font-size:13px}
+.about-not-list span{font-size:11px;line-height:1.45;color:#647871}
+.about-x{font-size:14px;color:#9E7C54;font-weight:900}
+
+.about-core{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.about-core-copy,.about-core-map{border-radius:23px}
+.about-core-copy{padding:31px;background:#fff;border:1px solid var(--about-line)}
+.about-core-copy h3{margin:0 0 12px;font-size:27px;line-height:1.18}
+.about-core-copy p{margin:0;font-size:12.5px;line-height:1.7;color:#5C716A}
+.about-core-map{padding:25px;background:var(--about-ink);color:#fff}
+.about-core-map>small{font-size:8.5px;letter-spacing:.13em;color:#9FC8BE;text-transform:uppercase}
+.core-node{margin-top:17px;border:1px solid rgba(255,255,255,.17);border-radius:14px;padding:13px 14px;background:rgba(255,255,255,.04)}
+.core-node b{display:block;font-size:12px}
+.core-node span{font-size:9px;color:#BDD1CB}
+.core-branches{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.core-branches div{border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:10px;font-size:9.5px;color:#D5E2DE}
+
+.about-contact{padding:84px 0;background:linear-gradient(180deg,#F5F8F6,#fff)}
+.about-contact-head{display:grid;grid-template-columns:1fr .72fr;gap:60px;align-items:end;margin-bottom:28px}
+.about-contact-head h2{font-size:clamp(39px,4vw,58px);line-height:1.03;letter-spacing:-.04em;margin:12px 0 0}
+.about-contact-head p{margin:0;font-size:13.5px;line-height:1.65;color:#5D716A}
+.about-contact-grid{display:grid;grid-template-columns:.75fr 1.25fr;gap:16px}
+.about-contact-side{display:grid;gap:14px}
+.about-direct,.about-procurement-route,.about-contact-form{border:1px solid var(--about-line);border-radius:22px;background:#fff}
+.about-direct,.about-procurement-route{padding:23px}
+.about-direct h3,.about-procurement-route h3{font-size:20px;line-height:1.2;margin:6px 0 8px}
+.about-direct p,.about-procurement-route p{font-size:11.5px;line-height:1.6;color:#60736D;margin:0 0 15px}
+.about-email{display:inline-block;font-size:16px;font-weight:800;color:var(--about-forest);border-bottom:1px solid #9EC2B7}
+.about-contact-form{padding:24px 25px}
+.about-contact-form h3{margin:0 0 5px;font-size:23px}
+.about-contact-form .intro{margin:0 0 19px;font-size:11.5px;line-height:1.55;color:#667A73}
+.about-contact-form .form-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.about-contact-form .field{margin-bottom:10px}
+.about-contact-form .field label{display:block;margin-bottom:5px;font-size:9.5px;font-weight:750;color:#526961}
+.about-contact-form input,.about-contact-form select,.about-contact-form textarea{
+  width:100%;border:1px solid #CBD8D3;border-radius:11px;background:#fff;color:var(--about-ink);padding:11px 12px;outline:0;
+}
+.about-contact-form textarea{min-height:132px;resize:vertical}
+.about-contact-form input:focus,.about-contact-form select:focus,.about-contact-form textarea:focus{border-color:#6C9B8E;box-shadow:0 0 0 3px rgba(63,111,98,.08)}
+.about-contact-form .privacy-check{display:flex;gap:9px;align-items:flex-start;margin:5px 0 15px;font-size:10px;line-height:1.45;color:#657871}
+.about-contact-form .privacy-check input{width:auto;margin-top:3px}
+.about-contact-form .hp-field{position:absolute;left:-9999px;opacity:0}
+.about-contact-form .optional{font-weight:400;color:#82908B}
+.about-contact-form .form-status{margin-bottom:13px;border-radius:10px;padding:10px 12px;font-size:11px}
+.about-contact-form .form-status.success{background:#EAF3EF;color:#2E6557}
+.about-contact-form .form-status.error{background:#F7EDE7;color:#815946}
+
+@media(max-width:1040px){
+  .about-hero-grid{grid-template-columns:1fr;gap:42px}
+  .about-map{min-height:auto}
+  .about-section-head,.about-contact-head{grid-template-columns:1fr;gap:18px}
+  .about-reason-grid,.about-not-grid,.about-core,.about-contact-grid{grid-template-columns:1fr}
+  .about-cap-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .about-wrap{width:min(100% - 28px,1240px)}
+  .about-hero{padding:48px 0}
+  .about-hero h1{font-size:47px}
+  .about-map{padding:16px;border-radius:23px}
+  .about-map-head{display:grid}
+  .about-map-head span{text-align:left;max-width:none}
+  .about-flow-card{grid-template-columns:45px 1fr}.about-flow-state{display:none}
+  .about-section{padding:58px 0}
+  .about-reason-main{padding:25px}
+  .about-model{grid-template-columns:1fr;gap:10px}
+  .about-model-plus{height:34px}
+  .about-cap-grid{grid-template-columns:1fr}
+  .about-contact-form .form-two{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header" id="site-header"></header>
+
+<main id="main" class="about-main">
+<section class="about-hero">
+  <div class="about-wrap about-hero-grid">
+    <div>
+      <div class="about-eyebrow" data-en="About Aurenoeva" data-de="Über Aurenoeva"></div>
+      <h1 data-en="Procurement gets interesting when the easy answers run out." data-de="Beschaffung wird interessant, wenn die einfachen Antworten aufhören."></h1>
+      <p class="lead" data-en="Aurenoeva is built for technical requirements that do not resolve cleanly through a catalogue search: scarce parts, obsolete components, specialist equipment, uncertain identities, second-life assets and purchases where the evidence matters as much as the price." data-de="Aurenoeva ist für technische Beschaffungsbedarfe gebaut, die sich nicht mit einer einfachen Katalogsuche lösen lassen: schwer verfügbare Teile, abgekündigte Komponenten, Spezialgeräte, unklare Identitäten, gebrauchte oder überholte Anlagen und Käufe, bei denen die Nachweise genauso wichtig sind wie der Preis."></p>
+      <div class="about-hero-actions">
+        <a class="btn large" href="requirement.html" data-en="Start a requirement →" data-de="Beschaffungsbedarf starten →"></a>
+        <a class="btn ghost large" href="#contact" data-en="Talk to Aurenoeva" data-de="Aurenoeva kontaktieren"></a>
+      </div>
+      <div class="about-hero-note">
+        <span data-en="Software-assisted" data-de="Softwaregestützt"></span>
+        <span data-en="Human procurement" data-de="Menschliche Beschaffung"></span>
+        <span data-en="Evidence kept visible" data-de="Nachweise bleiben sichtbar"></span>
+      </div>
+    </div>
+
+    <div class="about-map" aria-label="Aurenoeva procurement model">
+      <div class="about-map-head">
+        <strong data-en="From requirement to decision" data-de="Vom Bedarf zur Entscheidung"></strong>
+        <span data-en="The work between 'we need this' and 'this is a credible acquisition route'." data-de="Die Arbeit zwischen „wir brauchen das“ und „das ist ein belastbarer Beschaffungsweg“."></span>
+      </div>
+      <div class="about-flow">
+        <div class="about-flow-card"><span class="about-flow-no">01</span><div><b data-en="Clarify the requirement" data-de="Bedarf klären"></b><small data-en="Identifiers, configuration, application, geography and constraints." data-de="Kennungen, Konfiguration, Anwendung, Geografie und Rahmenbedingungen."></small></div><span class="about-flow-state" data-en="Structure" data-de="Struktur"></span></div>
+        <div class="about-flow-card"><span class="about-flow-no">02</span><div><b data-en="Resolve what the item actually is" data-de="Technische Identität auflösen"></b><small data-en="Exact identity, compatibility, supersession and lifecycle context." data-de="Exakte Identität, Kompatibilität, Nachfolger und Lebenszykluskontext."></small></div><span class="about-flow-state" data-en="Resolve" data-de="Auflösen"></span></div>
+        <div class="about-flow-card"><span class="about-flow-no">03</span><div><b data-en="Discover credible supply" data-de="Belastbare Bezugsquellen finden"></b><small data-en="Manufacturers, specialist suppliers and changing availability." data-de="Hersteller, Speziallieferanten und sich verändernde Verfügbarkeit."></small></div><span class="about-flow-state" data-en="Discover" data-de="Finden"></span></div>
+        <div class="about-flow-card"><span class="about-flow-no">04</span><div><b data-en="Verify the evidence" data-de="Nachweise prüfen"></b><small data-en="Condition, provenance, documentation, supplier credibility and open questions." data-de="Zustand, Herkunft, Dokumentation, Lieferantenvertrauen und offene Fragen."></small></div><span class="about-flow-state" data-en="Evidence" data-de="Nachweise"></span></div>
+        <div class="about-flow-card"><span class="about-flow-no">05</span><div><b data-en="Build the acquisition decision" data-de="Beschaffungsentscheidung aufbauen"></b><small data-en="Fit, risk, economics and the reasoning behind the preferred route." data-de="Passung, Risiko, Wirtschaftlichkeit und die Begründung des bevorzugten Weges."></small></div><span class="about-flow-state" data-en="Decision" data-de="Entscheidung"></span></div>
+      </div>
+      <div class="about-map-foot">
+        <div><small data-en="Customer sees" data-de="Der Kunde sieht"></small><b data-en="A clearer decision, not another search result." data-de="Eine klarere Entscheidung, nicht nur ein weiteres Suchergebnis."></b></div>
+        <div><small data-en="Aurenoeva preserves" data-de="Aurenoeva bewahrt"></small><b data-en="The evidence trail and unresolved questions." data-de="Den Nachweisweg und noch offene Fragen."></b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about-section white">
+  <div class="about-wrap">
+    <div class="about-section-head">
+      <div><div class="about-eyebrow" data-en="Why we exist" data-de="Warum es uns gibt"></div><h2 data-en="The difficult part of procurement is rarely finding one listing." data-de="Der schwierige Teil der Beschaffung ist selten, ein einzelnes Angebot zu finden."></h2></div>
+      <p data-en="The harder work is deciding whether the listing describes the right item, whether the supplier can support the claim, whether the condition is acceptable and whether the total acquisition route is credible." data-de="Schwieriger ist die Frage, ob das Angebot wirklich den richtigen Artikel beschreibt, ob der Lieferant seine Angaben belegen kann, ob der Zustand akzeptabel ist und ob der gesamte Beschaffungsweg belastbar ist."></p>
+    </div>
+    <div class="about-reason-grid">
+      <article class="about-reason-main">
+        <h3 data-en="Aurenoeva sits in the gap between search and commitment." data-de="Aurenoeva arbeitet in der Lücke zwischen Suche und kommerzieller Verpflichtung."></h3>
+        <p data-en="In straightforward procurement, manufacturer, part number, specification, availability and price often line up cleanly. In difficult procurement they do not. A model can have several revisions. A part number can be incomplete. A supplier may have stock without enough evidence. A cheaper option may become the expensive one after inspection, freight, duties or rework. Our job is to make those differences visible before a buyer commits." data-de="Bei einfacher Beschaffung passen Hersteller, Teilenummer, Spezifikation, Verfügbarkeit und Preis häufig sauber zusammen. Bei schwieriger Beschaffung ist das nicht so. Ein Modell kann mehrere Revisionen haben. Eine Teilenummer kann unvollständig sein. Ein Lieferant kann Bestand haben, aber keine ausreichenden Nachweise. Ein günstigeres Angebot kann nach Prüfung, Fracht, Zoll oder Nacharbeit zur teureren Option werden. Unsere Aufgabe ist es, diese Unterschiede vor einer Kaufentscheidung sichtbar zu machen."></p>
+        <div class="pull" data-en="We are not trying to make every technical purchase look simple. We are trying to make difficult purchases understandable." data-de="Wir versuchen nicht, jeden technischen Einkauf einfach aussehen zu lassen. Wir wollen schwierige Beschaffung verständlich machen."></div>
+      </article>
+      <div class="about-reason-side">
+        <article><span>01 · IDENTITY</span><h4 data-en="Is it actually the right item?" data-de="Ist es wirklich der richtige Artikel?"></h4><p data-en="Identity, revision, compatibility, supersession and configuration can matter more than the headline description." data-de="Identität, Revision, Kompatibilität, Nachfolger und Konfiguration können wichtiger sein als die Überschrift des Angebots."></p></article>
+        <article><span>02 · EVIDENCE</span><h4 data-en="What can be proven?" data-de="Was lässt sich belegen?"></h4><p data-en="Claims remain separate from manufacturer evidence, supplier documents, condition evidence and unresolved questions." data-de="Behauptungen bleiben getrennt von Herstellernachweisen, Lieferantendokumenten, Zustandsnachweisen und offenen Fragen."></p></article>
+        <article><span>03 · ECONOMICS</span><h4 data-en="What does acquisition really cost?" data-de="Was kostet die Beschaffung tatsächlich?"></h4><p data-en="The cheapest quote is not necessarily the lowest-risk or lowest-total-cost acquisition route." data-de="Das günstigste Angebot ist nicht automatisch der risikoärmste oder insgesamt wirtschaftlichste Beschaffungsweg."></p></article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about-section dark">
+  <div class="about-wrap">
+    <div class="about-section-head">
+      <div><div class="about-eyebrow" data-en="The operating model" data-de="Das Arbeitsmodell"></div><h2 data-en="Software does the machine work. People do the procurement work." data-de="Software übernimmt Maschinenarbeit. Menschen übernehmen Beschaffungsarbeit."></h2></div>
+      <p data-en="Aurenoeva is deliberately neither a pure software tool nor a traditional manual sourcing desk. The advantage comes from combining both." data-de="Aurenoeva ist bewusst weder ein reines Softwaretool noch ein klassischer manueller Beschaffungstisch. Der Vorteil entsteht aus der Verbindung beider Seiten."></p>
+    </div>
+    <div class="about-model">
+      <article class="about-model-card">
+        <div class="icon"><svg viewBox="0 0 24 24"><path d="M8 3h8v4H8z"/><path d="M5 9h14v10H5z"/><path d="M9 13h6M12 10v6"/></svg></div>
+        <h3 data-en="Proprietary procurement intelligence" data-de="Eigene Procurement Intelligence"></h3>
+        <p data-en="Our software structures requirements, discovers and watches sources, normalises product and supplier information, resolves identity and preserves provenance so information can be compared rather than simply collected." data-de="Unsere Software strukturiert Bedarfe, entdeckt und beobachtet Quellen, normalisiert Produkt- und Lieferanteninformationen, löst Identitäten auf und bewahrt die Herkunft von Informationen, damit diese verglichen und nicht nur gesammelt werden."></p>
+        <ul>
+          <li data-en="Continuous source discovery and monitoring" data-de="Kontinuierliche Quellenentdeckung und Beobachtung"></li>
+          <li data-en="Identity and lifecycle resolution" data-de="Identitäts- und Lebenszyklusauflösung"></li>
+          <li data-en="Evidence and provenance preservation" data-de="Erhalt von Nachweisen und Herkunft"></li>
+          <li data-en="Comparable acquisition records" data-de="Vergleichbare Beschaffungsakten"></li>
+        </ul>
+      </article>
+      <div class="about-model-plus">+</div>
+      <article class="about-model-card">
+        <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M4 21c.8-4.2 3.4-6.5 8-6.5S19.2 16.8 20 21"/><path d="m17 9 2 2 4-4"/></svg></div>
+        <h3 data-en="Hands-on procurement judgement" data-de="Praktische Beschaffungsentscheidung"></h3>
+        <p data-en="People interpret the requirement, ask the awkward questions, engage suppliers, decide what evidence is good enough and keep commercial judgement separate from whatever the software can infer." data-de="Menschen interpretieren den Bedarf, stellen die unbequemen Fragen, sprechen mit Lieferanten, entscheiden, welche Nachweise ausreichen, und halten die kommerzielle Beurteilung getrennt von dem, was Software ableiten kann."></p>
+        <ul>
+          <li data-en="Requirement clarification" data-de="Bedarfsklärung"></li>
+          <li data-en="Supplier engagement and follow-up" data-de="Lieferantenansprache und Nachverfolgung"></li>
+          <li data-en="Evidence judgement and exceptions" data-de="Nachweisbewertung und Ausnahmen"></li>
+          <li data-en="Commercial decision support" data-de="Unterstützung der kommerziellen Entscheidung"></li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="about-section">
+  <div class="about-wrap">
+    <div class="about-section-head">
+      <div><div class="about-eyebrow" data-en="What Aurenoeva does" data-de="Was Aurenoeva tut"></div><h2 data-en="Three jobs, carried through as one procurement record." data-de="Drei Aufgaben, zusammengeführt in einer Beschaffungsakte."></h2></div>
+      <p data-en="The point is continuity. The requirement, the candidate supply and the evidence should not live in separate spreadsheets, inboxes and browser tabs." data-de="Entscheidend ist die Kontinuität. Bedarf, mögliche Bezugsquellen und Nachweise sollten nicht in getrennten Tabellen, Postfächern und Browser-Tabs leben."></p>
+    </div>
+    <div class="about-cap-grid">
+      <article class="about-cap"><span class="num">01 · RESOLVE</span><h3 data-en="Turn a rough need into a technical requirement." data-de="Aus einem groben Bedarf wird eine technische Anforderung."></h3><p data-en="A part number is useful, but it is not mandatory. We can start from a model, category, application, existing equipment, photograph, specification or plain-language brief and work toward the actual technical identity." data-de="Eine Teilenummer hilft, ist aber nicht zwingend. Wir können mit Modell, Kategorie, Anwendung, bestehender Anlage, Foto, Spezifikation oder einer Beschreibung in eigenen Worten beginnen und uns zur tatsächlichen technischen Identität vorarbeiten."></p><span class="cap-line"></span></article>
+      <article class="about-cap"><span class="num">02 · SOURCE</span><h3 data-en="Find supply that is relevant, not merely visible." data-de="Bezugsquellen finden, die relevant sind – nicht nur sichtbar."></h3><p data-en="Discovery is filtered through the requirement. Manufacturer routes, authorised channels, specialist suppliers, surplus, refurbished and second-life options can all be considered when the evidence and use case support them." data-de="Die Suche wird durch den Bedarf gefiltert. Herstellerwege, autorisierte Kanäle, Speziallieferanten, Überschussbestand, überholte und gebrauchte Optionen können berücksichtigt werden, wenn Nachweislage und Anwendungsfall dafür sprechen."></p><span class="cap-line"></span></article>
+      <article class="about-cap"><span class="num">03 · DECIDE</span><h3 data-en="Compare the acquisition route, not just the headline price." data-de="Den Beschaffungsweg vergleichen, nicht nur den Angebotspreis."></h3><p data-en="Technical fit, condition, documentation, supplier credibility, lead time, inspection, freight, duties and unresolved risk all belong in the decision. We keep those dimensions visible instead of compressing them into one opaque score." data-de="Technische Passung, Zustand, Dokumentation, Lieferantenvertrauen, Lieferzeit, Prüfung, Fracht, Zoll und offene Risiken gehören in die Entscheidung. Wir halten diese Dimensionen sichtbar, statt sie in eine undurchsichtige Kennzahl zu pressen."></p><span class="cap-line"></span></article>
+    </div>
+  </div>
+</section>
+
+<section class="about-section white">
+  <div class="about-wrap about-not-grid">
+    <div class="about-not-visual">
+      <div class="about-ring"><strong data-en="Requirement → credible acquisition route" data-de="Bedarf → belastbarer Beschaffungsweg"></strong></div>
+    </div>
+    <div class="about-not-copy">
+      <div class="about-eyebrow" data-en="What we are not" data-de="Was wir nicht sind"></div>
+      <h2 data-en="Not a marketplace. Not another inventory catalogue." data-de="Kein Marktplatz. Kein weiterer Bestandskatalog."></h2>
+      <p data-en="Aurenoeva does not try to win by showing the largest number of listings. We are useful when a buyer needs help interpreting the requirement and deciding which acquisition route is credible." data-de="Aurenoeva versucht nicht, durch die größte Zahl an Angeboten zu gewinnen. Wir sind dann nützlich, wenn ein Käufer Unterstützung braucht, um den Bedarf zu interpretieren und zu entscheiden, welcher Beschaffungsweg belastbar ist."></p>
+      <div class="about-not-list">
+        <div><span class="about-x">×</span><p><b data-en="Not a pay-to-rank supplier directory." data-de="Kein Lieferantenverzeichnis mit bezahltem Ranking."></b><br><span data-en="Commercial relationships do not replace evidence." data-de="Kommerzielle Beziehungen ersetzen keine Nachweise."></span></p></div>
+        <div><span class="about-x">×</span><p><b data-en="Not an automated 'best supplier' score." data-de="Kein automatischer „bester Lieferant“-Score."></b><br><span data-en="Risk, evidence and economics remain separate so the reasoning can be inspected." data-de="Risiko, Nachweise und Wirtschaftlichkeit bleiben getrennt, damit die Begründung nachvollziehbar bleibt."></span></p></div>
+        <div><span class="about-x">×</span><p><b data-en="Not limited to new catalogue stock." data-de="Nicht auf neue Katalogware beschränkt."></b><br><span data-en="Refurbished or second-life options can be appropriate when condition and evidence support them." data-de="Überholte oder gebrauchte Optionen können sinnvoll sein, wenn Zustand und Nachweise dafür sprechen."></span></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about-section">
+  <div class="about-wrap">
+    <div class="about-section-head">
+      <div><div class="about-eyebrow" data-en="Built on NOEVA CORE" data-de="Auf NOEVA CORE aufgebaut"></div><h2 data-en="Specialised procurement on top of shared intelligence infrastructure." data-de="Spezialisierte Beschaffung auf gemeinsamer Intelligence-Infrastruktur."></h2></div>
+      <p data-en="Aurenoeva owns the procurement model and customer journey. Shared discovery, watch, extraction, evidence, workflow, CRM and compliance infrastructure is provided through NOEVA CORE OS." data-de="Aurenoeva verantwortet Beschaffungsmodell und Kundenerlebnis. Gemeinsame Discovery-, Watch-, Extraktions-, Nachweis-, Workflow-, CRM- und Compliance-Infrastruktur wird über NOEVA CORE OS bereitgestellt."></p>
+    </div>
+    <div class="about-core">
+      <article class="about-core-copy">
+        <h3 data-en="Why that matters to the customer" data-de="Warum das für Kunden relevant ist"></h3>
+        <p data-en="The public experience can stay focused on procurement rather than exposing infrastructure. Behind it, source knowledge can improve continuously, changes can be detected, evidence can remain attributable and procurement cases can move into the same operational system instead of being rebuilt as isolated one-off workflows." data-de="Die öffentliche Oberfläche kann sich auf Beschaffung konzentrieren, ohne Infrastruktur offenzulegen. Dahinter können sich Quellenwissen und Daten kontinuierlich verbessern, Änderungen erkannt, Nachweise zugeordnet und Beschaffungsvorgänge im selben operativen System weitergeführt werden, statt als isolierte Einzellösungen neu aufgebaut zu werden."></p>
+      </article>
+      <div class="about-core-map">
+        <small>NOEVA CORE OS</small>
+        <div class="core-node"><b data-en="Shared intelligence authorities" data-de="Gemeinsame Intelligence-Autoritäten"></b><span data-en="Discovery · Watch · Extraction · Evidence · CRM · Compliance" data-de="Discovery · Watch · Extraktion · Nachweise · CRM · Compliance"></span></div>
+        <div class="core-branches">
+          <div data-en="Aurenoeva requirement model" data-de="Aurenoeva Bedarfsmodell"></div>
+          <div data-en="Procurement decision journey" data-de="Procurement Decision Journey"></div>
+          <div data-en="Supplier engagement" data-de="Lieferantenansprache"></div>
+          <div data-en="Acquisition workspace" data-de="Acquisition Workspace"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about-contact" id="contact">
+  <div class="about-wrap">
+    <div class="about-contact-head">
+      <div><div class="about-eyebrow" data-en="Contact" data-de="Kontakt"></div><h2 data-en="Bring us the difficult requirement." data-de="Bringen Sie uns den schwierigen Bedarf."></h2></div>
+      <p data-en="For a new sourcing requirement, the guided requirement flow is the fastest starting point. For supplier, partnership, general or existing-case enquiries, contact Aurenoeva directly." data-de="Für einen neuen Beschaffungsbedarf ist der geführte Bedarfsprozess der schnellste Einstieg. Für Lieferanten-, Partnerschafts-, allgemeine oder bestehende Vorgangsanfragen können Sie Aurenoeva direkt kontaktieren."></p>
+    </div>
+    <div class="about-contact-grid">
+      <div class="about-contact-side">
+        <article class="about-procurement-route">
+          <div class="about-eyebrow" data-en="Procurement requirement" data-de="Beschaffungsbedarf"></div>
+          <h3 data-en="Need a component or technical asset?" data-de="Sie suchen eine Komponente oder technische Anlage?"></h3>
+          <p data-en="Start with whatever you have: a part number, model, equipment family, application or a rough brief." data-de="Starten Sie mit dem, was Sie haben: Teilenummer, Modell, Gerätefamilie, Anwendung oder einer groben Beschreibung."></p>
+          <a class="btn" href="requirement.html" data-en="Start the requirement →" data-de="Bedarf starten →"></a>
+        </article>
+        <article class="about-direct">
+          <div class="about-eyebrow" data-en="Direct contact" data-de="Direkter Kontakt"></div>
+          <h3>Aurenoeva</h3>
+          <p><span data-en="A business of" data-de="Ein Geschäftsbereich von"></span> <strong>NOEVA Systems e.K.</strong><br>Marienburger Straße 16<br>56112 Lahnstein · Germany</p>
+          <a class="about-email" href="mailto:info@aurenoeva.com">info@aurenoeva.com</a>
+        </article>
+      </div>
+
+      <div class="about-contact-form">
+        <h3 data-en="Send us a message" data-de="Schreiben Sie uns"></h3>
+        <p class="intro" data-en="This form goes directly to info@aurenoeva.com." data-de="Dieses Formular geht direkt an info@aurenoeva.com."></p>
+        <div id="contact-form-status" class="form-status" hidden></div>
+        <form action="contact-submit.php" method="post" data-contact-form>
+          <input type="hidden" name="lang" value="en">
+          <div class="hp-field" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+          <div class="form-two">
+            <div class="field"><label for="contact-name" data-en="Name" data-de="Name"></label><input id="contact-name" name="name" type="text" maxlength="120" autocomplete="name" required></div>
+            <div class="field"><label for="contact-email" data-en="Business email" data-de="Geschäftliche E-Mail"></label><input id="contact-email" name="email" type="email" maxlength="190" autocomplete="email" required></div>
+          </div>
+          <div class="field"><label for="contact-company"><span data-en="Company" data-de="Unternehmen"></span> <span class="optional" data-en="(optional)" data-de="(optional)"></span></label><input id="contact-company" name="company" type="text" maxlength="180" autocomplete="organization"></div>
+          <div class="field"><label for="contact-type" data-en="Enquiry type" data-de="Art der Anfrage"></label><select id="contact-type" name="enquiry_type" required><option value="general" data-en="General enquiry" data-de="Allgemeine Anfrage"></option><option value="supplier" data-en="Supplier / manufacturer" data-de="Lieferant / Hersteller"></option><option value="partnership" data-en="Partnership / press" data-de="Partnerschaft / Presse"></option><option value="existing" data-en="Existing procurement case" data-de="Bestehender Beschaffungsvorgang"></option></select></div>
+          <div class="field"><label for="contact-message" data-en="Message" data-de="Nachricht"></label><textarea id="contact-message" name="message" maxlength="5000" required data-placeholder-en="How can we help?" data-placeholder-de="Wie können wir Ihnen helfen?"></textarea></div>
+          <label class="privacy-check"><input type="checkbox" name="privacy_ack" value="1" required><span data-en="I have read the Privacy Policy. The form is used only to process this B2B enquiry." data-de="Ich habe die Datenschutzerklärung gelesen. Das Formular wird ausschließlich zur Bearbeitung dieser B2B-Anfrage verwendet."></span></label>
+          <button class="btn large" type="submit" data-en="Send message →" data-de="Nachricht senden →"></button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="site-footer" id="site-footer"></footer>
+<script src="assets/js/site.js?v=7.4.1"></script>
+</body>
+</html>
