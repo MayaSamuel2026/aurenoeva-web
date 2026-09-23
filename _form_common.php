@@ -226,6 +226,51 @@ function aur_send(string $subject, string $body, string $replyTo): bool {
     return false;
 }
 
+
+function aur_enquiry_ledger_append(array $event): bool {
+    $root = trim((string)(getenv('AURENOEVA_ENQUIRY_LEDGER_DIR') ?: ''));
+    if ($root === '') {
+        // _form_common.php lives in public_html in production; store the ledger
+        // one level above the public web root so enquiry data is never web-readable.
+        $root = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'aurenoeva-private' . DIRECTORY_SEPARATOR . 'enquiries';
+    }
+
+    if (!is_dir($root) && !@mkdir($root, 0700, true) && !is_dir($root)) {
+        error_log('Aurenoeva enquiry ledger directory could not be created.');
+        return false;
+    }
+    @chmod($root, 0700);
+
+    $record = [
+        'schema'=>'aurenoeva-enquiry-ledger/1.0',
+        'recorded_at'=>gmdate(DATE_ATOM),
+        'event'=>$event
+    ];
+    $json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) { return false; }
+    $line = $json . "\n";
+
+    $file = $root . DIRECTORY_SEPARATOR . 'requirements-' . gmdate('Y-m') . '.jsonl';
+    $fh = @fopen($file, 'ab');
+    if (!is_resource($fh)) {
+        error_log('Aurenoeva enquiry ledger file could not be opened.');
+        return false;
+    }
+
+    $ok = false;
+    if (@flock($fh, LOCK_EX)) {
+        $written = @fwrite($fh, $line);
+        @fflush($fh);
+        @flock($fh, LOCK_UN);
+        $ok = ($written !== false && $written === strlen($line));
+    }
+    @fclose($fh);
+    @chmod($file, 0600);
+
+    if (!$ok) { error_log('Aurenoeva enquiry ledger append failed.'); }
+    return $ok;
+}
+
 function aur_json(array $payload, int $status = 200): never {
     http_response_code($status);
     header('Content-Type: application/json; charset=UTF-8');

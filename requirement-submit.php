@@ -120,6 +120,36 @@ $contract['idempotency_key']='aurenoeva:'.hash('sha256',json_encode($fingerprint
 
 $core=aur_core_requirement_binding($contract);
 
+$ledgerCaptured=aur_enquiry_ledger_append([
+    'event'=>'REQUIREMENT_CAPTURED',
+    'reference'=>$reference,
+    'requirement_contract_id'=>$contractId,
+    'contract'=>$contract,
+    'core'=>[
+        'bound'=>(bool)$core['bound'],
+        'status'=>$core['status'],
+        'case_id'=>$core['case_id'],
+        'compliance_state'=>$core['compliance_state'],
+        'transaction_state'=>$core['transaction_state']
+    ]
+]);
+
+if (!$ledgerCaptured) {
+    aur_json([
+        'ok'=>false,
+        'error'=>'enquiry_logging',
+        'reference'=>$reference,
+        'requirement_contract_id'=>$contractId,
+        'delivery'=>[
+            'email'=>false,
+            'logged'=>false,
+            'core_bound'=>(bool)$core['bound'],
+            'core_status'=>$core['status']
+        ]
+    ],503);
+}
+
+
 $selectedText='None selected';
 if ($selectedParts) {
     $lines=[];
@@ -165,6 +195,16 @@ $body="New Aurenoeva procurement enquiry\n"
 
 $mailSent=aur_send($subject,$body,$email);
 
+$ledgerDelivery=aur_enquiry_ledger_append([
+    'event'=>'NOTIFICATION_DELIVERY',
+    'reference'=>$reference,
+    'requirement_contract_id'=>$contractId,
+    'email_delivered'=>$mailSent,
+    'core_bound'=>(bool)$core['bound'],
+    'core_status'=>$core['status']
+]);
+
+
 // A CORE record is not the same thing as a delivered mailbox notification.
 // Never show the buyer a generic "Sent" state when the mail transport failed.
 if (!$mailSent) {
@@ -175,6 +215,8 @@ if (!$mailSent) {
         'requirement_contract_id'=>$contractId,
         'delivery'=>[
             'email'=>false,
+            'logged'=>$ledgerCaptured,
+            'delivery_event_logged'=>$ledgerDelivery,
             'core_bound'=>(bool)$core['bound'],
             'core_status'=>$core['status']
         ]
@@ -187,6 +229,8 @@ aur_json([
     'requirement_contract_id'=>$contractId,
     'delivery'=>[
         'email'=>$mailSent,
+        'logged'=>$ledgerCaptured,
+        'delivery_event_logged'=>$ledgerDelivery,
         'core_bound'=>(bool)$core['bound'],
         'core_status'=>$core['status']
     ],

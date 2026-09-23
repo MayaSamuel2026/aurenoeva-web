@@ -1,1 +1,1 @@
-Aurenoeva V8.2.6.6 production 1f6cf881834d63d4f550bf6b98ae553b0bfe3dfd
+Aurenoeva V8.2.6.7 production bb898ee768098b6481d54d395c9eea7acac9c59f
