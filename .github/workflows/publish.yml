@@ -85,17 +85,17 @@ jobs:
             sed -i 's#assets/css/site.css\([?][^"]*\)\?#assets/css/site.css?v=7.4.1#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
-      - name: Apply V8.2.6.7 cache-safe navigation checkpoint
+      - name: Apply V8.2.6.8 cache-safe navigation checkpoint
         shell: bash
         run: |
           set -euo pipefail
 
-          cp hotfix/v8.2.6.7/index.html "$RUNNER_TEMP/source/site/index.html"
-          cmp --silent hotfix/v8.2.6.7/index.html "$RUNNER_TEMP/source/site/index.html"
+          cp hotfix/v8.2.6.8/index.html "$RUNNER_TEMP/source/site/index.html"
+          cmp --silent hotfix/v8.2.6.8/index.html "$RUNNER_TEMP/source/site/index.html"
 
           # Contact transport repair: accept apex/www as the same origin and
           # add SMTP -> PHP mail() -> direct sendmail fallbacks.
-          cp hotfix/v8.2.6.7/_form_common.php "$RUNNER_TEMP/source/site/_form_common.php"
+          cp hotfix/v8.2.6.8/_form_common.php "$RUNNER_TEMP/source/site/_form_common.php"
 
           # Unify all secondary-page navigation with the homepage and keep the
           # requirement path on the same information architecture.
@@ -107,12 +107,13 @@ jobs:
           # The prior query string stayed at 7.4.1, allowing browsers to reuse
           # the older header JavaScript after deployment.
           while IFS= read -r -d '' f; do
-            sed -i -E 's#assets/js/site\.js([?][^"]*)?#assets/js/site.js?v=8.2.6.6#g' "$f"
-            sed -i -E 's#assets/css/site\.css([?][^"]*)?#assets/css/site.css?v=8.2.6.6#g' "$f"
+            sed -i -E 's#assets/js/site\.js([?][^"]*)?#assets/js/site.js?v=8.2.6.8#g' "$f"
+            sed -i -E 's#assets/css/site\.css([?][^"]*)?#assets/css/site.css?v=8.2.6.8#g' "$f"
           done < <(find "$RUNNER_TEMP/source/site" -maxdepth 1 -type f -name '*.html' -print0)
 
           # Completely rebuilt About page; preserve the proven contact endpoint and shared shell.
           cp hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
+          cp hotfix/v8.2.6.8/contact-submit.php "$RUNNER_TEMP/source/site/contact-submit.php"
           cmp --silent hotfix/v8.2.6.2/about.html "$RUNNER_TEMP/source/site/about.html"
 
           mkdir -p "$RUNNER_TEMP/source/site/assets/img/v826"
@@ -213,14 +214,14 @@ jobs:
           kill "$MOCK_PID" 2>/dev/null || true
           trap - EXIT
 
-      - name: Qualify V8.2.6.7 cache-safe navigation checkpoint
+      - name: Qualify V8.2.6.8 cache-safe navigation checkpoint
         shell: bash
         run: |
           set -euo pipefail
           PAGE="$RUNNER_TEMP/source/site/index.html"
 
           test -s "$PAGE"
-          grep -q 'AURENOEVA V8.2.6.7' "$PAGE"
+          grep -q 'AURENOEVA V8.2.6.8' "$PAGE"
           grep -q 'hero-procurement-card' "$PAGE"
           grep -q 'id="procurement"' "$PAGE"
           grep -q 'id="journey"' "$PAGE"
@@ -229,6 +230,10 @@ jobs:
           grep -q 'id="decision"' "$PAGE"
           grep -q 'data-lang="en"' "$PAGE"
           grep -q 'data-lang="de"' "$PAGE"
+          grep -q 'class="home-menu-toggle"' "$PAGE"
+          grep -q 'id="home-primary-nav"' "$PAGE"
+          grep -q '.nav.open{' "$PAGE"
+          grep -q 'aria-expanded' "$PAGE"
           grep -q 'assets/img/hero-spare-parts.webp' "$PAGE"
           grep -q 'assets/img/v826/procurement-bg.webp' "$PAGE"
 
@@ -254,7 +259,7 @@ jobs:
           grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
           grep -q 'industries.html#laboratory' "$PAGE"
           grep -q 'requirement.html?' "$PAGE"
-          grep -q 'V8.2.6.7 compact sectors + cache-safe unified navigation + requirement mail' "$PAGE"
+          grep -q 'V8.2.6.8 compact sectors + cache-safe unified navigation + requirement mail' "$PAGE"
 
           # Footer + separate About / contact route must remain present.
           grep -q 'class="site-footer"' "$PAGE"
@@ -279,6 +284,10 @@ jobs:
           grep -q 'data-contact-form' "$RUNNER_TEMP/source/site/about.html"
           grep -q 'action="contact-submit.php"' "$RUNNER_TEMP/source/site/about.html"
           grep -q 'info@aurenoeva.com' "$RUNNER_TEMP/source/site/about.html"
+          grep -q "CONTACT_CAPTURED" "$RUNNER_TEMP/source/site/contact-submit.php"
+          grep -q "CONTACT_NOTIFICATION_DELIVERY" "$RUNNER_TEMP/source/site/contact-submit.php"
+          grep -q "aur_enquiry_ledger_append" "$RUNNER_TEMP/source/site/contact-submit.php"
+          grep -q "AUR-CON-" "$RUNNER_TEMP/source/site/contact-submit.php"
           grep -q "\$to = 'info@aurenoeva.com'" "$RUNNER_TEMP/source/site/_form_common.php"
 
           # Sector-card labels must not return in future releases.
@@ -300,14 +309,19 @@ jobs:
           grep -q 'sector-card:nth-child(n+5){grid-column:span 4}' "$PAGE"
           ! grep -q 'sector-card wide' "$PAGE"
 
+          # Homepage mobile navigation must remain reachable when the desktop nav hides.
+          grep -q '.home-menu-toggle{display:inline-flex' "$PAGE"
+          grep -q '.header-inner>.btn{display:none}' "$PAGE"
+          grep -q 'homeNav?.classList.toggle("open")' "$PAGE"
+
           # Secondary-page menu must stay aligned with homepage navigation.
           grep -q 'href="index.html#procurement" data-en="Start sourcing"' "$RUNNER_TEMP/source/site/assets/js/site.js"
           grep -q 'href="index.html#sectors" data-en="Sectors"' "$RUNNER_TEMP/source/site/assets/js/site.js"
           grep -q 'href="index.html#decision" data-en="How it works"' "$RUNNER_TEMP/source/site/assets/js/site.js"
           grep -q 'href="about.html" data-en="About"' "$RUNNER_TEMP/source/site/assets/js/site.js"
           ! grep -q 'href="requirement.html" data-t="cta"' "$RUNNER_TEMP/source/site/assets/js/site.js"
-          grep -q 'assets/js/site.js?v=8.2.6.6' "$RUNNER_TEMP/source/site/requirement.html"
-          grep -q 'assets/css/site.css?v=8.2.6.6' "$RUNNER_TEMP/source/site/requirement.html"
+          grep -q 'assets/js/site.js?v=8.2.6.8' "$RUNNER_TEMP/source/site/requirement.html"
+          grep -q 'assets/css/site.css?v=8.2.6.8' "$RUNNER_TEMP/source/site/requirement.html"
           ! grep -q 'assets/js/site.js?v=7.4.1' "$RUNNER_TEMP/source/site/requirement.html"
 
           # Requirement success may only be shown when mailbox transport itself succeeded.
@@ -365,7 +379,7 @@ jobs:
           }
           PHP
 
-          echo "V8.2.6.7 compact sectors + cache-safe unified navigation + requirement mail qualification: PASS"
+          echo "V8.2.6.8 compact sectors + cache-safe unified navigation + requirement mail qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
@@ -380,7 +394,7 @@ jobs:
           cd "$DEPLOY"
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.7 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.8 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
