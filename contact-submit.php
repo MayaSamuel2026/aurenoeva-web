@@ -33,8 +33,29 @@ if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || (function_exis
 // attempt from locking the user out while correcting the form.
 if (!aur_rate_limit('contact', 12)) { aur_redirect('about.html?contact=error#contact'); }
 
-$subject = '[Aurenoeva website] ' . $types[$type] . ' — ' . ($company !== '' ? $company : $name);
+$reference = 'AUR-CON-' . gmdate('Ymd-His') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+
+$ledgerCaptured = aur_enquiry_ledger_append([
+    'event'=>'CONTACT_CAPTURED',
+    'reference'=>$reference,
+    'contact'=>[
+        'type'=>$type,
+        'type_label'=>$types[$type],
+        'language'=>$lang,
+        'name'=>$name,
+        'company'=>$company,
+        'email'=>$email,
+        'message'=>$message
+    ]
+]);
+
+if (!$ledgerCaptured) {
+    aur_redirect('about.html?contact=error#contact');
+}
+
+$subject = '[Aurenoeva website] ' . $types[$type] . ' — ' . $reference . ' — ' . ($company !== '' ? $company : $name);
 $body = "AURENOEVA WEBSITE ENQUIRY\n\n"
+      . "Reference: {$reference}\n"
       . "Type: {$types[$type]}\n"
       . "Language: {$lang}\n"
       . "Name: {$name}\n"
@@ -43,7 +64,14 @@ $body = "AURENOEVA WEBSITE ENQUIRY\n\n"
       . "Message:\n{$message}\n\n"
       . "Submitted: " . gmdate('Y-m-d H:i:s') . " UTC\n";
 
-if (!aur_send($subject, $body, $email)) {
+$mailSent = aur_send($subject, $body, $email);
+aur_enquiry_ledger_append([
+    'event'=>'CONTACT_NOTIFICATION_DELIVERY',
+    'reference'=>$reference,
+    'email_delivered'=>$mailSent
+]);
+
+if (!$mailSent) {
     aur_redirect('about.html?contact=error#contact');
 }
 aur_redirect('about.html?contact=sent#contact');

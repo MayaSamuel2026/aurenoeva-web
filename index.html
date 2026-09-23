@@ -58,6 +58,10 @@ img{display:block;max-width:100%}
 .nav{display:flex;gap:18px;margin-left:auto;align-items:center}
 .nav a{font-size:11.5px;font-weight:650;color:#536861}
 .nav a.active{color:var(--ink);box-shadow:inset 0 -2px 0 var(--sand)}
+.home-menu-toggle{
+  display:none;border:1px solid #BCC9C4;background:transparent;color:var(--ink);
+  border-radius:10px;padding:9px 11px;font-size:10px;font-weight:800;line-height:1
+}
 .lang{display:flex;gap:2px}
 .lang button{border:0;background:transparent;font-size:10px;color:#74837c;padding:6px}
 .lang button.active{color:var(--ink);font-weight:800}
@@ -373,7 +377,18 @@ footer{background:#082D28;color:#fff;padding:25px 0}
 }
 @media(max-width:760px){
   .wrap{width:min(100% - 28px,1280px)}
-  .nav{display:none}.brand-logo{width:190px}
+  .header-inner{height:72px;position:relative;gap:9px}
+  .brand-logo{width:176px}
+  .header-inner>.btn{display:none}
+  .home-menu-toggle{display:inline-flex;margin-left:auto;align-items:center;justify-content:center}
+  .nav{display:none}
+  .nav.open{
+    display:flex;position:absolute;top:72px;left:-14px;right:-14px;z-index:95;
+    flex-direction:column;align-items:stretch;gap:0;padding:9px 14px 13px;
+    background:rgba(248,247,243,.99);border-bottom:1px solid var(--line);
+    box-shadow:0 18px 36px rgba(14,58,51,.10)
+  }
+  .nav.open a{padding:10px 2px;font-size:12px}
   .hero{padding:48px 0 42px}.hero h1{font-size:48px}
   .mode-tabs{grid-template-columns:1fr}
   .search-bar{grid-template-columns:1fr}.search-go{height:42px}
@@ -592,6 +607,7 @@ footer{background:#082D28;color:#fff;padding:25px 0}
   .footer-bottom{display:grid;gap:7px}
 }
 @media(max-width:420px){
+  .brand-logo{width:158px}
   .footer-grid{grid-template-columns:1fr}
   .footer-brand{grid-column:auto}
 }
@@ -599,18 +615,19 @@ footer{background:#082D28;color:#fff;padding:25px 0}
 </style>
 </head>
 <body>
-<!-- AURENOEVA V8.2.6.7: compact hero summary + restored production interactions -->
+<!-- AURENOEVA V8.2.6.8: compact hero summary + restored production interactions -->
 <!-- V8.2.6 decision: correct the hero image crop and sizing so the graphic sits cleanly inside the card with no stray text. -->
 <header class="site-header">
   <div class="wrap header-inner">
     <a class="brand" href="#top"><img class="brand-logo" src="assets/img/brand/aurenoeva-logo-approved.png" alt="Aurenoeva"></a>
-    <nav class="nav">
+    <nav class="nav" id="home-primary-nav">
       <a class="active" href="#top" data-en="Home" data-de="Start"></a>
       <a href="#procurement" data-en="Start sourcing" data-de="Beschaffung starten"></a>
       <a href="#sectors" data-en="Sectors" data-de="Bereiche"></a>
       <a href="#decision" data-en="How it works" data-de="So funktioniert es"></a>
       <a href="about.html" data-en="About" data-de="Über uns"></a>
     </nav>
+    <button class="home-menu-toggle" type="button" aria-expanded="false" aria-controls="home-primary-nav" data-en="Menu" data-de="Menü"></button>
     <div class="lang"><button class="active" data-lang="en">EN</button><button data-lang="de">DE</button></div>
     <a class="btn" href="#procurement" data-en="Start sourcing →" data-de="Beschaffung starten →"></a>
   </div>
@@ -1116,6 +1133,16 @@ function updateSummary(){
         : (state.lang==="de"?"Anwendung oder technisches Ziel beschreiben":"Describe the application or technical outcome");
 }
 document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{state.lang=b.dataset.lang;populateCategories(false);translate()});
+const homeMenu=document.querySelector(".home-menu-toggle");
+const homeNav=document.getElementById("home-primary-nav");
+homeMenu?.addEventListener("click",()=>{
+  const open=homeNav?.classList.toggle("open")||false;
+  homeMenu.setAttribute("aria-expanded",open?"true":"false");
+});
+homeNav?.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{
+  homeNav.classList.remove("open");
+  homeMenu?.setAttribute("aria-expanded","false");
+}));
 document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".mode").forEach(x=>x.classList.remove("active"));
   b.classList.add("active");state.mode=b.dataset.mode;updateSummary()
@@ -1152,7 +1179,7 @@ translate();
 </script>
 
 <script>
-/* V8.2.6.7 compact sectors + cache-safe unified navigation + requirement mail: keep the approved checkpoint UI while reconnecting live production journeys. */
+/* V8.2.6.8 compact sectors + cache-safe unified navigation + requirement mail: keep the approved checkpoint UI while reconnecting live production journeys. */
 (function(){
   const sectorRoutes=[
     "industries.html#laboratory",
