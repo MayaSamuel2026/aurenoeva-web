@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 $path=parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if ($path === '/health') {
+    header('Content-Type: application/json');
+    echo json_encode(['ok'=>true]);
+    exit;
+}
 if ($path !== '/api/internal/v1/revenue-loop/event' || ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(404);
     echo json_encode(['ok'=>false,'error'=>'not_found']);
