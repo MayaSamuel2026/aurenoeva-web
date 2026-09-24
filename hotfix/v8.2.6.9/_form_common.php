@@ -187,6 +187,19 @@ function aur_send_via_sendmail(string $to, string $subject, string $body, string
     return $status === 0;
 }
 
+function aur_local_mail_from(string $fallback): string {
+    $host = strtolower(trim((string)(gethostname() ?: '')));
+    // Hostinger's local MTA rewrites the envelope sender to noreply@<server>.
+    // Align the visible From only on that unauthenticated local transport so
+    // SPF/DMARC do not conflict. Authenticated SMTP keeps the branded From.
+    if ($host !== ''
+        && preg_match('/^[a-z0-9.-]+$/', $host)
+        && substr($host, -16) === '.main-hosting.eu') {
+        return 'noreply@' . $host;
+    }
+    return $fallback;
+}
+
 function aur_send(string $subject, string $body, string $replyTo): bool {
     if (getenv('AURENOEVA_FORM_TEST_MODE') === '1') { return true; }
 
@@ -201,12 +214,13 @@ function aur_send(string $subject, string $body, string $replyTo): bool {
     // Prefer authenticated SMTP when hosting credentials are configured.
     if (aur_send_via_smtp($to, $subject, $body, $replyTo, $from)) { return true; }
 
+    $localFrom = aur_local_mail_from($from);
     $headers = [
         'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8',
         'Content-Transfer-Encoding: 8bit',
-        'From: Aurenoeva Website <' . $from . '>',
-        'Sender: ' . $from,
+        'From: Aurenoeva Website <' . $localFrom . '>',
+        'Sender: ' . $localFrom,
         'Reply-To: ' . $replyTo,
         'X-Mailer: Aurenoeva Website'
     ];
@@ -214,13 +228,13 @@ function aur_send(string $subject, string $body, string $replyTo): bool {
 
     // Hostinger/local MTA path, with and without explicit envelope sender.
     if (function_exists('mail')) {
-        if (@mail($to, $subject, $body, $headerText, '-f' . $from)) { return true; }
+        if (@mail($to, $subject, $body, $headerText, '-f' . $localFrom)) { return true; }
         if (@mail($to, $subject, $body, $headerText)) { return true; }
     }
 
     // Direct sendmail fallback for shared-hosting configurations where mail()
     // is disabled or rejects PHP's fifth parameter while the local MTA works.
-    if (aur_send_via_sendmail($to, $subject, $body, $replyTo, $from)) { return true; }
+    if (aur_send_via_sendmail($to, $subject, $body, $replyTo, $localFrom)) { return true; }
 
     error_log('Aurenoeva form delivery failed after SMTP, mail() and sendmail fallbacks for subject: ' . $subject);
     return false;
