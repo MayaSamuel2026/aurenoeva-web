@@ -194,6 +194,8 @@ jobs:
           grep -q "https://noeva-core.179-198-203-247.nip.io" "$RUNNER_TEMP/source/site/_core_bridge.php"
           grep -q "/api/public/v1/revenue/event" "$RUNNER_TEMP/source/site/_form_common.php"
           grep -q "Origin: https://aurenoeva.com" "$RUNNER_TEMP/source/site/_core_bridge.php"
+          grep -q "function aur_local_mail_from" "$RUNNER_TEMP/source/site/_form_common.php"
+          grep -q "\\.main-hosting\\.eu" "$RUNNER_TEMP/source/site/_form_common.php"
 
       - name: JavaScript syntax check
         shell: bash
@@ -425,7 +427,7 @@ jobs:
           cd "$DEPLOY"
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.10 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.11 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
