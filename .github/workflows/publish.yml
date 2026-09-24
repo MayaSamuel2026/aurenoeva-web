@@ -191,7 +191,10 @@ jobs:
           cp hotfix/v8.2.6.9/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
           grep -q "aur_revenue_event_from_ledger" "$RUNNER_TEMP/source/site/_form_common.php"
           grep -q "RECOMMENDATION_SHOWN" "$RUNNER_TEMP/source/site/catalogue-search.php"
-          grep -q "https://noeva-core.179-198-203-247.nip.io" "$RUNNER_TEMP/source/site/_core_bridge.php"\n          grep -q "/api/public/v1/revenue/event" "$RUNNER_TEMP/source/site/_form_common.php"\n          grep -q "Origin: https://aurenoeva.com" "$RUNNER_TEMP/source/site/_core_bridge.php"\n
+          grep -q "https://noeva-core.179-198-203-247.nip.io" "$RUNNER_TEMP/source/site/_core_bridge.php"
+          grep -q "/api/public/v1/revenue/event" "$RUNNER_TEMP/source/site/_form_common.php"
+          grep -q "Origin: https://aurenoeva.com" "$RUNNER_TEMP/source/site/_core_bridge.php"
+
       - name: JavaScript syntax check
         shell: bash
         run: |
