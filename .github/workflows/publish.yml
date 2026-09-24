@@ -183,6 +183,15 @@ jobs:
           cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-marine.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-marine.webp"
           cp "$RUNNER_TEMP/source/site/assets/img/v826/sector-aviation.webp" "$RUNNER_TEMP/source/site/assets/img/v8264/sector-aviation.webp"
 
+      - name: Apply V8.2.6.9 minimum revenue-loop instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp hotfix/v8.2.6.9/_form_common.php "$RUNNER_TEMP/source/site/_form_common.php"
+          cp hotfix/v8.2.6.9/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
+          grep -q "aur_revenue_event_from_ledger" "$RUNNER_TEMP/source/site/_form_common.php"
+          grep -q "RECOMMENDATION_SHOWN" "$RUNNER_TEMP/source/site/catalogue-search.php"
+
       - name: JavaScript syntax check
         shell: bash
         run: |
@@ -380,6 +389,25 @@ jobs:
           PHP
 
           echo "V8.2.6.8 compact sectors + cache-safe unified navigation + requirement mail qualification: PASS"
+
+      - name: Qualify V8.2.6.9 minimum revenue loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -S 127.0.0.1:18742 hotfix/v8.2.6.9/tests/mock_revenue_router.php >"$RUNNER_TEMP/aur-revenue-mock.log" 2>&1 &
+          MOCK_PID=$!
+          trap 'kill "$MOCK_PID" 2>/dev/null || true' EXIT
+          for i in {1..20}; do
+            if php -r 'exit(@file_get_contents("http://127.0.0.1:18742/health")===false?1:0);'; then break; fi
+            sleep 0.25
+          done
+          AURENOEVA_REVENUE_LOOP_URL="http://127.0.0.1:18742/api/internal/v1/revenue-loop/event" \
+          AURENOEVA_ENQUIRY_LEDGER_DIR="$RUNNER_TEMP/aur-revenue-ledger" \
+          php hotfix/v8.2.6.9/tests/revenue_loop_test.php
+          test -s "$RUNNER_TEMP/aur-revenue-ledger/requirements-$(date -u +%Y-%m).jsonl"
+          kill "$MOCK_PID" 2>/dev/null || true
+          trap - EXIT
+          echo "V8.2.6.9 minimum revenue-loop qualification: PASS"
 
       - name: Build clean production branch
         shell: bash
