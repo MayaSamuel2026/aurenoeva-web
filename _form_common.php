@@ -227,6 +227,98 @@ function aur_send(string $subject, string $body, string $replyTo): bool {
 }
 
 
+
+function aur_revenue_loop_url(): string {
+    $exact = trim((string)(getenv('AURENOEVA_REVENUE_LOOP_URL') ?: ''));
+    if ($exact !== '') { return $exact; }
+    $base = rtrim(trim((string)(getenv('AURENOEVA_CORE_BASE_URL') ?: '')), '/');
+    return $base === '' ? '' : $base . '/api/internal/v1/revenue-loop/event';
+}
+
+function aur_revenue_event(array $event): bool {
+    if (getenv('AURENOEVA_FORM_TEST_MODE') === '1') { return true; }
+
+    $url = aur_revenue_loop_url();
+    if ($url === '' || !preg_match('#^https?://#i', $url)) { return false; }
+
+    $payload = array_merge([
+        'event_type'=>'ENQUIRY_SUBMITTED',
+        'vertical'=>'aurenoeva',
+        'site_id'=>'aurenoeva.com',
+        'source'=>'aurenoeva_php',
+        'occurred_at'=>gmdate(DATE_ATOM),
+        'metadata'=>[]
+    ], $event);
+
+    $headers = ['Accept: application/json', 'Content-Type: application/json'];
+    $token = trim((string)(getenv('AURENOEVA_CORE_API_TOKEN') ?: ''));
+    if ($token !== '') { $headers[] = 'Authorization: Bearer ' . str_replace(["\r","\n"], '', $token); }
+    $key = trim((string)(getenv('AURENOEVA_CORE_API_KEY') ?: ''));
+    if ($key !== '') { $headers[] = 'X-NOEVA-API-Key: ' . str_replace(["\r","\n"], '', $key); }
+
+    $raw = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($raw === false) { return false; }
+
+    $ok = false;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_CONNECTTIMEOUT_MS=>1200,
+            CURLOPT_TIMEOUT_MS=>2200,
+            CURLOPT_HTTPHEADER=>$headers,
+            CURLOPT_POST=>true,
+            CURLOPT_POSTFIELDS=>$raw,
+            CURLOPT_USERAGENT=>'Aurenoeva-Revenue-Loop/1.0'
+        ]);
+        $response = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $ok = is_string($response) && $status >= 200 && $status < 300;
+        curl_close($ch);
+    } else {
+        $ctx = stream_context_create(['http'=>[
+            'method'=>'POST',
+            'timeout'=>2.2,
+            'ignore_errors'=>true,
+            'header'=>implode("\r\n", $headers) . "\r\n",
+            'content'=>$raw
+        ]]);
+        $response = @file_get_contents($url, false, $ctx);
+        $status = 0;
+        if (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) { $status=(int)$m[1]; }
+        $ok = is_string($response) && $status >= 200 && $status < 300;
+    }
+
+    if (!$ok) {
+        error_log('Aurenoeva revenue-loop event delivery deferred.');
+    }
+    return $ok;
+}
+
+function aur_revenue_event_from_ledger(array $event): void {
+    $kind = strtoupper(trim((string)($event['event'] ?? '')));
+    if (!in_array($kind, ['REQUIREMENT_CAPTURED','CONTACT_CAPTURED'], true)) { return; }
+
+    $reference = trim((string)($event['reference'] ?? ''));
+    if ($reference === '') { return; }
+
+    $subject = $kind === 'REQUIREMENT_CAPTURED'
+        ? trim((string)($event['requirement_contract_id'] ?? $reference))
+        : trim((string)(($event['contact']['type'] ?? '') ?: $reference));
+
+    aur_revenue_event([
+        'event_id'=>'enquiry:' . $reference,
+        'event_type'=>'ENQUIRY_SUBMITTED',
+        'attribution_id'=>$reference,
+        'subject_key'=>$subject,
+        'metadata'=>[
+            'capture_kind'=>$kind,
+            'core_bound'=>(bool)($event['core']['bound'] ?? false)
+        ]
+    ]);
+}
+
 function aur_enquiry_ledger_append(array $event): bool {
     $root = trim((string)(getenv('AURENOEVA_ENQUIRY_LEDGER_DIR') ?: ''));
     if ($root === '') {
@@ -267,8 +359,15 @@ function aur_enquiry_ledger_append(array $event): bool {
     @fclose($fh);
     @chmod($file, 0600);
 
-    if (!$ok) { error_log('Aurenoeva enquiry ledger append failed.'); }
-    return $ok;
+    if (!$ok) {
+        error_log('Aurenoeva enquiry ledger append failed.');
+        return false;
+    }
+
+    // Revenue-loop delivery is deliberately fail-soft: the buyer-facing
+    // enquiry remains valid even if CORE measurement is temporarily offline.
+    aur_revenue_event_from_ledger($event);
+    return true;
 }
 
 function aur_json(array $payload, int $status = 200): never {
