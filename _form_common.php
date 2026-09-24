@@ -231,8 +231,8 @@ function aur_send(string $subject, string $body, string $replyTo): bool {
 function aur_revenue_loop_url(): string {
     $exact = trim((string)(getenv('AURENOEVA_REVENUE_LOOP_URL') ?: ''));
     if ($exact !== '') { return $exact; }
-    $base = rtrim(trim((string)(getenv('AURENOEVA_CORE_BASE_URL') ?: '')), '/');
-    return $base === '' ? '' : $base . '/api/internal/v1/revenue-loop/event';
+    $base = rtrim(trim((string)(getenv('AURENOEVA_CORE_BASE_URL') ?: 'https://noeva-core.179-198-203-247.nip.io')), '/');
+    return $base === '' ? '' : $base . '/api/public/v1/revenue/event';
 }
 
 function aur_revenue_event(array $event): bool {
@@ -250,7 +250,11 @@ function aur_revenue_event(array $event): bool {
         'metadata'=>[]
     ], $event);
 
-    $headers = ['Accept: application/json', 'Content-Type: application/json'];
+    $headers = [
+        'Accept: application/json',
+        'Content-Type: application/json',
+        'Origin: https://aurenoeva.com'
+    ];
     $token = trim((string)(getenv('AURENOEVA_CORE_API_TOKEN') ?: ''));
     if ($token !== '') { $headers[] = 'Authorization: Bearer ' . str_replace(["\r","\n"], '', $token); }
     $key = trim((string)(getenv('AURENOEVA_CORE_API_KEY') ?: ''));
