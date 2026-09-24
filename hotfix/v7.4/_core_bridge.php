@@ -26,6 +26,8 @@ function aur_core_headers(): array {
     $key = aur_core_env('AURENOEVA_CORE_API_KEY');
     if ($key !== '') { $headers[] = 'X-NOEVA-API-Key: ' . str_replace(["\r","\n"], '', $key); }
     $headers[] = 'X-NOEVA-Vertical: aurenoeva';
+    // Preserve the public website origin for CORE public-ingress allow-listing.
+    $headers[] = 'Origin: https://aurenoeva.com';
     return $headers;
 }
 
@@ -79,15 +81,19 @@ function aur_core_http_json(string $method, string $url, ?array $payload = null,
 }
 
 function aur_core_base_url(): string {
-    return rtrim(aur_core_env('AURENOEVA_CORE_BASE_URL'), '/');
+    // Existing NOEVA VPS HTTPS ingress. Public-safe CORE routes therefore do
+    // not require a Hostinger secret or a new DNS record.
+    return rtrim(aur_core_env('AURENOEVA_CORE_BASE_URL', 'https://noeva-core.179-198-203-247.nip.io'), '/');
 }
 
 function aur_core_search_url(): string {
     $exact = aur_core_env('AURENOEVA_CORE_SEARCH_URL');
     if ($exact !== '') { return $exact; }
-    $base = aur_core_base_url();
-    $path = aur_core_env('AURENOEVA_CORE_CATALOGUE_PATH', '/api/catalogue');
-    return aur_core_join_url($base, $path);
+    // Product identity stays fail-closed until a dedicated canonical
+    // Aurenoeva catalogue authority is promoted. Do not promote crawler
+    // observations into catalogue truth merely because CORE is reachable.
+    $path = aur_core_env('AURENOEVA_CORE_CATALOGUE_PATH', '');
+    return $path === '' ? '' : aur_core_join_url(aur_core_base_url(), $path);
 }
 
 function aur_core_requirement_url(): string {

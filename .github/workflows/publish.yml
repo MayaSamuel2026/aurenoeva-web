@@ -191,7 +191,7 @@ jobs:
           cp hotfix/v8.2.6.9/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
           grep -q "aur_revenue_event_from_ledger" "$RUNNER_TEMP/source/site/_form_common.php"
           grep -q "RECOMMENDATION_SHOWN" "$RUNNER_TEMP/source/site/catalogue-search.php"
-
+          grep -q "https://noeva-core.179-198-203-247.nip.io" "$RUNNER_TEMP/source/site/_core_bridge.php"\n          grep -q "/api/public/v1/revenue/event" "$RUNNER_TEMP/source/site/_form_common.php"\n          grep -q "Origin: https://aurenoeva.com" "$RUNNER_TEMP/source/site/_core_bridge.php"\n
       - name: JavaScript syntax check
         shell: bash
         run: |
@@ -422,7 +422,7 @@ jobs:
           cd "$DEPLOY"
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$RUNNER_TEMP/source/site/." "$DEPLOY/"
-          printf '%s\n' "Aurenoeva V8.2.6.8 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
+          printf '%s\n' "Aurenoeva V8.2.6.10 production ${GITHUB_SHA}" > "$DEPLOY/VERSION.txt"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
