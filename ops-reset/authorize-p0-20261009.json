@@ -1,0 +1,17 @@
+{
+  "schema": "noeva-p0-queue-reset-authorization/1.0",
+  "date": "2026-10-09",
+  "scope": "development_ci_deployment_only",
+  "preserve": [
+    "production_crawlers",
+    "monitoring",
+    "backups",
+    "customer_data",
+    "live_applications"
+  ],
+  "github_execution": "APPLY",
+  "ordered_queue": [
+    "CORE_RECOVERY",
+    "JETOCEANIC_FIRST_RELEASE"
+  ]
+}
