@@ -1,0 +1,109 @@
+name: NOEVA P0 authorized portfolio queue reset
+
+on:
+  push:
+    branches:
+      - p0/queue-reset-20261009
+    paths:
+      - "ops-reset/authorize-p0-20261009.json"
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: noeva-p0-portfolio-reset-once
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout reset authority
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify user-authorized P0 scope
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          c=json.load(open('ops-reset/authorize-p0-20261009.json',encoding='utf-8'))
+          assert c=={
+            'schema':'noeva-p0-queue-reset-authorization/1.0',
+            'date':'2026-10-09',
+            'scope':'development_ci_deployment_only',
+            'preserve':['production_crawlers','monitoring','backups','customer_data','live_applications'],
+            'github_execution':'APPLY',
+            'ordered_queue':['CORE_RECOVERY','JETOCEANIC_FIRST_RELEASE']
+          }
+          print('AUTHORIZED_SCOPE=PASS')
+          PY
+
+      - name: Preview eligible workflows (no changes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/noeva_p0_github_queue_reset.py
+          python3 tools/noeva_p0_github_queue_reset.py --receipt preview.json
+
+      - name: Disable eligible workflows and cancel outstanding development runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 tools/noeva_p0_github_queue_reset.py --apply --receipt receipt.json
+
+      - name: Retain evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noeva-p0-portfolio-queue-reset-receipt
+          path: |
+            preview.json
+            receipt.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish receipt to this repository
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,urllib.request
+          from pathlib import Path
+          repo=os.environ['GITHUB_REPOSITORY'];run=os.environ['GITHUB_RUN_ID']
+          result=json.loads(Path('receipt.json').read_text()) if Path('receipt.json').is_file() else {'error':'no_apply_receipt'}
+          preview=json.loads(Path('preview.json').read_text()) if Path('preview.json').is_file() else {'error':'no_preview_receipt'}
+          title='P0 portfolio queue reset 2026-10-09 — run '+run
+          body=(
+            'User-authorized development/CI/deployment freeze. Production crawler, monitoring and backup workflows explicitly excluded.\n\n'
+            f'Run: https://github.com/{repo}/actions/runs/{run}\n'
+            f'Development workflows disabled: **{len(result.get("disabled",[]))}**\n'
+            f'Run cancellation requests accepted: **{len(result.get("cancelled",[]))}**\n'
+            f'Controller errors: **{len(result.get("errors",[]))}**\n'
+            f'Active workflows preserved: **{result.get("preserved_workflow_count","unknown")}**\n'
+            'This is a GitHub-side administrative reset only; CORE queue and production systems untouched.\n\n'
+            '~~~json\n'+json.dumps({
+                'mode':result.get('mode','NOT_APPLIED'),
+                'selected':preview.get('selected_workflow_count'),
+                'disabled':result.get('disabled',[]),
+                'cancelled':result.get('cancelled',[]),
+                'errors':result.get('errors',[]),
+            },indent=2,sort_keys=True)+'\n~~~\n'
+          )
+          if len(body)>60000:body=body[:58000]+'\n[TRUNCATED: see workflow artifact]'
+          payload=json.dumps({'title':title,'body':body}).encode()
+          req=urllib.request.Request(
+            f'https://api.github.com/repos/{repo}/issues',data=payload,method='POST',
+            headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],
+                'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',
+                'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=30) as response:
+            print('RESET_RECEIPT_ISSUE='+json.load(response)['html_url'])
+          PY
