@@ -1,0 +1,155 @@
+name: NOEVA Chat GitHub Gateway V1
+
+# Shared NOEVA command contract: one newly added immutable request per commit.
+# No automatic deployment on source commits, no CORE 8813 dependency.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.noeva-chat/requests/*.json'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: noeva-chat-gateway-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    if: github.repository_owner == 'MayaSamuel2026'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Validate immutable request and execute allowlisted GitHub routing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime as dt,json,os,pathlib,re,subprocess,urllib.error,urllib.request
+          repo=os.environ["GITHUB_REPOSITORY"]
+          owner="MayaSamuel2026/"
+          if not repo.startswith(owner):raise SystemExit("repository_owner_denied")
+          # Routes never permit shell supplied by requests.
+          ALLOWED={
+            "noeva-core":{
+              "core-regression":(378270126,".github/workflows/core-p0-execution-readiness-ci.yml","qualify","main",{}),
+              "core-all-tests":(362002781,".github/workflows/qualification.yml","qualify","main",{}),
+              "vantage-entitlements":(377818280,".github/workflows/vantage-m4-entitlement-authority-qualification.yml","qualify","main",{}),
+              "aegis-bundle":(375322139,".github/workflows/aegis-direct-bundle-once.yml","qualify","main",{})
+            },
+            "noeva-systems-web":{},
+            "packlightbaby-web":{
+              "packlightbaby-release":(0,".github/workflows/project95-release.yml","release","project95-canonical",{"product":"packlightbaby","deploy":"true"}),
+              "replacesense-release":(0,".github/workflows/project95-release.yml","release","project95-canonical",{"product":"replacesense","deploy":"true"}),
+              "packlightbaby-qualify":(0,".github/workflows/project95-release.yml","qualify","project95-canonical",{"product":"packlightbaby","deploy":"false"})
+            },
+            "frederick-samuel-author-web":{
+              "author-release":(360410899,".github/workflows/publish.yml","release","main",{})
+            },
+            "noevapet-web":{},
+            "aurenoeva-web":{
+              "aurenoeva-release":(361220281,".github/workflows/publish.yml","release","main",{})
+            }
+          }
+          slug=repo[len(owner):]
+          if slug not in ALLOWED:raise SystemExit("repo_not_allowlisted")
+          out=pathlib.Path("noeva-chat-gateway-receipt.json")
+          receipt={"schema":"noeva-chat-github-gateway-receipt/1.0","repository":repo,
+                   "observed_at":dt.datetime.now(dt.timezone.utc).isoformat(),
+                   "source_commit":os.environ["GITHUB_SHA"],"state":"PREFLIGHT",
+                   "production_deployed":False,"gateway_job":os.environ["GITHUB_RUN_ID"]}
+          def save():
+              out.write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
+          save()
+          def git(*args):
+              return subprocess.check_output(["git",*args],text=True).strip()
+          changes=subprocess.check_output(
+              ["git","diff-tree","--no-commit-id","--name-status","-r","HEAD"],
+              text=True).splitlines()
+          if len(changes)!=1:raise SystemExit("exactly_one_added_command_required:"+str(changes[:5]))
+          cols=changes[0].split("\t")
+          if len(cols)!=2 or cols[0]!="A" or not re.fullmatch(
+              r"\.noeva-chat/requests/[a-z0-9][a-z0-9-]{5,85}\.json",cols[1]):
+              raise SystemExit("unsafe_or_not_immutable_request")
+          request_path=pathlib.Path(cols[1])
+          cmd=json.loads(request_path.read_text(encoding="utf-8"))
+          if cmd.get("schema")!="noeva-chat-github-gateway/1.0" or (
+              cmd.get("request_id")+".json"!=request_path.name if isinstance(cmd.get("request_id"),str) else True):
+              raise SystemExit("schema_or_request_id_invalid")
+          if cmd.get("repository")!=repo:raise SystemExit("repository_binding_mismatch")
+          if set(cmd)-{"schema","request_id","repository","action","route","source_sha","authorize_release"}:
+              raise SystemExit("unexpected_command_fields")
+          receipt.update(request_id=cmd["request_id"],action=cmd.get("action"),route=cmd.get("route"))
+          if cmd.get("action")=="canary" and not cmd.get("route"):
+              if set(cmd)!={"schema","request_id","repository","action"}:
+                  raise SystemExit("canary_unexpected_fields")
+              receipt.update(state="PASS",qualification="GITHUB_CHAT_COMMAND_TRANSPORT_ONLY",
+                             production_deployed=False,
+                             release_adapters=list(ALLOWED[slug]),
+                             gateway_usable_from_connected_project_chats=True)
+              save()
+              print("NOEVA_CHAT_GATEWAY_CANARY="+json.dumps(receipt,sort_keys=True))
+              raise SystemExit(0)
+          if cmd.get("action")!="dispatch" or not isinstance(cmd.get("route"),str):
+              raise SystemExit("unsupported_action")
+          if cmd["route"] not in ALLOWED[slug]:raise SystemExit("route_not_approved")
+          workflow_id,workflow_path,category,ref,inputs=ALLOWED[slug][cmd["route"]]
+          if category=="release" and cmd.get("authorize_release") is not True:
+              raise SystemExit("explicit_release_authorization_missing")
+          if category=="qualify" and "authorize_release" in cmd:
+              raise SystemExit("qualification_not_a_release")
+          current_sha=git("rev-parse","HEAD^")
+          if ref=="main":
+              if cmd.get("source_sha")!=current_sha:
+                  raise SystemExit("pinned_source_sha_mismatch")
+          else:
+              if not re.fullmatch(r"[0-9a-f]{40}",str(cmd.get("source_sha",""))):
+                  raise SystemExit("canonical_source_sha_required")
+          api="https://api.github.com/repos/"+repo
+          def call(method,path,payload=None):
+              raw=json.dumps(payload).encode() if payload is not None else None
+              req=urllib.request.Request(api+path,method=method,data=raw,headers={
+                  "Authorization":"Bearer "+os.environ["GH_TOKEN"],
+                  "Accept":"application/vnd.github+json",
+                  "X-GitHub-Api-Version":"2022-11-28",
+                  **({"Content-Type":"application/json"} if raw else {})})
+              with urllib.request.urlopen(req,timeout=22) as resp:
+                  data=resp.read()
+                  return json.loads(data) if data else {}
+          if ref!="main":
+              branch=call("GET","/branches/"+ref)
+              if (branch.get("commit") or {}).get("sha")!=cmd["source_sha"]:
+                  raise SystemExit("canonical_release_ref_changed")
+          observed=call("GET","/actions/workflows/"+str(workflow_id or workflow_path))
+          if observed.get("path")!=workflow_path:
+              raise SystemExit("workflow_identity_mismatch")
+          if workflow_id and observed.get("id")!=workflow_id:raise SystemExit("workflow_id_mismatch")
+          if observed.get("state")=="disabled_manually":
+              call("PUT","/actions/workflows/"+str(observed["id"])+"/enable")
+          if call("GET","/actions/workflows/"+str(observed["id"])).get("state")!="active":
+              raise SystemExit("approved_workflow_not_active")
+          call("POST","/actions/workflows/"+str(observed["id"])+"/dispatches",
+               {"ref":ref,**({"inputs":inputs} if inputs else {})})
+          receipt.update(state="DISPATCH_ACCEPTED_NOT_DEPLOYED",
+             approved_workflow_id=observed["id"],approved_workflow_path=workflow_path,
+             release_ref=ref,category=category,source_pin=cmd.get("source_sha"),
+             production_deployed=False,qualification="DOWNSTREAM_RUN_MUST_BE_VERIFIED")
+          save()
+          print("NOEVA_CHAT_GATEWAY_DISPATCH="+json.dumps(receipt,sort_keys=True))
+          PY
+      - name: Upload auditable command receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noeva-chat-gateway-receipt
+          path: noeva-chat-gateway-receipt.json
+          retention-days: 30
+          if-no-files-found: warn
