@@ -1,3 +1,5 @@
+> **CURRENT OWNER INSTRUCTION — 15 OCTOBER 2026:** Central NOEVA CORE is being retired. This historical chat-to-GitHub gateway is **optional legacy transport only**, not a required release path, security authority, source authority or dependency for independent projects. Do not route new features to CORE or treat old CORE/Forgejo/Google Cloud release gates as mandatory. Refer first to [repository AGENTS.md](../AGENTS.md), the [owner decision](https://github.com/MayaSamuel2026/noeva-systems-web/issues/204) and the [simplification master](https://github.com/MayaSamuel2026/noeva-systems-web/blob/main/docs/NOEVA_SIMPLIFICATION_CANONICAL_MASTER.md). Preserve current site/application release branches and customer data.
+
 # NOEVA Chat-to-GitHub Execution (2026-10-09)
 
 **Common gateway installed and canary-qualified** on this repository. All NOEVA project chats with the connected GitHub tool use the same entry point: one new immutable `.noeva-chat/requests/<unique-id>.json` on `main` in its own commit, triggering `.github/workflows/noeva-chat-github-gateway-v1.yml`.
