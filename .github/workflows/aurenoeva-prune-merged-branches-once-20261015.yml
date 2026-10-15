@@ -1,0 +1,86 @@
+name: Aurenoeva one-time deletion of six verified merged branches
+on:
+  push:
+    branches: [backup/aurenoeva-complete-git-history-20261015]
+    paths: [.github/workflows/aurenoeva-prune-merged-branches-once-20261015.yml]
+permissions:
+  contents: write
+  pull-requests: read
+  actions: read
+jobs:
+  prune-once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      GH_REF: ${{ github.ref_name }}
+    steps:
+      - name: Preflight backup, merged PRs, SHA-pinned branches, and preserved production
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request,urllib.error,urllib.parse
+          repo=os.environ['GH_REPO']
+          assert repo=='MayaSamuel2026/aurenoeva-web', 'wrong repository'
+          assert os.environ['GH_REF']=='backup/aurenoeva-complete-git-history-20261015', 'wrong source branch'
+          token=os.environ['GH_TOKEN']
+          headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'NOEVA-OneTime-ArchiveVerified-Prune'}
+          base='https://api.github.com/repos/'+repo
+          expected_preserve={
+            'main':'a4da6d0e77a677ee751683ab8c8c910f1658d0a5',
+            'production':'76400b02ed3b098ec4c9cdfe7f0d060f3fe919bf',
+          }
+          expected_targets={
+            'p1/production-closure':('f0498dbf3f1a320091c5e8b9841b874bdedb33d0',7),
+            'feature/minimum-revenue-loop':('7a2fb46b7cb729e4e749de7bce03d4e93298ea39',6),
+            'v8.2.6.6-cache-safe-nav-20260919':('b5def5de8ab01805c6ee197305d798087357f3f8',5),
+            'v8.2.6.5-layout-nav-mail-20260919':('c1b431912f56888cd3b7f43a35517a755770819b',4),
+            'repair-sector-numbering-mailer-20260919':('681cd238c033e0fce860e005d7d29bc1c7415fcc',2),
+            'checkpoint-v8.2.6-final-20260919':('3cced3612f33088d220e38feb7cdfc3d81c99a2c',1),
+          }
+          def api(path,method='GET',allow_missing=False):
+            req=urllib.request.Request(base+path,headers=headers,method=method)
+            try:
+              with urllib.request.urlopen(req,timeout=25) as resp:
+                data=resp.read()
+                return json.loads(data) if data else {}
+            except urllib.error.HTTPError as exc:
+              if exc.code==404 and allow_missing:return None
+              raise RuntimeError(f'{method} {path}: HTTP {exc.code}') from exc
+          def ref(name,allow_missing=False):
+            return api('/git/ref/heads/'+urllib.parse.quote(name,safe='/'),allow_missing=allow_missing)
+          run=api('/actions/runs/38759962386')
+          artifact=api('/actions/artifacts/11984129361')
+          assert run['conclusion']=='success' and run['status']=='completed','archive run not successful'
+          assert artifact['name']=='aurenoeva-verified-git-mirror-20261015' and not artifact['expired'],'full mirror artifact missing or expired'
+          assert artifact['workflow_run']['id']==38759962386,'backup artifact not verified run'
+          print('VERIFIED_FULL_HISTORY_ARCHIVE=PASS',flush=True)
+          for name,sha in expected_preserve.items():
+            assert ref(name)['object']['sha']==sha,f'preserved ref changed {name}'
+          opens=api('/pulls?state=open&per_page=100')
+          assert len(opens)<100,'open PR pagination needed'
+          assert not opens,'new open PR appeared'
+          for name,(sha,pr_number) in expected_targets.items():
+            p=api('/pulls/'+str(pr_number))
+            assert p['head']['ref']==name and p['merged_at'] and p['state']=='closed',f'PR merged identity mismatch {name}'
+            actual=ref(name,allow_missing=True)
+            if actual is None:
+              print('ALREADY_ABSENT='+name,flush=True)
+              continue
+            assert actual['object']['sha']==sha,f'branch changed: {name}'
+          print('PREDELETE_VALIDATION=PASS',flush=True)
+          count=0
+          for name,(sha,pr_number) in expected_targets.items():
+            actual=ref(name,allow_missing=True)
+            if actual is None:continue
+            assert actual['object']['sha']==sha,f'branch moved after preflight: {name}'
+            api('/git/refs/heads/'+urllib.parse.quote(name,safe='/'),method='DELETE')
+            count+=1
+            assert ref(name,allow_missing=True) is None,f'ref still exists after deletion: {name}'
+            print('DELETED='+name,flush=True)
+          for name,sha in expected_preserve.items():
+            assert ref(name)['object']['sha']==sha,f'preserved ref drift {name}'
+          print('DELETION_VERIFIED_COUNT='+str(count),flush=True)
+          print('PRODUCTION_AND_MAIN_UNCHANGED=PASS',flush=True)
+          PY
