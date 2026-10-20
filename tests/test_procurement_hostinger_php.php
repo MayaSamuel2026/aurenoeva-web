@@ -3,7 +3,10 @@ declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/private_cases.php';
 $root=sys_get_temp_dir().'/aurenoeva-qa-'.bin2hex(random_bytes(6));
 mkdir($root.'/public_html',0700,true);
-$_SERVER['DOCUMENT_ROOT']=$root.'/public_html';
+// Simulate a web server which supplies an unrelated document root.
+// The procurement script's own public_html location must remain authoritative.
+$_SERVER['DOCUMENT_ROOT']=$root.'/other_document_root';
+mkdir($_SERVER['DOCUMENT_ROOT'],0700,true);
 function check(bool $condition,string $why):void {if(!$condition)throw new RuntimeException($why);}
 function csvFile(string $dir,string $name):string {
   $file="$dir/$name";
@@ -11,7 +14,16 @@ function csvFile(string $dir,string $name):string {
   return $file;
 }
 try {
-    $store=aur_store_root();
+    $store=aur_store_root($root.'/public_html');
+    // Prove default resolution uses the deployed script path, not DOCUMENT_ROOT.
+    $isolated=$root.'/public_html/procurement';
+    mkdir($isolated,0700,true);
+    copy(dirname(__DIR__).'/deployment/site/procurement/private_cases.php',$isolated.'/private_cases.php');
+    $probe=$root.'/credential_root_probe.php';
+    file_put_contents($probe,'<?php $_SERVER["DOCUMENT_ROOT"]='.var_export($_SERVER['DOCUMENT_ROOT'],true).'; require '.var_export($isolated.'/private_cases.php',true).'; echo aur_store_root();');
+    $probeOutput=[];$probeExit=1;
+    exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($probe).' 2>&1',$probeOutput,$probeExit);
+    check($probeExit===0 && trim(implode("\\n",$probeOutput))===$store,'CLI/web private root drift');
     $src=csvFile($root,'test.csv');
     $one=aur_case_import($store,$src,'UZ','original.csv');
     check($one['ok']===true && $one['line_count']===3,'CSV item count');
