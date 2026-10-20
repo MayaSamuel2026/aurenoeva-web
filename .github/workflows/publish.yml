@@ -201,6 +201,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/source/site/procurement"
           cp deployment/site/procurement/index.php "$RUNNER_TEMP/source/site/procurement/index.php"
+          cp deployment/site/procurement/.htaccess "$RUNNER_TEMP/source/site/procurement/.htaccess"
           # Retain index.html as the public default; permit index.php only in private subfolders.
           sed -i 's/^DirectoryIndex index.html$/DirectoryIndex index.html index.php/' "$RUNNER_TEMP/source/site/.htaccess"
           grep -q '^DirectoryIndex index.html index.php          php -l "$RUNNER_TEMP/source/site/procurement/index.php"
