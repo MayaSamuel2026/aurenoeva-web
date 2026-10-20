@@ -6,7 +6,8 @@ on:
       - 'tools/procurement_*.py'
       - 'tests/test_procurement_*.py'
       - 'deployment/crm/aurenoeva-v1/import.php'
-      - 'deployment/site/procurement/index.php'
+      - 'deployment/site/procurement/**'
+      - 'tests/test_procurement_hostinger_php.php'
       - '.github/workflows/publish.yml'
       - 'deployment/install-hostinger.sh'
       - 'deployment/install-hostinger-worker.sh'
@@ -26,9 +27,17 @@ jobs:
         run: |
           python3 -m compileall -q tools/procurement_intake.py tools/procurement_rfq.py tools/procurement_inbox.py tools/procurement_case_store.py tools/procurement_sanctions.py tools/procurement_hostinger_worker.py
           python3 -m unittest discover -s tests -p 'test_procurement_*.py' -v
+      - name: Configure current PHP with ZIP and XML
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: zip,xml,simplexml,mbstring
       - name: PHP upload syntax / deployment shell syntax
         run: |
           php -l deployment/crm/aurenoeva-v1/import.php
           php -l deployment/site/procurement/index.php
+          php -l deployment/site/procurement/private_cases.php
+          php -l deployment/site/procurement/setup-cli.php
+          php tests/test_procurement_hostinger_php.php
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh
