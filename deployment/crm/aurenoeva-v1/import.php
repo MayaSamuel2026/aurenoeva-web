@@ -48,9 +48,9 @@ $permitted = static function ($scope) use ($role): bool {
 if (!$permitted($readScope)) aur_fail(403, 'AURENOEVA read scope required');
 $mayWrite = in_array($role, ['global_admin','operations','sales'], true) && $permitted($writeScope);
 
-$tools = trim((string) (getenv('AURENOEVA_TOOLS_PATH') ?: ''));
-$db = trim((string) (getenv('AURENOEVA_PRIVATE_DB') ?: ''));
-$uploadDir = trim((string) (getenv('AURENOEVA_UPLOAD_DIR') ?: ''));
+$tools = trim((string) (getenv('AURENOEVA_TOOLS_PATH') ?: '/opt/noeva-aurenoeva/app-tools'));
+$db = trim((string) (getenv('AURENOEVA_PRIVATE_DB') ?: '/opt/noeva-aurenoeva/private/cases.sqlite3'));
+$uploadDir = trim((string) (getenv('AURENOEVA_UPLOAD_DIR') ?: '/opt/noeva-aurenoeva/private/inbox'));
 if ($tools === '' || $db === '' || $uploadDir === '' || !str_starts_with($tools, '/')
     || !str_starts_with($db, '/') || !str_starts_with($uploadDir, '/')
     || !is_file($tools . '/procurement_case_store.py')
