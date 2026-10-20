@@ -200,29 +200,27 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/source/site/procurement"
-          cp deployment/site/procurement/index.php "$RUNNER_TEMP/source/site/procurement/index.php"
-          cp deployment/site/procurement/private_cases.php "$RUNNER_TEMP/source/site/procurement/private_cases.php"
-          cp deployment/site/procurement/setup-cli.php "$RUNNER_TEMP/source/site/procurement/setup-cli.php"
-          cp deployment/site/procurement/.htaccess "$RUNNER_TEMP/source/site/procurement/.htaccess"
-          # Retain index.html as the public default; permit index.php only in private subfolders.
+          for name in index.php private_cases.php setup-cli.php .htaccess; do
+            cp "deployment/site/procurement/$name" "$RUNNER_TEMP/source/site/procurement/$name"
+          done
+          # Preserve the public index.html as default while allowing subdirectory PHP index.
           sed -i 's/^DirectoryIndex index.html$/DirectoryIndex index.html index.php/' "$RUNNER_TEMP/source/site/.htaccess"
           grep -q '^DirectoryIndex index.html index.php$' "$RUNNER_TEMP/source/site/.htaccess"
-          php -l "$RUNNER_TEMP/source/site/procurement/index.php"
+          for name in index.php private_cases.php setup-cli.php; do
+            php -l "$RUNNER_TEMP/source/site/procurement/$name"
+          done
           python3 - "$RUNNER_TEMP/source/site/index.html" <<'PY'
           import pathlib, sys
           page=pathlib.Path(sys.argv[1])
-          original=page.read_text(encoding="utf-8")
+          old=page.read_text(encoding="utf-8")
           marker="<span>PROCUREMENT · COMPONENTS · INTELLIGENCE</span>"
-          assert original.count(marker) == 1, "Homepage footer marker changed"
-          replacement=marker+'\n      <span><a href="/procurement/" style="font-size:12px;color:#C9D8D3" data-en="Staff procurement" data-de="Interne Beschaffung">Staff procurement</a></span>'
-          page.write_text(original.replace(marker,replacement),encoding="utf-8")
+          assert old.count(marker)==1, "footer marker drift"
+          link='<span><a href="/procurement/" style="font-size:12px;color:#C9D8D3" data-en="Staff procurement" data-de="Interne Beschaffung">Staff procurement</a></span>'
+          page.write_text(old.replace(marker,marker+"\n      "+link),encoding="utf-8")
           PY
           grep -q 'href="/procurement/"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q "require_once __DIR__ . '/private_cases.php'" "$RUNNER_TEMP/source/site/procurement/index.php"
-          grep -q "Require all denied" "$RUNNER_TEMP/source/site/procurement/.htaccess"
-          php -l "$RUNNER_TEMP/source/site/procurement/private_cases.php"
-          php -l "$RUNNER_TEMP/source/site/procurement/setup-cli.php"
-
+          grep -q 'aur_case_import' "$RUNNER_TEMP/source/site/procurement/index.php"
+          grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
 
       - name: JavaScript syntax check
         shell: bash
@@ -465,16 +463,3 @@ jobs:
             git commit -qm "Aurenoeva production deploy ${GITHUB_SHA}"
             git push origin production
           fi
- "$RUNNER_TEMP/source/site/.htaccess"
-          php -l "$RUNNER_TEMP/source/site/procurement/index.php"
-          python3 - "$RUNNER_TEMP/source/site/index.html" <<'PY'
-          import pathlib, sys
-          page=pathlib.Path(sys.argv[1])
-          original=page.read_text(encoding="utf-8")
-          marker="<span>PROCUREMENT · COMPONENTS · INTELLIGENCE</span>"
-          assert original.count(marker) == 1, "Homepage footer marker changed"
-          replacement=marker+'\n      <span><a href="/procurement/" style="font-size:12px;color:#C9D8D3" data-en="Staff procurement" data-de="Interne Beschaffung">Staff procurement</a></span>'
-          page.write_text(original.replace(marker,replacement),encoding="utf-8")
-          PY
-          grep -q 'href="/procurement/"' "$RUNNER_TEMP/source/site/index.html"
-          grep -q 'AURENOEVA_ADMIN_PASSWORD_HASH' "$RUNNER_TEMP/source/site/procurement/index.php"
