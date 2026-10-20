@@ -46,6 +46,8 @@ def prepare_one(source: Path, private_dir: Path, country: str) -> dict:
         prior = json.loads(case_path.read_text(encoding="utf-8"))
         if prior.get("source_sha256") != sha or prior.get("delivery_country") != country.upper():
             raise ValueError("existing_case_reference_conflict")
+        if not preflight_path.exists():
+            _atomic_private_json(preflight_path, create_package(prior))
         return {"case_reference": reference, "state": "ALREADY_PREPARED",
                 "count": len(prior["sourcing_lines"])}
     payload = build_payload(source, reference, country.upper())
