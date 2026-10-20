@@ -42,7 +42,7 @@ class TestPrivateProcurement(unittest.TestCase):
     def _make_feed(self,dir:Path, source:str, rows:list[list[str]], now:dt.datetime):
         path=dir/(source+".csv")
         stream=io.StringIO()
-        writer=csv.writer(stream);writer.writerows(rows)
+        writer=csv.writer(stream,delimiter=";" if source=="EU_FSF" else ",");writer.writerows(rows)
         data=stream.getvalue().encode("utf-8")
         path.write_bytes(data)
         (dir/(source+".json")).write_text(json.dumps({
