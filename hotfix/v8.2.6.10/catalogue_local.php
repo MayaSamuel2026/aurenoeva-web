@@ -4,10 +4,15 @@ declare(strict_types=1);
  * Snapshot must reside OUTSIDE public_html and be supplied through server environment.
  */
 function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
+    $root = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
     $path = trim((string)(getenv('AURENOEVA_CATALOGUE_SNAPSHOT') ?: ''));
+    // Default to an app-private directory beside public_html. This allows
+    // unattended Hostinger SFTP sync without changing PHP process environment.
+    if ($path === '' && $root) {
+        $path = dirname($root) . '/.aurenoeva-private/catalogue-public.json';
+    }
     if ($path === '' || !str_starts_with($path, '/') || str_contains($path, "\0")) return null;
     $real = realpath($path);
-    $root = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
     if (!$real || !is_file($real) || ($root && ($real === $root || str_starts_with($real, $root . DIRECTORY_SEPARATOR)))) return null;
     $size = filesize($real);
     if ($size === false || $size > 8_000_000) return null;
@@ -25,7 +30,12 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
         $maker = trim((string)($p['manufacturer'] ?? ''));
         $model = trim((string)($p['model'] ?? ''));
         $id = trim((string)($p['canonical_id'] ?? ''));
-        if ($maker === '' || $model === '' || !preg_match('/^AUR-P-[A-F0-9]{20}$/', $id)) continue;
+        // Old crawls may include broad catalogue headings, not actual models.
+        $generic = ['surgical carts','surgical cart','products','dental units',
+                    'medical devices','dental equipment','equipment','catalogue',
+                    'catalog','accessories','solutions'];
+        if ($maker === '' || $model === '' || !preg_match('/^AUR-P-[A-F0-9]{20}$/', $id)
+            || in_array(strtolower($model), $generic, true) || !preg_match('/[0-9]/', $model)) continue;
         $seen = strtotime((string)($p['last_seen'] ?? ''));
         if (!$seen || $seen < time() - 14 * 86400) continue; // do not show stale model identities
         $m = $norm($maker); $part = $norm($model);

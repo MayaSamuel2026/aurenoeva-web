@@ -380,6 +380,13 @@ def export_public(conn, target):
           model, description, source_url AS source_ref,
           'CANDIDATE' AS relationship_type, lifecycle_status, last_seen
           FROM products ORDER BY manufacturer,model""")]
+    # Historical crawls may contain broad page headings (e.g. 'Surgical carts').
+    # They remain available for private review, but cannot be sold as models.
+    generic = {"surgical carts", "surgical cart", "equipment", "products",
+               "dental equipment", "dental units", "medical devices",
+               "catalogue", "catalog", "accessories", "solutions"}
+    rows = [p for p in rows if p["model"].strip().casefold() not in generic
+            and any(char.isdigit() for char in p["model"])]
     payload = {"schema":SCHEMA,"exported_at":stamp(),"items":rows,
                "availability_notice":"Product identity only. No stock or price implied."}
     target.parent.mkdir(parents=True, exist_ok=True)

@@ -71,6 +71,20 @@ class Tests(unittest.TestCase):
     dest=Path(self.tmp.name)/"catalogue-public.json"
     export_public(self.db,dest)
     self.assertNotIn("reported_quantity",dest.read_text())
+  def test_existing_broad_family_is_not_public_inventory(self):
+    # Previously crawled generic headings remain in the audit DB, but
+    # must not become a public model or a stock assertion.
+    self.db.execute("""INSERT INTO products
+       (product_id, manufacturer, model, description, source_url,
+        content_sha256,first_seen,last_seen)
+       VALUES(?,?,?,?,?,?,?,?)""",
+       (product_id("Anthos","Surgical carts"),"Anthos","Surgical carts",
+        "Surgical carts","https://www.anthos.it/en/dental-units/cart-chirurgico",
+        "abc",stamp(),stamp()))
+    target=Path(self.tmp.name)/"public.json"
+    self.assertEqual(export_public(self.db,target),0)
+    self.assertEqual(status(self.db)["products"],1)
+
   def test_generic_catalogue_page_does_not_create_product(self):
     sources={"x":{**SOURCE["official"],"id":"x","model_hint":"","seeds":["https://example.org/produkte"]}}
     result=run_worker(self.db,sources,now=TIME,fetch=lambda u,s:("<title>Produkte</title><h1>Produkte</h1>",200))

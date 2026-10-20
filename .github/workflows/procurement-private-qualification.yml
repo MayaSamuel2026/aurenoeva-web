@@ -27,6 +27,10 @@ jobs:
         run: |
           python3 -m compileall -q tools/procurement_intake.py tools/procurement_rfq.py tools/procurement_inbox.py tools/procurement_case_store.py tools/procurement_sanctions.py tools/procurement_hostinger_worker.py
           python3 -m unittest discover -s tests -p 'test_procurement_*.py' -v
+      - name: Catalogue crawler and private SSH publisher regression tests
+        run: |
+          python3 -m compileall -q tools/catalogue_worker.py tools/catalogue_publish.py
+          python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
       - name: Configure current PHP with ZIP and XML
         uses: shivammathur/setup-php@v2
         with:
@@ -39,5 +43,8 @@ jobs:
           php -l deployment/site/procurement/private_cases.php
           php -l deployment/site/procurement/setup-cli.php
           php tests/test_procurement_hostinger_php.php
+          php -l hotfix/v8.2.6.10/catalogue_local.php
+          php -l hotfix/v8.2.6.11/catalogue-search.php
+          php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh
