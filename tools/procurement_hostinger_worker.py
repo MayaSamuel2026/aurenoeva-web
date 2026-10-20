@@ -76,8 +76,8 @@ def main() -> int:
     feeds={}
     if args.refresh_feeds:
         for name,url in {
-            "EU_FSF":os.getenv("AURENOEVA_EU_FSF_URL",""),
-            "OFAC_SDN":os.getenv("AURENOEVA_OFAC_SDN_URL","https://www.treasury.gov/ofac/downloads/sdn.csv"),
+            "EU_FSF":os.getenv("AURENOEVA_EU_FSF_URL","https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw"),
+            "OFAC_SDN":os.getenv("AURENOEVA_OFAC_SDN_URL","https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV"),
         }.items():
             try:
                 feeds[name]={"ok":True,"meta":refresh(args.feed_dir,name,url)}
