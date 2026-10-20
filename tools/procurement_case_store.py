@@ -75,6 +75,9 @@ def _case(conn: sqlite3.Connection, reference: str) -> dict | None:
                                 "WHERE case_reference=? ORDER BY ordinal", (reference,))
     ]
     payload = json.loads(head["payload"])
+    legal = conn.execute("SELECT report_json,checked_at FROM procurement_compliance "
+                         "WHERE case_reference=?", (reference,)).fetchone()
+    report = json.loads(legal["report_json"]) if legal else None
     if lines != payload["sourcing_lines"] or len(lines) != head["line_count"]:
         raise RuntimeError("canonical_case_readback_mismatch")
     return {
@@ -84,7 +87,7 @@ def _case(conn: sqlite3.Connection, reference: str) -> dict | None:
         "requirements": len({x["customer_item_number"] for x in lines}),
         "alternatives": sum(x["option_type"] == "ALTERNATIVE" for x in lines),
         "import_state": "PERSISTED_PRIVATE_APP_CASE",
-        "payload": payload,
+        "payload": payload, "legal_review": report,
     }
 
 
