@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-native-procurement-release-20261020-b",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "ab87d740df9c759995f9d53d0f948a56a60f0009",
+  "authorize_release": true
+}
