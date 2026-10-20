@@ -256,3 +256,93 @@ function aur_case_list(string $store): array {
     }
     return ['ok'=>true,'cases'=>$out];
 }
+
+
+/**
+ * Derive a private, non-dispatching RFQ from the canonical case.
+ * It is intentionally a view of the case, not another case ledger.
+ * No automatic sanctions clearance or supplier email can be inferred.
+ */
+function aur_rfq_draft(array $case): array {
+    $payload = $case['payload'] ?? null;
+    if (!is_array($payload) || ($payload['schema'] ?? '') !== 'aurenoeva-procurement-case-import/1.0'
+        || ($payload['case_reference'] ?? '') !== ($case['reference'] ?? null)
+        || !is_array($payload['sourcing_lines'] ?? null) || !$payload['sourcing_lines']) {
+        throw new InvalidArgumentException('invalid_canonical_case_for_rfq');
+    }
+    $lines = [];
+    foreach ($payload['sourcing_lines'] as $line) {
+        $lines[] = [
+            'item' => (int)($line['customer_item_number'] ?? 0),
+            'group' => (string)($line['option_group'] ?? ''),
+            'option' => (string)($line['option_type'] ?? ''),
+            'description' => (string)($line['description_original'] ?? ''),
+            'quantity' => isset($line['quantity']) ? (int)$line['quantity'] : null,
+        ];
+    }
+    return [
+        'schema' => 'aurenoeva-private-rfq-draft/1.0',
+        'case_reference' => $case['reference'],
+        'destination_country' => $case['country'],
+        'send_state' => 'DRAFT_NOT_SENT',
+        'send_allowed' => false,
+        'compliance_status' => 'REVIEW_REQUIRED',
+        'supplier_identified' => false,
+        'buyer_contracts_directly_with_vendor' => true,
+        'lines' => $lines,
+    ];
+}
+
+function aur_rfq_text(array $draft): string {
+    if (($draft['schema'] ?? '') !== 'aurenoeva-private-rfq-draft/1.0'
+        || ($draft['send_state'] ?? '') !== 'DRAFT_NOT_SENT') {
+        throw new InvalidArgumentException('invalid_rfq_draft');
+    }
+    $safe = static fn($value): string => trim(preg_replace('/[\r\n\t]+/u', ' ', (string)$value) ?? '');
+    $out = [
+        'AURENOEVA | SUPPLIER REQUEST FOR QUOTATION — DRAFT / NOT SENT',
+        'Reference: '.$safe($draft['case_reference']),
+        'Proposed destination: '.$safe($draft['destination_country']),
+        '',
+        'To: [Supplier legal entity and email — to be verified]',
+        'Subject: Non-binding technical-equipment RFQ — '.$safe($draft['case_reference']),
+        '',
+        'Please provide an indicative, non-binding quotation for the requested items below.',
+        'For every item, confirm the exact manufacturer, part/model, specification,',
+        'quantity, condition, availability, country of origin, applicable export',
+        'classification, currency/price, Incoterm, lead time, shipping, warranty,',
+        'installation/training and after-sales service, and any relevant authorisations.',
+        'Please identify restrictions on the end-use or re-export of the goods.',
+        '',
+        'SOURCING LINE SCHEDULE',
+    ];
+    foreach ($draft['lines'] as $line) {
+        $qty = $line['quantity'] === null ? 'To confirm' : (string)$line['quantity'];
+        $out[] = sprintf(
+            'Item %d | %s | Quantity: %s | %s',
+            (int)$line['item'],
+            ($line['option'] ?? '') === 'ALTERNATIVE' ? 'Alternative option' : 'Requested item',
+            $qty,
+            $safe($line['description'] ?? '')
+        );
+    }
+    array_push($out,
+        '',
+        'COMPLIANCE HOLD — THIS IS NOT AUTHORISATION TO CONTACT A SUPPLIER',
+        'Before any dispatch: verify the buyer, end user, final destination/end-use,',
+        'supplier and beneficial owners; obtain current sanctions-screening evidence,',
+        'goods classification and any necessary licence, import and brokering advice.',
+        'Do not use third-country routing or substitutions to evade restrictions.',
+        '',
+        'COMMERCIAL ROLE',
+        'AURENOEVA is a disclosed sourcing intermediary, not the seller or purchaser.',
+        'Any final contract, goods invoice and payment are directly between the',
+        'customer and supplier. AURENOEVA does not take title or hold customer funds.',
+        'Any brokerage fees require a separate agreement and are not part of this RFQ.',
+        'This document creates no purchase order, sales contract or export clearance.',
+        '',
+        'STATUS: DRAFT_NOT_SENT / REVIEW_REQUIRED',
+        ''
+    );
+    return implode("\n", $out);
+}

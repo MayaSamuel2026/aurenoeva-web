@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/_form_common.php';
 require __DIR__ . '/_core_bridge.php';
+require __DIR__ . '/catalogue_local.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     aur_json(['ok'=>false,'available'=>false,'error'=>'method'],405);
@@ -18,7 +19,14 @@ if (strlen($q) > 180) {
     aur_json(['ok'=>false,'available'=>true,'error'=>'query_too_long'],422);
 }
 
-$result = aur_core_search($q,$industry,$category,8);
+// Prefer Aurenoeva's own verified product identities. Keep existing
+// CORE fallback until the private snapshot is connected and qualified.
+$localItems = aur_catalogue_snapshot_search($q,8);
+$source = $localItems === null ? 'NOEVA_CORE' : 'AURENOEVA_OWNED_CATALOGUE';
+$result = $localItems === null
+    ? aur_core_search($q,$industry,$category,8)
+    : ['configured'=>true,'reachable'=>true,'items'=>$localItems,
+       'source_mode'=>'verified_identity_candidates'];
 header('Cache-Control: no-store, max-age=0');
 
 if (!$result['configured'] || !$result['reachable']) {
@@ -58,6 +66,6 @@ aur_json([
     'ok'=>true,
     'available'=>true,
     'items'=>$items,
-    'source'=>'NOEVA_CORE',
+    'source'=>$source,
     'source_mode'=>$result['source_mode']
 ]);
