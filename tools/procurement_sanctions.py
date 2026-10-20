@@ -27,7 +27,7 @@ from urllib.request import Request, urlopen
 ALLOWED_HOSTS = {
     "ec.europa.eu", "webgate.ec.europa.eu", "data.europa.eu",
     "www.treasury.gov", "treasury.gov", "ofac.treasury.gov",
-    "www.ofac.treasury.gov",
+    "www.ofac.treasury.gov", "sanctionslistservice.ofac.treas.gov",
 }
 REQUIRED = ("EU_FSF", "OFAC_SDN")
 MAX_FEED_BYTES = 75_000_000
@@ -102,7 +102,7 @@ def parse_names(contents: bytes, source_name: str) -> set[str]:
         content = contents.decode("utf-8-sig")
     except UnicodeDecodeError:
         content = contents.decode("latin-1")
-    reader = csv.reader(io.StringIO(content), delimiter=",")
+    reader = csv.reader(io.StringIO(content), delimiter=";" if source_name == "EU_FSF" else ",")
     rows = list(reader)
     if not rows:
         raise ValueError("empty_sanctions_list")
@@ -218,8 +218,8 @@ def main() -> int:
     args=parser.parse_args()
     if args.action=="refresh":
         urls={
-            "EU_FSF": os.getenv("AURENOEVA_EU_FSF_URL",""),
-            "OFAC_SDN": os.getenv("AURENOEVA_OFAC_SDN_URL","https://www.treasury.gov/ofac/downloads/sdn.csv"),
+            "EU_FSF": os.getenv("AURENOEVA_EU_FSF_URL","https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw"),
+            "OFAC_SDN": os.getenv("AURENOEVA_OFAC_SDN_URL","https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV"),
         }
         results={}
         for name,url in urls.items():
