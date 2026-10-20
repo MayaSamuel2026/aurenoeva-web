@@ -23,6 +23,15 @@ try {
     check(count(aur_case_list($store)['cases'])===2,'case listing did not deduplicate');
     check($one['payload']['supplier_contact_conducted']===false,'incorrect supplier send');
     check($one['payload']['legal_status']==='REVIEW_REQUIRED','incorrect legal clearance');
+    $draft=aur_rfq_draft($one);
+    check($draft['send_state']==='DRAFT_NOT_SENT' && $draft['send_allowed']===false,'RFQ must not be sent');
+    check($draft['compliance_status']==='REVIEW_REQUIRED' && count($draft['lines'])===3,'RFQ draft must preserve source lines');
+    check($draft['lines'][1]['option']==='ALTERNATIVE','RFQ alternative grouping lost');
+    $rfqText=aur_rfq_text($draft);
+    check(str_contains($rfqText,'AUR-UZ-') && str_contains($rfqText,'Mindray WATO EX-35'),'RFQ source evidence lost');
+    check(str_contains($rfqText,'disclosed sourcing intermediary') && str_contains($rfqText,'NOT SENT'),'RFQ legal role/hold absent');
+    check(!str_contains($rfqText,'price to customer'),'RFQ must not disclose markup');
+
     check(is_file($store.'/uploads/'.$one['reference'].'.csv'),'original evidence absent');
     check(!str_starts_with(realpath($store),realpath($root.'/public_html')),'unsafe private directory');
 

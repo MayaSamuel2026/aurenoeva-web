@@ -83,6 +83,23 @@ if (!$isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['passwor
     aur_denied(401, 'authentication required');
 }
 
+
+/* RFQ exports are generated only after staff authentication, never public URLs. */
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
+    try {
+        $rfqRef=trim((string)$_GET['rfq']);
+        $draft=aur_rfq_draft(aur_case_read($aurStore,$rfqRef));
+        $body=aur_rfq_text($draft);
+    } catch (Throwable $e) {
+        aur_denied(404,'RFQ draft unavailable');
+    }
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Content-Disposition: attachment; filename="'.$rfqRef.'-RFQ-DRAFT.txt"');
+    header('Content-Length: '.strlen($body));
+    echo $body;
+    exit;
+}
+
 $result = null;
 if ($isAdmin) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['customer_file'])) {
@@ -151,6 +168,8 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
 <p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
+<p><a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download supplier RFQ draft</a></p>
+<p class="muted">Automatically prepared from the saved enquiry · editable text · NOT SENT. Supplier identification, sanctions screening, goods classification and compliance review are required before dispatch.</p>
 <p><a href="?case=<?=rawurlencode((string)$result['reference'])?>">Read this case again from the database</a></p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Equipment / specification</th><th>Quantity</th><th>Type</th></tr></thead><tbody>
 <?php foreach (array_slice($result['payload']['sourcing_lines'] ?? [],0,250) as $line): ?>
@@ -159,9 +178,9 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <?php endforeach; ?></tbody></table></div>
 <?php if ((int)($result['line_count'] ?? 0)>250): ?><p class="muted">Showing first 250 entries; all entries are persisted privately.</p><?php endif; ?></section>
 <?php elseif (is_array($result) && isset($result['cases'])): ?>
-<section class="card"><h2>Existing enquiries</h2><div class="scroll"><table><thead><tr><th>Case reference</th><th>Country</th><th>Items</th><th>Received (UTC)</th></tr></thead><tbody>
+<section class="card"><h2>Existing enquiries</h2><div class="scroll"><table><thead><tr><th>Case reference</th><th>Country</th><th>Items</th><th>Received (UTC)</th><th>RFQ</th></tr></thead><tbody>
 <?php foreach ($result['cases'] as $case): ?><tr><td><a href="?case=<?=rawurlencode((string)$case['reference'])?>"><?=aur_escape((string)$case['reference'])?></a></td>
-<td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td></tr><?php endforeach; ?>
+<td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td><td><a href="?rfq=<?=rawurlencode((string)$case['reference'])?>">Draft</a></td></tr><?php endforeach; ?>
 </tbody></table></div></section>
 <?php endif; ?>
 <?php endif; ?>
