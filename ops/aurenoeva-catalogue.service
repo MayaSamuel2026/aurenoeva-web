@@ -1,0 +1,20 @@
+[Unit]
+Description=Aurenoeva private catalogue discovery and inventory evidence worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=aurenoeva
+Group=aurenoeva
+WorkingDirectory=/opt/aurenoeva
+ExecStart=/usr/bin/python3 /opt/aurenoeva/tools/catalogue_worker.py --db /var/lib/aurenoeva/catalogue.sqlite3 --sources /opt/aurenoeva/config/catalogue_sources.json --export /var/lib/aurenoeva/catalogue-public.json --max-pages 30 --max-seconds 240
+RuntimeMaxSec=300
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aurenoeva
+ProtectHome=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
