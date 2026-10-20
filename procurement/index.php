@@ -2,9 +2,8 @@
 declare(strict_types=1);
 /**
  * AURENOEVA staff procurement upload. Single app-owned case authority.
- * Hostinger must configure AURENOEVA_ADMIN_PASSWORD_HASH outside public Git
- * and install the existing Python case tools/private SQLite store on the same host.
- * NEVER expose uploaded files or customer data under public_html.
+ * PHP-native on the existing website host. Store and initial administrator
+ * password hash remain outside public_html; no Python or VPS dependency.
  */
 header('Cache-Control: private, no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
@@ -22,37 +21,14 @@ function aur_denied(int $status, string $message): never {
     echo "AURENOEVA private procurement: " . $message;
     exit;
 }
-function aur_private_path(string $value, string $docroot): bool {
-    if ($value === '' || $value[0] !== '/') return false;
-    $parent = realpath(is_dir($value) ? $value : dirname($value));
-    $root = realpath($docroot);
-    return $parent !== false && $root !== false
-        && $parent !== $root && !str_starts_with($parent . '/', rtrim($root, '/') . '/');
+require_once __DIR__ . '/private_cases.php';
+try {
+    $aurStore = aur_store_root();
+} catch (Throwable $e) {
+    aur_denied(503, 'private hosting directory unavailable');
 }
-function aur_python(array $args): array {
-    if (!function_exists('proc_open')) aur_denied(503, 'private importer unavailable');
-    $pipes = [];
-    $process = @proc_open($args, [0=>['pipe','r'], 1=>['pipe','w'], 2=>['pipe','w']], $pipes, null, null, ['bypass_shell'=>true]);
-    if (!is_resource($process)) aur_denied(503, 'private importer unavailable');
-    fclose($pipes[0]);
-    $stdout = stream_get_contents($pipes[1], 4000000);
-    fclose($pipes[1]);
-    $stderr = stream_get_contents($pipes[2], 1000);
-    fclose($pipes[2]);
-    $exit = proc_close($process);
-    $result = is_string($stdout) ? json_decode($stdout, true) : null;
-    if ($exit !== 0 || !is_array($result) || empty($result['ok'])) {
-        error_log('AURENOEVA case process exit ' . $exit . ' ' . substr((string)$stderr, 0, 180));
-        aur_denied(422, 'file format or case operation failed; check XLSX/CSV headers');
-    }
-    return $result;
-}
-
-$hashFile = (string)(getenv('AURENOEVA_ADMIN_HASH_FILE') ?: '/opt/noeva-aurenoeva/private/admin-password.hash');
-$passwordHash = trim((string)(getenv('AURENOEVA_ADMIN_PASSWORD_HASH') ?: ''));
-if ($passwordHash === '' && is_file($hashFile) && aur_private_path($hashFile, (string)($_SERVER['DOCUMENT_ROOT'] ?? ''))) {
-    $passwordHash = trim((string)file_get_contents($hashFile));
-}
+$passwordHash = is_readable($aurStore.'/admin-password.hash')
+    ? trim((string)file_get_contents($aurStore.'/admin-password.hash')) : '';
 if ($passwordHash === '' || !str_starts_with($passwordHash, '$2y$')) {
     aur_denied(503, 'administrator credentials not configured');
 }
@@ -109,42 +85,28 @@ if (!$isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['passwor
 
 $result = null;
 if ($isAdmin) {
-    $tools = (string)(getenv('AURENOEVA_TOOLS_PATH') ?: '/opt/noeva-aurenoeva/app-tools');
-    $db = (string)(getenv('AURENOEVA_PRIVATE_DB') ?: '/opt/noeva-aurenoeva/private/cases.sqlite3');
-    $inbox = (string)(getenv('AURENOEVA_UPLOAD_DIR') ?: '/opt/noeva-aurenoeva/private/inbox');
-    $docroot = (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
-    if (!aur_private_path($db, $docroot) || !aur_private_path($inbox, $docroot)
-        || !aur_private_path($tools, $docroot) || !is_file($tools.'/procurement_case_store.py')
-        || !is_dir($inbox) || !is_writable($inbox)) {
-        aur_denied(503, 'private case backend not installed on this host');
-    }
-    $cmd = static function (string $action, array $extra=[]) use ($tools,$db): array {
-        $python = (string)(getenv('AURENOEVA_PYTHON_BIN') ?: '/usr/bin/python3');
-        return aur_python(array_merge([$python, $tools.'/procurement_case_store.py', $action, '--db', $db], $extra));
-    };
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['customer_file'])) {
         $file = $_FILES['customer_file'];
         $size = (int)($file['size'] ?? 0);
         $country = strtoupper(trim((string)($_POST['country'] ?? '')));
-        if (!preg_match('/^[A-Z]{2}$/D', $country)) aur_denied(422, 'destination country must be ISO 2-letter code');
+        if (!preg_match('/^[A-Z]{2}$/D', $country)) aur_denied(422, 'country must be two-letter ISO code');
         if ((int)($file['error'] ?? 1) !== UPLOAD_ERR_OK || $size < 1 || $size > 20000000
-            || !is_uploaded_file((string)($file['tmp_name'] ?? ''))) aur_denied(422, 'upload missing or over 20 MB');
+            || !is_uploaded_file((string)($file['tmp_name'] ?? ''))) aur_denied(422, 'invalid upload (maximum 20 MB)');
         $ext = strtolower((string)pathinfo((string)($file['name'] ?? ''), PATHINFO_EXTENSION));
-        if (!in_array($ext, ['xlsx','csv'], true)) aur_denied(422, 'only XLSX or CSV accepted');
-        $countryDir = rtrim($inbox,'/') . '/' . $country;
-        if (is_link($countryDir) || (!is_dir($countryDir) && !@mkdir($countryDir, 0700, true))
-            || !is_writable($countryDir)) aur_denied(503, 'private country intake directory unavailable');
-        $target = $countryDir . '/aur-' . bin2hex(random_bytes(16)) . '.' . $ext;
-        if (!move_uploaded_file((string)$file['tmp_name'], $target)) aur_denied(503, 'private upload failed');
-        @chmod($target, 0600);
-        $result = $cmd('import', ['--source', $target, '--country', $country]);
-        if (($result['import_state'] ?? '') !== 'PERSISTED_PRIVATE_APP_CASE') aur_denied(503, 'case persistence not verified');
-        // Intentionally retain original evidence privately. The scheduled
-        // worker adds the legal screening report to this SAME case database.
+        if (!in_array($ext,['csv','xlsx'],true)) aur_denied(422, 'only CSV/XLSX supported');
+        try {
+            $result = aur_case_import($aurStore,(string)$file['tmp_name'],$country,(string)$file['name']);
+        } catch (Throwable $e) {
+            error_log('AURENOEVA case importer failed: '.get_class($e).' '.substr($e->getMessage(),0,100));
+            aur_denied(422, 'import unsuccessful: '.(str_contains($e->getMessage(),'xlsx_support')?'XLSX ZIP/XML support not enabled':'verify spreadsheet columns and data'));
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $ref = trim((string)($_GET['case'] ?? ''));
-        if ($ref !== '' && !preg_match('/^[A-Za-z0-9_-]{4,96}$/D', $ref)) aur_denied(422, 'invalid case reference');
-        $result = $ref !== '' ? $cmd('get', ['--case', $ref]) : $cmd('list');
+        $ref=trim((string)($_GET['case'] ?? ''));
+        try {
+            $result=$ref!==''?aur_case_read($aurStore,$ref):aur_case_list($aurStore);
+        } catch (Throwable $e) {
+            aur_denied(404,'case not found');
+        }
     }
 }
 header('Content-Type: text/html; charset=utf-8');
