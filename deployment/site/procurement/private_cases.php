@@ -8,9 +8,11 @@ declare(strict_types=1);
 const AUR_MAX_BYTES = 20000000;
 const AUR_MAX_ROWS = 5000;
 
-function aur_store_root(): string {
-    $docroot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
-    if ($docroot === false || !is_dir($docroot)) throw new RuntimeException('invalid_web_document_root');
+function aur_store_root(?string $siteRoot = null): string {
+    // Both the CLI bootstrap and PHP-FPM must resolve the same private directory.
+    // DOCUMENT_ROOT can point to a different path under reverse proxies/aliases.
+    $docroot = realpath($siteRoot ?? dirname(__DIR__));
+    if ($docroot === false || !is_dir($docroot)) throw new RuntimeException('invalid_site_directory');
     $base = dirname($docroot);
     $root = $base . '/.aurenoeva-private';
     if (!is_dir($root) && !@mkdir($root, 0700, true)) throw new RuntimeException('private_storage_unavailable');
