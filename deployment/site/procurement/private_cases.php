@@ -82,20 +82,21 @@ function aur_xlsx_rows(string $file): array {
         $out = [];
         foreach ($xml->children($mainNs)->sheetData->children($mainNs)->row as $row) {
             $cells=[];
-            foreach ($row->children($mainNs)->c as $cell) {
+            foreach ($row->xpath('./*[local-name()="c"]') ?: [] as $cell) {
                 $ref=(string)$cell['r'];
                 if (!preg_match('/^([A-Z]+)/', $ref, $match)) continue;
                 $column=0;
                 foreach (str_split($match[1]) as $letter) $column=$column*26+ord($letter)-64;
                 if ($column < 1 || $column > 40) continue;
                 $type=(string)$cell['t'];
-                $data=(string)$cell->children($mainNs)->v;
+                $values=$cell->xpath('./*[local-name()="v"]') ?: [];
+                $data=isset($values[0])?(string)$values[0]:'';
                 if ($type === 's') {
                     $index = ctype_digit($data) ? (int)$data : -1;
                     $data = $shared[$index] ?? '';
                 } elseif ($type === 'inlineStr') {
                     $fragments=[];
-                    foreach ($cell->children($mainNs)->is->xpath('.//*[local-name()="t"]') ?: [] as $part) $fragments[]=(string)$part;
+                    foreach ($cell->xpath('.//*[local-name()="t"]') ?: [] as $part) $fragments[]=(string)$part;
                     $data=implode('', $fragments);
                 }
                 $cells[$column-1] = $data;
