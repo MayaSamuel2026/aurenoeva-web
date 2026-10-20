@@ -16,6 +16,7 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
     $data = json_decode($raw, true);
     if (!is_array($data) || ($data['schema'] ?? '') !== 'aurenoeva-catalogue/1' || !is_array($data['items'] ?? null)) return null;
     $norm = static fn(string $x): string => preg_replace('/[^a-z0-9]+/', '', strtolower($x)) ?? '';
+    $clip = static fn(string $s, int $n): string => function_exists('mb_substr') ? mb_substr($s, 0, $n, 'UTF-8') : substr($s, 0, $n);
     $q = $norm($query);
     if ($q === '') return [];
     $ranked = [];
@@ -25,15 +26,17 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
         $model = trim((string)($p['model'] ?? ''));
         $id = trim((string)($p['canonical_id'] ?? ''));
         if ($maker === '' || $model === '' || !preg_match('/^AUR-P-[A-F0-9]{20}$/', $id)) continue;
+        $seen = strtotime((string)($p['last_seen'] ?? ''));
+        if (!$seen || $seen < time() - 14 * 86400) continue; // do not show stale model identities
         $m = $norm($maker); $part = $norm($model);
         $score = $part === $q ? 1000 : (($m . $part) === $q ? 900 : ((str_contains($m . $part, $q) || str_contains($q, $part)) ? 600 : 0));
         if (!$score) continue;
         $ranked[] = [$score, [
             'canonical_id' => $id,
-            'manufacturer' => mb_substr($maker, 0, 100),
-            'model' => mb_substr($model, 0, 160),
+            'manufacturer' => $clip($maker, 100),
+            'model' => $clip($model, 160),
             'part_number' => '',
-            'description' => mb_substr(trim((string)($p['description'] ?? '')), 0, 240),
+            'description' => $clip(trim((string)($p['description'] ?? '')), 240),
             'identifier_type' => 'MODEL',
             'lifecycle_status' => 'UNVERIFIED',
             'relationship_type' => 'CANDIDATE',
