@@ -71,6 +71,25 @@ class TestPrivateProcurement(unittest.TestCase):
             self.assertTrue(stale["sources_errors"])
             self.assertFalse(source_uri_ok("https://malicious.example/data.csv"))
 
+    def test_website_country_subfolders_share_one_canonical_store(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            inbox=root/"inbox";inbox.mkdir()
+            for code in ("UZ","DE"):
+                d=inbox/code;d.mkdir()
+                (d/"list.csv").write_text(
+                    "No.,Equipment description,Qty.\n1,Supplier test equipment,1\n",
+                    encoding="utf-8"
+                )
+            db=root/"private"/"cases.sqlite3"
+            r=process(inbox,db,root/"sanctions","UZ",root/"parties")
+            self.assertTrue(r["ok"])
+            self.assertEqual(r["processed"],2)
+            with sqlite3.connect(db) as conn:
+                countries=[row[0] for row in conn.execute(
+                    "SELECT country FROM procurement_cases ORDER BY country")]
+            self.assertEqual(countries,["DE","UZ"])
+
     def test_hostinger_worker_writes_legal_report_for_existing_case(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
