@@ -28,6 +28,8 @@ ALLOWED_HOSTS = {
     "ec.europa.eu", "webgate.ec.europa.eu", "data.europa.eu",
     "www.treasury.gov", "treasury.gov", "ofac.treasury.gov",
     "www.ofac.treasury.gov", "sanctionslistservice.ofac.treas.gov",
+    # OFAC's official SDN download redirects to its pinned US Gov Cloud S3 bucket.
+    "wc2h-sls-prod-public-published.s3.us-gov-west-1.amazonaws.com",
 }
 REQUIRED = ("EU_FSF", "OFAC_SDN")
 MAX_FEED_BYTES = 75_000_000
