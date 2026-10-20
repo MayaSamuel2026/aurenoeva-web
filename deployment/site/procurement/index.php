@@ -131,7 +131,10 @@ if ($isAdmin) {
             || !is_uploaded_file((string)($file['tmp_name'] ?? ''))) aur_denied(422, 'upload missing or over 20 MB');
         $ext = strtolower((string)pathinfo((string)($file['name'] ?? ''), PATHINFO_EXTENSION));
         if (!in_array($ext, ['xlsx','csv'], true)) aur_denied(422, 'only XLSX or CSV accepted');
-        $target = rtrim($inbox,'/') . '/aur-' . bin2hex(random_bytes(16)) . '.' . $ext;
+        $countryDir = rtrim($inbox,'/') . '/' . $country;
+        if (is_link($countryDir) || (!is_dir($countryDir) && !@mkdir($countryDir, 0700, true))
+            || !is_writable($countryDir)) aur_denied(503, 'private country intake directory unavailable');
+        $target = $countryDir . '/aur-' . bin2hex(random_bytes(16)) . '.' . $ext;
         if (!move_uploaded_file((string)$file['tmp_name'], $target)) aur_denied(503, 'private upload failed');
         @chmod($target, 0600);
         $result = $cmd('import', ['--source', $target, '--country', $country]);
