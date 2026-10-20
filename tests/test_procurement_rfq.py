@@ -37,6 +37,13 @@ def verified():
         "end_user": {"legal_name": "Example Hospital", "installation_address": "Tashkent, example only"},
         "destination": {"final_end_use_country": "UZ"},
         "legal_route": "ORDINARY_LAWFUL_SUPPLY",
+        "sanctions_screening": {
+            "status": "NO_NAME_MATCH_NOT_CLEARED", "matches": [],
+            "sources_errors": [], "sources": {
+                "EU_FSF": {"retrieved_at": "2026-10-20T10:00:00+00:00"},
+                "OFAC_SDN": {"retrieved_at": "2026-10-20T10:00:00+00:00"},
+            },
+        },
         "verification": {
             key: {"result": "VERIFIED_CLEAR", "checked_at": "2026-10-20",
                   "evidence_ref": "TEST-EVIDENCE-" + key, "reviewer": "Compliance reviewer"}
