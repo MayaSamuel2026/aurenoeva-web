@@ -7,6 +7,7 @@ on:
       - 'tests/test_procurement_*.py'
       - 'deployment/crm/aurenoeva-v1/import.php'
       - 'deployment/install-hostinger.sh'
+      - 'deployment/install-hostinger-worker.sh'
       - '.github/workflows/procurement-private-qualification.yml'
 permissions:
   contents: read
@@ -27,3 +28,4 @@ jobs:
         run: |
           php -l deployment/crm/aurenoeva-v1/import.php
           bash -n deployment/install-hostinger.sh
+          bash -n deployment/install-hostinger-worker.sh
