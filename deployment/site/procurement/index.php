@@ -2,9 +2,8 @@
 declare(strict_types=1);
 /**
  * AURENOEVA staff procurement upload. Single app-owned case authority.
- * Hostinger must configure AURENOEVA_ADMIN_PASSWORD_HASH outside public Git
- * and install the existing Python case tools/private SQLite store on the same host.
- * NEVER expose uploaded files or customer data under public_html.
+ * PHP-native on the existing website host. Store and initial administrator
+ * password hash remain outside public_html; no Python or VPS dependency.
  */
 header('Cache-Control: private, no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
@@ -22,32 +21,6 @@ function aur_denied(int $status, string $message): never {
     echo "AURENOEVA private procurement: " . $message;
     exit;
 }
-function aur_private_path(string $value, string $docroot): bool {
-    if ($value === '' || $value[0] !== '/') return false;
-    $parent = realpath(is_dir($value) ? $value : dirname($value));
-    $root = realpath($docroot);
-    return $parent !== false && $root !== false
-        && $parent !== $root && !str_starts_with($parent . '/', rtrim($root, '/') . '/');
-}
-function aur_python(array $args): array {
-    if (!function_exists('proc_open')) aur_denied(503, 'private importer unavailable');
-    $pipes = [];
-    $process = @proc_open($args, [0=>['pipe','r'], 1=>['pipe','w'], 2=>['pipe','w']], $pipes, null, null, ['bypass_shell'=>true]);
-    if (!is_resource($process)) aur_denied(503, 'private importer unavailable');
-    fclose($pipes[0]);
-    $stdout = stream_get_contents($pipes[1], 4000000);
-    fclose($pipes[1]);
-    $stderr = stream_get_contents($pipes[2], 1000);
-    fclose($pipes[2]);
-    $exit = proc_close($process);
-    $result = is_string($stdout) ? json_decode($stdout, true) : null;
-    if ($exit !== 0 || !is_array($result) || empty($result['ok'])) {
-        error_log('AURENOEVA case process exit ' . $exit . ' ' . substr((string)$stderr, 0, 180));
-        aur_denied(422, 'file format or case operation failed; check XLSX/CSV headers');
-    }
-    return $result;
-}
-
 require_once __DIR__ . '/private_cases.php';
 try {
     $aurStore = aur_store_root();
@@ -56,9 +29,6 @@ try {
 }
 $passwordHash = is_readable($aurStore.'/admin-password.hash')
     ? trim((string)file_get_contents($aurStore.'/admin-password.hash')) : '';
-if ($passwordHash === '' && is_file($hashFile) && aur_private_path($hashFile, (string)($_SERVER['DOCUMENT_ROOT'] ?? ''))) {
-    $passwordHash = trim((string)file_get_contents($hashFile));
-}
 if ($passwordHash === '' || !str_starts_with($passwordHash, '$2y$')) {
     aur_denied(503, 'administrator credentials not configured');
 }
