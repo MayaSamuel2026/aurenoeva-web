@@ -25,11 +25,21 @@ def process(inbox: Path, db: Path, feed_dir: Path, country: str, party_dir: Path
     if not db.is_absolute() or not feed_dir.is_absolute():
         raise ValueError("private_paths_must_be_absolute")
     output=[]
-    for source in sorted(inbox.iterdir()):
+    # Website upload uses inbox/ISO2/file; older private CLI files in
+    # inbox/ remain supported with the configured fallback country.
+    sources=[]
+    for entry in sorted(inbox.iterdir()):
+        if entry.is_symlink():
+            continue
+        if entry.is_dir() and len(entry.name)==2 and entry.name.isascii() and entry.name.isalpha():
+            sources.extend((path,entry.name.upper()) for path in sorted(entry.iterdir()))
+        elif entry.is_file():
+            sources.append((entry,country))
+    for source,source_country in sources:
         if source.is_symlink() or not source.is_file() or source.suffix.lower() not in (".xlsx",".csv"):
             continue
         try:
-            saved=commit(source,db,country=country)
+            saved=commit(source,db,country=source_country)
             # Buyer/end-user/supplier details must come from explicit private
             # evidence; do not invent a medical hospital from the equipment list.
             evidence_path=party_dir / (saved["reference"]+".json")
