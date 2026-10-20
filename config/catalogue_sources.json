@@ -1,0 +1,8 @@
+{
+  "schema":"aurenoeva-catalogue-sources/1",
+  "sources":[
+    {"id":"mindray-wato-ex35","active":true,"manufacturer":"Mindray","allowed_hosts":["www.mindray.com"],"seeds":["https://www.mindray.com/en/products/anesthesia/wato-ex-35"],"model_hint":"WATO EX-35","refresh_hours":24},
+    {"id":"anthos-units","active":true,"manufacturer":"Anthos","allowed_hosts":["www.anthos.it"],"seeds":["https://www.anthos.it/en/dental-units-listing"],"follow_regex":"^/en/dental-units/[a-z0-9-]+/?$","refresh_hours":48},
+    {"id":"haagstreit-products","active":true,"manufacturer":"Haag-Streit","allowed_hosts":["de.haag-streit.com"],"seeds":["https://de.haag-streit.com/produkte"],"refresh_hours":48}
+  ]
+}
