@@ -34,6 +34,8 @@ try {
         $z->addFromString('xl/sharedStrings.xml','<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>No.</t></si><si><t>Equipment description</t></si><si><t>Qty.</t></si><si><t>MRI scanner</t></si><si><t>Alternative MRI</t></si></sst>');
         $z->addFromString('xl/worksheets/sheet1.xml','<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row><row r="2"><c r="A2"><v>1</v></c><c r="B2" t="s"><v>3</v></c><c r="C2"><v>1</v></c></row><row r="3"><c r="B3" t="s"><v>4</v></c></row></sheetData></worksheet>');
         $z->close();
+        $xlsxRows=aur_xlsx_rows($file);
+        fwrite(STDERR,"AURENOEVA_XLSX_DIAGNOSTIC=".json_encode(array_slice($xlsxRows,0,4))."\n");
         $xl=aur_case_import($store,$file,'UZ','customer.xlsx');
         check($xl['line_count']===2 && $xl['alternatives']===1,'XLSX alternative parsing failed');
     } else throw new RuntimeException('Required ZIP and SimpleXML extensions unavailable');
