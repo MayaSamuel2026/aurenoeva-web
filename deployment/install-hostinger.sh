@@ -4,8 +4,8 @@
 set -euo pipefail
 APP=/opt/noeva-aurenoeva
 SOURCE="$(cd "$(dirname "$0")/.." && pwd)"
-DOCROOT="$AURENOEVA_WEB_DOCROOT"
-WEBUSER="$AURENOEVA_WEB_USER"
+DOCROOT="${AURENOEVA_WEB_DOCROOT:-}"
+WEBUSER="${AURENOEVA_WEB_USER:-}"
 if [[ "$EUID" -ne 0 || "$DOCROOT" != /* || -z "$WEBUSER" ]]; then
   echo "BLOCKED: run as root with absolute AURENOEVA_WEB_DOCROOT and AURENOEVA_WEB_USER" >&2
   exit 2
