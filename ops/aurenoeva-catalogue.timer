@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Aurenoeva product catalogue refresh every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=180
+Unit=aurenoeva-catalogue.service
+
+[Install]
+WantedBy=timers.target
