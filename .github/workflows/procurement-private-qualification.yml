@@ -1,0 +1,29 @@
+name: AURENOEVA private procurement qualification
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/procurement_*.py'
+      - 'tests/test_procurement_*.py'
+      - 'deployment/crm/aurenoeva-v1/import.php'
+      - 'deployment/install-hostinger.sh'
+      - '.github/workflows/procurement-private-qualification.yml'
+permissions:
+  contents: read
+concurrency:
+  group: aurenoeva-private-procurement-main
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax and focused case / sanctions / RFQ checks
+        run: |
+          python3 -m compileall -q tools/procurement_intake.py tools/procurement_rfq.py tools/procurement_inbox.py tools/procurement_case_store.py tools/procurement_sanctions.py tools/procurement_hostinger_worker.py
+          python3 -m unittest discover -s tests -p 'test_procurement_*.py' -v
+      - name: PHP upload syntax / deployment shell syntax
+        run: |
+          php -l deployment/crm/aurenoeva-v1/import.php
+          bash -n deployment/install-hostinger.sh
