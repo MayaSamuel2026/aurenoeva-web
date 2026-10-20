@@ -195,6 +195,18 @@ jobs:
           grep -q "function aur_local_mail_from" "$RUNNER_TEMP/source/site/_form_common.php"
           grep -q "\\.main-hosting\\.eu" "$RUNNER_TEMP/source/site/_form_common.php"
 
+      - name: Qualify private Aurenoeva catalogue before website release
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
+          php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
+          cp hotfix/v8.2.6.10/catalogue_local.php "$RUNNER_TEMP/source/site/catalogue_local.php"
+          cp hotfix/v8.2.6.11/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
+          grep -q 'RECOMMENDATION_SHOWN' "$RUNNER_TEMP/source/site/catalogue-search.php"
+          grep -q 'aur_catalogue_snapshot_search' "$RUNNER_TEMP/source/site/catalogue-search.php"
+          # Requirement intake, email and operations-case endpoints stay unchanged.
+
       - name: Include private AURENOEVA procurement workspace
         shell: bash
         run: |
