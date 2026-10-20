@@ -48,7 +48,11 @@ function aur_python(array $args): array {
     return $result;
 }
 
+$hashFile = (string)(getenv('AURENOEVA_ADMIN_HASH_FILE') ?: '/opt/noeva-aurenoeva/private/admin-password.hash');
 $passwordHash = trim((string)(getenv('AURENOEVA_ADMIN_PASSWORD_HASH') ?: ''));
+if ($passwordHash === '' && is_file($hashFile) && aur_private_path($hashFile, (string)($_SERVER['DOCUMENT_ROOT'] ?? ''))) {
+    $passwordHash = trim((string)file_get_contents($hashFile));
+}
 if ($passwordHash === '' || !str_starts_with($passwordHash, '$2y$')) {
     aur_denied(503, 'administrator credentials not configured');
 }
