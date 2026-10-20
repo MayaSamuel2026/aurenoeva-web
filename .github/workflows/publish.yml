@@ -195,6 +195,25 @@ jobs:
           grep -q "function aur_local_mail_from" "$RUNNER_TEMP/source/site/_form_common.php"
           grep -q "\\.main-hosting\\.eu" "$RUNNER_TEMP/source/site/_form_common.php"
 
+      - name: Include private AURENOEVA procurement workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source/site/procurement"
+          cp deployment/site/procurement/index.php "$RUNNER_TEMP/source/site/procurement/index.php"
+          php -l "$RUNNER_TEMP/source/site/procurement/index.php"
+          python3 - "$RUNNER_TEMP/source/site/index.html" <<'PY'
+          import pathlib, sys
+          page=pathlib.Path(sys.argv[1])
+          original=page.read_text(encoding="utf-8")
+          marker="<span>PROCUREMENT · COMPONENTS · INTELLIGENCE</span>"
+          assert original.count(marker) == 1, "Homepage footer marker changed"
+          replacement=marker+'\n      <span><a href="/procurement/" style="font-size:12px;color:#C9D8D3" data-en="Staff procurement" data-de="Interne Beschaffung">Staff procurement</a></span>'
+          page.write_text(original.replace(marker,replacement),encoding="utf-8")
+          PY
+          grep -q 'href="/procurement/"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'AURENOEVA_ADMIN_PASSWORD_HASH' "$RUNNER_TEMP/source/site/procurement/index.php"
+
       - name: JavaScript syntax check
         shell: bash
         run: |
