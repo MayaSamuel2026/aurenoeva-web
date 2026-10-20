@@ -99,6 +99,15 @@ def review(case: dict, evidence: dict | None = None, *, today: dt.date | None = 
     if not (evidence.get("destination") or {}).get("final_end_use_country"):
         findings.append("Final end-use and any intended onward-transfer destination not confirmed.")
 
+    # Automatic name-screen evidence is a prerequisite, not legal clearance.
+    # A potential match, failed feed or absent live screening always holds the RFQ.
+    screen = evidence.get("sanctions_screening")
+    if not isinstance(screen, dict):
+        findings.append("Official-list sanctions screening has not been performed.")
+    elif screen.get("sources_errors") or screen.get("matches") or screen.get("status") != "NO_NAME_MATCH_NOT_CLEARED":
+        findings.append("Sanctions screening unresolved: " + str(screen.get("status") or "UNKNOWN"))
+    elif not all(k in (screen.get("sources") or {}) for k in ("EU_FSF", "OFAC_SDN")):
+        findings.append("Required EU and OFAC source readback missing.")
     verification = evidence.get("verification") or {}
     pending = [key for key in VERIFY_KEYS if not _evidence_verified(verification.get(key), today)]
     if pending:
