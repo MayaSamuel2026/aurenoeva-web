@@ -93,13 +93,15 @@
         "https://www.draeger.com/en_uk/Products/Evita-V600",
         "https://www.draeger.com/en_uk/Products/Savina-300-Select",
         "https://www.draeger.com/en_uk/Products/atlan-a350-a350-xl",
-        "https://www.draeger.com/en_uk/Products/Infinity-Acute-Care-System"
+        "https://www.draeger.com/en_uk/Products/Infinity-M540-monitor",
+        "https://www.draeger.com/en_uk/Products/perseus-a500"
       ],
       "model_hints": {
         "https://www.draeger.com/en_uk/Products/Evita-V600": "Evita V600",
         "https://www.draeger.com/en_uk/Products/Savina-300-Select": "Savina 300 Select",
         "https://www.draeger.com/en_uk/Products/atlan-a350-a350-xl": "Atlan A350/A350 XL",
-        "https://www.draeger.com/en_uk/Products/Infinity-Acute-Care-System": "Infinity Acute Care System"
+        "https://www.draeger.com/en_uk/Products/Infinity-M540-monitor": "Infinity M540",
+        "https://www.draeger.com/en_uk/Products/perseus-a500": "Perseus A500"
       },
       "follow_regex": "^/en_uk/Products/[A-Za-z0-9-]+/?$",
       "max_depth": 1,
