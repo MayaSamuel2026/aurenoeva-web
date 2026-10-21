@@ -98,4 +98,46 @@ class Tests(unittest.TestCase):
     self.assertEqual(run_worker(self.db,SOURCE,now=TIME+dt.timedelta(minutes=1),fetch=lambda u,s:(HTML,200))["processed"],0)
     self.assertEqual(run_worker(self.db,SOURCE,now=TIME+dt.timedelta(minutes=16),fetch=lambda u,s:(HTML,200))["new_products"],1)
 
+  def test_preferred_verified_model_seeds(self):
+    sources={"anthos":{"id":"anthos","manufacturer":"Anthos","hosts":{"example.org"},
+      "seeds":["https://example.org/dental-units","https://example.org/dental-units/a7"],
+      "model_hints":{"https://example.org/dental-units/a7":"A7 PLUS"},
+      "follow_regex":r"^/dental-units/[a-z0-9]+$","max_depth":2}}
+    visited=[]
+    def fetch(url,source):
+      visited.append(url)
+      if url.endswith("/dental-units"):
+        return '<title>Dental units</title><h1>Dental units</h1><a href="/dental-units/a7">A7</a>',200
+      return "<title>A7 PLUS | Anthos</title><h1>A7 PLUS</h1>",200
+    one=run_worker(self.db,sources,now=TIME,fetch=fetch)
+    self.assertEqual((one["new_products"],status(self.db)["products"]),(1,1))
+    self.assertIn("https://example.org/dental-units/a7",visited)
+    self.assertEqual(self.db.execute("SELECT model FROM products").fetchone()[0],"A7 PLUS")
+
+  def test_two_level_discovery_keeps_filter(self):
+    src={"x":{"id":"x","manufacturer":"Haag-Streit","hosts":{"example.org"},
+      "seeds":["https://example.org/produkte"],"follow_regex":r"^/produkte/.*",
+      "max_depth":2}}
+    pages={
+      "/produkte":'<h1>Produkte</h1><a href="/produkte/biometrie">Biometrie</a>',
+      "/produkte/biometrie":'<h1>Biometrie</h1><a href="/produkte/biometrie/lenstar900">Lenstar</a>',
+      "/produkte/biometrie/lenstar900":'<h1>Lenstar 900</h1><title>Lenstar 900 - Haag-Streit</title>'}
+    from urllib.parse import urlsplit
+    result=run_worker(self.db,src,now=TIME,fetch=lambda u,s:(pages[urlsplit(u).path],200))
+    self.assertEqual((result["processed"],result["new_products"]),(3,1))
+
+  def test_explicit_hint_not_assumed_without_onpage_evidence(self):
+    src={"x":{**SOURCE["official"],"model_hint":"A9"}}
+    result=run_worker(self.db,src,now=TIME,fetch=lambda u,s:("<h1>Generic</h1><title>Generic</title>",200))
+    self.assertEqual(result["new_products"],0)
+
+  def test_revised_seed_rules_refresh_existing_task(self):
+    seed(self.db,SOURCE,stamp(TIME))
+    updated={"official":{**SOURCE["official"],"model_hint":"WATO EX-35",
+      "follow_regex":r"^/products/.*","max_depth":2}}
+    seed(self.db,updated,stamp(TIME+dt.timedelta(hours=1)))
+    task=self.db.execute("SELECT follow_regex,due_at FROM tasks LIMIT 1").fetchone()
+    self.assertEqual(task["follow_regex"],r"^/products/.*")
+    self.assertEqual(task["due_at"],stamp(TIME+dt.timedelta(hours=1)))
+
 if __name__=='__main__': unittest.main()

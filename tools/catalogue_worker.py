@@ -171,19 +171,35 @@ def load_sources(file):
             raise ValueError("invalid_source_id_or_hosts")
         for url in row["seeds"]:
             check_url(url, hosts, resolve=False)
+        hints = row.get("model_hints", {})
+        if not isinstance(hints, dict) or any(u not in row["seeds"] for u in hints):
+            raise ValueError("model_hints_must_match_seeds")
+        if row.get("follow_regex"):
+            re.compile(row["follow_regex"])
+        if not 0 <= int(row.get("max_depth", 1)) <= 3:
+            raise ValueError("max_depth_out_of_range")
         byid[sid] = {**row, "hosts": hosts}
     return byid
 
 
 def seed(conn, sources, now):
+    """Keep historical tasks, but refresh discovery rules and explicit model hints."""
     for sid, source in sources.items():
+        hints = source.get("model_hints", {})
         for url in source["seeds"]:
+            hint = hints.get(url, source.get("model_hint", ""))
+            pattern = source.get("follow_regex", "")
             conn.execute("""INSERT OR IGNORE INTO tasks
               (url,source_id,manufacturer,model_hint,follow_regex,depth,due_at,updated_at)
               VALUES (?,?,?,?,?,0,?,?)""", (url, sid, source["manufacturer"],
-                  source.get("model_hint", ""), source.get("follow_regex", ""), now, now))
+                  hint, pattern, now, now))
+            # Existing queued URLs otherwise retain outdated strict discovery rules.
+            conn.execute("""UPDATE tasks SET model_hint=?,follow_regex=?,due_at=?,
+               state='PENDING',failures=0,updated_at=?
+               WHERE url=? AND source_id=?
+               AND (model_hint<>? OR follow_regex<>?)""",
+               (hint,pattern,now,now,url,sid,hint,pattern))
     conn.commit()
-
 
 def robots_allowed(url, source, opener):
     u = urlsplit(url)
@@ -226,17 +242,31 @@ def fetch_page(url, source):
 def product_from_page(source, url, html, model_hint=""):
     h1, title, links = extract(html)
     maker = clean(source["manufacturer"])
-    # Explicit identity must appear on the manufacturer page, not just in the URL.
-    model = clean(model_hint or h1)
     normalized = lambda s: re.sub(r"[^a-z0-9]+", "", s.casefold())
-    if not model or len(model) < 2 or len(model) > 100 or model.casefold() in ("products", "produkte", "home", "dental units", "dental equipment", "medical devices", "product catalog", "catalog", "catalogue", "all products") :
+
+    # Manufacturer headings and collection pages are research evidence, not models.
+    # A short, model-like official title can rescue pages with a generic H1.
+    title_model = clean(re.split(r"\s+[|–—]\s+|\s+-\s+", title, maxsplit=1)[0])
+    model = clean(model_hint or h1)
+    generic = ("products", "produkte", "home", "dental units", "dental equipment",
+               "medical devices", "product catalog", "catalog", "catalogue",
+               "all products", "spaltlampen", "biometrie", "anesthesia",
+               "patient monitoring", "autoclaves for sterilization")
+    def is_model(value):
+        return (2 <= len(value) <= 100 and len(value.split()) <= 10
+                and any(ch.isdigit() for ch in value)
+                and value.casefold() not in generic
+                and not re.search(r"(?i)\b(?:catalogue|catalog|collection|all products)\b", value))
+    if not is_model(model) and not model_hint:
+        model = title_model
+    if not is_model(model):
         return None, links, title
+    # A hint may guide extraction, but must still be visible on the actual page.
     if normalized(model) not in normalized(h1 + " " + title + " " + html[:50000]):
         return None, links, title
     return {"product_id": product_id(maker, model), "manufacturer": maker, "model": model,
             "description": clean(title or h1)[:240], "source_url": url,
             "content_sha256": hashlib.sha256(html.encode()).hexdigest()}, links, title
-
 
 def write_product(conn, p, now):
     exists = conn.execute("SELECT 1 FROM products WHERE product_id=?", (p["product_id"],)).fetchone()
@@ -265,7 +295,8 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
     # A single source may fail repeatedly; do not let it hold up all the others.
     while outcome["processed"] < max_pages and time.monotonic() - start < max_seconds:
         task = conn.execute("""SELECT * FROM tasks WHERE state='PENDING' AND due_at<=?
-             ORDER BY due_at, failures, url LIMIT 1""", (at,)).fetchone()
+             ORDER BY CASE WHEN model_hint<>'' THEN 0 ELSE 1 END,
+               depth,due_at,failures,url LIMIT 1""", (at,)).fetchone()
         if task is None:
             break
         task = dict(task)
@@ -285,19 +316,25 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
                 (url,task["source_id"],digest,title,at,status))
             if p:
                 outcome["new_products"] += int(write_product(conn,p,at))
-            if task["depth"] == 0 and task["follow_regex"]:
+            # Follow verified on-domain product/category links for bounded depth.
+            # Queued pages inherit the source filter so intermediate categories lead
+            # to product detail pages, without crawling unrelated site sections.
+            if task["depth"] < int(source.get("max_depth", 1)) and task["follow_regex"]:
                 pattern = re.compile(task["follow_regex"])
                 for href in links[:150]:
-                    dest = urljoin(url,href).split("#")[0]
-                    if urlsplit(dest).hostname not in source["hosts"] or not pattern.search(urlsplit(dest).path):
+                    dest = urljoin(url, href).split("#")[0]
+                    if (urlsplit(dest).hostname not in source["hosts"]
+                            or not pattern.search(urlsplit(dest).path)):
                         continue
                     try:
-                        check_url(dest,source["hosts"],resolve=False)
+                        check_url(dest, source["hosts"], resolve=False)
                     except ValueError:
                         continue
                     conn.execute("""INSERT OR IGNORE INTO tasks
                       (url,source_id,manufacturer,model_hint,follow_regex,depth,due_at,updated_at)
-                      VALUES (?,?,?,'','',1,?,?)""", (dest,task["source_id"],task["manufacturer"],at,at))
+                      VALUES (?,?,?,'',?,?,?,?)""",
+                      (dest,task["source_id"],task["manufacturer"],task["follow_regex"],
+                       task["depth"]+1,at,at))
             interval = max(1, int(source.get("refresh_hours", 24)))
             due = stamp(utc_from(at) + dt.timedelta(hours=interval))
             conn.execute("""UPDATE tasks SET state='PENDING',due_at=?,failures=0,
