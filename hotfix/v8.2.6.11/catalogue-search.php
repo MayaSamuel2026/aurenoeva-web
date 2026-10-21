@@ -21,7 +21,7 @@ if (strlen($q) > 180) {
 
 // Prefer Aurenoeva's own verified product identities. Keep existing
 // CORE fallback until the private snapshot is connected and qualified.
-$localItems = aur_catalogue_snapshot_search($q,8);
+$localItems = aur_catalogue_snapshot_search($q,8,$industry,$category);
 $source = $localItems === null ? 'NOEVA_CORE' : 'AURENOEVA_OWNED_CATALOGUE';
 $result = $localItems === null
     ? aur_core_search($q,$industry,$category,8)
