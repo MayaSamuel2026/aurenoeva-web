@@ -4,6 +4,15 @@ on:
     branches: [main]
     paths:
       - 'tools/procurement_*.py'
+      - 'tools/catalogue_*.py'
+      - 'config/catalogue_sources.json'
+      - 'tests/test_catalogue_*.py'
+      - 'hotfix/v8.2.6.10/catalogue_local.php'
+      - 'hotfix/v8.2.6.11/catalogue-search.php'
+      - 'hotfix/v8.2.6.12/catalogue-sync.php'
+      - 'hotfix/v8.2.6.11/tests/**'
+      - 'hotfix/v8.2.6.12/tests/**'
+      - 'ops/upgrade-catalogue-sectors.sh'
       - 'tests/test_procurement_*.py'
       - 'deployment/crm/aurenoeva-v1/import.php'
       - 'deployment/site/procurement/**'
