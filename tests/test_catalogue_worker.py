@@ -140,4 +140,35 @@ class Tests(unittest.TestCase):
     self.assertEqual(task["follow_regex"],r"^/products/.*")
     self.assertEqual(task["due_at"],stamp(TIME+dt.timedelta(hours=1)))
 
+  def test_official_sitemap_discovers_product_automatically(self):
+    src={"index":{"id":"index","manufacturer":"ifm","hosts":{"example.org"},
+      "seeds":[],"sitemap_seeds":["https://example.org/sitemap.xml"],
+      "follow_regex":r"^/us/en/product/[A-Z0-9]+$",
+      "max_depth":2,"max_sitemap_urls":50}}
+    def page(url, source):
+      if url.endswith("sitemap.xml"):
+        return ("""<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <sitemap><loc>https://example.org/products.xml</loc></sitemap>
+          </sitemapindex>""",200)
+      if url.endswith("products.xml"):
+        return ("""<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url><loc>https://example.org/us/en/product/PN7094</loc></url>
+          <url><loc>https://example.org/blog/unrelated</loc></url>
+          </urlset>""",200)
+      return ("<h1>PN7094</h1><title>PN7094 | ifm sensor</title>",200)
+    result=run_worker(self.db,src,now=TIME,fetch=page)
+    self.assertEqual(result["new_products"],1)
+    self.assertEqual(result["discovered_urls"],2)
+    self.assertEqual(status(self.db)["products"],1)
+    self.assertEqual(status(self.db)["pending"],3)
+
+  def test_bad_sitemap_does_not_stop_other_sources(self):
+    src={"bad":{"id":"bad","manufacturer":"ifm","hosts":{"example.org"},
+         "seeds":[],"sitemap_seeds":["https://example.org/invalid.xml"],"max_depth":2},
+      "good":{"id":"good","manufacturer":"Mindray","hosts":{"example.org"},
+        "seeds":["https://example.org/item/A9"],"model_hint":"A9"}}
+    result=run_worker(self.db,src,now=TIME,fetch=lambda u,s:("<badxml" if u.endswith(".xml") else "<h1>A9</h1><title>A9</title>",200))
+    self.assertEqual(result["failed"],1)
+    self.assertEqual(result["new_products"],1)
+
 if __name__=='__main__': unittest.main()
