@@ -229,7 +229,9 @@ def fetch_page(url, source):
     opener = build_opener(SameHostRedirect(source["hosts"]))
     if not robots_allowed(url, source, opener):
         raise PermissionError("robots_disallow_or_unreachable")
-    time.sleep(1.0)  # polite per-request pacing, bounded by run wall-clock budget
+    robots = ROBOTS_CACHE.get(f"https://{urlsplit(url).hostname}/robots.txt")
+    delay = robots.crawl_delay(AGENT) if robots else None
+    time.sleep(min(15, max(1, delay or 1)))  # honor declared crawl delay
     xml = urlsplit(url).path.lower().endswith(".xml")
     with opener.open(Request(url, headers={"User-Agent": AGENT, "Accept": "application/xml, text/xml" if xml else "text/html"}), timeout=12) as r:
         content_type = r.headers.get("Content-Type", "").lower()
@@ -273,7 +275,10 @@ def product_from_page(source, url, html, model_hint=""):
 
 def sitemap_urls(xml, source, depth):
     """Find product URLs in official sitemap indexes without adding another crawler."""
-    root = ET.fromstring(xml)
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError as error:
+        raise ValueError("malformed_sitemap") from error
     kind = root.tag.rsplit("}", 1)[-1]
     if kind not in ("urlset", "sitemapindex"):
         raise ValueError("not_sitemap")
