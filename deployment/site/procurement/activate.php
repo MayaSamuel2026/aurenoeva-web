@@ -76,6 +76,7 @@ function aur_setup_apply(string $store, string $suppliedToken, string $password,
         fclose($lock);
     }
 }
+if (defined('AUR_ACTIVATION_TEST_LIBRARY')) return;
 require_once __DIR__.'/private_cases.php';
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')==='https';
@@ -99,7 +100,6 @@ if (!isset($_SESSION['csrf'])) $_SESSION['csrf']=bin2hex(random_bytes(24));
 $error='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     if (!hash_equals((string)$_SESSION['csrf'],(string)($_POST['csrf'] ?? ''))) aur_setup_fail(403,'invalid request token');
-    $ip=(string)($_SERVER['REMOTE_ADDR'] ?? '');
     $limitPath=$store.'/activation-attempts.json';
     $rateLock=@fopen($store.'/activation-rate.lock','c');
     if (!$rateLock || !flock($rateLock,LOCK_EX)) aur_setup_fail(503,'activation rate limiter unavailable');
