@@ -22,6 +22,7 @@ function aur_denied(int $status, string $message): never {
     exit;
 }
 require_once __DIR__ . '/private_cases.php';
+require_once __DIR__ . '/supplier_intelligence.php';
 try {
     $aurStore = aur_store_root();
 } catch (Throwable $e) {
@@ -142,6 +143,16 @@ if ($isAdmin) {
         }
     }
 }
+// Supplier intelligence is a derived, private view of the same authoritative
+// case, automatically refreshed on import and on authenticated case opening.
+$supplierResearch=null;
+if ($isAdmin && is_array($result) && isset($result['reference'])) {
+    try {
+        $supplierResearch=aur_supplier_save($aurStore,$result);
+    } catch (Throwable $e) {
+        error_log('AURENOEVA private supplier research: '.get_class($e));
+    }
+}
 header('Content-Type: text/html; charset=utf-8');
 ?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>AURENOEVA · Procurement administration</title>
@@ -196,6 +207,38 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
 <p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
+<?php if (is_array($supplierResearch)): ?>
+<div style="border-top:1px solid #e1e7e4;margin-top:24px;padding-top:23px">
+<h2>Supplier intelligence — evidence-first shortlist</h2>
+<p>Automatically identified from the <strong>original case lines</strong> using source-backed manufacturer and distributor routes. These are <b>research leads</b>, not quotations, stock confirmations or authorised suppliers.</p>
+<p><span class="pill"><b><?= (int)$supplierResearch['summary']['entries_with_oem_route']?></b> equipment entries with product / manufacturer routes</span>
+<span class="pill"><b><?= (int)$supplierResearch['summary']['entries_needing_identity_research']?></b> unresolved</span>
+<span class="pill">0 confirmed supplier quotes</span></p>
+<p class="muted">Product evidence source set: <?=aur_escape((string)$supplierResearch['rule_version'])?>. Source verification and current country representation remain open. Alternatives stay distinct; sanctions, destination-use, registration and licensing checks remain mandatory before supplier outreach.</p>
+<div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment</th><th>Potential supply route / evidence</th><th>Next research action</th></tr></thead><tbody>
+<?php foreach (($supplierResearch['rows'] ?? []) as $candidate): ?>
+<tr><td><?= (int)$candidate['customer_item_number'] ?>
+<?php if (($candidate['option_type']??'')==='ALTERNATIVE'): ?><div class="muted">Alternative</div><?php endif;?></td>
+<td><?=aur_escape((string)$candidate['description'])?></td><td>
+<?php if (empty($candidate['sources'])): ?>
+<span class="muted">Manufacturer not yet reliably identified.</span>
+<?php else: foreach ($candidate['sources'] as $lead): ?>
+<div style="margin-bottom:13px">
+<b><?=aur_escape((string)$lead['company'])?></b> <small class="muted"><?=aur_escape((string)$lead['role'])?></small>
+<div><a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$lead['evidence_url'])?>">Open source evidence ↗</a></div>
+<div class="muted"><?=aur_escape((string)($lead['match_quality']??''))?> · availability and authorisation unverified.</div>
+<?php if (!empty($lead['note'])): ?><div class="muted"><?=aur_escape((string)$lead['note'])?></div><?php endif;?>
+</div>
+<?php endforeach; endif;?>
+</td><td>
+<a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$candidate['search_url'])?>">Find more sellers in Uzbekistan ↗</a>
+<div class="muted"><?=aur_escape((string)$candidate['status'])?></div>
+</td></tr>
+<?php endforeach;?></tbody></table></div>
+<p class="muted">Search links launch user-directed research. A listed OEM or historic distributor is NOT evidence of confirmed inventory, authorised distribution in Uzbekistan, pricing, or permission to export.</p>
+</div>
+<?php else: ?><div class="card"><h2>Supplier identification pending</h2><p>The original procurement case is saved. Supplier matching will be available after the research source module is verified.</p></div><?php endif; ?>
+
 <p><a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download supplier RFQ draft</a></p>
 <p class="muted">Automatically prepared from the saved enquiry · editable text · NOT SENT. Supplier identification, sanctions screening, goods classification and compliance review are required before dispatch.</p>
 <p><a href="?case=<?=rawurlencode((string)$result['reference'])?>">Read this case again from the database</a></p>
