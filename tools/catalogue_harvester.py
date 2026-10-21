@@ -128,6 +128,24 @@ def parse_page(body,url,maker,sector,category):
                        "content_sha256":hashlib.sha256(body.encode()).hexdigest(),
                        "identity_evidence":proof})
     return list({x["product_id"]:x for x in result}.values()),[x[0] for x in p.links],title
+def published_contact(body,url):
+    # Contact must be genuinely published on the fetched website, never inferred
+    # from a search snippet or fabricated from a domain.
+    host=hostof(url).removeprefix("www.")
+    mails=re.findall(r"mailto:([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,})",body,re.I)
+    plain=re.sub(r"(?is)<script.*?</script>|<style.*?</style>"," ",body)
+    mails+=re.findall(r"(?<![A-Za-z0-9._%+\\-])[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}",plain,re.I)
+    email=""
+    for v in mails:
+        domain=v.split("@")[-1].lower()
+        if (domain==host or host.endswith("."+domain) or domain in ("gmail.com","outlook.com")) and not re.search(r"(?i)no.?reply|example|invalid|test@",v):
+            email=v[:240];break
+    phone=""
+    match=re.search(r"(?i)(?:tel:|phone\\s*[: ]|telephone\\s*[: ])\\s*(\\+?[0-9\\s().\\-]{8,24})",body)
+    if match:phone=txt(match.group(1),40)
+    return email,phone
+
+
 def search_links(body,kind):
     found=[]
     if kind=="search":
@@ -183,11 +201,16 @@ def db_init(db):
     CREATE TABLE IF NOT EXISTS vendor_leads(
       website TEXT NOT NULL,category TEXT NOT NULL DEFAULT '',sector TEXT NOT NULL DEFAULT '',
       evidence_url TEXT NOT NULL,checked TEXT NOT NULL DEFAULT 'SEARCH_LEAD',
-      first_seen TEXT NOT NULL,last_seen TEXT NOT NULL,PRIMARY KEY(website,evidence_url));
+      first_seen TEXT NOT NULL,last_seen TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY(website,evidence_url));
     """)
     cols={x[1] for x in db.execute("PRAGMA table_info(products)")}
     for name in ("sector","category"):
         if name not in cols:db.execute("ALTER TABLE products ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
+    leadcols={x[1] for x in db.execute("PRAGMA table_info(vendor_leads)")}
+    for name in ("email","phone"):
+        if name not in leadcols:db.execute("ALTER TABLE vendor_leads ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
     db.commit()
 def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     try:public_url(url)
@@ -245,6 +268,17 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
                         links=sitemap_urls(body)
                     else:
                         products,links,_=parse_page(body,url,row["maker"],row["sector"],row["category"])
+                    if kind=="page":
+                        email,phone=published_contact(body,url)
+                        host=hostof(url)
+                        db.execute("""INSERT INTO vendor_leads
+                          (website,sector,category,evidence_url,checked,first_seen,last_seen,email,phone)
+                          VALUES(?,?,?,?,?,?,?,?,?)
+                          ON CONFLICT(website,evidence_url) DO UPDATE SET
+                          checked='SITE_FETCHED',last_seen=excluded.last_seen,
+                          email=CASE WHEN excluded.email<>'' THEN excluded.email ELSE vendor_leads.email END,
+                          phone=CASE WHEN excluded.phone<>'' THEN excluded.phone ELSE vendor_leads.phone END""",
+                          (host,row["sector"],row["category"],url,"SITE_FETCHED",t,t,email,phone))
                     for prod in products:
                         old=db.execute("SELECT 1 FROM products WHERE product_id=?",(prod["product_id"],)).fetchone()
                         db.execute("""INSERT INTO products(
@@ -315,7 +349,7 @@ def export(db,path):
     vendors=[dict(x) for x in db.execute("""SELECT website,product_id,source_url,
        manufacturer,model,sector,category,evidence_type,last_seen
        FROM vendor_product_evidence ORDER BY last_seen DESC LIMIT 25000""")]
-    leads=[dict(x) for x in db.execute("""SELECT website,category,sector,evidence_url,last_seen
+    leads=[dict(x) for x in db.execute("""SELECT website,category,sector,evidence_url,last_seen,checked,email,phone
        FROM vendor_leads ORDER BY last_seen DESC LIMIT 5000""")]
     payload={"schema":"aurenoeva-catalogue/1","items":rows,
              "vendor_products":vendors,"vendor_leads":leads,
