@@ -135,7 +135,7 @@ if ($isAdmin) {
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
-            $intel=aur_supplier_save($aurStore,$result);
+            $intel=aur_worldwide_attach_master($aurStore,aur_supplier_save($aurStore,$result));
             $selected=$_POST['selected_routes']??[];
             if(!is_array($selected))throw new InvalidArgumentException('select_published_vendor_contacts');
             $draft=aur_vendor_rfq_prepare($aurStore,$result,$intel,$selected);
@@ -206,7 +206,7 @@ $supplierResearch=null;
 $rfqPreview=null;
 if ($isAdmin && is_array($result) && isset($result['reference'])) {
     try {
-        $supplierResearch=aur_supplier_save($aurStore,$result);
+        $supplierResearch=aur_worldwide_attach_master($aurStore,aur_supplier_save($aurStore,$result));
         if(isset($_GET['draft']) && is_string($_GET['draft'])) {
             $rfqPreview=aur_vendor_rfq_read($aurStore,$result,(string)$_GET['draft']);
         }
