@@ -100,7 +100,7 @@ try {
     // Global discovery consumes public search-result evidence, not RFQ approval.
     // Direct contact routes, distinct from Bing snippets.
     $directory=aur_supplier_route_directory();
-    check(count($directory)===7,'expected source-backed Uzbekistan supplier contacts');
+    check(count($directory)===9,'expected source-backed Uzbekistan supplier contacts');
     foreach($directory as $company) {
         check(filter_var($company['email'],FILTER_VALIDATE_EMAIL)!==false,'supplier email not usable');
         check(str_starts_with($company['url'],'https://'),'supplier evidence link not HTTPS');
@@ -111,6 +111,8 @@ try {
     $diamondRoutes=aur_supplier_contact_routes('DRGEM DIAMOND X-ray system');
     check($diamondRoutes[0]['id']==='diatech' && $diamondRoutes[0]['grade']==='CATEGORY_ENQUIRY',
       'radiology category route incorrectly treated as exact model');
+    $eyeRoutes=aur_supplier_contact_routes('Huvitz HRK-1 autorefractor/keratometer');
+    check($eyeRoutes[0]['id']==='meditech' && $eyeRoutes[1]['id']==='skymed','ophthalmology suppliers missing');
     $sterileRoutes=aur_supplier_contact_routes('Dry-heat sterilizer for CSSD');
     check($sterileRoutes[0]['id']==='abform','sterilization provider missing');
     $routeStats=aur_supplier_route_stats($intel['rows']);
