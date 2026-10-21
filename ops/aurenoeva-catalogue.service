@@ -10,7 +10,6 @@ Group=aurenoeva
 WorkingDirectory=/opt/aurenoeva
 ExecStart=/usr/bin/python3 /opt/aurenoeva/tools/catalogue_harvester.py --db /var/lib/aurenoeva/catalogue.sqlite3 --sources /opt/aurenoeva/config/catalogue_harvester.json --export /var/lib/aurenoeva/catalogue-public.json --max-pages 1500 --max-seconds 2700 --workers 10
 TimeoutStartSec=3300
-RuntimeMaxSec=3300
 UMask=0077
 NoNewPrivileges=true
 ProtectSystem=strict
