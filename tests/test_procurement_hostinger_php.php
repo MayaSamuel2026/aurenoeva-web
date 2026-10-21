@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/private_cases.php';
+require dirname(__DIR__).'/deployment/site/procurement/supplier_intelligence.php';
 $root=sys_get_temp_dir().'/aurenoeva-qa-'.bin2hex(random_bytes(6));
 mkdir($root.'/public_html',0700,true);
 // Simulate a web server which supplies an unrelated document root.
@@ -59,6 +60,25 @@ try {
     $one=aur_case_import($store,$src,'UZ','original.csv');
     check($one['ok']===true && $one['line_count']===3,'CSV item count');
     check($one['requirements']===2 && $one['alternatives']===1,'alternative detection');
+    $intel=aur_supplier_save($store,$one);
+    check($intel['summary']['equipment_entries']===3,'supplier research omitted case alternatives');
+    check($intel['summary']['entries_with_oem_route']===1,'supplier maker matching incorrect');
+    check($intel['summary']['supplier_quotes_confirmed']===0 && $intel['outreach_sent']===false,'fake supplier offer or email send');
+    check(str_contains($intel['rows'][0]['sources'][0]['note'],'VET'),'WATO veterinary mismatch safety warning missing');
+    check($intel['rows'][1]['status']==='IDENTITY_RESEARCH_REQUIRED','alternative incorrectly converted to model');
+    check(str_contains($intel['rows'][2]['search_url'],'Uzbekistan'),'fallback discovery query missing');
+    $intelAgain=aur_supplier_save($store,$one);
+    check($intelAgain['compiled_at']===$intel['compiled_at'],'supplier evidence write was not idempotent');
+    check(aur_supplier_read($store,$one['reference'],$one['source_sha256'])!==null,'supplier readback failed');
+    $rejected=false;
+    try { aur_supplier_read($store,$one['reference'],'wrong-sha'); } catch (RuntimeException $e) { $rejected=true; }
+    check($rejected,'supplier research mismatched case sha was accepted');
+    check(aur_supplier_match('Anthos A5 Continental dental unit')['name']==='Anthos / Cefla','Anthos OEM match missing');
+    check(aur_supplier_match('Samsung Z20 ultrasound system')['name']==='Samsung Medison','Samsung exact model match missing');
+    check(aur_supplier_match('Skema 8 dental unit')['name']==='Castellini / Cefla','Castellini OEM match missing');
+    check(aur_supplier_match('High pressure generic steam sterilizer')===null,'generic device incorrectly exact-matched');
+    echo "AURENOEVA_SUPPLIER_INTELLIGENCE_PRIVATE=PASS\\n";
+
     $twice=aur_case_import($store,$src,'UZ','original.csv');
     check($twice['reference']===$one['reference'],'duplicate not detected');
     $de=aur_case_import($store,$src,'DE','second.csv');
