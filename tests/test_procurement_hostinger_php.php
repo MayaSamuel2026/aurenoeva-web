@@ -43,6 +43,17 @@ try {
     check(password_verify('VeryStrongTestPassword123!',trim((string)file_get_contents($store.'/admin-password.hash'))),'hash verification failed');
     check(!file_exists(dirname($store).'/aurenoeva-activation-token.txt'),'one-time secret not consumed');
     check(aur_setup_apply($store,$activationToken,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='already_activated','re-activation not blocked');
+    // The user's earlier setup instructions also placed the code inside
+    // .aurenoeva-private/activation-token.txt; preserve that secure route.
+    $oldRoot=$root.'/legacy/public_html';
+    mkdir($oldRoot,0700,true);
+    $oldStore=aur_store_root($oldRoot);
+    $oldCode='LEGACY-HOSTINGER-PRIVATE-'.str_repeat('Z',44);
+    file_put_contents($oldStore.'/activation-token.txt',$oldCode);
+    $oldForm=aur_setup_form_token($oldStore,1761039000);
+    check(is_string($oldForm) && aur_setup_verify_form_token($oldStore,$oldForm,1761039060),'legacy private activation file not accepted');
+    check(aur_setup_apply($oldStore,$oldCode,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='activated','legacy private activation cannot finish');
+    check(!is_file($oldStore.'/activation-token.txt'),'legacy private token was not consumed');
     echo "AURENOEVA_BROWSER_ACTIVATION_PRIVATE=PASS\n";
     $src=csvFile($root,'test.csv');
     $one=aur_case_import($store,$src,'UZ','original.csv');
