@@ -76,4 +76,39 @@ for row in c.execute("SELECT last_error,COUNT(*) FROM tasks WHERE last_error IS 
 PY
 echo "=== CATALOGUE DELIVERY ==="
 journalctl -u "$SERVICE" -n 15 --no-pager || true
-echo "Done. One original database, service, and timer retained. Website release must also contain category-aware PHP files."
+echo "=== PERSISTENCE ASSERTION ==="
+python3 - "$DB" "$BACKUP" <<'PY'
+import sqlite3,sys
+with sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True) as current:
+    with sqlite3.connect('file:'+sys.argv[2]+'?mode=ro',uri=True) as prior:
+        before=prior.execute('SELECT COUNT(*) FROM products').fetchone()[0]
+        after=current.execute('SELECT COUNT(*) FROM products').fetchone()[0]
+        prior_ids={r[0] for r in prior.execute('SELECT product_id FROM products')}
+        current_ids={r[0] for r in current.execute('SELECT product_id FROM products')}
+        lost=prior_ids-current_ids
+        if lost: raise SystemExit('FAIL: missing historical product identities after upgrade')
+        print('HISTORICAL_PRODUCTS_PRESERVED=PASS', 'before=',before,'after=',after)
+PY
+echo "=== LIVE WEBSITE SEARCH READBACK ==="
+python3 - /var/lib/aurenoeva/catalogue-public.json <<'PY'
+import json,sys
+from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import urlopen
+p=Path(sys.argv[1])
+if not p.is_file(): raise SystemExit('BLOCKED: no crawler public snapshot available')
+items=json.loads(p.read_text()).get('items',[])
+if not items: raise SystemExit('BLOCKED: no searchable products in local snapshot')
+item=items[0]
+url='https://aurenoeva.com/catalogue-search.php?'+urlencode({'q':item['model']})
+with urlopen(url,timeout=25) as response:
+    result=json.load(response)
+if result.get('source')!='AURENOEVA_OWNED_CATALOGUE' or not any(
+    x.get('canonical_id')==item.get('canonical_id') for x in result.get('items',[])
+):
+    raise SystemExit('BLOCKED: live public site has not indexed the expected product')
+print('LIVE_WEBSITE_CATALOGUE_SEARCH=PASS',item['manufacturer'],item['model'])
+PY
+echo "=== EXISTING HISTORICAL CATALOGUE BACKUPS ==="
+find /var/lib/aurenoeva -maxdepth 1 -type f -name 'catalogue.sqlite3*' -printf '%f %s bytes\n' | sort
+echo "UPGRADE_AND_LIVE_READBACK=PASS — same original SQLite, service, and timer retained."
