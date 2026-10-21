@@ -165,7 +165,18 @@ if ($isAdmin) {
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
-            $intel=aur_worldwide_attach_master($aurStore,aur_supplier_save($aurStore,$result));
+            // The dashboard tolerates a temporarily unavailable shared master.
+            // Preparing its selected vendors must follow the identical rule.
+            try{$intel=aur_supplier_save($aurStore,$result);}
+            catch(Throwable $e) {
+                error_log('AURENOEVA draft research read fallback: '.get_class($e));
+                $intel=aur_supplier_read($aurStore,(string)$result['reference'],(string)$result['source_sha256']);
+                if(!is_array($intel))$intel=aur_supplier_preview($result);
+            }
+            try{$intel=aur_worldwide_attach_master($aurStore,$intel);}
+            catch(Throwable $e){
+                error_log('AURENOEVA draft vendor master fallback: '.get_class($e));
+            }
             $selected=$_POST['selected_routes']??[];
             $selectedVendors=$_POST['selected_vendors']??[];
             if(!is_array($selected)||!is_array($selectedVendors))
@@ -188,7 +199,7 @@ if ($isAdmin) {
                 http_response_code(422);
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok'=>false,'error'=>'rfq_draft_unavailable',
-                    'reason'=>$e instanceof InvalidArgumentException?'invalid_selection':'private_save_or_hosting_error']);
+                    'reason'=>aur_vendor_rfq_safe_error($e)]);
                 exit;
             }
             aur_denied(422,'RFQ preparation unsuccessful: choose at least one supplier with a published contact email and check that selected records are still valid');

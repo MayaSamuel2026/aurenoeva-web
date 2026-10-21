@@ -67,6 +67,90 @@ function aur_supplier_route_directory(): array {
       ],
     ];
 }
+/**
+ * International source-backed outreach directory, 21 Oct 2026.
+ * Published official contact and category/exact-model source links ONLY.
+ * Country describes vendor location, never stock or permitted export route.
+ * Relevance is an invitation to quote, not stock or model verification.
+ */
+function aur_supplier_international_contacts(string $description):array {
+    $items=[
+      'mindray-global'=>[
+        'name'=>'Mindray Global (OEM)','country'=>'CN','email'=>'intl-market@mindray.com',
+        'phone'=>'+86 755 8188 8997','url'=>'https://www.mindray-usa.com/en/contact',
+        'scope'=>'WATO EX-35 manufacturer sales channel','pattern'=>'/\b(?:mindray|wato\s*ex.?35)\b/ui',
+        'grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
+      'mindray-uk'=>[
+        'name'=>'Mindray UK (OEM)','country'=>'GB','email'=>'ukcustomerservice@mindray.com',
+        'phone'=>'+44 1480 416840','url'=>'https://www.mindray.com/uk/products/anesthesia/wato-ex-35',
+        'scope'=>'WATO EX-35 manufacturer market contact','pattern'=>'/\b(?:mindray|wato\s*ex.?35)\b/ui',
+        'grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
+      'soma-us'=>[
+        'name'=>'Soma Technology (US)','country'=>'US','email'=>'Soma@SomaTechnology.com',
+        'phone'=>'+1 800 438 7662',
+        'url'=>'https://www.somatechnology.com/anesthesia-machines/mindray-wato-ex-35/',
+        'scope'=>'Published refurbished WATO EX-35 listing; current stock not verified',
+        'pattern'=>'/\b(?:mindray|wato\s*ex.?35)\b/ui',
+        'grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'kombi-de'=>[
+        'name'=>'KombiMED GmbH','country'=>'DE','email'=>'sales@kombi-med.com',
+        'phone'=>'','url'=>'https://www.kombi-med.com/customer',
+        'scope'=>'German hospital and laboratory equipment; Central Asian procurement enquiry',
+        'pattern'=>'/.+/us',
+        'grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'hce-uk'=>[
+        'name'=>'HCE Export Medical Equipment','country'=>'GB','email'=>'sales@hce-uk.com',
+        'phone'=>'+44 1784 220 400','url'=>'https://www.hce-uk.com/contact/export-enquiries/',
+        'scope'=>'UK medical equipment international export enquiries; specific models not confirmed',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'europ-fr'=>[
+        'name'=>'EuropExport','country'=>'FR','email'=>'info@europexport.com',
+        'phone'=>'+33 6 09 08 69 81','url'=>'https://www.europexport.com/',
+        'scope'=>'French medical equipment sourcing and international trade',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'rensino-cn'=>[
+        'name'=>'Rensino Medical Equipment','country'=>'CN',
+        'email'=>'export@medical-equipment.com.cn','phone'=>'+86 19195531707',
+        'url'=>'https://www.medical-equipment.com.cn/contact-us/',
+        'scope'=>'Chinese medical/dental/anesthesia equipment exporter; exact model not established',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'jme-jp'=>[
+        'name'=>'Japan Medical Equipment','country'=>'JP',
+        'email'=>'info@japanmedicalequipment.com','phone'=>'',
+        'url'=>'https://www.japanmedicalequipment.com/',
+        'scope'=>'Japanese used medical equipment exporter; model and availability unverified',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'medworld-ca'=>[
+        'name'=>'Med World Equipment','country'=>'CA','email'=>'Sales@medworld.ca',
+        'phone'=>'+1 416 666 6006','url'=>'https://medworld.ca/contact/',
+        'scope'=>'Canadian used/refurbished medical equipment exporter; category inquiry only',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'humanova-uae'=>[
+        'name'=>'HumaNova (UAE)','country'=>'AE','email'=>'info@humanova.ae',
+        'phone'=>'+971 58 525 3411','url'=>'https://www.humanova.ae/export',
+        'scope'=>'Dubai medical equipment exporter listing Uzbekistan among markets; exact model not confirmed',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'novosic-uae'=>[
+        'name'=>'NOVOSIC Trading FZCO','country'=>'AE','email'=>'info@novosic.com',
+        'phone'=>'+971 50 313 7086','url'=>'https://www.novosic.com/contact/',
+        'scope'=>'Dubai multi-brand medical equipment export sourcing; exact model not verified',
+        'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      'termedis-pl'=>[
+        'name'=>'TerMedis','country'=>'PL','email'=>'export@termedis.pl',
+        'phone'=>'+48 603 398 840','url'=>'https://www.termedis.pl/export',
+        'scope'=>'Polish rehabilitation, oxygen and medical equipment; model unverified',
+        'pattern'=>'/rehab|therapy|physiother|oxygen|concentrator|respirat|ventilat/ui',
+        'grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+    ];
+    $routes=[];
+    foreach($items as $id=>$vendor) {
+        if(preg_match($vendor['pattern'],$description)!==1)continue;
+        unset($vendor['pattern']);
+        $vendor['id']='global-'.$id;
+        $routes[]=$vendor;
+    }
+    return $routes;
+}
 function aur_supplier_contact_routes(string $description): array {
     $routes=[];
     // Product-level evidence, not an assumption of stock.
