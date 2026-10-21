@@ -23,6 +23,7 @@ function aur_denied(int $status, string $message): never {
 }
 require_once __DIR__ . '/private_cases.php';
 require_once __DIR__ . '/supplier_intelligence.php';
+require_once __DIR__ . '/supplier_discovery.php';
 try {
     $aurStore = aur_store_root();
 } catch (Throwable $e) {
@@ -102,6 +103,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
 }
 
 $result = null;
+$supplierDiscoveryMessage = null;
 $catalogueSyncToken = null;
 $catalogueSnapshotCount = null;
 $catalogueSnapshotFile = $aurStore . '/catalogue-public.json';
@@ -119,6 +121,18 @@ if ($isAdmin) {
             aur_denied(503, 'catalogue synchronization credential could not be stored');
         }
         @chmod($credentialFile, 0600);
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
+        try {
+            $caseRef=trim((string)($_POST['case_ref']??''));
+            $result=aur_case_read($aurStore,$caseRef);
+            $run=aur_supplier_discover_batch($aurStore,$result,2);
+            $supplierDiscoveryMessage='Searched '.(int)$run['processed'].' equipment entries; found '
+                .(int)$run['new_unverified_links'].' public links. Provider failures: '
+                .(int)$run['provider_failures'].'. No supplier contacted or commercially verified.';
+        } catch (Throwable $e) {
+            error_log('AURENOEVA supplier discovery: '.get_class($e));
+            aur_denied(503,'supplier discovery temporarily unavailable; saved case remains intact');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['customer_file'])) {
         $file = $_FILES['customer_file'];
         $size = (int)($file['size'] ?? 0);
@@ -209,11 +223,21 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <?php if (is_array($supplierResearch)): ?>
 <div style="border-top:1px solid #e1e7e4;margin-top:24px;padding-top:23px">
-<h2>Supplier intelligence — evidence-first shortlist</h2>
-<p>Automatically identified from the <strong>original case lines</strong> using source-backed manufacturer and distributor routes. These are <b>research leads</b>, not quotations, stock confirmations or authorised suppliers.</p>
+<h2>Supplier intelligence — worldwide discovery</h2>
+<p>Manufacturer matching plus worldwide supplier research for the <strong>existing private case</strong>. Search covers all countries; the destination country is used for delivery, servicing and legal review only. Public search results are leads, not quotations, stock or authorised distributors.</p>
 <p><span class="pill"><b><?= (int)$supplierResearch['summary']['entries_with_oem_route']?></b> equipment entries with product / manufacturer routes</span>
 <span class="pill"><b><?= (int)$supplierResearch['summary']['entries_needing_identity_research']?></b> unresolved</span>
 <span class="pill">0 confirmed supplier quotes</span></p>
+<?php $discoveryStats=aur_supplier_discovery_stats($supplierResearch); ?>
+<p><span class="pill"><?= (int)$discoveryStats['checked'] ?> / <?= (int)$discoveryStats['total'] ?> entries searched online</span>
+<span class="pill"><?= (int)$discoveryStats['links'] ?> unverified public seller/product links</span></p>
+<form method="post" style="margin:15px 0">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="discover_suppliers" value="1">Search next 2 equipment entries worldwide</button>
+</form>
+<?php if ($supplierDiscoveryMessage): ?><p class="muted" role="status"><?=aur_escape($supplierDiscoveryMessage)?></p><?php endif; ?>
+<p class="muted">Each click checks two unsearched or stale entries, keeping the website responsive. The result is saved with this case and refreshed after 24 hours. Automated search may be unavailable if the public search provider blocks access. Regional research links are always available.</p>
 <p class="muted">Product evidence source set: <?=aur_escape((string)$supplierResearch['rule_version'])?>. Source verification and current country representation remain open. Alternatives stay distinct; sanctions, destination-use, registration and licensing checks remain mandatory before supplier outreach.</p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment</th><th>Potential supply route / evidence</th><th>Next research action</th></tr></thead><tbody>
 <?php foreach (($supplierResearch['rows'] ?? []) as $candidate): ?>
@@ -231,11 +255,24 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 </div>
 <?php endforeach; endif;?>
 </td><td>
-<a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$candidate['search_url'])?>">Find more sellers in Uzbekistan ↗</a>
+<?php foreach (aur_supplier_global_search_links((string)$candidate['description'],aur_supplier_match((string)$candidate['description'])) as $region=>$url): ?>
+<a style="display:inline-block;margin:0 9px 6px 0" target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape($url)?>"><?=aur_escape($region)?> ↗</a>
+<?php endforeach; ?>
+<?php $publicRow=$supplierResearch['global_discovery']['rows'][(string)$candidate['source_row']]??null; ?>
+<?php if (is_array($publicRow)): ?>
+<div class="muted"><b><?=aur_escape((string)$publicRow['status'])?></b> · Checked <?=aur_escape((string)$publicRow['checked_at'])?></div>
+<?php foreach (($publicRow['leads']??[]) as $webLead): ?>
+<div style="margin-top:10px">
+<a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$webLead['source_url'])?>"><?=aur_escape((string)$webLead['page_title'])?> ↗</a>
+<div class="muted"><?=aur_escape((string)$webLead['website'])?> · unverified web discovery, not confirmed inventory</div>
+<?php if (!empty($webLead['snippet'])): ?><div class="muted"><?=aur_escape((string)$webLead['snippet'])?></div><?php endif; ?>
+</div>
+<?php endforeach; ?>
+<?php else: ?><div class="muted">Live discovery not yet run for this entry.</div><?php endif; ?>
 <div class="muted"><?=aur_escape((string)$candidate['status'])?></div>
 </td></tr>
 <?php endforeach;?></tbody></table></div>
-<p class="muted">Search links launch user-directed research. A listed OEM or historic distributor is NOT evidence of confirmed inventory, authorised distribution in Uzbekistan, pricing, or permission to export.</p>
+<p class="muted">Search links launch user-directed research. A listed OEM, historical dealer or web-search result is NOT evidence of confirmed stock, approved distribution in the destination, pricing, or lawful export. Every entity and shipment route requires individual screening.</p>
 </div>
 <?php else: ?><div class="card"><h2>Supplier identification pending</h2><p>The original procurement case is saved. Supplier matching will be available after the research source module is verified.</p></div><?php endif; ?>
 

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/private_cases.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_intelligence.php';
+require dirname(__DIR__).'/deployment/site/procurement/supplier_discovery.php';
 $root=sys_get_temp_dir().'/aurenoeva-qa-'.bin2hex(random_bytes(6));
 mkdir($root.'/public_html',0700,true);
 // Simulate a web server which supplies an unrelated document root.
@@ -68,13 +69,37 @@ try {
     check($intel['rows'][0]['sources'][1]['role']==='LOCAL_MARKET_PRODUCT_LISTING_UNVERIFIED_STOCK','unverified supplier lead incorrectly qualified');
     check(str_contains($intel['rows'][0]['sources'][0]['note'],'Vet'),'WATO veterinary mismatch safety warning missing');
     check($intel['rows'][1]['status']==='IDENTITY_RESEARCH_REQUIRED','alternative incorrectly converted to model');
-    check(str_contains($intel['rows'][2]['search_url'],'Uzbekistan'),'fallback discovery query missing');
+    check(str_contains($intel['rows'][2]['search_url'],'worldwide') && !str_contains($intel['rows'][2]['search_url'],'Uzbekistan'),'global fallback discovery query missing');
     $intelAgain=aur_supplier_save($store,$one);
     check($intelAgain['compiled_at']===$intel['compiled_at'],'supplier evidence write was not idempotent');
     check(aur_supplier_read($store,$one['reference'],$one['source_sha256'])!==null,'supplier readback failed');
     $rejected=false;
     try { aur_supplier_read($store,$one['reference'],'wrong-sha'); } catch (RuntimeException $e) { $rejected=true; }
     check($rejected,'supplier research mismatched case sha was accepted');
+    // Global discovery consumes public search-result evidence, not RFQ approval.
+    $queries=aur_supplier_global_queries('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'));
+    check(count($queries)===5 && !str_contains($queries['Worldwide'],'Uzbekistan'),'geographical restriction was retained');
+    $regional=aur_supplier_global_search_links('Mindray WATO EX-35');
+    check(isset($regional['Europe'],$regional['Asia-Pacific'],$regional['North America']),'worldwide regions absent');
+    $rss='<?xml version="1.0"?><rss version="2.0"><channel><title>Search</title>'
+        .'<item><title>Worldwide WATO medical equipment seller</title>'
+        .'<link>https://example-medical.com/equipment/wato</link>'
+        .'<description>Public product listing; availability not verified</description></item>'
+        .'</channel></rss>';
+    $batch=aur_supplier_discover_batch($store,$one,2,static fn(string $q): string=>$rss);
+    check($batch['processed']===2 && $batch['new_unverified_links']===2,'global search did not persist individual leads');
+    check($batch['outreach_sent']===false,'global discovery falsely sent supplier outreach');
+    $enriched=aur_supplier_read($store,$one['reference'],$one['source_sha256']);
+    $public=$enriched['global_discovery']['rows'][(string)$intel['rows'][0]['source_row']]['leads'][0]??[];
+    check(($public['role']??'')==='PUBLIC_SEARCH_RESULT_UNVERIFIED','public search result wrongly qualified');
+    check(($public['quotation']??'')==='NOT_RECEIVED','discovery incorrectly registered quotation');
+    $repeat=aur_supplier_discover_batch($store,$one,2,static fn(string $q): string=>$rss);
+    check($repeat['processed']===1,'same-day discovery should skip already checked entries');
+    check(aur_supplier_discovery_stats($enriched)['links']===2,'discovery result not present in case readback');
+    check(count(aur_supplier_feed_parse('<?xml version="1.0"?><rss><channel>'
+        .'<item><title>Blocked search</title><link>https://www.bing.com/result</link></item>'
+        .'<item><title>Legitimate result</title><link>https://suppliers.example.org/a</link></item>'
+        .'</channel></rss>'))===1,'search-engine self-links were not removed');
     check(aur_supplier_match('Anthos A5 Continental dental unit')['name']==='Anthos / Cefla','Anthos OEM match missing');
     check(aur_supplier_match('Samsung Z20 ultrasound system')['name']==='Samsung Medison','Samsung exact model match missing');
     check(aur_supplier_match('Skema 8 dental unit')['name']==='Castellini / Cefla','Castellini OEM match missing');

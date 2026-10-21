@@ -41,6 +41,9 @@ jobs:
           php -l deployment/crm/aurenoeva-v1/import.php
           php -l deployment/site/procurement/index.php
           php -l deployment/site/procurement/private_cases.php
+          php -l deployment/site/procurement/supplier_intelligence.php
+          php -l deployment/site/procurement/supplier_discovery.php
+          php -l deployment/site/procurement/supplier-refresh-cli.php
           php -l deployment/site/procurement/setup-cli.php
           php -l deployment/site/procurement/activate.php
           php tests/test_procurement_hostinger_php.php
