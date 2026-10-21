@@ -8,6 +8,7 @@ on:
       - 'deployment/crm/aurenoeva-v1/import.php'
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_hostinger_php.php'
+      - 'tests/test_procurement_worldwide_php.php'
       - '.github/workflows/publish.yml'
       - 'deployment/install-hostinger.sh'
       - 'deployment/install-hostinger-worker.sh'
