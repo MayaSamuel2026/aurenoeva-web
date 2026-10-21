@@ -19,7 +19,7 @@ PY
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/tools" "$WORK/tests" "$WORK/config" "$WORK/ops"
-BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/466fe9f1460fb236cc5a856010128287e03c9a88
+BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/566800a221eef20d118b7aaebba85cf232fe86fa
 for file in tools/catalogue_worker.py tools/catalogue_publish.py tests/test_catalogue_worker.py tests/test_catalogue_publish.py config/catalogue_sources.json ops/aurenoeva-catalogue.service; do
   curl -fsSL --retry 2 --connect-timeout 10 --max-time 45 "$BASE/$file" -o "$WORK/$file"
 done
@@ -43,7 +43,7 @@ install -m 644 "$WORK/tools/catalogue_publish.py" "$ROOT/tools/catalogue_publish
 install -m 644 "$WORK/config/catalogue_sources.json" "$ROOT/config/catalogue_sources.json"
 install -m 644 "$WORK/ops/aurenoeva-catalogue.service" "$UNIT"
 mkdir -p /etc/systemd/system/aurenoeva-catalogue.service.d
-printf '[Service]\nTimeoutStartSec=1100s\n' > /etc/systemd/system/aurenoeva-catalogue.service.d/zz-catalogue-v3.conf
+printf '[Service]\nTimeoutStartSec=2100s\n' > /etc/systemd/system/aurenoeva-catalogue.service.d/zz-catalogue-v3.conf
 systemctl daemon-reload
 systemctl enable --now aurenoeva-catalogue.timer
 if ! systemctl start aurenoeva-catalogue.service; then
