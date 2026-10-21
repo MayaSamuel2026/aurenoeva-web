@@ -96,7 +96,7 @@ function aur_supplier_international_contacts(string $description):array {
         'name'=>'KombiMED GmbH','country'=>'DE','email'=>'sales@kombi-med.com',
         'phone'=>'','url'=>'https://www.kombi-med.com/customer',
         'scope'=>'German hospital and laboratory equipment; Central Asian procurement enquiry',
-        'pattern'=>'/\b(?:medical|hospital|laborator|patient|diagnos|scan|equipment|steriliz|anesthes|anaesthes|x.ray|MRI|ultrasound|endoscop|dental|surg|therapy|medtron|dr[aä]ger|neuro|monitor)\b/ui',
+        'pattern'=>'/.+/us',
         'grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
       'hce-uk'=>[
         'name'=>'HCE Export Medical Equipment','country'=>'GB','email'=>'sales@hce-uk.com',
