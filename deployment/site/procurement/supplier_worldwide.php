@@ -61,7 +61,7 @@ function aur_worldwide_contact(string $html,string $url): array {
     $email='';
     foreach(array_unique($emails) as $candidate) {
         $candidate=trim($candidate);
-        $domain=strtolower((string)substr(strrchr($candidate,'@')?:'','1'));
+        $domain=strtolower((string)substr(strrchr($candidate,'@')?:'',1));
         if(filter_var($candidate,FILTER_VALIDATE_EMAIL)===false
            || preg_match('/(?:example|invalid|test|noreply|no-reply|support\@wordpress)/i',$candidate)) continue;
         $h=preg_replace('/^www\./','',$host);
