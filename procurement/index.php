@@ -393,6 +393,32 @@ input{border:1px solid #c5d2cd;border-radius:8px;padding:12px;font:inherit;backg
 input[type=file]{width:390px}.muted{font-size:13px;color:#6b7671}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e6ece9}th{color:#64736d;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .pill{display:inline-block;background:#edf4f1;border-radius:20px;padding:4px 10px;font-size:12px;color:#235c50}
+
+/* Consolidated RFQ: compact scanning, expandable item and email detail. */
+.aur-rfq-counts{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 20px}
+.aur-rfq-counts span{background:#f1f5f3;border:1px solid #e0e9e4;border-radius:8px;padding:9px 14px;color:#42554e;font-size:13px}
+.aur-rfq-counts strong{font-size:17px;color:#1c3832;margin-right:5px}
+.aur-rfq-table{table-layout:fixed;min-width:840px}
+.aur-rfq-table th:nth-child(1){width:18%}
+.aur-rfq-table th:nth-child(2){width:24%}
+.aur-rfq-table th:nth-child(3){width:31%}
+.aur-rfq-table th:nth-child(4){width:15%}
+.aur-rfq-table th:nth-child(5){width:12%}
+.aur-rfq-table td{padding:17px 12px;overflow-wrap:anywhere;line-height:1.4}
+.aur-rfq-table tbody>tr:hover{background:#f8faf9}
+.aur-rfq-table td>a{word-break:break-word}
+.aur-rfq-item-count{font-weight:650;color:#1c3832}
+.aur-rfq-short-items{font-size:12px;color:#53675e;line-height:1.55;margin-top:4px}
+.aur-rfq-details{margin-top:9px}
+.aur-rfq-details summary{cursor:pointer;color:#176253;font-size:12px;font-weight:650;list-style:disclosure-closed}
+.aur-rfq-details[open]>summary{list-style:disclosure-open}
+.aur-rfq-expanded{margin-top:12px;max-height:330px;overflow:auto;border:1px solid #e3eae6;border-radius:8px;background:white}
+.aur-rfq-expanded table{min-width:520px;font-size:12px}
+.aur-rfq-expanded td,.aur-rfq-expanded th{padding:7px 9px}
+.aur-rfq-expanded th{position:sticky;top:0;background:#eff4f1}
+.aur-rfq-status{display:inline-block;font-weight:600;font-size:12px;color:#335347;background:#edf3ef;padding:5px 8px;border-radius:5px}
+.aur-rfq-preview{position:relative;min-width:360px;margin:10px 0;padding:12px;background:#f3f7f5;border:1px solid #e4ebe7;border-radius:8px;font-size:12px}
+.aur-rfq-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;margin-bottom:0}
 @media(max-width:700px){.card{padding:18px}.top{align-items:flex-start}input[type=file]{width:100%}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
