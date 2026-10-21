@@ -46,7 +46,9 @@ mkdir -p /etc/systemd/system/aurenoeva-catalogue.service.d
 printf '[Service]\nTimeoutStartSec=1100s\n' > /etc/systemd/system/aurenoeva-catalogue.service.d/zz-catalogue-v3.conf
 systemctl daemon-reload
 systemctl enable --now aurenoeva-catalogue.timer
-systemctl start aurenoeva-catalogue.service
+if ! systemctl start aurenoeva-catalogue.service; then
+  echo "WARNING: crawler service reported failure; diagnostics follow."
+fi
 echo "=== LAST RUN ==="
 journalctl -u aurenoeva-catalogue.service -n 15 --no-pager
 echo "=== DATABASE AFTER RUN ==="
@@ -55,7 +57,19 @@ import sqlite3, sys
 db = sqlite3.connect(sys.argv[1])
 print("Products:", db.execute("SELECT count(*) FROM products").fetchone()[0])
 print("Queued source URLs:", db.execute("SELECT count(*) FROM tasks").fetchone()[0])
+import json
+from pathlib import Path
+snapshot=Path("/var/lib/aurenoeva/catalogue-public.json")
+if snapshot.is_file():
+    try:
+        print("Exported searchable catalogue records:",len(json.loads(snapshot.read_text()).get("items",[])))
+    except Exception as exc:
+        print("Snapshot unreadable:",type(exc).__name__)
+else:
+    print("Exported searchable catalogue records: NO FILE")
 print("Last run:", db.execute("SELECT started_at,processed,succeeded,failed,new_products,state FROM runs ORDER BY id DESC LIMIT 1").fetchone())
+if db.execute("SELECT count(*) FROM products").fetchone()[0] == 0:
+    print("ALERT: CATALOGUE STILL EMPTY. CHECK SOURCE ERRORS BELOW.")
 print("By manufacturer:")
 for row in db.execute("SELECT manufacturer,count(*) FROM products GROUP BY manufacturer ORDER BY 2 DESC"):
     print(" ",row[0],row[1])
