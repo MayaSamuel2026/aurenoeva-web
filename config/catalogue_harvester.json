@@ -1,0 +1,498 @@
+{
+  "schema": "aurenoeva-harvester/4",
+  "categories": {
+    "laboratory": [
+      "Chromatography / HPLC / GC",
+      "Mass spectrometry",
+      "Spectroscopy",
+      "Sample preparation",
+      "Balances & weighing",
+      "Incubation / ovens / environmental",
+      "General laboratory equipment"
+    ],
+    "test": [
+      "Oscilloscopes",
+      "Spectrum / signal analyzers",
+      "Signal sources / generators",
+      "Meters & power analyzers",
+      "RF / microwave",
+      "Calibration equipment",
+      "Data acquisition"
+    ],
+    "medical": [
+      "Diagnostic equipment",
+      "Imaging & visualization",
+      "Patient monitoring",
+      "Laboratory / pathology",
+      "Surgical / procedural",
+      "Sterilization & reprocessing",
+      "Other medical equipment"
+    ],
+    "industrial": [
+      "PLC / control modules",
+      "Drives / servo / motion",
+      "Motors / gearboxes",
+      "Sensors / instrumentation",
+      "Pneumatics / hydraulics",
+      "Robotics / automation",
+      "Machine / process equipment"
+    ],
+    "energy": [
+      "Transformers",
+      "Switchgear & protection",
+      "Generators",
+      "Power conversion / inverters",
+      "Power quality / monitoring",
+      "Turbine / plant components",
+      "Storage / auxiliary systems"
+    ],
+    "marine": [
+      "Engines & propulsion",
+      "Pumps / fluid systems",
+      "Electrical & switchgear",
+      "Navigation / instrumentation",
+      "Deck machinery",
+      "HVAC / refrigeration",
+      "Safety / auxiliary systems"
+    ],
+    "aviation": [
+      "Avionics",
+      "Electrical components",
+      "Hydraulic / pneumatic",
+      "Engine / powerplant components",
+      "Landing gear / actuation",
+      "Ground support / test equipment",
+      "Traceable specialist components"
+    ]
+  },
+  "sources": [
+    {
+      "id": "mindray-wato-ex35",
+      "active": true,
+      "manufacturer": "Mindray",
+      "allowed_hosts": [
+        "www.mindray.com"
+      ],
+      "seeds": [
+        "https://www.mindray.com/en/products/anesthesia",
+        "https://www.mindray.com/en/products/anesthesia/wato-ex-35",
+        "https://www.mindray.com/en/products/anesthesia/a9",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19",
+        "https://www.mindray.com/en/products/ventilators",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n17-n15-n12",
+        "https://www.mindray.com/en/products/patient-monitoring/telemetry-monitoring/benevision-tm80",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n1"
+      ],
+      "model_hints": {
+        "https://www.mindray.com/en/products/anesthesia/wato-ex-35": "WATO EX-35",
+        "https://www.mindray.com/en/products/anesthesia/a9": "A9",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19": "BeneVision N22/N19",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n17-n15-n12": "BeneVision N17/N15/N12",
+        "https://www.mindray.com/en/products/patient-monitoring/telemetry-monitoring/benevision-tm80": "BeneVision TM80",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n1": "BeneVision N1"
+      },
+      "follow_regex": "^/en/products/(anesthesia|patient-monitoring|ventilators)/[a-z0-9/\\-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 24,
+      "sector": "medical",
+      "category": "Surgical / procedural"
+    },
+    {
+      "id": "anthos-units",
+      "active": true,
+      "manufacturer": "Anthos",
+      "allowed_hosts": [
+        "www.anthos.it"
+      ],
+      "seeds": [
+        "https://www.anthos.it/en/dental-units-listing",
+        "https://www.anthos.it/en/dental-units/a3/",
+        "https://www.anthos.it/en/dental-units/a5/",
+        "https://www.anthos.it/en/dental-units/a6/",
+        "https://www.anthos.it/en/dental-units/a7/",
+        "https://www.anthos.it/en/dental-units/l6/",
+        "https://www.anthos.it/en/dental-units/l9/",
+        "https://www.anthos.it/en/dental-units/r7/",
+        "https://www.anthos.it/en/dental-units/c9/"
+      ],
+      "model_hints": {
+        "https://www.anthos.it/en/dental-units/a3/": "A3",
+        "https://www.anthos.it/en/dental-units/a5/": "A5",
+        "https://www.anthos.it/en/dental-units/a6/": "A6 PLUS",
+        "https://www.anthos.it/en/dental-units/a7/": "A7 PLUS",
+        "https://www.anthos.it/en/dental-units/l6/": "L6",
+        "https://www.anthos.it/en/dental-units/l9/": "L9",
+        "https://www.anthos.it/en/dental-units/r7/": "R7",
+        "https://www.anthos.it/en/dental-units/c9/": "C9"
+      },
+      "follow_regex": "^/en/dental-units/[a-z0-9-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 48,
+      "sector": "medical",
+      "category": "Other medical equipment"
+    },
+    {
+      "id": "haagstreit-products",
+      "active": true,
+      "manufacturer": "Haag-Streit",
+      "allowed_hosts": [
+        "de.haag-streit.com"
+      ],
+      "seeds": [
+        "https://de.haag-streit.com/produkte",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/lenstar-900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/eyestar-900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/myopie-management/lenstar-myopia",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/spaltlampe/bq-900",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/tonometer/applanation-tonometer-at-900-model-bq-bp"
+      ],
+      "model_hints": {
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/lenstar-900": "Lenstar 900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/eyestar-900": "Eyestar 900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/myopie-management/lenstar-myopia": "Lenstar Myopia",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/spaltlampe/bq-900": "BQ 900",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/tonometer/applanation-tonometer-at-900-model-bq-bp": "AT 900 model BQ"
+      },
+      "follow_regex": "^/produkte/kategorien/(allgemeine-diagnostik|fachdiagnostik)/[^?#]+$",
+      "max_depth": 2,
+      "refresh_hours": 48,
+      "sector": "medical",
+      "category": "Diagnostic equipment"
+    },
+    {
+      "id": "draeger-icu-anesthesia",
+      "active": true,
+      "manufacturer": "Dräger",
+      "allowed_hosts": [
+        "www.draeger.com"
+      ],
+      "seeds": [
+        "https://www.draeger.com/en_uk/Products/Evita-V600",
+        "https://www.draeger.com/en_uk/Products/Savina-300-Select",
+        "https://www.draeger.com/en_uk/Products/atlan-a350-a350-xl",
+        "https://www.draeger.com/en_uk/Products/Infinity-M540-monitor",
+        "https://www.draeger.com/en_uk/Products/perseus-a500"
+      ],
+      "model_hints": {
+        "https://www.draeger.com/en_uk/Products/Evita-V600": "Evita V600",
+        "https://www.draeger.com/en_uk/Products/Savina-300-Select": "Savina 300 Select",
+        "https://www.draeger.com/en_uk/Products/atlan-a350-a350-xl": "Atlan A350/A350 XL",
+        "https://www.draeger.com/en_uk/Products/Infinity-M540-monitor": "Infinity M540",
+        "https://www.draeger.com/en_uk/Products/perseus-a500": "Perseus A500"
+      },
+      "follow_regex": "^/en_uk/Products/[A-Za-z0-9-]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 48,
+      "sector": "medical",
+      "category": "Surgical / procedural"
+    },
+    {
+      "id": "philips-professional",
+      "active": true,
+      "manufacturer": "Philips",
+      "allowed_hosts": [
+        "www.usa.philips.com"
+      ],
+      "seeds": [
+        "https://www.usa.philips.com/healthcare/product/HC867030/intellivue-x3-patient-monitor",
+        "https://www.usa.philips.com/healthcare/product/HC866062/intellivue-monitors-intellivue-monitors---mx450",
+        "https://www.usa.philips.com/healthcare/product/HC865024/intellivue-mp5-portable-patient-monitor",
+        "https://www.usa.philips.com/healthcare/product/867313/patientmonitor6300867313intellivuepatientmonitor6300",
+        "https://www.usa.philips.com/healthcare/product/867315/patient-monitor-6500-867315-intellivue-patient-monitor-6500"
+      ],
+      "follow_regex": "^/healthcare/product/[^?#]+$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.usa.philips.com/healthcare/sitemaps/products-sitemap.xml"
+      ],
+      "max_sitemap_urls": 2000,
+      "sector": "medical",
+      "category": "Patient monitoring"
+    },
+    {
+      "id": "ifm-sensors",
+      "active": true,
+      "manufacturer": "ifm",
+      "allowed_hosts": [
+        "www.ifm.com"
+      ],
+      "seeds": [
+        "https://www.ifm.com/us/en/product/PN7094",
+        "https://www.ifm.com/us/en/product/TA2435"
+      ],
+      "follow_regex": "^/us/en/product/[a-zA-Z0-9_-]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.ifm.com/us/en/sitemap.xml"
+      ],
+      "max_sitemap_urls": 4000,
+      "model_hints": {
+        "https://www.ifm.com/us/en/product/PN7094": "PN7094",
+        "https://www.ifm.com/us/en/product/TA2435": "TA2435"
+      },
+      "sector": "industrial",
+      "category": "Sensors / instrumentation"
+    },
+    {
+      "id": "siemens-healthineers-mri",
+      "active": true,
+      "manufacturer": "Siemens Healthineers",
+      "allowed_hosts": [
+        "www.siemens-healthineers.com"
+      ],
+      "seeds": [
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/0-35-to-1-5t-mri-scanner/magnetom-sempra",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-cima-x",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-lumina"
+      ],
+      "follow_regex": "^/en-us/magnetic-resonance-imaging/(?:[a-z0-9-]+/)*[a-z0-9-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.siemens-healthineers.com/sitemap-index.xml"
+      ],
+      "sitemap_index_regex": "(?i)(en-us|magnetic|product|us).*sitemap|sitemap.*(us|product|magnetic)",
+      "max_sitemap_urls": 1000,
+      "model_hints": {
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/0-35-to-1-5t-mri-scanner/magnetom-sempra": "MAGNETOM Sempra",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-cima-x": "MAGNETOM Cima.X",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-lumina": "MAGNETOM Lumina"
+      },
+      "sector": "medical",
+      "category": "Imaging & visualization"
+    },
+    {
+      "id": "festo-components",
+      "active": true,
+      "manufacturer": "Festo",
+      "allowed_hosts": [
+        "www.festo.com"
+      ],
+      "seeds": [
+        "https://www.festo.com/gb/en/a/19217",
+        "https://www.festo.com/gb/en/a/559301",
+        "https://www.festo.com/gb/en/a/5211898",
+        "https://www.festo.com/gb/en/a/196050"
+      ],
+      "follow_regex": "^/gb/en/a/[0-9]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "sector": "industrial",
+      "category": "Pneumatics / hydraulics"
+    },
+    {
+      "id": "phoenix-contact-components",
+      "active": true,
+      "manufacturer": "Phoenix Contact",
+      "allowed_hosts": [
+        "www.phoenixcontact.com"
+      ],
+      "seeds": [
+        "https://www.phoenixcontact.com/en-us/products/power-supplies/power-supplies-with-maximum-functionality",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-quint4-ps1ac5dc5pt-2904595",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-quint4-ps1ac48dc10-2908939",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-unit-quint4-ps-3ac-48dc-20-2904627",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-quint4-ps-3ac-24dc-40-co-1783052"
+      ],
+      "follow_regex": "^/en-us/products/[a-z0-9-]+(?:\\?[^#]+)?/?$",
+      "max_depth": 2,
+      "refresh_hours": 72,
+      "sector": "energy",
+      "category": "Power conversion / inverters"
+    },
+    {
+      "id": "ge-healthcare-ultrasound",
+      "active": true,
+      "manufacturer": "GE HealthCare",
+      "allowed_hosts": [
+        "www.gehealthcare.com",
+        "store.gehealthcare.com"
+      ],
+      "seeds": [
+        "https://www.gehealthcare.com/en/products/ultrasound/logiq",
+        "https://store.gehealthcare.com/en/products/ultrasound/logiq/logiq-e10"
+      ],
+      "follow_regex": "^/en/products/ultrasound/(?:[a-z0-9-]+/)*[a-z0-9-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72,
+      "sector": "medical",
+      "category": "Imaging & visualization"
+    },
+    {
+      "id": "schneider-industrial",
+      "active": true,
+      "manufacturer": "Schneider Electric",
+      "allowed_hosts": [
+        "shop.se.com"
+      ],
+      "seeds": [
+        "https://shop.se.com/pro/us/en/product/iec-contactor-tesys-deca-nonreversing-9a-5hp-at-480vac-up-to-100ka-sccr-3-phase-3-no-low-consumption-24vdc-coil/"
+      ],
+      "follow_regex": "^/pro/us/en/product/[a-z0-9-]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "model_hints": {
+        "https://shop.se.com/pro/us/en/product/iec-contactor-tesys-deca-nonreversing-9a-5hp-at-480vac-up-to-100ka-sccr-3-phase-3-no-low-consumption-24vdc-coil/": "LC1D09BL"
+      },
+      "sector": "industrial",
+      "category": "PLC / control modules"
+    },
+    {
+      "id": "fluke-electrical",
+      "active": true,
+      "manufacturer": "Fluke",
+      "allowed_hosts": [
+        "www.fluke.com"
+      ],
+      "seeds": [
+        "https://www.fluke.com/en-us/product/electrical-testing/digital-multimeters/fluke-87v"
+      ],
+      "follow_regex": "^/en-us/product/[a-z0-9/-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72,
+      "sector": "test",
+      "category": "Meters & power analyzers"
+    },
+    {
+      "id": "thermo-laboratory",
+      "active": true,
+      "manufacturer": "Thermo Fisher Scientific",
+      "allowed_hosts": [
+        "www.thermofisher.com"
+      ],
+      "seeds": [
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008622",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008590",
+        "https://www.thermofisher.com/order/catalog/product/de/de/50172636",
+        "https://www.thermofisher.com/order/catalog/product/75016105",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75015838",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75007358"
+      ],
+      "follow_regex": "^/order/catalog/product/(?:[a-z]{2}/[a-z]{2}/)?[0-9]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "model_hints": {
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008622": "75008622",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008590": "75008590",
+        "https://www.thermofisher.com/order/catalog/product/de/de/50172636": "50172636",
+        "https://www.thermofisher.com/order/catalog/product/75016105": "75016105",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75015838": "75015838",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75007358": "75007358"
+      },
+      "sector": "laboratory",
+      "category": "Sample preparation"
+    },
+    {
+      "id": "abb-industrial-drives",
+      "active": true,
+      "manufacturer": "ABB",
+      "allowed_hosts": [
+        "www.abb.com"
+      ],
+      "seeds": [
+        "https://www.abb.com/global/en/areas/motion/drives/low-voltage-ac-drives/general-purpose-drives/acs580"
+      ],
+      "follow_regex": "^/global/en/areas/motion/drives/[a-z0-9/-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72,
+      "sector": "industrial",
+      "category": "Drives / servo / motion"
+    },
+    {
+      "id": "agilent-hplc",
+      "active": true,
+      "manufacturer": "Agilent",
+      "sector": "laboratory",
+      "category": "Chromatography / HPLC / GC",
+      "allowed_hosts": [
+        "www.agilent.com"
+      ],
+      "seeds": [
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/preparative-hplc-systems/1260-infinity-ii-preparative-lc-system",
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/preparative-hplc-systems/1260-infinity-ii-manual-preparative-lc-system",
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/gpc-sec-solutions/1260-infinity-ii-multi-detector-gpc-sec-system"
+      ],
+      "follow_regex": "^/en/product/liquid-chromatography/[a-z0-9/-]+/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    },
+    {
+      "id": "tektronix-oscilloscopes",
+      "active": true,
+      "manufacturer": "Tektronix",
+      "sector": "test",
+      "category": "Oscilloscopes",
+      "allowed_hosts": [
+        "www.tek.com"
+      ],
+      "seeds": [
+        "https://www.tek.com/en/products/oscilloscopes",
+        "https://www.tek.com/en/products/oscilloscopes/4-series-mso",
+        "https://www.tek.com/en/products/oscilloscopes/6-series-mso",
+        "https://www.tek.com/en/products/oscilloscopes/high-speed-digitizers/5-series-mso-low-profile"
+      ],
+      "follow_regex": "^/en/products/oscilloscopes(?:/[a-z0-9-]+){0,4}/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    },
+    {
+      "id": "eaton-ups",
+      "active": true,
+      "manufacturer": "Eaton",
+      "sector": "energy",
+      "category": "Power quality / monitoring",
+      "allowed_hosts": [
+        "www.eaton.com"
+      ],
+      "seeds": [
+        "https://www.eaton.com/us/en-us/products/backup-power-ups-surge-it-power-distribution/backup-power-ups.html",
+        "https://www.eaton.com/us/en-us/catalog/backup-power-ups-surge-it-power-distribution/standby-ups.html"
+      ],
+      "follow_regex": "^/us/en-us/(?:catalog|products)/backup-power-ups-surge-it-power-distribution/[a-z0-9/-]+/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    },
+    {
+      "id": "garmin-marine-navigation",
+      "active": true,
+      "manufacturer": "Garmin",
+      "sector": "marine",
+      "category": "Navigation / instrumentation",
+      "allowed_hosts": [
+        "www.garmin.com"
+      ],
+      "seeds": [
+        "https://www.garmin.com/en-US/p/2001334/",
+        "https://www.garmin.com/en-US/c/marine/"
+      ],
+      "model_hints": {
+        "https://www.garmin.com/en-US/p/2001334/": "GPSMAP 9217xsv"
+      },
+      "follow_regex": "^/en-US/(?:p/[0-9]+|c/marine(?:/[a-z0-9-]+)*)/?$",
+      "max_depth": 2,
+      "refresh_hours": 72
+    },
+    {
+      "id": "collins-avionics",
+      "active": true,
+      "manufacturer": "Collins Aerospace",
+      "sector": "aviation",
+      "category": "Avionics",
+      "allowed_hosts": [
+        "www.rtx.com"
+      ],
+      "seeds": [
+        "https://www.rtx.com/collinsaerospace/what-we-do/industries/military-and-defense/displays-and-controls/airborne/head-down-displays/mfd-2810-multi-function-display",
+        "https://www.rtx.com/collinsaerospace/what-we-do/Industries/commercial-aviation/flight-deck/integrated-systems/afd-2100-adaptive-flight-display/",
+        "https://www.rtx.com/collinsaerospace/what-we-do/industries/military-and-defense/displays-and-controls/airborne/head-down-displays"
+      ],
+      "follow_regex": "(?i)^/collinsaerospace/what-we-do/industries/(?:military-and-defense|commercial-aviation)/[a-z0-9/-]+/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    }
+  ]
+}
