@@ -24,12 +24,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.robotparser import RobotFileParser
+from xml.etree import ElementTree as ET
 
 SCHEMA = "aurenoeva-catalogue/1"
 AGENT = "AurenoevaCatalogueBot/1.0 (+https://aurenoeva.com/)"
 RETRY_MINUTES = (15, 60, 240, 1440)
 MAX_HTML = 1_500_000
 MAX_FEED = 2_000_000
+MAX_SITEMAP = 6_000_000
 ROBOTS_CACHE = {}
 
 
@@ -169,7 +171,7 @@ def load_sources(file):
         hosts = {h.lower().rstrip(".") for h in row["allowed_hosts"]}
         if not hosts or sid in byid:
             raise ValueError("invalid_source_id_or_hosts")
-        for url in row["seeds"]:
+        for url in row["seeds"] + row.get("sitemap_seeds", []):
             check_url(url, hosts, resolve=False)
         hints = row.get("model_hints", {})
         if not isinstance(hints, dict) or any(u not in row["seeds"] for u in hints):
@@ -186,8 +188,8 @@ def seed(conn, sources, now):
     """Keep historical tasks, but refresh discovery rules and explicit model hints."""
     for sid, source in sources.items():
         hints = source.get("model_hints", {})
-        for url in source["seeds"]:
-            hint = hints.get(url, source.get("model_hint", ""))
+        for url in source["seeds"] + source.get("sitemap_seeds", []):
+            hint = hints.get(url, source.get("model_hint", "") if url in source["seeds"] else "")
             pattern = source.get("follow_regex", "")
             conn.execute("""INSERT OR IGNORE INTO tasks
               (url,source_id,manufacturer,model_hint,follow_regex,depth,due_at,updated_at)
@@ -228,15 +230,16 @@ def fetch_page(url, source):
     if not robots_allowed(url, source, opener):
         raise PermissionError("robots_disallow_or_unreachable")
     time.sleep(1.0)  # polite per-request pacing, bounded by run wall-clock budget
-    with opener.open(Request(url, headers={"User-Agent": AGENT, "Accept": "text/html"}), timeout=12) as r:
-        status = r.status
+    xml = urlsplit(url).path.lower().endswith(".xml")
+    with opener.open(Request(url, headers={"User-Agent": AGENT, "Accept": "application/xml, text/xml" if xml else "text/html"}), timeout=12) as r:
         content_type = r.headers.get("Content-Type", "").lower()
-        if "html" not in content_type:
+        if (xml and not any(t in content_type for t in ("xml", "text/plain", "octet-stream"))) or (not xml and "html" not in content_type):
             raise ValueError("unsupported_content_type")
-        html = r.read(MAX_HTML + 1)
-        if len(html) > MAX_HTML:
-            raise ValueError("html_too_large")
-        return html.decode("utf-8", "replace"), status
+        limit = MAX_SITEMAP if xml else MAX_HTML
+        raw = r.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("source_too_large")
+        return raw.decode("utf-8", "replace"), r.status
 
 
 def product_from_page(source, url, html, model_hint=""):
@@ -268,6 +271,37 @@ def product_from_page(source, url, html, model_hint=""):
             "description": clean(title or h1)[:240], "source_url": url,
             "content_sha256": hashlib.sha256(html.encode()).hexdigest()}, links, title
 
+def sitemap_urls(xml, source, depth):
+    """Find product URLs in official sitemap indexes without adding another crawler."""
+    root = ET.fromstring(xml)
+    kind = root.tag.rsplit("}", 1)[-1]
+    if kind not in ("urlset", "sitemapindex"):
+        raise ValueError("not_sitemap")
+    products = re.compile(source.get("follow_regex") or r"^/$")
+    indexes = re.compile(source.get("sitemap_index_regex") or r".*")
+    results = []
+    for el in root.iter():
+        if el.tag.rsplit("}", 1)[-1] != "loc" or not el.text:
+            continue
+        url = el.text.strip().split("#")[0]
+        parts = urlsplit(url)
+        if parts.hostname not in source["hosts"]:
+            continue
+        if kind == "sitemapindex":
+            if depth >= 2 or not parts.path.lower().endswith(".xml") or not indexes.search(parts.path):
+                continue
+        elif not products.search(parts.path):
+            continue
+        try:
+            check_url(url, source["hosts"], resolve=False)
+        except ValueError:
+            continue
+        results.append(url)
+        if len(results) >= int(source.get("max_sitemap_urls", 2500)):
+            break
+    return results
+
+
 def write_product(conn, p, now):
     exists = conn.execute("SELECT 1 FROM products WHERE product_id=?", (p["product_id"],)).fetchone()
     conn.execute("""INSERT INTO products
@@ -291,11 +325,12 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
     conn.commit()
     run_id = conn.execute("INSERT INTO runs(started_at) VALUES (?)", (at,)).lastrowid
     conn.commit()
-    outcome = {"run_id": run_id, "processed": 0, "succeeded": 0, "failed": 0, "new_products": 0}
+    outcome = {"run_id": run_id, "processed": 0, "succeeded": 0, "failed": 0, "new_products": 0, "discovered_urls": 0}
     # A single source may fail repeatedly; do not let it hold up all the others.
     while outcome["processed"] < max_pages and time.monotonic() - start < max_seconds:
         task = conn.execute("""SELECT * FROM tasks WHERE state='PENDING' AND due_at<=?
              ORDER BY CASE WHEN model_hint<>'' THEN 0 ELSE 1 END,
+               CASE WHEN url LIKE '%.xml' THEN 0 ELSE 1 END,
                depth,due_at,failures,url LIMIT 1""", (at,)).fetchone()
         if task is None:
             break
@@ -307,7 +342,18 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
             if source is None:
                 raise ValueError("source_disabled")
             html, status = fetch(url, source)
-            p, links, title = product_from_page(source, url, html, task["model_hint"] or "")
+            is_sitemap = urlsplit(url).path.lower().endswith(".xml")
+            if is_sitemap:
+                p, links, title = None, [], "Official sitemap"
+                for dest in sitemap_urls(html, source, task["depth"]):
+                    conn.execute("""INSERT OR IGNORE INTO tasks
+                      (url,source_id,manufacturer,model_hint,follow_regex,depth,due_at,updated_at)
+                      VALUES (?,?,?,'',?,?,?,?)""",
+                      (dest, task["source_id"], task["manufacturer"], task["follow_regex"],
+                       task["depth"] + 1, at, at))
+                    outcome["discovered_urls"] += conn.execute("SELECT changes()").fetchone()[0]
+            else:
+                p, links, title = product_from_page(source, url, html, task["model_hint"] or "")
             digest = hashlib.sha256(html.encode()).hexdigest()
             conn.execute("""INSERT INTO observations(url,source_id,sha256,page_title,last_checked,http_status)
                 VALUES (?,?,?,?,?,?) ON CONFLICT(url) DO UPDATE SET
@@ -319,7 +365,7 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
             # Follow verified on-domain product/category links for bounded depth.
             # Queued pages inherit the source filter so intermediate categories lead
             # to product detail pages, without crawling unrelated site sections.
-            if task["depth"] < int(source.get("max_depth", 1)) and task["follow_regex"]:
+            if not is_sitemap and task["depth"] < int(source.get("max_depth", 1)) and task["follow_regex"]:
                 pattern = re.compile(task["follow_regex"])
                 for href in links[:150]:
                     dest = urljoin(url, href).split("#")[0]
@@ -335,6 +381,7 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
                       VALUES (?,?,?,'',?,?,?,?)""",
                       (dest,task["source_id"],task["manufacturer"],task["follow_regex"],
                        task["depth"]+1,at,at))
+                    outcome["discovered_urls"] += conn.execute("SELECT changes()").fetchone()[0]
             interval = max(1, int(source.get("refresh_hours", 24)))
             due = stamp(utc_from(at) + dt.timedelta(hours=interval))
             conn.execute("""UPDATE tasks SET state='PENDING',due_at=?,failures=0,
@@ -455,8 +502,8 @@ def main():
     parser.add_argument("--db", type=Path, required=True, help="Private SQLite database outside public_html")
     parser.add_argument("--sources",type=Path,required=True)
     parser.add_argument("--export",type=Path, help="Private public-safe snapshot, never customer data")
-    parser.add_argument("--max-pages",type=int,default=30)
-    parser.add_argument("--max-seconds",type=int,default=240)
+    parser.add_argument("--max-pages",type=int,default=150)
+    parser.add_argument("--max-seconds",type=int,default=900)
     parser.add_argument("--status",action="store_true")
     parser.add_argument("--supplier-feed",type=Path,help="Explicit PRIVATE seller stock report, not web scraped")
     args=parser.parse_args()
