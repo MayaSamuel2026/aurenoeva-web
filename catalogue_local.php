@@ -6,8 +6,14 @@ declare(strict_types=1);
 function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
     $root = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
     $path = trim((string)(getenv('AURENOEVA_CATALOGUE_SNAPSHOT') ?: ''));
-    // Default to an app-private directory beside public_html. This allows
-    // unattended Hostinger SFTP sync without changing PHP process environment.
+    // Production uses the same stable Hostinger private directory as staff
+    // administration. Test fixtures without the procurement module still use
+    // the original beside-public_html snapshot location.
+    if ($path === '' && is_file(__DIR__ . '/procurement/private_cases.php')) {
+        require_once __DIR__ . '/procurement/private_cases.php';
+        try { $path = aur_store_root() . '/catalogue-public.json'; }
+        catch (Throwable $e) { return null; }
+    }
     if ($path === '' && $root) {
         $path = dirname($root) . '/.aurenoeva-private/catalogue-public.json';
     }
