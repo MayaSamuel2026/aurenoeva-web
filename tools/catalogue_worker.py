@@ -246,7 +246,7 @@ def product_from_page(source, url, html, model_hint=""):
 
     # Manufacturer headings and collection pages are research evidence, not models.
     # A short, model-like official title can rescue pages with a generic H1.
-    title_model = clean(re.split(r"\\s+[|–—]\\s+|\\s+-\\s+", title, maxsplit=1)[0])
+    title_model = clean(re.split(r"\s+[|–—]\s+|\s+-\s+", title, maxsplit=1)[0])
     model = clean(model_hint or h1)
     generic = ("products", "produkte", "home", "dental units", "dental equipment",
                "medical devices", "product catalog", "catalog", "catalogue",
@@ -256,7 +256,7 @@ def product_from_page(source, url, html, model_hint=""):
         return (2 <= len(value) <= 100 and len(value.split()) <= 10
                 and any(ch.isdigit() for ch in value)
                 and value.casefold() not in generic
-                and not re.search(r"(?i)\\b(?:catalogue|catalog|collection|all products)\\b", value))
+                and not re.search(r"(?i)\b(?:catalogue|catalog|collection|all products)\b", value))
     if not is_model(model) and not model_hint:
         model = title_model
     if not is_model(model):
