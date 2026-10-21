@@ -107,7 +107,7 @@ try {
         .'<description>Public product listing; availability not verified</description></item>'
         .'</channel></rss>';
     $batch=aur_supplier_discover_batch($store,$one,2,static fn(string $q): string=>$rss);
-    check($batch['processed']===2 && $batch['new_unverified_links']===2,'global search did not persist individual leads');
+    check($batch['processed']===2 && $batch['new_unverified_links']===1,'global search did not persist individual leads');
     check($batch['outreach_sent']===false,'global discovery falsely sent supplier outreach');
     $enriched=aur_supplier_read($store,$one['reference'],$one['source_sha256']);
     $public=$enriched['global_discovery']['rows'][(string)$intel['rows'][0]['source_row']]['leads'][0]??[];
@@ -115,11 +115,37 @@ try {
     check(($public['quotation']??'')==='NOT_RECEIVED','discovery incorrectly registered quotation');
     $repeat=aur_supplier_discover_batch($store,$one,2,static fn(string $q): string=>$rss);
     check($repeat['processed']===1,'same-day discovery should skip already checked entries');
-    check(aur_supplier_discovery_stats($enriched)['links']===2,'discovery result not present in case readback');
+    check(aur_supplier_discovery_stats($enriched)['links']===1,'discovery result not present in case readback');
     check(count(aur_supplier_feed_parse('<?xml version="1.0"?><rss><channel>'
         .'<item><title>Blocked search</title><link>https://www.bing.com/result</link></item>'
         .'<item><title>Legitimate result</title><link>https://suppliers.example.org/a</link></item>'
         .'</channel></rss>'))===1,'search-engine self-links were not removed');
+    // Regression: livestock breeding and recruitment pages must never count as X-ray suppliers.
+    $badRss='<?xml version="1.0"?><rss><channel>'
+        .'<item><title>Willkommen bei MASTERRIND</title><link>https://masterrind.com/</link>'
+        .'<description>Bullensuche, genetiksop, Fleischrinder und Besamung</description></item>'
+        .'<item><title>DRGEM DIAMOND digital X-ray imaging equipment supplier</title>'
+        .'<link>https://example-medical.com/drgem-diamond-xray</link>'
+        .'<description>DRGEM DIAMOND radiology X-ray machine and clinical service</description></item>'
+        .'<item><title>Karriere bei MASTERRIND</title><link>https://masterrind.com/jobs</link>'
+        .'<description>Medical recruiting and career</description></item>'
+        .'</channel></rss>';
+    $diamondDesc='DRGEM DIAMOND Classic Expert X-ray system - 52 kW';
+    $diamondLeads=aur_supplier_feed_parse($badRss,5,$diamondDesc,aur_supplier_match($diamondDesc));
+    check(count($diamondLeads)===1, 'livestock or job page incorrectly entered X-ray supplier shortlist');
+    check($diamondLeads[0]['website']==='example-medical.com','relevant model page wrongly discarded');
+    check(($diamondLeads[0]['match_basis']??'')==='OEM_MODEL_MENTION','maker/model matching rationale absent');
+    $otherLeads=aur_supplier_feed_parse($badRss,5,'Anthos A5 Continental dental unit',aur_supplier_match('Anthos A5 Continental dental unit'));
+    check(count($otherLeads)===0,'a different device manufacturer result was accepted');
+    $genericRss='<?xml version="1.0"?><rss><channel><item>'
+        .'<title>1.5T MRI scanner available from medical imaging equipment supplier</title>'
+        .'<link>https://example-medical.com/mri-scanner</link>'
+        .'<description>New 1.5T MRI scanner for hospitals</description></item></channel></rss>';
+    check(count(aur_supplier_feed_parse($genericRss,5,'1.5T MRI scanner'))===1,
+        'legitimate generic device category was over-filtered');
+    check(count(aur_supplier_feed_parse($badRss,5,'1.5T MRI scanner'))===0,
+        'unrelated X-ray page accepted for an MRI');
+    echo "AURENOEVA_SUPPLIER_RELEVANCE=PASS\n";
     check(aur_supplier_match('Anthos A5 Continental dental unit')['name']==='Anthos / Cefla','Anthos OEM match missing');
     check(aur_supplier_match('Samsung Z20 ultrasound system')['name']==='Samsung Medison','Samsung exact model match missing');
     check(aur_supplier_match('Skema 8 dental unit')['name']==='Castellini / Cefla','Castellini OEM match missing');
