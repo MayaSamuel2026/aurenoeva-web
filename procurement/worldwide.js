@@ -91,49 +91,21 @@
     });
   }
 
+  // Native form submission works with Hostinger's ordinary staff POST route.
+  // It avoids previous JSON/AJAX send failures and still uses the signed
+  // admin cookie, CSRF token, explicit legal-review checkbox and saved outbox.
   const sendForm = document.getElementById('aur-vendor-send-form');
   const sendButton = document.getElementById('aur-send-all-rfqs');
   const sendProgress = document.getElementById('aur-send-progress');
-  if (!sendForm || !sendButton || !sendProgress) return;
-  sendForm.addEventListener('submit', async event => {
-    if (!sendForm.reportValidity()) return;
-    event.preventDefault();
-    sendButton.disabled = true;
-    const csrf = sendForm.querySelector('input[name="csrf"]')?.value;
-    const caseRef = sendForm.querySelector('input[name="case_ref"]')?.value;
-    const draftId = sendForm.querySelector('input[name="draft_id"]')?.value;
-    const total = Number(sendForm.dataset.total || 0);
-    if (!csrf || !caseRef || !draftId || total <= 0) {
-      sendProgress.textContent = 'RFQ information unavailable; reload the saved draft.';
-      sendButton.disabled = false; return;
-    }
-    try {
-      for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {
-        const response = await fetch('/procurement/',{
-          method:'POST',credentials:'same-origin',
-          headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
-            draft_id:draftId,manual_review:true})
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok || result.ok !== true)
-          throw new Error('Mail batch response ' + response.status + '. Review the saved draft before resuming.');
-        const p = result.progress || {};
-        sendProgress.textContent = (p.accepted || 0) + ' of ' + (p.total || total) +
-          ' vendor emails accepted by mail transport; ' + (p.remaining || 0) + ' pending.';
-        if (result.status !== 'DISPATCHING') {
-          window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
-            '&draft=' + encodeURIComponent(draftId) + '#supplier-history');
-          return;
-        }
-        if (Number(p.processed_this_request || 0) === 0)
-          throw new Error('No further send progress; review saved outbox.');
+  if (sendForm && sendButton && sendProgress) {
+    sendForm.addEventListener('submit', event => {
+      if (!sendForm.reportValidity()) {
+        event.preventDefault();
+        return;
       }
-      throw new Error('Maximum batch count reached; reopen the draft to continue.');
-    } catch (error) {
-      sendProgress.textContent = 'Mail dispatch paused: ' + (error.message || 'Unknown error') +
-        ' — sent messages stay recorded and will not be resent. Reopen the saved draft.';
-      sendButton.disabled = false;
-    }
-  });
+      sendButton.disabled = true;
+      sendProgress.textContent = 'Dispatching approved supplier RFQs. The case keeps a separate result for each recipient; accepted messages will not be resent.';
+      // Allow the normal POST and redirect to the same case/draft status.
+    });
+  }
 })();
