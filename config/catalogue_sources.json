@@ -81,6 +81,29 @@
       "follow_regex": "^/produkte/kategorien/(allgemeine-diagnostik|fachdiagnostik)/[^?#]+$",
       "max_depth": 2,
       "refresh_hours": 48
+    },
+    {
+      "id": "draeger-icu-anesthesia",
+      "active": true,
+      "manufacturer": "Dräger",
+      "allowed_hosts": [
+        "www.draeger.com"
+      ],
+      "seeds": [
+        "https://www.draeger.com/en_uk/Products/Evita-V600",
+        "https://www.draeger.com/en_uk/Products/Savina-300-Select",
+        "https://www.draeger.com/en_uk/Products/atlan-a350-a350-xl",
+        "https://www.draeger.com/en_uk/Products/Infinity-Acute-Care-System"
+      ],
+      "model_hints": {
+        "https://www.draeger.com/en_uk/Products/Evita-V600": "Evita V600",
+        "https://www.draeger.com/en_uk/Products/Savina-300-Select": "Savina 300 Select",
+        "https://www.draeger.com/en_uk/Products/atlan-a350-a350-xl": "Atlan A350/A350 XL",
+        "https://www.draeger.com/en_uk/Products/Infinity-Acute-Care-System": "Infinity Acute Care System"
+      },
+      "follow_regex": "^/en_uk/Products/[A-Za-z0-9-]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 48
     }
   ]
 }
