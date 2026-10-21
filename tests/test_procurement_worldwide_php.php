@@ -63,6 +63,7 @@ try{
    'https://masterrind.com/jobs')===null,'irrelevant supplier admitted');
  define('AUR_PROCUREMENT_VIEW',true);
  $result=$case;
+ $aurStore=$store;
  $supplierResearch=$research;
  $rfqPreview=$draft;
  $csrf='fixture-csrf';
@@ -73,8 +74,8 @@ try{
  ob_start();
  require dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php';
  $page=(string)ob_get_clean();
- verify(str_contains($page,'Worldwide search controls are always available'),'supplier workspace must link to permanent search');
- verify(str_contains($page,'Prepare RFQs for selected suppliers'),'RFQ selection action missing');
+ verify(str_contains($page,'Run worldwide discovery'),'supplier workspace must link to permanent search');
+ verify(str_contains($page,'Prepare consolidated RFQs for selected suppliers'),'RFQ selection action missing');
  verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
 
  // Regression: original 44-line case always takes priority over utility cards.
