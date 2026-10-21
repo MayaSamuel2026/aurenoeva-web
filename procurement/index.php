@@ -122,8 +122,20 @@ if ($isAdmin && is_file($catalogueSnapshotFile)) {
         $catalogueSnapshotCount = count($catalogueSnapshot['items']);
     }
 }
+$aurSupplierAuditMessage=null;
 if ($isAdmin) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_catalogue_sync'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['consolidate_supplier_history'])) {
+        try {
+            $historical=aur_worldwide_research_inventory($aurStore,true);
+            $aurSupplierAuditMessage='Historical RFQ research reconciled: '
+                .(int)$historical['newly_consolidated_supplier_websites']
+                .' newly reusable websites; '
+                .(int)$historical['global_supplier_master'].' global vendor records total.';
+        } catch (Throwable $e) {
+            error_log('AURENOEVA supplier history consolidation: '.get_class($e));
+            $aurSupplierAuditMessage='Supplier history reconciliation failed. All original research is preserved.';
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_catalogue_sync'])) {
         $catalogueSyncToken = bin2hex(random_bytes(32));
         $credentialFile = $aurStore . '/catalogue-sync-token.sha256';
         if (file_put_contents($credentialFile, hash('sha256', $catalogueSyncToken) . "\n", LOCK_EX) === false) {
@@ -350,6 +362,36 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <?php else: ?><p class="muted">No saved enquiries available.</p><?php endif;?>
 <p class="muted">Enquiries persist independently of supplier research. Nothing is deleted when you upload another case, send a test email or run worldwide discovery.</p>
 </nav>
+<?php
+try{$aurSupplierHistory=aur_worldwide_research_inventory($aurStore,false);}
+catch(Throwable $e) {
+    error_log('AURENOEVA supplier historical count: '.get_class($e));
+    $aurSupplierHistory=null;
+}
+?>
+<section class="card" id="supplier-history-counts">
+<h2>Accumulated supplier research — all saved RFQs</h2>
+<p class="muted">This counts the actual saved evidence in the private procurement workspace, including previously saved research and search-only leads. It is a different dataset from the VPS product-identity catalogue. Unverified search leads are not confirmed inventory or supplier quotations.</p>
+<?php if($aurSupplierAuditMessage!==null):?><p role="status"><b><?=aur_escape($aurSupplierAuditMessage)?></b></p><?php endif;?>
+<?php if(is_array($aurSupplierHistory)):?>
+<p>
+<span class="pill"><b><?=(int)$aurSupplierHistory['global_supplier_master']?></b> global supplier master websites</span>
+<span class="pill"><b><?=(int)$aurSupplierHistory['distinct_supplier_websites']?></b> distinct discovered websites</span>
+<span class="pill"><b><?=(int)$aurSupplierHistory['distinct_evidence_urls']?></b> saved evidence links</span>
+<span class="pill"><b><?=(int)$aurSupplierHistory['site_checked_websites']?></b> websites checked</span>
+<span class="pill"><b><?=(int)$aurSupplierHistory['published_email_addresses']?></b> published contact emails</span>
+<span class="pill"><b><?=(int)$aurSupplierHistory['saved_research_cases']?></b> saved RFQ research cases</span>
+</p>
+<p class="muted">Individual source observations, including repeated mentions: <?=(int)$aurSupplierHistory['observed_records_including_repeat_mentions']?>. Previously researched equipment entries: <?=(int)$aurSupplierHistory['saved_equipment_rows']?>.
+<?php if((int)$aurSupplierHistory['unreadable_case_files']>0):?> Unreadable historical research files: <?=(int)$aurSupplierHistory['unreadable_case_files']?> (not counted).<?php endif;?></p>
+<?php else:?>
+<p>Historical supplier statistics are temporarily unavailable. Original cases remain accessible.</p>
+<?php endif;?>
+<form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<button type="submit" name="consolidate_supplier_history" value="1">Consolidate existing RFQ research into worldwide supplier master</button>
+</form>
+<p class="muted">Imports saved source leads with their original evidence and verification status. No crawl, vendor email, case deletion or customer data export is performed. Older external CORE/VPS research is not counted unless it exists in this Hostinger procurement store.</p>
+</section>
 <?php if (is_array($result) && isset($result['reference'])): ?>
 <section class="card"><span class="pill">Saved · verified database readback</span><h2 style="margin-top:16px">Case <?=aur_escape((string)$result['reference'])?></h2>
 <p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·

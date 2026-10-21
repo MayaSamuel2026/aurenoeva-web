@@ -238,6 +238,11 @@ function aur_worldwide_master_merge(string $store,array $observed):int {
                 // Do not downgrade a previously published contact.
                 if(empty($vendor['email']) && !empty($old['email']))$vendor['email']=$old['email'];
                 if(empty($vendor['phone']) && !empty($old['phone']))$vendor['phone']=$old['phone'];
+                // Search-only evidence cannot downgrade a previously checked site.
+                if (($vendor['status']??'')==='SEARCH_RESULT_NOT_SITE_VERIFIED'
+                    && ($old['status']??'')!=='SEARCH_RESULT_NOT_SITE_VERIFIED') {
+                    $vendor=array_merge($vendor,$old);
+                }
                 $master['vendors'][$id]=array_merge($old,$vendor);
             }
             $description=preg_replace('/[\x00-\x1F\x7F]+/u',' ',$description)??$description;
@@ -260,6 +265,108 @@ function aur_worldwide_attach_master(string $store,array $intel):array {
     $intel['worldwide_vendor_master']=aur_worldwide_master_read($store)['vendors'];
     return $intel;
 }
+
+/**
+ * Reconcile the FULL private procurement research history, independently of the
+ * separate VPS product-identity catalogue. Read-only by default; explicit
+ * consolidation imports historical observed vendor websites into the existing
+ * reusable master without inventing stock, verified contacts or RFQ recipients.
+ */
+function aur_worldwide_research_inventory(string $store,bool $consolidate=false):array {
+    $dir=aur_private_directory($store,'supplier-intelligence');
+    $websites=[];$evidenceUrls=[];$checkedSites=[];$contacts=[];
+    $observations=[];$caseFiles=0;$researchLines=0;$sourceCandidates=0;$badFiles=0;
+    $observe=static function(array $vendor,string $description,bool $historical) use (
+       &$websites,&$evidenceUrls,&$checkedSites,&$contacts,&$observations,&$sourceCandidates,$consolidate):void {
+        $url=trim(aur_worldwide_candidate_text($vendor['evidence_url']??null));
+        $parsed=parse_url($url);
+        if(!is_array($parsed) || strtolower((string)($parsed['scheme']??''))!=='https'
+            || isset($parsed['user']) || isset($parsed['pass']))return;
+        $host=strtolower((string)($parsed['host']??''));
+        if(!preg_match('/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/D',$host))return;
+        $websites[$host]=true;$evidenceUrls[$url]=true;
+        $sourceCandidates++;
+        $status=aur_worldwide_candidate_text($vendor['status']??null,'SEARCH_RESULT_NOT_SITE_VERIFIED');
+        if(str_starts_with($status,'SOURCE_CHECKED_'))$checkedSites[$host]=true;
+        $email=strtolower(trim(aur_worldwide_candidate_text($vendor['email']??null)));
+        if($email!=='' && filter_var($email,FILTER_VALIDATE_EMAIL)
+           && in_array($status,['SOURCE_CHECKED_EMAIL_PUBLISHED','PUBLISHED_CONTACT_RESEARCH_CANDIDATE'],true)) {
+            $contacts[$email]=true;
+        }
+        if(!$consolidate || !$historical)return;
+        $vendor['id']=aur_worldwide_vendor_id($host);
+        $vendor['website']=$host;
+        $vendor['name']=substr(aur_worldwide_candidate_text($vendor['name']??null,$host),0,120);
+        $vendor['evidence_url']=$url;
+        $vendor['status']=$status;
+        if($status==='SEARCH_RESULT_NOT_SITE_VERIFIED') {
+            $vendor['email']='';$vendor['phone']='';
+        }
+        $observations[]=['vendor'=>$vendor,'description'=>$description];
+    };
+    $master=aur_worldwide_master_read($store);
+    foreach(($master['vendors']??[]) as $vendor) {
+        if(is_array($vendor))$observe($vendor,'',false);
+    }
+    // Every saved case may hold research from multiple historic crawler versions.
+    foreach((glob($dir.'/AUR-??-*.json')?:[]) as $file) {
+        if(is_link($file)||!is_file($file)||filesize($file)>24000000) {
+            $badFiles++;continue;
+        }
+        $case=json_decode((string)@file_get_contents($file),true);
+        if(!is_array($case)||!is_array($case['rows']??null)) {
+            $badFiles++;continue;
+        }
+        $caseFiles++;
+        $descriptions=[];
+        foreach($case['rows'] as $row) {
+            if(!is_array($row))continue;
+            $key=(string)($row['source_row']??'');
+            $descriptions[$key]=aur_worldwide_candidate_text($row['description']??null);
+        }
+        $researchLines+=count($descriptions);
+        foreach(($case['worldwide_research']['rows']??[]) as $key=>$record) {
+            if(!is_array($record))continue;
+            foreach(($record['vendors']??[]) as $vendor) {
+                if(is_array($vendor))$observe($vendor,$descriptions[(string)$key]??'',true);
+            }
+        }
+        foreach(($case['global_discovery']['rows']??[]) as $key=>$record) {
+            if(!is_array($record))continue;
+            foreach(($record['leads']??[]) as $lead) {
+                if(!is_array($lead))continue;
+                $url=aur_worldwide_candidate_text($lead['source_url']??null);
+                $host=strtolower((string)parse_url($url,PHP_URL_HOST));
+                $observe([
+                    'name'=>aur_worldwide_candidate_text($lead['page_title']??null,$host),
+                    'website'=>$host,'evidence_url'=>$url,
+                    'match_basis'=>aur_worldwide_candidate_text($lead['match_basis']??null,'HISTORICAL_SEARCH_LEAD'),
+                    'status'=>'SEARCH_RESULT_NOT_SITE_VERIFIED',
+                    'authorization'=>'NOT_VERIFIED','availability'=>'NOT_VERIFIED',
+                    'quotation'=>'NOT_RECEIVED'
+                ],$descriptions[(string)$key]??'',true);
+            }
+        }
+    }
+    $imported=0;
+    if($consolidate && $observations) {
+        $imported=aur_worldwide_master_merge($store,$observations);
+        $master=aur_worldwide_master_read($store);
+    }
+    return [
+        'saved_research_cases'=>$caseFiles,'saved_equipment_rows'=>$researchLines,
+        'global_supplier_master'=>count($master['vendors']??[]),
+        'distinct_supplier_websites'=>count($websites),
+        'distinct_evidence_urls'=>count($evidenceUrls),
+        'site_checked_websites'=>count($checkedSites),
+        'published_email_addresses'=>count($contacts),
+        'observed_records_including_repeat_mentions'=>$sourceCandidates,
+        'unreadable_case_files'=>$badFiles,
+        'newly_consolidated_supplier_websites'=>$imported,
+        'last_catalogue_update'=>$master['updated_at']??null
+    ];
+}
+
 function aur_worldwide_stats(array $intel):array {
     // Statistics must never run a full cross-catalogue match. That expensive
     // calculation previously made BOTH page rendering and scan responses fail.
@@ -377,7 +484,9 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
                 'vendors'=>$vendors,
             ];
             if(!$providerOk)$failed++;
-            foreach($vendors as $v)if(($v['status']??'')!=='SEARCH_RESULT_NOT_SITE_VERIFIED')$catalogueObservations[]=['vendor'=>$v,'description'=>$desc];
+            // Preserve search-result leads globally too, clearly labelled unverified.
+            // Previously these only existed in one RFQ and inflated the perceived data loss.
+            foreach($vendors as $v)$catalogueObservations[]=['vendor'=>$v,'description'=>$desc];
             $found+=count($vendors);$processed++;
             if($processed>=$limit)break;
         }
