@@ -44,6 +44,9 @@ jobs:
           php -l deployment/site/procurement/supplier_intelligence.php
           php -l deployment/site/procurement/supplier_discovery.php
           php -l deployment/site/procurement/supplier_routes.php
+          php -l deployment/site/procurement/supplier_worldwide.php
+          php -l deployment/site/procurement/supplier_rfq.php
+          php -l deployment/site/procurement/supplier_portal.php
           php -l deployment/site/procurement/staff_auth.php
           php -l deployment/site/procurement/supplier-refresh-cli.php
           php -l deployment/site/procurement/setup-cli.php
