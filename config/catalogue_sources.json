@@ -28,7 +28,9 @@
       },
       "follow_regex": "^/en/products/(anesthesia|patient-monitoring|ventilators)/[a-z0-9/\\-]+/?$",
       "max_depth": 2,
-      "refresh_hours": 24
+      "refresh_hours": 24,
+      "sector": "medical",
+      "category": "Surgical / procedural"
     },
     {
       "id": "anthos-units",
@@ -60,7 +62,9 @@
       },
       "follow_regex": "^/en/dental-units/[a-z0-9-]+/?$",
       "max_depth": 2,
-      "refresh_hours": 48
+      "refresh_hours": 48,
+      "sector": "medical",
+      "category": "Other medical equipment"
     },
     {
       "id": "haagstreit-products",
@@ -87,7 +91,9 @@
       },
       "follow_regex": "^/produkte/kategorien/(allgemeine-diagnostik|fachdiagnostik)/[^?#]+$",
       "max_depth": 2,
-      "refresh_hours": 48
+      "refresh_hours": 48,
+      "sector": "medical",
+      "category": "Diagnostic equipment"
     },
     {
       "id": "draeger-icu-anesthesia",
@@ -112,7 +118,9 @@
       },
       "follow_regex": "^/en_uk/Products/[A-Za-z0-9-]+/?$",
       "max_depth": 1,
-      "refresh_hours": 48
+      "refresh_hours": 48,
+      "sector": "medical",
+      "category": "Surgical / procedural"
     },
     {
       "id": "philips-professional",
@@ -134,7 +142,9 @@
       "sitemap_seeds": [
         "https://www.usa.philips.com/healthcare/sitemaps/products-sitemap.xml"
       ],
-      "max_sitemap_urls": 2000
+      "max_sitemap_urls": 2000,
+      "sector": "medical",
+      "category": "Patient monitoring"
     },
     {
       "id": "ifm-sensors",
@@ -157,7 +167,9 @@
       "model_hints": {
         "https://www.ifm.com/us/en/product/PN7094": "PN7094",
         "https://www.ifm.com/us/en/product/TA2435": "TA2435"
-      }
+      },
+      "sector": "industrial",
+      "category": "Sensors / instrumentation"
     },
     {
       "id": "siemens-healthineers-mri",
@@ -184,7 +196,9 @@
         "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/0-35-to-1-5t-mri-scanner/magnetom-sempra": "MAGNETOM Sempra",
         "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-cima-x": "MAGNETOM Cima.X",
         "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-lumina": "MAGNETOM Lumina"
-      }
+      },
+      "sector": "medical",
+      "category": "Imaging & visualization"
     },
     {
       "id": "festo-components",
@@ -201,7 +215,9 @@
       ],
       "follow_regex": "^/gb/en/a/[0-9]+/?$",
       "max_depth": 1,
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sector": "industrial",
+      "category": "Pneumatics / hydraulics"
     },
     {
       "id": "phoenix-contact-components",
@@ -219,7 +235,9 @@
       ],
       "follow_regex": "^/en-us/products/[a-z0-9-]+(?:\\?[^#]+)?/?$",
       "max_depth": 2,
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sector": "energy",
+      "category": "Power conversion / inverters"
     },
     {
       "id": "ge-healthcare-ultrasound",
@@ -235,7 +253,9 @@
       ],
       "follow_regex": "^/en/products/ultrasound/(?:[a-z0-9-]+/)*[a-z0-9-]+/?$",
       "max_depth": 2,
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sector": "medical",
+      "category": "Imaging & visualization"
     },
     {
       "id": "schneider-industrial",
@@ -252,7 +272,9 @@
       "refresh_hours": 72,
       "model_hints": {
         "https://shop.se.com/pro/us/en/product/iec-contactor-tesys-deca-nonreversing-9a-5hp-at-480vac-up-to-100ka-sccr-3-phase-3-no-low-consumption-24vdc-coil/": "LC1D09BL"
-      }
+      },
+      "sector": "industrial",
+      "category": "PLC / control modules"
     },
     {
       "id": "fluke-electrical",
@@ -266,7 +288,9 @@
       ],
       "follow_regex": "^/en-us/product/[a-z0-9/-]+/?$",
       "max_depth": 2,
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sector": "test",
+      "category": "Meters & power analyzers"
     },
     {
       "id": "thermo-laboratory",
@@ -293,7 +317,9 @@
         "https://www.thermofisher.com/order/catalog/product/75016105": "75016105",
         "https://www.thermofisher.com/order/catalog/product/de/en/75015838": "75015838",
         "https://www.thermofisher.com/order/catalog/product/de/en/75007358": "75007358"
-      }
+      },
+      "sector": "laboratory",
+      "category": "Sample preparation"
     },
     {
       "id": "abb-industrial-drives",
@@ -307,6 +333,100 @@
       ],
       "follow_regex": "^/global/en/areas/motion/drives/[a-z0-9/-]+/?$",
       "max_depth": 2,
+      "refresh_hours": 72,
+      "sector": "industrial",
+      "category": "Drives / servo / motion"
+    },
+    {
+      "id": "agilent-hplc",
+      "active": true,
+      "manufacturer": "Agilent",
+      "sector": "laboratory",
+      "category": "Chromatography / HPLC / GC",
+      "allowed_hosts": [
+        "www.agilent.com"
+      ],
+      "seeds": [
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/preparative-hplc-systems/1260-infinity-ii-preparative-lc-system",
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/preparative-hplc-systems/1260-infinity-ii-manual-preparative-lc-system",
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/gpc-sec-solutions/1260-infinity-ii-multi-detector-gpc-sec-system"
+      ],
+      "follow_regex": "^/en/product/liquid-chromatography/[a-z0-9/-]+/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    },
+    {
+      "id": "tektronix-oscilloscopes",
+      "active": true,
+      "manufacturer": "Tektronix",
+      "sector": "test",
+      "category": "Oscilloscopes",
+      "allowed_hosts": [
+        "www.tek.com"
+      ],
+      "seeds": [
+        "https://www.tek.com/en/products/oscilloscopes",
+        "https://www.tek.com/en/products/oscilloscopes/4-series-mso",
+        "https://www.tek.com/en/products/oscilloscopes/6-series-mso",
+        "https://www.tek.com/en/products/oscilloscopes/high-speed-digitizers/5-series-mso-low-profile"
+      ],
+      "follow_regex": "^/en/products/oscilloscopes(?:/[a-z0-9-]+){0,4}/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    },
+    {
+      "id": "eaton-ups",
+      "active": true,
+      "manufacturer": "Eaton",
+      "sector": "energy",
+      "category": "Power quality / monitoring",
+      "allowed_hosts": [
+        "www.eaton.com"
+      ],
+      "seeds": [
+        "https://www.eaton.com/us/en-us/products/backup-power-ups-surge-it-power-distribution/backup-power-ups.html",
+        "https://www.eaton.com/us/en-us/catalog/backup-power-ups-surge-it-power-distribution/standby-ups.html"
+      ],
+      "follow_regex": "^/us/en-us/(?:catalog|products)/backup-power-ups-surge-it-power-distribution/[a-z0-9/-]+/?$",
+      "max_depth": 3,
+      "refresh_hours": 72
+    },
+    {
+      "id": "garmin-marine-navigation",
+      "active": true,
+      "manufacturer": "Garmin",
+      "sector": "marine",
+      "category": "Navigation / instrumentation",
+      "allowed_hosts": [
+        "www.garmin.com"
+      ],
+      "seeds": [
+        "https://www.garmin.com/en-US/p/2001334/",
+        "https://www.garmin.com/en-US/c/marine/"
+      ],
+      "model_hints": {
+        "https://www.garmin.com/en-US/p/2001334/": "GPSMAP 9217xsv"
+      },
+      "follow_regex": "^/en-US/(?:p/[0-9]+|c/marine(?:/[a-z0-9-]+)*)/?$",
+      "max_depth": 2,
+      "refresh_hours": 72
+    },
+    {
+      "id": "collins-avionics",
+      "active": true,
+      "manufacturer": "Collins Aerospace",
+      "sector": "aviation",
+      "category": "Avionics",
+      "allowed_hosts": [
+        "www.rtx.com"
+      ],
+      "seeds": [
+        "https://www.rtx.com/collinsaerospace/what-we-do/industries/military-and-defense/displays-and-controls/airborne/head-down-displays/mfd-2810-multi-function-display",
+        "https://www.rtx.com/collinsaerospace/what-we-do/Industries/commercial-aviation/flight-deck/integrated-systems/afd-2100-adaptive-flight-display/",
+        "https://www.rtx.com/collinsaerospace/what-we-do/industries/military-and-defense/displays-and-controls/airborne/head-down-displays"
+      ],
+      "follow_regex": "(?i)^/collinsaerospace/what-we-do/industries/(?:military-and-defense|commercial-aviation)/[a-z0-9/-]+/?$",
+      "max_depth": 3,
       "refresh_hours": 72
     }
   ]
