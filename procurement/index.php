@@ -191,8 +191,17 @@ if ($isAdmin) {
             }
             $selected=$_POST['selected_routes']??[];
             $selectedVendors=$_POST['selected_vendors']??[];
-            if(!is_array($selected)||!is_array($selectedVendors))
-                throw new InvalidArgumentException('select_published_vendor_contacts');
+            // Compact browser POST avoids Hostinger filtering repeated fields.
+            $compact=$_POST['vendor_tokens']??'';
+            if(!is_array($selected)||!is_array($selectedVendors)||!is_string($compact))
+                throw new InvalidArgumentException('invalid_dashboard_vendor_selection');
+            if($compact!=='') {
+                if(strlen($compact)>19500 ||
+                   !preg_match('/^[a-f0-9]{64}(?:,[a-f0-9]{64}){0,299}$/D',$compact))
+                    throw new InvalidArgumentException('invalid_dashboard_vendor_selection');
+                $selectedVendors=array_values(array_unique(array_merge(
+                    $selectedVendors,explode(',',$compact))));
+            }
             $selected=array_values(array_unique(array_merge($selected,
                 aur_vendor_rfq_expand_vendors($result,$intel,$selectedVendors))));
             $draft=aur_vendor_rfq_prepare($aurStore,$result,$intel,$selected);
@@ -488,5 +497,5 @@ try {
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=3"></script>
+<script defer src="/procurement/worldwide.js?v=4"></script>
 <?php endif; ?></body></html>
