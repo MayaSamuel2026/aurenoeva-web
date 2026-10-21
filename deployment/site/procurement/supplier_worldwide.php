@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Source verification = page fetched + requested equipment mentioned.
  * Does not certify stock, legal entity, commercial terms or export clearance.
  */
-const AUR_WORLDWIDE_VERSION='2026-10-21.6';
+const AUR_WORLDWIDE_VERSION='2026-10-21.7-broad';
 
 function aur_worldwide_safe_ip(string $ip): bool {
     return filter_var($ip,FILTER_VALIDATE_IP,FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE)!==false;
@@ -82,7 +82,13 @@ function aur_worldwide_source_candidate(string $description, ?array $match, arra
     $visible=trim(preg_replace('/\s+/u',' ',strip_tags(preg_replace('~<(script|style|svg)\b[^>]*>.*?</\1>~is',' ', $html)??$html))??'');
     // Check retrieved page rather than treating search result snippets as evidence.
     $evidence=aur_supplier_relevance($description,$match,['page_title'=>$title,'snippet'=>substr($visible,0,15000)]);
-    if ($evidence===null) return null;
+    if ($evidence===null) {
+        // A category supplier is still worth contacting, even without an exact model.
+        // Never mislabel it as a verified product match.
+        if(preg_match('/\\b(?:job|careers|vacancy|login|cattle|livestock|bullensuche|recruitment)\\b/ui',$title))return null;
+        if(!preg_match('/\\b(?:medical|healthcare|hospital|clinical|radiology|dental|ophthalm|diagnostic|surgical|imaging|endoscop|steriliz|ventilat|patient|anesthes|equipment|devices|ultrasound|x[ -]?ray)\\b/ui',$visible))return null;
+        $evidence='MEDICAL_SUPPLIER_CATEGORY_ONLY';
+    }
     $domain=strtolower((string)parse_url($url,PHP_URL_HOST));
     $contacts=aur_worldwide_contact($html,$url);
     $name=$title;
@@ -164,20 +170,35 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
             // Research worldwide + rotate one region on recurring scans.
             $queries=aur_supplier_global_queries($desc,$match);
             $region=['Europe','Asia-Pacific','Middle East','North America'][($now / 86400 | 0)%4];
-            $foundVendors=[];$providerOk=false;
+            $foundVendors=[];$providerOk=false;$unverified=[];
             foreach(['Worldwide',$region] as $scope) {
                 $query=$queries[$scope];
                 try {
                     $xml=$search ? $search($query) : aur_supplier_public_rss($query);
-                    $results=aur_supplier_feed_parse((string)$xml,8,$desc,$match);
+                    $results=aur_supplier_feed_parse((string)$xml,10);
                     $providerOk=true;
                 } catch(Throwable $e) {
                     continue;
                 }
-                foreach(array_slice($results,0,3) as $candidate) {
+                foreach(array_slice($results,0,9) as $i=>$candidate) {
                     $url=(string)$candidate['source_url'];
                     $domain=(string)parse_url($url,PHP_URL_HOST);
                     if(isset($foundVendors[$domain]))continue;
+                    // Retain a searchable, explicitly unverified fallback rather
+                    // than discarding every search result without a published email.
+                    $snippetEvidence=aur_supplier_relevance($desc,$match,$candidate);
+                    if($snippetEvidence!==null && !isset($unverified[$domain])) {
+                        $unverified[$domain]=[
+                            'id'=>aur_worldwide_vendor_id($domain),
+                            'name'=>$domain,'website'=>$domain,'country'=>'Not established',
+                            'email'=>'','phone'=>'','evidence_url'=>$url,
+                            'match_basis'=>'SEARCH_RESULT_'.$snippetEvidence,
+                            'status'=>'SEARCH_RESULT_NOT_SITE_VERIFIED',
+                            'authorization'=>'NOT_VERIFIED','availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED',
+                        ];
+                    }
+                    // Limit page fetches, not lead discovery.
+                    if($i>=3)continue;
                     try {
                         $html=$fetch ? $fetch($url) : aur_worldwide_fetch($url);
                         $v=aur_worldwide_source_candidate($desc,$match,$candidate,(string)$html,$url);
@@ -185,7 +206,8 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
                     }catch(Throwable $e) {continue;}
                 }
             }
-            $vendors=array_values($foundVendors);
+            foreach($foundVendors as $domain=>$v)unset($unverified[$domain]);
+            $vendors=array_merge(array_values($foundVendors),array_values($unverified));
             $intel['worldwide_research']['rows'][$key]=[
                 'version'=>AUR_WORLDWIDE_VERSION,'checked_at'=>gmdate('c'),
                 'checked_timestamp'=>$now,'status'=>$providerOk?'SEARCHED':'SEARCH_UNAVAILABLE',
