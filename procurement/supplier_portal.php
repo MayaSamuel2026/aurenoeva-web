@@ -211,23 +211,86 @@ if(!is_array($contact))continue;
 <p>Draft <?=aur_escape((string)$rfqPreview['draft_id'])?>. One consolidated email per vendor. Please review recipient, equipment and terms before dispatch.</p>
 <?php if(isset($_GET['send_error'])):?><p role="alert">Sending was interrupted. Review the recorded status of each supplier below before trying again. Previous accepted emails will not be resent.</p><?php endif;?>
 <p class="muted">From: <strong>info@aurenoeva.com</strong>. Each distinct email address receives one tailored message with its equipment item numbers, original specifications and quantities. Sending never occurs before the Deploy / Send action.</p>
-<div class="scroll"><table><thead><tr><th>Supplier</th><th>Email recipient</th><th>Buyer item number(s) / quantities</th><th>Send status</th><th>Message</th></tr></thead><tbody>
-<?php foreach($rfqPreview['messages'] as $msg):?>
+<?php
+$readyCount=0;$sentCount=0;$attentionCount=0;
+foreach(($rfqPreview['messages']??[]) as $m) {
+    $st=(string)($m['status']??'DRAFT');
+    if($st==='DRAFT')$readyCount++;
+    elseif($st==='ACCEPTED_BY_MAIL_TRANSPORT')$sentCount++;
+    else $attentionCount++;
+}
+?>
+<div class="aur-rfq-counts">
+  <span><strong><?=count($rfqPreview['messages']??[])?></strong> supplier emails</span>
+  <span><strong><?=$readyCount?></strong> awaiting dispatch</span>
+  <span><strong><?=$sentCount?></strong> accepted by mail server</span>
+  <?php if($attentionCount):?><span><strong><?=$attentionCount?></strong> require status review</span><?php endif;?>
+</div>
+<div class="scroll">
+<table class="aur-rfq-table">
+<thead><tr><th>Supplier</th><th>To / email address</th><th>Equipment requested</th><th>Dispatch status</th><th>Preview</th></tr></thead>
+<tbody>
+<?php foreach($rfqPreview['messages'] as $msg):
+  $mailItems=[];
+  foreach(($msg['items']??[]) as $mi) {
+      $mr=(string)($mi['source_row']??'');
+      $mailItems[]=[
+        'number'=>(int)($mi['customer_item_number']??($numberByRow[$mr]??0)),
+        'quantity'=>$mi['quantity']??($quantityByRow[$mr]??null),
+        'option'=>$mi['option_type']??($optionByRow[$mr]??'REQUESTED'),
+        'description'=>(string)($mi['description']??'')
+      ];
+  }
+  $itemSummary=[];
+  foreach($mailItems as $mi) {
+      $itemLabel='#'.$mi['number'];
+      if($mi['option']==='ALTERNATIVE')$itemLabel.=' (alt)';
+      $itemSummary[$itemLabel]=true;
+  }
+  $itemLabels=array_keys($itemSummary);
+  $shortSummary=implode('  ·  ',array_slice($itemLabels,0,8)).
+      (count($itemLabels)>8?'  ·  +'.(count($itemLabels)-8).' more':'');
+  $msgStatus=(string)($msg['status']??'DRAFT');
+?>
 <tr>
 <td><strong><?=aur_escape((string)$msg['vendor_name'])?></strong></td>
-<td><?=aur_escape((string)$msg['to'])?></td>
-<td><?php foreach(($msg['items']??[]) as $mi):
- $mr=(string)($mi['source_row']??'');
- $mn=(int)($mi['customer_item_number']??($numberByRow[$mr]??0));
- $mq=$mi['quantity']??($quantityByRow[$mr]??null);
- $mo=$mi['option_type']??($optionByRow[$mr]??'REQUESTED');
-?>
-<div>#<?=$mn?> · Qty <?= $mq===null?'TBC':(int)$mq ?><?=$mo==='ALTERNATIVE'?' · Alternative':''?></div>
-<?php endforeach;?></td>
-<td><?=aur_escape((string)$msg['status'])?></td>
-<td><details><summary>View customized email</summary><div><b><?=aur_escape((string)$msg['subject'])?></b></div><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre></details></td>
+<td><a href="mailto:<?=aur_escape((string)$msg['to'])?>"><?=aur_escape((string)$msg['to'])?></a></td>
+<td>
+  <div class="aur-rfq-item-count"><b><?=count($mailItems)?></b> equipment entries</div>
+  <div class="aur-rfq-short-items"><?=aur_escape($shortSummary)?></div>
+  <details class="aur-rfq-details">
+    <summary>View all items and quantities</summary>
+    <div class="aur-rfq-expanded">
+      <table>
+      <thead><tr><th>Item</th><th>Qty</th><th>Type</th><th>Original specification</th></tr></thead>
+      <tbody>
+      <?php foreach($mailItems as $i): ?>
+      <tr>
+        <td>#<?=(int)$i['number']?></td>
+        <td><?= $i['quantity']===null?'To confirm':(int)$i['quantity'] ?></td>
+        <td><?= $i['option']==='ALTERNATIVE'?'Alternative':'Requested' ?></td>
+        <td><?=aur_escape($i['description'])?></td>
+      </tr>
+      <?php endforeach;?>
+      </tbody></table>
+    </div>
+  </details>
+</td>
+<td><span class="aur-rfq-status"><?=aur_escape(aur_supplier_status_label($msgStatus))?></span></td>
+<td>
+  <details class="aur-rfq-details">
+    <summary>View email</summary>
+    <div class="aur-rfq-preview">
+      <div><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></div>
+      <div><b>To:</b> <?=aur_escape((string)$msg['to'])?></div>
+      <pre><?=aur_escape((string)$msg['body'])?></pre>
+    </div>
+  </details>
+</td>
 </tr>
-<?php endforeach;?></tbody></table></div>
+<?php endforeach;?>
+</tbody></table>
+</div>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
 <form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
