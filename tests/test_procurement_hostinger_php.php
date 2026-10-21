@@ -3,6 +3,7 @@ declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/private_cases.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_intelligence.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_discovery.php';
+require dirname(__DIR__).'/deployment/site/procurement/staff_auth.php';
 $root=sys_get_temp_dir().'/aurenoeva-qa-'.bin2hex(random_bytes(6));
 mkdir($root.'/public_html',0700,true);
 // Simulate a web server which supplies an unrelated document root.
@@ -45,6 +46,28 @@ try {
     check(password_verify('VeryStrongTestPassword123!',trim((string)file_get_contents($store.'/admin-password.hash'))),'hash verification failed');
     check(!file_exists(dirname($store).'/aurenoeva-activation-token.txt'),'one-time secret not consumed');
     check(aur_setup_apply($store,$activationToken,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='already_activated','re-activation not blocked');
+    // Regression: Hostinger does not reliably preserve PHP sessions between
+    // form render, password submission, and redirected authenticated read.
+    // Signed form tokens and staff cookies must work across independent calls.
+    $hash=trim((string)file_get_contents($store.'/admin-password.hash'));
+    $at=1761040800;
+    $loginForm=aur_staff_csrf_issue($hash,'anonymous',$at,'1234567890abcdef');
+    check(aur_staff_csrf_valid($hash,'anonymous',$loginForm,$at+10),'login form signature failed');
+    check(!aur_staff_csrf_valid($hash,'anonymous',$loginForm,$at+4000),'expired login form was accepted');
+    check(!aur_staff_csrf_valid($hash,'authenticated:test',$loginForm,$at+10),'anonymous csrf accepted for admin writes');
+    check(!aur_staff_csrf_valid($hash,'anonymous',$loginForm.'f',$at+10),'forged login form accepted');
+    $cookie=aur_staff_cookie_issue($hash,$at,'1234567890abcdef12345678');
+    check(aur_staff_cookie_valid($hash,$cookie,$at+60),'cookie rejected after new request');
+    check(aur_staff_cookie_valid($hash,$cookie,$at+180),'cookie lost across requests');
+    check(!aur_staff_cookie_valid($hash,$cookie,$at+AUR_STAFF_TTL+1),'expired cookie accepted');
+    check(!aur_staff_cookie_valid(password_hash('different-password',PASSWORD_BCRYPT),$cookie,$at+60),'credential rotation did not revoke cookie');
+    check(!aur_staff_cookie_valid($hash,$cookie.'a',$at+60),'tampered cookie accepted');
+    $context=aur_staff_csrf_context(true,$cookie);
+    $adminForm=aur_staff_csrf_issue($hash,$context,$at);
+    check(aur_staff_csrf_valid($hash,$context,$adminForm,$at+10),'valid authenticated form rejected');
+    check(!aur_staff_csrf_valid($hash,aur_staff_csrf_context(true,'different-cookie'),$adminForm,$at+10),'authenticated csrf not cookie-bound');
+    check(!aur_staff_csrf_valid($hash,'anonymous',$adminForm,$at+10),'admin form accepted for unauthenticated request');
+    echo "AURENOEVA_STATELESS_STAFF_LOGIN=PASS\n";
     // The user's earlier setup instructions also placed the code inside
     // .aurenoeva-private/activation-token.txt; preserve that secure route.
     $oldRoot=$root.'/legacy/public_html';
