@@ -611,7 +611,8 @@
       "seeds": [
         "https://www.agilent.com/en/products",
         "https://www.agilent.com/en/product/chromatography-columns",
-        "https://www.agilent.com/en/product/hplc-columns"
+        "https://www.agilent.com/en/product/hplc-columns",
+        "https://www.agilent.com/en/product/liquid-chromatography/hplc-systems/gpc-sec-solutions/1260-infinity-ii-gpc-sec-system"
       ],
       "follow_paths": [
         "/en/product/",
@@ -631,7 +632,8 @@
         "https://www.phoenixcontact.com/en-pc/products/plcs-controllers-and-i-os",
         "https://www.phoenixcontact.com/en-pc/products/connectors",
         "https://www.phoenixcontact.com/en-pc/products/terminal-blocks",
-        "https://www.phoenixcontact.com/en-pc/products/pcb-terminal-blocks-and-pcb-connectors"
+        "https://www.phoenixcontact.com/en-pc/products/pcb-terminal-blocks-and-pcb-connectors",
+        "https://www.phoenixcontact.com/en-pc/products/plug-lp-25-5-1071716"
       ],
       "follow_paths": [
         "/en-pc/products/"
@@ -666,7 +668,9 @@
         "https://www.furuno.com/en/products/ais/index.html",
         "https://www.furuno.com/en/products/compass/index.html",
         "https://www.furuno.com/en/products/instruments/index.html",
-        "https://www.furuno.com/en/products/multi-display/index.html"
+        "https://www.furuno.com/en/products/multi-display/index.html",
+        "https://www.furuno.com/en/products/radar/index.html",
+        "https://www.furuno.com/en/products/radar/far-15x8/index.html"
       ],
       "follow_paths": [
         "/en/products/"
