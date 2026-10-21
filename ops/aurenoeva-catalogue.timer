@@ -1,10 +1,11 @@
 [Unit]
-Description=Run Aurenoeva product catalogue refresh every hour
+Description=AURENOEVA worldwide product/vendor harvest continuously, including overnight
 
 [Timer]
-OnCalendar=hourly
+OnBootSec=3min
+OnCalendar=*:0/30
 Persistent=true
-RandomizedDelaySec=180
+RandomizedDelaySec=25
 Unit=aurenoeva-catalogue.service
 
 [Install]
