@@ -132,16 +132,16 @@ def published_contact(body,url):
     # Contact must be genuinely published on the fetched website, never inferred
     # from a search snippet or fabricated from a domain.
     host=hostof(url).removeprefix("www.")
-    mails=re.findall(r"mailto:([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,})",body,re.I)
+    mails=re.findall(r"mailto:([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})",body,re.I)
     plain=re.sub(r"(?is)<script.*?</script>|<style.*?</style>"," ",body)
-    mails+=re.findall(r"(?<![A-Za-z0-9._%+\\-])[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}",plain,re.I)
+    mails+=re.findall(r"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}",plain,re.I)
     email=""
     for v in mails:
         domain=v.split("@")[-1].lower()
         if (domain==host or host.endswith("."+domain) or domain in ("gmail.com","outlook.com")) and not re.search(r"(?i)no.?reply|example|invalid|test@",v):
             email=v[:240];break
     phone=""
-    match=re.search(r"(?i)(?:tel:|phone\\s*[: ]|telephone\\s*[: ])\\s*(\\+?[0-9\\s().\\-]{8,24})",body)
+    match=re.search(r"(?i)(?:tel:|phone\s*[: ]|telephone\s*[: ])\s*(\+?[0-9\s().\-]{8,24})",body)
     if match:phone=txt(match.group(1),40)
     return email,phone
 
