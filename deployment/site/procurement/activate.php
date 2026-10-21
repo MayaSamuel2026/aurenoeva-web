@@ -28,43 +28,66 @@ function aur_setup_fail(int $status, string $reason): never {
  * the owner's never-public high-entropy activation code; no code is sent
  * back to the browser except the HMAC.
  */
+/**
+ * Recognize both historically documented activation-code locations, but
+ * never accept one inside the public webroot. No new accounts or backends.
+ */
+function aur_setup_private_tokens(string $store): array {
+    $candidates=[
+        dirname($store).'/aurenoeva-activation-token.txt',
+        $store.'/activation-token.txt',
+        $store.'/aurenoeva-activation-token.txt',
+    ];
+    $valid=[];
+    foreach ($candidates as $file) {
+        if (!is_file($file) || is_link($file) || !is_readable($file)) continue;
+        $length=@filesize($file);
+        if (!is_int($length) || $length<32 || $length>256) continue;
+        $secret=trim((string)@file_get_contents($file));
+        if (strlen($secret)<32 || strlen($secret)>200 || preg_match('/\\s/', $secret)) continue;
+        $valid[]=['path'=>$file,'secret'=>$secret];
+    }
+    return $valid;
+}
 function aur_setup_form_token(string $store, ?int $issuedAt = null): ?string {
-    $file=dirname($store).'/aurenoeva-activation-token.txt';
-    if (!is_file($file) || is_link($file) || !is_readable($file)) return null;
-    $secret=trim((string)@file_get_contents($file));
-    if (strlen($secret)<32 || strlen($secret)>200 || preg_match('/\\s/', $secret)) return null;
+    $tokens=aur_setup_private_tokens($store);
+    if (!$tokens) return null;
     $issuedAt=$issuedAt ?? time();
-    return (string)$issuedAt.'.'.hash_hmac('sha256','AURENOEVA_ACTIVATE_FORM_V2|'.$issuedAt,$secret);
+    return (string)$issuedAt.'.'.hash_hmac('sha256','AURENOEVA_ACTIVATE_FORM_V2|'.$issuedAt,$tokens[0]['secret']);
 }
 function aur_setup_verify_form_token(string $store, string $provided, ?int $now = null): bool {
     $now=$now ?? time();
     if (!preg_match('/^([0-9]{10})\\.([a-f0-9]{64})$/D',$provided,$m)) return false;
     $issuedAt=(int)$m[1];
-    // 30-minute expiry, plus 30s tolerance for server clock variation.
     if ($issuedAt>$now+30 || $issuedAt<$now-1800) return false;
-    $expected=aur_setup_form_token($store,$issuedAt);
-    return is_string($expected) && hash_equals($expected,$provided);
+    foreach (aur_setup_private_tokens($store) as $token) {
+        $expected=(string)$issuedAt.'.'.hash_hmac('sha256','AURENOEVA_ACTIVATE_FORM_V2|'.$issuedAt,$token['secret']);
+        if (hash_equals($expected,$provided)) return true;
+    }
+    return false;
 }
 function aur_setup_apply(string $store, string $suppliedToken, string $password, string $confirmation): string {
     // The file is created via the owner's authenticated Hostinger File Manager,
     // outside the public webroot. No hardcoded or guessable bootstrap secrets.
     $hashFile=$store.'/admin-password.hash';
-    $tokenFile=dirname($store).'/aurenoeva-activation-token.txt';
     $lockFile=$store.'/activation.lock';
-    if (is_link($hashFile) || is_link($tokenFile) || is_link($lockFile)) {
+    if (is_link($hashFile) || is_link($lockFile)) {
         throw new RuntimeException('invalid_private_file');
     }
     $lock=@fopen($lockFile,'c');
     if (!$lock || !flock($lock,LOCK_EX)) throw new RuntimeException('activation_lock_unavailable');
     try {
         if (file_exists($hashFile)) return 'already_activated';
-        if (!is_file($tokenFile) || !is_readable($tokenFile)) return 'activation_token_missing';
-        $size=@filesize($tokenFile);
-        if (!is_int($size) || $size < 32 || $size > 256) return 'invalid_activation_token_file';
-        $expected=trim((string)@file_get_contents($tokenFile));
-        if (strlen($expected) < 32 || strlen($expected) > 200
-            || preg_match('/\s/', $expected)) return 'invalid_activation_token_file';
-        if (!hash_equals($expected, $suppliedToken)) return 'invalid_activation_code';
+        $tokens=aur_setup_private_tokens($store);
+        if (!$tokens) return 'activation_token_missing';
+        $tokenFile=null;
+        foreach ($tokens as $token) {
+            if (hash_equals($token['secret'],$suppliedToken)) {
+                $tokenFile=$token['path'];
+                break;
+            }
+        }
+        if ($tokenFile===null) return 'invalid_activation_code';
         if (strlen($password) < 16 || strlen($password) > 256
             || $password !== $confirmation) return 'password_invalid_or_mismatched';
         $hash=password_hash($password, PASSWORD_BCRYPT);
@@ -188,7 +211,7 @@ small{display:block;margin:25px 0;color:#64736b;font-size:12px}.error{padding:12
 <button type="submit">Activate administrator</button>
 </form>
 <?php else: ?>
-<p class="error">The private activation file has not been found or is invalid. Check the filename and its location beside <code>public_html</code> in Hostinger File Manager, then reload this page.</p>
+<p class="error">The private activation file was not found or contains an invalid code. Check it is <strong>outside public_html</strong>, named <code>aurenoeva-activation-token.txt</code> beside <code>public_html</code> or <code>activation-token.txt</code> inside <code>.aurenoeva-private</code>, and has at least 32 characters on one line. Then refresh.</p>
 <?php endif; ?>
 <small>The code is checked against a file outside public_html, consumed once, and never stored in GitHub. No supplier RFQ is sent during activation.</small>
 </main></body></html>
