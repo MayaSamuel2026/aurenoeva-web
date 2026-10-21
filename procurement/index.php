@@ -27,6 +27,7 @@ require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
+require_once __DIR__ . '/supplier_case_report.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -108,6 +109,30 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
     header('Content-Disposition: attachment; filename="'.$rfqRef.'-RFQ-DRAFT.txt"');
     header('Content-Length: '.strlen($body));
     echo $body;
+    exit;
+}
+/* Authentication-gated PDF, regenerated from this case's current saved research. */
+if ($isAdmin && $_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['supplier_pdf'])) {
+    try {
+        $ref=trim((string)$_GET['supplier_pdf']);
+        $case=aur_case_read($aurStore,$ref);
+        try{$intel=aur_supplier_save($aurStore,$case);}
+        catch(Throwable $e){
+            $intel=aur_supplier_read($aurStore,$ref,(string)$case['source_sha256']);
+            if(!is_array($intel))$intel=aur_supplier_preview($case);
+        }
+        try{$intel=aur_worldwide_attach_master($aurStore,$intel);}catch(Throwable $e){}
+        $saved=aur_supplier_report_save($aurStore,$case,$intel);
+        $pdf=file_get_contents($saved['path']);
+        if(!is_string($pdf)||!str_starts_with($pdf,'%PDF-'))throw new RuntimeException('pdf_read_failed');
+    } catch(Throwable $e) {
+        error_log('AURENOEVA private supplier PDF: '.get_class($e));
+        aur_denied(503,'supplier report temporarily unavailable; saved case preserved');
+    }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="'.$ref.'-SUPPLIER-MAPPING.pdf"');
+    header('Content-Length: '.strlen($pdf));
+    echo $pdf;
     exit;
 }
 
@@ -231,7 +256,7 @@ if ($isAdmin) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
             $draftId=trim((string)($_POST['draft_id']??''));
-            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
+            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1',null,20);
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
@@ -248,7 +273,15 @@ if ($isAdmin) {
                 echo json_encode(['ok'=>false,'error'=>'rfq_dispatch_unavailable']);
                 exit;
             }
-            aur_denied(422,'RFQ dispatch not completed; check saved draft statuses before retrying');
+            $ref=trim((string)($_POST['case_ref']??''));
+            $draftId=trim((string)($_POST['draft_id']??''));
+            if(preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref)
+               && preg_match('/^[a-f0-9]{24}$/D',$draftId)) {
+                header('Location: /procurement/?case='.rawurlencode($ref).'&draft='.
+                    rawurlencode($draftId).'&send_error=1#supplier-history',true,303);
+                exit;
+            }
+            aur_denied(422,'RFQ dispatch could not be completed');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
         try {
@@ -331,6 +364,19 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
         }
     }
 }
+$supplierCaseReport=null;
+$supplierPdfReady=false;
+if ($isAdmin && is_array($result) && isset($result['reference']) && is_array($supplierResearch)) {
+    try {
+        $savedSupplierReport=aur_supplier_report_save($aurStore,$result,$supplierResearch);
+        $supplierCaseReport=$savedSupplierReport['report'];
+        $supplierPdfReady=true;
+    }catch(Throwable $e) {
+        error_log('AURENOEVA supplier report save: '.get_class($e));
+        try{$supplierCaseReport=aur_supplier_report_data($result,$supplierResearch);}
+        catch(Throwable $ignored){}
+    }
+}
 header('Content-Type: text/html; charset=utf-8');
 ?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>AURENOEVA · Procurement administration</title>
@@ -411,6 +457,7 @@ catch(Throwable $e) {
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original case RFQ draft</a>
+<?php if($supplierPdfReady):?><a class="button" href="?supplier_pdf=<?=rawurlencode((string)$result['reference'])?>">Download saved item / supplier mapping PDF</a><?php endif;?>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
 <section aria-labelledby="original-equipment-heading" id="original-rfq-equipment">
