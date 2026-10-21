@@ -63,9 +63,35 @@ def normalized_snapshot(path: Path) -> tuple[bytes, int]:
         }
     if not records:
         raise ValueError("no_qualifying_catalogue_identities")
+    def safe_vendor_url(url):
+        try:
+            p = urlsplit(str(url))
+            return p.scheme == "https" and bool(p.hostname) and not p.username and not p.password
+        except ValueError:
+            return False
+    # Private evidence is transferred with the authenticated HTTPS sync, but is
+    # NEVER copied to the public searchable product snapshot.
+    links=[]
+    for v in raw.get("vendor_products", [])[:25000]:
+        if (not isinstance(v,dict) or not IDENTITY.fullmatch(str(v.get("product_id",""))) or
+            not safe_vendor_url(v.get("source_url",""))): continue
+        host=str(v.get("website","")).lower()[:250]
+        if host != urlsplit(str(v["source_url"])).hostname: continue
+        links.append({k:str(v.get(k,""))[:(600 if k=="source_url" else 160)]
+                      for k in ("website","product_id","source_url","manufacturer",
+                                "model","sector","category","evidence_type","last_seen")})
+    leads=[]
+    for v in raw.get("vendor_leads", [])[:5000]:
+        if not isinstance(v,dict) or not safe_vendor_url(v.get("evidence_url","")):continue
+        host=str(v.get("website","")).lower()[:250]
+        if host != urlsplit(str(v["evidence_url"])).hostname:continue
+        leads.append({k:str(v.get(k,""))[:(600 if k=="evidence_url" else 160)]
+                      for k in ("website","evidence_url","sector","category","last_seen")})
     payload = {
         "schema": SCHEMA,
         "items": [records[key] for key in sorted(records)],
+        "vendor_products": links,
+        "vendor_leads": leads,
         "availability_notice": "Product identity only; no supplier stock or price is implied.",
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
