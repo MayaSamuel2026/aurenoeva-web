@@ -48,6 +48,8 @@ try{
  verify(str_contains($entryHtml,'id="aur-draft-progress"')
    && str_contains($entryHtml,'name="vendor_tokens"')
    && str_contains($entryHtml,'name="prepare_vendor_rfqs"')
+   && str_contains($entryHtml,'action="/procurement/"')
+   && str_contains($dashboardJs,"fetch('/procurement/'")
    && str_contains($dashboardJs,"selected.join(',')")
    && str_contains($dashboardJs,"Do NOT preventDefault")
    && !str_contains($dashboardJs,"task: 'prepare'"),
