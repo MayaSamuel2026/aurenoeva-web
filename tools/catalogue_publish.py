@@ -151,8 +151,8 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     digest = hashlib.sha256(payload).hexdigest()
     state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     receipt = state_dir / "catalogue-pushed.sha256"
-    if receipt.is_file() and receipt.read_text().strip() == digest:
-        return {"status": "UNCHANGED", "records": count, "sha256": digest}
+    # Always deliver on hourly execution: recovery must not depend on a changed
+    # digest if the website restored a backup or the sync key was rotated.
     request = Request(url, data=payload, method="POST", headers={
         "Content-Type": "application/json",
         "User-Agent": "AurenoevaCataloguePublisher/1.0",
