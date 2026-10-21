@@ -83,6 +83,15 @@ try{
  $testAt=strpos($entry,'<h2>Email automation — dummy RFQ test</h2>');
  verify($caseAt!==false && $testAt!==false && $caseAt<$testAt,
    'procurement case/RFQ has regressed below the dummy email utility');
+ $adminGuardStart=strpos($entry,'<?php if (!$isAdmin): ?>');
+ $adminGuardEnd=strpos($entry,'<?php endif; // authenticated procurement workspace ?>');
+ $catalogueAt=strpos($entry,'<h2>Live product catalogue</h2>');
+ verify($adminGuardStart!==false && $adminGuardEnd!==false && $adminGuardStart<$caseAt
+   && $adminGuardEnd>$catalogueAt && $testAt<$adminGuardEnd,
+   'private procurement panels appear outside the authenticated admin boundary');
+ verify(!str_contains($entry,'<?php endif; ?>'."\n\n".'<section class="card">'."\n".'<h2>Email automation'),
+   'admin boundary closes before the test-email panel');
+
  verify(str_contains($entry,'$supplierResearch=aur_supplier_preview($result);'),
    'supplier portal can disappear when saved research is temporarily unavailable');
  verify(str_contains($page,'supplier-workspace'),'direct supplier workspace anchor missing');
