@@ -115,7 +115,7 @@ try {
     check($sterileRoutes[0]['id']==='abform','sterilization provider missing');
     $routeStats=aur_supplier_route_stats($intel['rows']);
     check($routeStats['entries_with_contacts']>=1,'existing case has no actionable channels');
-    check($routeStats['exact_product_listings']===0,'fake exact supplier in sample case');
+    check($routeStats['exact_product_listings']===1,'exact WATO product route omitted in sample case');
     echo "AURENOEVA_SOURCE_BACKED_SUPPLIER_ROUTES=PASS\\n";
     $queries=aur_supplier_global_queries('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'));
     check(count($queries)===5 && !str_contains($queries['Worldwide'],'Uzbekistan'),'geographical restriction was retained');
