@@ -2,6 +2,12 @@ name: Qualify and publish Aurenoeva
 
 on:
   workflow_dispatch:
+  # Catalogue integration release: reuse full qualification before Hostinger publication.
+  # Only edits to this release workflow trigger an automatic production candidate.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish.yml'
 
 permissions:
   contents: write
