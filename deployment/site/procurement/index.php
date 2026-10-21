@@ -24,6 +24,7 @@ function aur_denied(int $status, string $message): never {
 require_once __DIR__ . '/private_cases.php';
 require_once __DIR__ . '/supplier_intelligence.php';
 require_once __DIR__ . '/supplier_discovery.php';
+require_once __DIR__ . '/staff_auth.php';
 try {
     $aurStore = aur_store_root();
 } catch (Throwable $e) {
@@ -38,53 +39,44 @@ $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 if (!$secure && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
     aur_denied(403, 'HTTPS required');
 }
-ini_set('session.use_strict_mode','1');
-ini_set('session.use_only_cookies','1');
-session_name('aurenoeva_private_staff');
-session_set_cookie_params(['lifetime'=>0,'path'=>'/procurement','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
-session_start();
-
-if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(24));
-$csrf = (string) $_SESSION['csrf'];
-$isAdmin = !empty($_SESSION['admin'])
-    && hash_equals((string)($_SESSION['credential_version'] ?? ''), hash('sha256', $passwordHash))
-    && time() - (int)($_SESSION['seen'] ?? 0) < 3600 * 8;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals($csrf, (string)($_POST['csrf'] ?? ''))) {
-    aur_denied(403, 'CSRF validation failed');
+// Signed, private-cookie authentication: independent of PHP session persistence.
+// SameSite=Lax permits a link from ChatGPT to open an existing signed-in session.
+// Every write remains protected by a credential-bound, one-hour HMAC CSRF token.
+$authCookie=(string)($_COOKIE[AUR_STAFF_COOKIE]??'');
+$isAdmin=aur_staff_cookie_valid($passwordHash,$authCookie);
+$csrfContext=aur_staff_csrf_context($isAdmin,$authCookie);
+$csrf=aur_staff_csrf_issue($passwordHash,$csrfContext);
+if ($_SERVER['REQUEST_METHOD']==='POST' &&
+    !aur_staff_csrf_valid($passwordHash,$csrfContext,(string)($_POST['csrf']??''))) {
+    aur_denied(403,'Form expired or invalid. Reload the page and try again.');
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['logout'])) {
-    $_SESSION = [];
-    session_destroy();
-    header('Location: /procurement/');
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['logout'])) {
+    if (!$isAdmin) aur_denied(401,'authentication required');
+    aur_staff_cookie_send('',time()-3600);
+    header('Location: /procurement/',true,303);
     exit;
 }
-$error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && !$isAdmin) {
-    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
-    $rateFile = sys_get_temp_dir() . '/aur_staff_' . substr(hash('sha256', $ip), 0, 24);
-    $record = is_file($rateFile) ? json_decode((string)@file_get_contents($rateFile), true) : null;
-    if (!is_array($record) || time() - (int)($record['start'] ?? 0) > 900) $record = ['start'=>time(),'fails'=>0];
-    if ((int)$record['fails'] >= 8) aur_denied(429, 'too many attempts, retry later');
-    if (password_verify((string)$_POST['password'], $passwordHash)) {
+$error='';
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['password']) && !$isAdmin) {
+    $ip=(string)($_SERVER['REMOTE_ADDR']??'unknown');
+    $rateFile=$aurStore.'/login-attempts-'.substr(hash('sha256',$ip),0,24).'.json';
+    $record=is_file($rateFile)?json_decode((string)@file_get_contents($rateFile),true):null;
+    if (!is_array($record)||time()-(int)($record['start']??0)>900) $record=['start'=>time(),'fails'=>0];
+    if ((int)$record['fails']>=8) aur_denied(429,'too many attempts, retry later');
+    if (password_verify((string)$_POST['password'],$passwordHash)) {
         @unlink($rateFile);
-        session_regenerate_id(true);
-        $_SESSION['admin'] = true;
-        $_SESSION['credential_version'] = hash('sha256', $passwordHash);
-        $_SESSION['seen'] = time();
-        $_SESSION['csrf'] = bin2hex(random_bytes(24));
-        header('Location: /procurement/');
+        aur_staff_cookie_send(aur_staff_cookie_issue($passwordHash),time()+AUR_STAFF_TTL);
+        header('Location: /procurement/',true,303);
         exit;
     }
     ++$record['fails'];
-    @file_put_contents($rateFile, json_encode($record), LOCK_EX);
-    $error = 'Incorrect password.';
+    @file_put_contents($rateFile,json_encode($record),LOCK_EX);
+    @chmod($rateFile,0600);
+    $error='Incorrect password.';
 }
-if ($isAdmin) $_SESSION['seen'] = time();
-if (!$isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['password'])) {
-    aur_denied(401, 'authentication required');
+if (!$isAdmin && $_SERVER['REQUEST_METHOD']==='POST' && !isset($_POST['password'])) {
+    aur_denied(401,'authentication required');
 }
-
 
 /* RFQ exports are generated only after staff authentication, never public URLs. */
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
