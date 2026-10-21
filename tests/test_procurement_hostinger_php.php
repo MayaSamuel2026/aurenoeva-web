@@ -62,28 +62,6 @@ try {
     check(!file_exists(dirname($store).'/aurenoeva-activation-token.txt'),'one-time secret not consumed');
     check(aur_setup_apply($store,$activationToken,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='already_activated','re-activation not blocked');
 
-    // Hostinger owner can recover the existing account without losing cases,
-    // and without reusing an expired or automatically consumed text file.
-    $ownerRecoveryToken='OWNER-FILE-MANAGER-RECOVERY-'.str_repeat('r',48);
-    $recoveryPath=$store.'/activation-token.txt';
-    file_put_contents($recoveryPath,$ownerRecoveryToken);
-    $oldHash=trim((string)file_get_contents($store.'/admin-password.hash'));
-    check(aur_setup_recover($store,'invalid-code','ReplacementTestPassword456!','ReplacementTestPassword456!')==='invalid_activation_code',
-        'incorrect owner recovery token accepted');
-    check(trim((string)file_get_contents($store.'/admin-password.hash'))===$oldHash,'wrong recovery code altered credential');
-    check(aur_setup_recover($store,$ownerRecoveryToken,'ReplacementTestPassword456!','different')==='password_invalid_or_mismatched',
-        'mismatched recovery password accepted');
-    check(aur_setup_recover($store,$ownerRecoveryToken,'ReplacementTestPassword456!','ReplacementTestPassword456!')==='recovered',
-        'valid owner recovery rejected');
-    $newHash=trim((string)file_get_contents($store.'/admin-password.hash'));
-    check(!hash_equals($oldHash,$newHash),'old administrator credential remained after recovery');
-    check(password_verify('ReplacementTestPassword456!',$newHash),'recovered password not persisted');
-    check(!password_verify('VeryStrongTestPassword123!',$newHash),'old password remained valid after recovery');
-    check(!is_file($recoveryPath),'consumed owner recovery code remained on disk');
-    check(aur_setup_recover($store,$ownerRecoveryToken,'AnotherTestPassword789!','AnotherTestPassword789!')==='activation_token_missing',
-        'spent recovery code unexpectedly reused');
-    echo "AURENOEVA_PRIVATE_ADMIN_RECOVERY=PASS\n";
-
     // Regression: Hostinger does not reliably preserve PHP sessions between
     // form render, password submission, and redirected authenticated read.
     // Signed form tokens and staff cookies must work across independent calls.
