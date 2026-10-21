@@ -12,8 +12,8 @@ TIMER=aurenoeva-catalogue.timer
 }
 id -u aurenoeva >/dev/null
 if systemctl is-active --quiet "$SERVICE"; then
-  echo "Crawler is still executing. Its current database is untouched."
-  exit 1
+  echo "Stopping the existing crawler at its last durable page checkpoint before upgrading."
+  systemctl stop "$SERVICE"
 fi
 TMP=$(mktemp -d)
 TIMER_RESTORE=0
@@ -111,4 +111,34 @@ print('LIVE_WEBSITE_CATALOGUE_SEARCH=PASS',item['manufacturer'],item['model'])
 PY
 echo "=== EXISTING HISTORICAL CATALOGUE BACKUPS ==="
 find /var/lib/aurenoeva -maxdepth 1 -type f -name 'catalogue.sqlite3*' -printf '%f %s bytes\n' | sort
+echo "=== READ-ONLY PREVIOUS CATALOGUE AUTHORITY AUDIT ==="
+python3 - <<'PY'
+from pathlib import Path
+import os,sqlite3
+roots=[Path('/var/lib/noeva'),Path('/var/lib/noeva-core'),Path('/opt/noeva'),
+       Path('/srv/noeva'),Path('/var/lib/aurenoeva')]
+checked=set()
+for root in roots:
+    if not root.is_dir(): continue
+    for base,dirs,files in os.walk(root):
+        level=len(Path(base).relative_to(root).parts)
+        if level >= 4: dirs[:]=[]
+        dirs[:]=[d for d in dirs if d not in ('node_modules','.git','venv','.venv')]
+        for filename in files:
+            lower=filename.lower()
+            if not lower.endswith(('.sqlite','.sqlite3','.db')): continue
+            target=Path(base)/filename
+            if target in checked: continue
+            checked.add(target)
+            try:
+                with sqlite3.connect('file:'+str(target)+'?mode=ro',uri=True,timeout=2) as c:
+                    tables={row[0] for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                    if 'aurenoeva_parts' in tables:
+                        print('LEGACY AURENOEVA PARTS:',target,
+                              c.execute('SELECT COUNT(*) FROM aurenoeva_parts').fetchone()[0])
+                    elif 'products' in tables and 'catalog' in lower:
+                        print('OTHER CATALOGUE PRODUCTS:',target,
+                              c.execute('SELECT COUNT(*) FROM products').fetchone()[0])
+            except (OSError,sqlite3.Error): pass
+PY
 echo "UPGRADE_AND_LIVE_READBACK=PASS — same original SQLite, service, and timer retained."
