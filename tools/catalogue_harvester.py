@@ -141,6 +141,9 @@ def search_links(body,kind):
     else:
         p=Page();p.feed(body)
         for href,_ in p.links:
+            href=html.unescape(href)
+            if href.startswith("//"):href="https:"+href
+            if href.startswith("/l/"):href="https://duckduckgo.com"+href
             if "uddg=" in href:
                 val=parse_qs(urlsplit(html.unescape(href)).query).get("uddg",[])
                 if val:href=val[0]
