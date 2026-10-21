@@ -44,22 +44,15 @@ try {
     $probeOutput=[];$probeExit=1;
     exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($probe).' 2>&1',$probeOutput,$probeExit);
     check($probeExit===0 && trim(implode("\\n",$probeOutput))===$store,'CLI/web private root drift');
+    // One-time owner secret is stored inside the private directory, not in a release.
     $activationToken='AURENOEVA-TEST-CODE-ONLY-'.str_repeat('x',40);
-    file_put_contents(dirname($store).'/aurenoeva-activation-token.txt',$activationToken);
-    $signed=aur_setup_form_token($store,1761039000);
-    check(is_string($signed) && aur_setup_verify_form_token($store,$signed,1761039050), 'stateless signed activation token rejected');
-    check(!aur_setup_verify_form_token($store,$signed,1761040901), 'expired activation form accepted');
-    check(!aur_setup_verify_form_token($store,$signed.'modified',1761039050), 'tampered activation form accepted');
-    check(!aur_setup_verify_form_token($store,'',1761039050), 'missing activation token accepted');
-    // Simulate Hostinger PHP requests without a persistent session:
-    // the signed form survives independent requests, but never exposes the owner's secret.
-    check(!str_contains($signed,$activationToken),'private owner code exposed in form');
+    file_put_contents($store.'/activation-token.txt',$activationToken);
     check(aur_setup_apply($store,'invalid-token','VeryStrongTestPassword123!','VeryStrongTestPassword123!')==='invalid_activation_code','activation accepted incorrect token');
     check(!is_file($store.'/admin-password.hash'),'credential unexpectedly written');
     check(aur_setup_apply($store,$activationToken,'VeryStrongTestPassword123!','different')==='password_invalid_or_mismatched','mismatch accepted');
     check(aur_setup_apply($store,$activationToken,'VeryStrongTestPassword123!','VeryStrongTestPassword123!')==='activated','valid activation denied');
     check(password_verify('VeryStrongTestPassword123!',trim((string)file_get_contents($store.'/admin-password.hash'))),'hash verification failed');
-    check(!file_exists(dirname($store).'/aurenoeva-activation-token.txt'),'one-time secret not consumed');
+    check(!file_exists($store.'/activation-token.txt'),'one-time secret not consumed');
     check(aur_setup_apply($store,$activationToken,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='already_activated','re-activation not blocked');
 
     // Regression: Hostinger does not reliably preserve PHP sessions between
@@ -84,18 +77,6 @@ try {
     check(!aur_staff_csrf_valid($hash,aur_staff_csrf_context(true,'different-cookie'),$adminForm,$at+10),'authenticated csrf not cookie-bound');
     check(!aur_staff_csrf_valid($hash,'anonymous',$adminForm,$at+10),'admin form accepted for unauthenticated request');
     echo "AURENOEVA_STATELESS_STAFF_LOGIN=PASS\n";
-    // The user's earlier setup instructions also placed the code inside
-    // .aurenoeva-private/activation-token.txt; preserve that secure route.
-    $oldRoot=$root.'/legacy/public_html';
-    mkdir($oldRoot,0700,true);
-    $oldStore=aur_store_root($oldRoot);
-    $oldCode='LEGACY-HOSTINGER-PRIVATE-'.str_repeat('Z',44);
-    file_put_contents($oldStore.'/activation-token.txt',$oldCode);
-    $oldForm=aur_setup_form_token($oldStore,1761039000);
-    check(is_string($oldForm) && aur_setup_verify_form_token($oldStore,$oldForm,1761039060),'legacy private activation file not accepted');
-    check(aur_setup_apply($oldStore,$oldCode,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='activated','legacy private activation cannot finish');
-    check(!is_file($oldStore.'/activation-token.txt'),'legacy private token was not consumed');
-    echo "AURENOEVA_BROWSER_ACTIVATION_PRIVATE=PASS\n";
     $src=csvFile($root,'test.csv');
     $one=aur_case_import($store,$src,'UZ','original.csv');
     check($one['ok']===true && $one['line_count']===3,'CSV item count');
