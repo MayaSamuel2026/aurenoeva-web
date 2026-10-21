@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-draft-preservation-422-20261021",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "5f9aca341038b38aebbd067055911a12b334383a",
+  "authorize_release": true
+}
