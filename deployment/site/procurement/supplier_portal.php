@@ -97,7 +97,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <section id="supplier-dashboard">
 <h3>Consolidated supplier selection</h3>
 <p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. Price comparison starts when supplier quotations are received; no prices are assumed.</p>
-<form method="post" action="/procurement/index.php" id="aur-vendor-selection-form">
+<form method="post" action="/procurement/" id="aur-vendor-selection-form">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="vendor_tokens" id="aur-compact-vendor-tokens" value="">
@@ -172,7 +172,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </article>
 <?php endforeach;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<form method="post" action="/procurement/index.php" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
+<form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
