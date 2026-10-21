@@ -248,6 +248,7 @@ jobs:
           test -s "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
           node --check "$RUNNER_TEMP/source/site/procurement/discover.js"
           node --check "$RUNNER_TEMP/source/site/procurement/worldwide.js"
+          php tests/test_procurement_worldwide_php.php
           grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
 
       - name: JavaScript syntax check
