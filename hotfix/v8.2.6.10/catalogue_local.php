@@ -35,7 +35,7 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
                     'medical devices','dental equipment','equipment','catalogue',
                     'catalog','accessories','solutions'];
         if ($maker === '' || $model === '' || !preg_match('/^AUR-P-[A-F0-9]{20}$/', $id)
-            || in_array(strtolower($model), $generic, true) || !preg_match('/[0-9]/', $model)) continue;
+            || in_array(strtolower($model), $generic, true)) continue;
         $seen = strtotime((string)($p['last_seen'] ?? ''));
         if (!$seen || $seen < time() - 14 * 86400) continue; // do not show stale model identities
         $m = $norm($maker); $part = $norm($model);
