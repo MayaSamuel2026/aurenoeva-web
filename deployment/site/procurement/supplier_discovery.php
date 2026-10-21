@@ -43,10 +43,8 @@ function aur_supplier_global_search_links(string $description, ?array $match=nul
  * a single highly-specific device category) in a medical/supply context.
  */
 function aur_supplier_relevance(string $description, ?array $match, array $lead): ?string {
-    $hay=mb_strtolower(
-        trim((string)($lead['page_title']??'').' '.(string)($lead['snippet']??'')),
-        'UTF-8'
-    );
+    $raw=trim((string)($lead['page_title']??'').' '.(string)($lead['snippet']??''));
+    $hay=function_exists('mb_strtolower') ? mb_strtolower($raw,'UTF-8') : strtolower($raw);
     $hay=preg_replace('/[\p{Z}\s]+/u',' ',$hay) ?? $hay;
     if (trim($hay)==='') return null;
     // Explicitly reject navigational and unrelated pages even when terms overlap.
@@ -54,13 +52,13 @@ function aur_supplier_relevance(string $description, ?array $match, array $lead)
     $category='/\b(?:medical|hospital|clinic|clinical|radiolog|diagnostic|x[\s-]?ray|imaging|ultrasound|sonograph|dental|dentist|mri|ct scan|ventilat|anesthes|anaesthes|surgical|steriliz|autoclav|patient|healthcare|endoscop|ophthalm|cardiolog|urolog|laboratory|equipment|device|machine|scanner|transducer)\b/ui';
     if ($match!==null && !in_array(($match['quality']??''),['CATEGORY_ONLY','PROBABLE_MODEL_FAMILY'],true)) {
         $brand=strtolower((string)strtok((string)($match['name']??''),' /('));
-        $brandPresent=$brand!=='' && mb_stripos($hay,$brand,0,'UTF-8')!==false;
+        $brandPresent=$brand!=='' && (function_exists('mb_stripos') ? mb_stripos($hay,$brand,0,'UTF-8')!==false : stripos($hay,$brand)!==false);
         $model=(string)($match['model']??'');
         $model=preg_replace('/\([^)]*\)/u',' ', $model)??$model;
         $model=preg_replace('/\b(?:probable|configuration|confirm|verify|category|model|system|product|family|version|variant)\b/ui',' ',$model)??$model;
         preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}-]*/u',$model,$m);
         $modelTerms=array_values(array_filter($m[0],static fn($v):bool =>
-            mb_strlen($v,'UTF-8')>=2 && !in_array(strtolower($v),['to','the','with','of','and'],true)));
+            (function_exists('mb_strlen') ? mb_strlen($v,'UTF-8') : strlen($v))>=2 && !in_array(strtolower($v),['to','the','with','of','and'],true)));
         // Prioritise the principal model name and a recognisable secondary token.
         $modelEvidence=false;
         foreach ($modelTerms as $token) {
@@ -73,7 +71,7 @@ function aur_supplier_relevance(string $description, ?array $match, array $lead)
         // the brand in the title; never accept generic "DIAMOND" alone.
         $distinctive=false;
         foreach ($modelTerms as $token) {
-            if ((mb_strlen($token,'UTF-8')>=4 || preg_match('/\d/u',$token)) &&
+            if (((function_exists('mb_strlen') ? mb_strlen($token,'UTF-8') : strlen($token))>=4 || preg_match('/\d/u',$token)) &&
                 preg_match('/(?<![\p{L}\p{N}])'.preg_quote($token,'/').'(?![\p{L}\p{N}])/iu',$hay)) {
                 $distinctive=true;break;
             }
@@ -94,8 +92,8 @@ function aur_supplier_relevance(string $description, ?array $match, array $lead)
         'standard'=>1,'complete'=>1,'set'=>1,'including'=>1];
     $tokens=[];
     foreach ($words[0] as $word) {
-        $word=mb_strtolower($word,'UTF-8');
-        if (mb_strlen($word,'UTF-8')<3 || isset($stop[$word])) continue;
+        $word=function_exists('mb_strtolower') ? mb_strtolower($word,'UTF-8') : strtolower($word);
+        if ((function_exists('mb_strlen') ? mb_strlen($word,'UTF-8') : strlen($word))<3 || isset($stop[$word])) continue;
         $tokens[$word]=true;
     }
     $n=count($tokens);$hits=0;
