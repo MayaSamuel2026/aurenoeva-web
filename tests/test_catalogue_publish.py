@@ -123,8 +123,8 @@ class PublicationTests(unittest.TestCase):
             first=publish_https(self.source, self.root, env)
             again=publish_https(self.source, self.root, env)
         self.assertEqual(first['status'],'PUBLISHED')
-        self.assertEqual(again['status'],'UNCHANGED')
-        self.assertEqual(len(calls),1)
+        self.assertEqual(again['status'],'PUBLISHED')
+        self.assertEqual(len(calls),2)  # reconcile even after same snapshot: restores from backups
 
     def test_https_push_rejects_unconfirmed_data(self):
         key=self.root/'catalogue-sync-token'
