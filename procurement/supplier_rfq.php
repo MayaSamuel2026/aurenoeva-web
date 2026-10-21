@@ -113,12 +113,7 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     $body.="Best regards,\nAURENOEVA Procurement\ninfo@aurenoeva.com\nhttps://aurenoeva.com\n";
     return ['vendor_id'=>(string)$vendor['id'],'vendor_name'=>$name,'to'=>(string)$vendor['email'],
         'source_url'=>(string)($vendor['evidence_url']??''),'subject'=>$subject,'body'=>$body,
-        'items'=>array_map(static fn($r)=>[
-            'source_row'=>(int)($r['source_row']??0),
-            'customer_item_number'=>(int)($r['customer_item_number']??0),
-            'option_type'=>(string)($r['option_type']??'REQUESTED'),
-            'quantity'=>$r['quantity']??null,
-            'description'=>(string)$r['description']],$lines),
+        'items'=>array_map(static fn($r)=>['source_row'=>(int)($r['source_row']??0),'description'=>(string)$r['description']],$lines),
         'status'=>'DRAFT','sent_at'=>null];
 }
 function aur_vendor_rfq_path(string $store,string $caseRef,string $draftId):string {
@@ -198,7 +193,7 @@ function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):
  */
 function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
     if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
-    if($batchLimit<1||$batchLimit>20)throw new InvalidArgumentException('invalid_outbox_batch_size');
+    if($batchLimit<1||$batchLimit>5)throw new InvalidArgumentException('invalid_outbox_batch_size');
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     $lock=@fopen($path.'.lock','c');
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');

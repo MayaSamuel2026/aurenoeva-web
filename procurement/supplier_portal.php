@@ -5,14 +5,6 @@ $researchRows=is_array($supplierResearch['rows']??null)?$supplierResearch['rows'
 try{$worldStats=aur_worldwide_stats($supplierResearch);}
 catch(Throwable $e){error_log('AURENOEVA vendor stats: '.get_class($e));$worldStats=['scanned'=>0,'total'=>count($researchRows),'unique_vendors'=>0,'new_source_pages'=>0];}
 $dashboard=[];$regions=[];
-$quantityByRow=[];$numberByRow=[];$optionByRow=[];
-foreach(($result['payload']['sourcing_lines']??[]) as $source) {
-    if(!is_array($source))continue;
-    $sr=(string)($source['source_row']??'');
-    $quantityByRow[$sr]=$source['quantity']??null;
-    $numberByRow[$sr]=(int)($source['customer_item_number']??0);
-    $optionByRow[$sr]=(string)($source['option_type']??'REQUESTED');
-}
 foreach($researchRows as $row) {
     if(!is_array($row))continue;
     $key=(string)($row['source_row']??'');
@@ -58,7 +50,6 @@ foreach($researchRows as $row) {
         $dashboard[$groupKey]['items'][$key]=[
             'number'=>(int)($row['customer_item_number']??0),
             'description'=>$description,
-            'quantity'=>$quantityByRow[$key]??null,
             'option'=>aur_worldwide_candidate_text($row['option_type']??null,'REQUESTED')];
         $url=aur_worldwide_candidate_text($vendor['evidence_url']??null);
         if(preg_match('~^https?://~i',$url))$dashboard[$groupKey]['sources'][$url]=true;
@@ -99,46 +90,13 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <?php else: ?><div class="scroll"><table><thead><tr><th>Created (UTC)</th><th>Suppliers</th><th>Status</th><th>Review</th></tr></thead><tbody>
 <?php foreach($approvedDrafts as $priorDraft):?>
 <tr><td><?=aur_escape($priorDraft['created_at'])?></td><td><?=(int)$priorDraft['vendors']?></td>
-<td><?=aur_escape(aur_supplier_status_label((string)$priorDraft['status']))?></td>
+<td><?=aur_escape($priorDraft['status'])?></td>
 <td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#supplier-history">Open RFQ ↗</a></td></tr>
 <?php endforeach;?></tbody></table></div><?php endif;?>
 </section>
-<?php if(is_array($supplierCaseReport)): ?>
-<section id="case-supplier-mapping" style="border-top:1px solid #dbe4df;padding-top:22px">
-<h3>List 1 — Original requested equipment and matching supplier contacts</h3>
-<p class="muted">All <?=count($supplierCaseReport['items'])?> original equipment lines remain intact. Contacts are research leads, not confirmed offers. Locations show available city/country when no complete street address has been established. Alternatives and missing quantities are clearly marked.</p>
-<?php if($supplierPdfReady):?>
-<p><a class="button" href="?supplier_pdf=<?=rawurlencode((string)$result['reference'])?>">Download PDF: equipment → suppliers + consolidated supplier list</a>
-<span class="muted">A copy is saved privately under this case and refreshes when supplier research changes.</span></p>
-<?php else:?><p class="muted">PDF storage temporarily unavailable; the underlying supplier lists and original case remain available.</p><?php endif;?>
-<div class="scroll"><table><thead><tr><th>Buyer item / row</th><th>Requested equipment — original specification</th><th>Quantity</th><th>Potential supplier — name, location, email, phone, website</th></tr></thead><tbody>
-<?php foreach($supplierCaseReport['items'] as $mappedItem):?>
-<tr><td><strong>#<?=(int)$mappedItem['number']?></strong><div class="muted">Row <?=aur_escape($mappedItem['key'])?></div><?php if($mappedItem['option']==='ALTERNATIVE'):?><span class="pill">Alternative</span><?php endif;?></td>
-<td><?=aur_escape($mappedItem['description'])?></td>
-<td><?= $mappedItem['quantity']===null?'To confirm':(int)$mappedItem['quantity'] ?></td>
-<td><?php if(!$mappedItem['vendors']):?><span class="muted">No supplier identified — continue research</span>
-<?php else:foreach(array_keys($mappedItem['vendors']) as $mappedId):
-$contact=$supplierCaseReport['vendors'][$mappedId]??null;
-if(!is_array($contact))continue;
-?>
-<div style="padding:7px 0;border-bottom:1px solid #e4eae7">
-<strong><?=aur_escape($contact['name'])?></strong>
-<div class="muted">Location: <?=aur_escape($contact['location'])?><?=!$contact['street_known']?' (street address not documented)':''?></div>
-<div>Email: <?php if($contact['email']!==''):?><a href="mailto:<?=aur_escape($contact['email'])?>"><?=aur_escape($contact['email'])?></a><?php else:?><span class="muted">Not published</span><?php endif;?></div>
-<?php if($contact['phone']!==''):?><div>Phone: <?=aur_escape($contact['phone'])?></div><?php endif;?>
-<?php if($contact['website']!==''):?><div>Website: <?=aur_escape($contact['website'])?></div><?php endif;?>
-<?php if($contact['evidence']):$evidence=array_key_first($contact['evidence']);?>
-<div><a target="_blank" rel="noopener noreferrer" href="<?=aur_escape($evidence)?>">Source evidence ↗</a></div>
-<?php endif;?>
-<span class="muted"><?=aur_escape($contact['contactable']?'Published supplier contact — awaiting quotation':'Research lead — contact not established')?></span>
-</div>
-<?php endforeach;endif;?></td></tr>
-<?php endforeach;?></tbody></table></div>
-</section>
-<?php endif;?>
 <section id="supplier-dashboard">
-<h3>List 2 — Consolidated suppliers and RFQ recipients</h3>
-<p class="muted">Review aggregated equipment items per supplier. Select the suppliers you want to approach; each recipient receives one customized email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. Price comparison starts when supplier quotations are received; no prices are assumed.</p>
+<h3>Consolidated supplier selection</h3>
+<p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. Price comparison starts when supplier quotations are received; no prices are assumed.</p>
 <form method="post" action="/procurement/" id="aur-vendor-selection-form">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -153,8 +111,6 @@ if(!is_array($contact))continue;
 <?php foreach($dashboard as $supplier):
  $numbers=array_map(static fn($v)=>(string)$v['number'],$supplier['items']);
  $itemDescriptions=array_map(static fn($v)=>(string)$v['description'],$supplier['items']);
-  $reportKey=$supplier['contactable']?'mail:'.$supplier['email']:'site:'.strtolower($supplier['website']?:$supplier['name']);
-  $reportVendor=$supplierCaseReport['vendors'][$reportKey]??null;
 ?>
 <tr>
 <td><?php if($supplier['contactable']):?>
@@ -162,13 +118,12 @@ if(!is_array($contact))continue;
 <?php else:?><span class="muted">Research</span><?php endif;?></td>
 <td><strong><?=aur_escape($supplier['name'])?></strong>
 <div class="muted"><?=aur_escape($supplier['country'])?></div>
-<div class="muted">Address / location: <?=aur_escape((string)($reportVendor['location']??$supplier['country']))?></div>
 <?php if($supplier['website']!==''):?><div class="muted"><?=aur_escape($supplier['website'])?></div><?php endif;?>
 <div class="muted"><?=aur_escape(implode(', ',array_slice(array_keys($supplier['roles']),0,2)))?></div></td>
 <td><b><?=count($supplier['items'])?> lines</b> — items <?=aur_escape(implode(', ',$numbers))?>
 <details><summary>View equipment</summary><div style="max-width:390px">
 <?php foreach($supplier['items'] as $equipment):?>
-<p style="margin:7px 0">#<?=(int)$equipment['number']?> · Qty <?=isset($equipment['quantity'])?(int)$equipment['quantity']:'TBC'?> · <?=aur_escape($equipment['description'])?></p>
+<p style="margin:7px 0">#<?=(int)$equipment['number']?> <?=aur_escape($equipment['description'])?></p>
 <?php endforeach;?></div></details></td>
 <td><?php if($supplier['contactable']):?><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a>
 <?php else:?><span class="muted">Email not confirmed</span><?php endif;?>
@@ -207,97 +162,22 @@ if(!is_array($contact))continue;
 </section>
 <?php if(is_array($rfqPreview)): ?>
 <section style="padding:25px 0;border-top:1px solid #dae4e0">
-<h2>RFQ send dashboard — <?=aur_escape(aur_supplier_status_label((string)$rfqPreview['status']))?></h2>
+<h2>Review and send consolidated RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p>Draft <?=aur_escape((string)$rfqPreview['draft_id'])?>. One consolidated email per vendor. Please review recipient, equipment and terms before dispatch.</p>
-<?php if(isset($_GET['send_error'])):?><p role="alert">Sending was interrupted. Review the recorded status of each supplier below before trying again. Previous accepted emails will not be resent.</p><?php endif;?>
-<p class="muted">From: <strong>info@aurenoeva.com</strong>. Each distinct email address receives one tailored message with its equipment item numbers, original specifications and quantities. Sending never occurs before the Deploy / Send action.</p>
-<?php
-$readyCount=0;$sentCount=0;$attentionCount=0;
-foreach(($rfqPreview['messages']??[]) as $m) {
-    $st=(string)($m['status']??'DRAFT');
-    if($st==='DRAFT')$readyCount++;
-    elseif($st==='ACCEPTED_BY_MAIL_TRANSPORT')$sentCount++;
-    else $attentionCount++;
-}
-?>
-<div class="aur-rfq-counts">
-  <span><strong><?=count($rfqPreview['messages']??[])?></strong> supplier emails</span>
-  <span><strong><?=$readyCount?></strong> awaiting dispatch</span>
-  <span><strong><?=$sentCount?></strong> accepted by mail server</span>
-  <?php if($attentionCount):?><span><strong><?=$attentionCount?></strong> require status review</span><?php endif;?>
-</div>
-<div class="scroll">
-<table class="aur-rfq-table">
-<thead><tr><th>Supplier</th><th>To / email address</th><th>Equipment requested</th><th>Dispatch status</th><th>Preview</th></tr></thead>
-<tbody>
-<?php foreach($rfqPreview['messages'] as $msg):
-  $mailItems=[];
-  foreach(($msg['items']??[]) as $mi) {
-      $mr=(string)($mi['source_row']??'');
-      $mailItems[]=[
-        'number'=>(int)($mi['customer_item_number']??($numberByRow[$mr]??0)),
-        'quantity'=>$mi['quantity']??($quantityByRow[$mr]??null),
-        'option'=>$mi['option_type']??($optionByRow[$mr]??'REQUESTED'),
-        'description'=>(string)($mi['description']??'')
-      ];
-  }
-  $itemSummary=[];
-  foreach($mailItems as $mi) {
-      $itemLabel='#'.$mi['number'];
-      if($mi['option']==='ALTERNATIVE')$itemLabel.=' (alt)';
-      $itemSummary[$itemLabel]=true;
-  }
-  $itemLabels=array_keys($itemSummary);
-  $shortSummary=implode('  ·  ',array_slice($itemLabels,0,8)).
-      (count($itemLabels)>8?'  ·  +'.(count($itemLabels)-8).' more':'');
-  $msgStatus=(string)($msg['status']??'DRAFT');
-?>
-<tr>
-<td><strong><?=aur_escape((string)$msg['vendor_name'])?></strong></td>
-<td><a href="mailto:<?=aur_escape((string)$msg['to'])?>"><?=aur_escape((string)$msg['to'])?></a></td>
-<td>
-  <div class="aur-rfq-item-count"><b><?=count($mailItems)?></b> equipment entries</div>
-  <div class="aur-rfq-short-items"><?=aur_escape($shortSummary)?></div>
-  <details class="aur-rfq-details">
-    <summary>View all items and quantities</summary>
-    <div class="aur-rfq-expanded">
-      <table>
-      <thead><tr><th>Item</th><th>Qty</th><th>Type</th><th>Original specification</th></tr></thead>
-      <tbody>
-      <?php foreach($mailItems as $i): ?>
-      <tr>
-        <td>#<?=(int)$i['number']?></td>
-        <td><?= $i['quantity']===null?'To confirm':(int)$i['quantity'] ?></td>
-        <td><?= $i['option']==='ALTERNATIVE'?'Alternative':'Requested' ?></td>
-        <td><?=aur_escape($i['description'])?></td>
-      </tr>
-      <?php endforeach;?>
-      </tbody></table>
-    </div>
-  </details>
-</td>
-<td><span class="aur-rfq-status"><?=aur_escape(aur_supplier_status_label($msgStatus))?></span></td>
-<td>
-  <details class="aur-rfq-details">
-    <summary>View email</summary>
-    <div class="aur-rfq-preview">
-      <div><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></div>
-      <div><b>To:</b> <?=aur_escape((string)$msg['to'])?></div>
-      <pre><?=aur_escape((string)$msg['body'])?></pre>
-    </div>
-  </details>
-</td>
-</tr>
+<?php foreach($rfqPreview['messages'] as $msg):?>
+<article style="border-bottom:1px solid #dae4e0;padding:16px 0">
+<h3><?=aur_escape((string)$msg['vendor_name'])?> — <?=aur_escape((string)$msg['status'])?></h3>
+<p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p><p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:440px;overflow:auto;padding:16px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre>
+</article>
 <?php endforeach;?>
-</tbody></table>
-</div>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
 <form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed recipient identities, beneficial ownership where relevant, destination, end use, and applicable sanctions, embargoes, export controls and licensing. I authorize the listed non-binding RFQs and understand that intermediary status is not an exemption.</label>
-<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs">Deploy / Send customized RFQs from info@aurenoeva.com</button>
+<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs">Send all approved supplier RFQs by email</button>
 <p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each email is recorded in the case outbox; duplicates are not resent automatically.</p>
 </form>
 <?php else: ?><p>Mail transport acceptance is recorded separately from confirmed delivery or a supplier reply. If a send failed, prepare a new draft after examining the recipient.</p><?php endif;?>

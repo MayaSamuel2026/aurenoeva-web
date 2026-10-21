@@ -27,7 +27,6 @@ require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
-require_once __DIR__ . '/supplier_case_report.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -111,40 +110,26 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
     echo $body;
     exit;
 }
-/* Authentication-gated PDF, regenerated from this case's current saved research. */
-if ($isAdmin && $_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['supplier_pdf'])) {
-    try {
-        $ref=trim((string)$_GET['supplier_pdf']);
-        $case=aur_case_read($aurStore,$ref);
-        try{$intel=aur_supplier_save($aurStore,$case);}
-        catch(Throwable $e){
-            $intel=aur_supplier_read($aurStore,$ref,(string)$case['source_sha256']);
-            if(!is_array($intel))$intel=aur_supplier_preview($case);
-        }
-        try{$intel=aur_worldwide_attach_master($aurStore,$intel);}catch(Throwable $e){}
-        $saved=aur_supplier_report_save($aurStore,$case,$intel);
-        $pdf=file_get_contents($saved['path']);
-        if(!is_string($pdf)||!str_starts_with($pdf,'%PDF-'))throw new RuntimeException('pdf_read_failed');
-    } catch(Throwable $e) {
-        error_log('AURENOEVA private supplier PDF: '.get_class($e));
-        aur_denied(503,'supplier report temporarily unavailable; saved case preserved');
-    }
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="'.$ref.'-SUPPLIER-MAPPING.pdf"');
-    header('Content-Length: '.strlen($pdf));
-    echo $pdf;
-    exit;
-}
 
 $result = null;
 $supplierDiscoveryMessage = null;
 $catalogueSyncToken = null;
 $catalogueSnapshotCount = null;
+$catalogueSnapshotSectors = [];
+$catalogueSnapshotUpdated = null;
 $catalogueSnapshotFile = $aurStore . '/catalogue-public.json';
 if ($isAdmin && is_file($catalogueSnapshotFile)) {
     $catalogueSnapshot = json_decode((string)@file_get_contents($catalogueSnapshotFile), true);
     if (is_array($catalogueSnapshot) && isset($catalogueSnapshot['items']) && is_array($catalogueSnapshot['items'])) {
         $catalogueSnapshotCount = count($catalogueSnapshot['items']);
+        $catalogueSnapshotUpdated = gmdate('Y-m-d H:i', (int)filemtime($catalogueSnapshotFile)) . ' UTC';
+        foreach ($catalogueSnapshot['items'] as $item) {
+            $sector = trim((string)($item['sector'] ?? ''));
+            if (!in_array($sector, ['laboratory','test','medical','industrial','energy','marine','aviation'], true)) {
+                $sector = 'unclassified';
+            }
+            $catalogueSnapshotSectors[$sector] = ($catalogueSnapshotSectors[$sector] ?? 0) + 1;
+        }
     }
 }
 $aurSupplierAuditMessage=null;
@@ -256,7 +241,7 @@ if ($isAdmin) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
             $draftId=trim((string)($_POST['draft_id']??''));
-            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1',null,20);
+            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
@@ -273,15 +258,7 @@ if ($isAdmin) {
                 echo json_encode(['ok'=>false,'error'=>'rfq_dispatch_unavailable']);
                 exit;
             }
-            $ref=trim((string)($_POST['case_ref']??''));
-            $draftId=trim((string)($_POST['draft_id']??''));
-            if(preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref)
-               && preg_match('/^[a-f0-9]{24}$/D',$draftId)) {
-                header('Location: /procurement/?case='.rawurlencode($ref).'&draft='.
-                    rawurlencode($draftId).'&send_error=1#supplier-history',true,303);
-                exit;
-            }
-            aur_denied(422,'RFQ dispatch could not be completed');
+            aur_denied(422,'RFQ dispatch not completed; check saved draft statuses before retrying');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
         try {
@@ -364,19 +341,6 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
         }
     }
 }
-$supplierCaseReport=null;
-$supplierPdfReady=false;
-if ($isAdmin && is_array($result) && isset($result['reference']) && is_array($supplierResearch)) {
-    try {
-        $savedSupplierReport=aur_supplier_report_save($aurStore,$result,$supplierResearch);
-        $supplierCaseReport=$savedSupplierReport['report'];
-        $supplierPdfReady=true;
-    }catch(Throwable $e) {
-        error_log('AURENOEVA supplier report save: '.get_class($e));
-        try{$supplierCaseReport=aur_supplier_report_data($result,$supplierResearch);}
-        catch(Throwable $ignored){}
-    }
-}
 header('Content-Type: text/html; charset=utf-8');
 ?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>AURENOEVA · Procurement administration</title>
@@ -393,32 +357,6 @@ input{border:1px solid #c5d2cd;border-radius:8px;padding:12px;font:inherit;backg
 input[type=file]{width:390px}.muted{font-size:13px;color:#6b7671}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e6ece9}th{color:#64736d;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .pill{display:inline-block;background:#edf4f1;border-radius:20px;padding:4px 10px;font-size:12px;color:#235c50}
-
-/* Consolidated RFQ: compact scanning, expandable item and email detail. */
-.aur-rfq-counts{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 20px}
-.aur-rfq-counts span{background:#f1f5f3;border:1px solid #e0e9e4;border-radius:8px;padding:9px 14px;color:#42554e;font-size:13px}
-.aur-rfq-counts strong{font-size:17px;color:#1c3832;margin-right:5px}
-.aur-rfq-table{table-layout:fixed;min-width:840px}
-.aur-rfq-table th:nth-child(1){width:18%}
-.aur-rfq-table th:nth-child(2){width:24%}
-.aur-rfq-table th:nth-child(3){width:31%}
-.aur-rfq-table th:nth-child(4){width:15%}
-.aur-rfq-table th:nth-child(5){width:12%}
-.aur-rfq-table td{padding:17px 12px;overflow-wrap:anywhere;line-height:1.4}
-.aur-rfq-table tbody>tr:hover{background:#f8faf9}
-.aur-rfq-table td>a{word-break:break-word}
-.aur-rfq-item-count{font-weight:650;color:#1c3832}
-.aur-rfq-short-items{font-size:12px;color:#53675e;line-height:1.55;margin-top:4px}
-.aur-rfq-details{margin-top:9px}
-.aur-rfq-details summary{cursor:pointer;color:#176253;font-size:12px;font-weight:650;list-style:disclosure-closed}
-.aur-rfq-details[open]>summary{list-style:disclosure-open}
-.aur-rfq-expanded{margin-top:12px;max-height:330px;overflow:auto;border:1px solid #e3eae6;border-radius:8px;background:white}
-.aur-rfq-expanded table{min-width:520px;font-size:12px}
-.aur-rfq-expanded td,.aur-rfq-expanded th{padding:7px 9px}
-.aur-rfq-expanded th{position:sticky;top:0;background:#eff4f1}
-.aur-rfq-status{display:inline-block;font-weight:600;font-size:12px;color:#335347;background:#edf3ef;padding:5px 8px;border-radius:5px}
-.aur-rfq-preview{position:relative;min-width:360px;margin:10px 0;padding:12px;background:#f3f7f5;border:1px solid #e4ebe7;border-radius:8px;font-size:12px}
-.aur-rfq-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;margin-bottom:0}
 @media(max-width:700px){.card{padding:18px}.top{align-items:flex-start}input[type=file]{width:100%}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
@@ -483,7 +421,6 @@ catch(Throwable $e) {
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original case RFQ draft</a>
-<?php if($supplierPdfReady):?><a class="button" href="?supplier_pdf=<?=rawurlencode((string)$result['reference'])?>">Download saved item / supplier mapping PDF</a><?php endif;?>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
 <section aria-labelledby="original-equipment-heading" id="original-rfq-equipment">
@@ -557,7 +494,17 @@ try {
 <p class="muted">Maximum 20 MB · Customer files and quotations stay private · Duplicate files reuse their existing case.</p></section>
 <section class="card"><h2>Live product catalogue</h2>
 <p>Searchable products in the website's private catalogue: <strong><?= $catalogueSnapshotCount === null ? 'Not synchronized' : (int)$catalogueSnapshotCount ?></strong>.</p>
-<p class="muted">Products are automatically updated by the existing Hostinger crawler after HTTPS synchronization is connected. No supplier prices or inventory claims are published.</p>
+<p class="muted">Snapshot updated: <?= aur_escape((string)($catalogueSnapshotUpdated ?? 'not yet synchronized')) ?>. Counts refer to searchable product identities, not stock.</p>
+<?php if ($catalogueSnapshotCount !== null): ?>
+<table style="width:100%;max-width:500px;border-collapse:collapse">
+<thead><tr><th style="text-align:left">Sector</th><th style="text-align:right">Products</th></tr></thead>
+<tbody>
+<?php foreach (['laboratory'=>'Laboratory','test'=>'Test & Measurement','medical'=>'Medical','industrial'=>'Industrial','energy'=>'Energy','marine'=>'Marine','aviation'=>'Aviation','unclassified'=>'Unclassified / historical'] as $sectorKey=>$sectorName): ?>
+<tr><td style="padding:5px 0"><?=aur_escape($sectorName)?></td><td style="text-align:right"><?= (int)($catalogueSnapshotSectors[$sectorKey] ?? 0) ?></td></tr>
+<?php endforeach; ?>
+</tbody></table>
+<?php endif; ?>
+<p class="muted">Records are preserved across scans. The existing Hostinger crawler updates this catalogue after synchronization; supplier prices and stock remain private.</p>
 <?php if ($catalogueSyncToken !== null): ?>
 <p><strong>New sync key (shown only once):</strong></p>
 <p><code style="display:block;overflow-wrap:anywhere;background:#eef3f1;padding:12px;border-radius:8px"><?=aur_escape($catalogueSyncToken)?></code></p>
@@ -570,5 +517,5 @@ try {
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=6-case-rfq"></script>
+<script defer src="/procurement/worldwide.js?v=5"></script>
 <?php endif; ?></body></html>

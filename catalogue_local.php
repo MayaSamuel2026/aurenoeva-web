@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Public-safe Aurenoeva catalogue search from an externally published, private snapshot.
  * Snapshot must reside OUTSIDE public_html and be supplied through server environment.
  */
-function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
+function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $industry = '', string $category = ''): ?array {
     $root = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
     $path = trim((string)(getenv('AURENOEVA_CATALOGUE_SNAPSHOT') ?: ''));
     // Production uses the same stable Hostinger private directory as staff
@@ -36,6 +36,11 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
         $maker = trim((string)($p['manufacturer'] ?? ''));
         $model = trim((string)($p['model'] ?? ''));
         $id = trim((string)($p['canonical_id'] ?? ''));
+        $sector = trim((string)($p['sector'] ?? ''));
+        $productCategory = trim((string)($p['category'] ?? ''));
+        // Historical snapshots without classification remain findable.
+        if ($industry !== '' && $sector !== '' && strcasecmp($industry, $sector) !== 0) continue;
+        if ($category !== '' && $productCategory !== '' && strcasecmp($category, $productCategory) !== 0) continue;
         // Old crawls may include broad catalogue headings, not actual models.
         $generic = ['surgical carts','surgical cart','products','dental units',
                     'medical devices','dental equipment','equipment','catalogue',
@@ -60,6 +65,8 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8): ?array {
             'canonical_id' => $id,
             'manufacturer' => $clip($maker, 100),
             'model' => $clip($model, 160),
+            'sector' => $sector,
+            'category' => $productCategory,
             'part_number' => '',
             'description' => $clip(trim((string)($p['description'] ?? '')), 240),
             'identifier_type' => 'MODEL',
