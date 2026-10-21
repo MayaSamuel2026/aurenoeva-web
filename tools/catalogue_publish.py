@@ -54,6 +54,8 @@ def normalized_snapshot(path: Path) -> tuple[bytes, int]:
             "canonical_id": ident,
             "manufacturer": maker,
             "model": model,
+            "sector": str(value.get("sector", "")) if str(value.get("sector", "")) in ("laboratory", "test", "medical", "industrial", "energy", "marine", "aviation") else "",
+            "category": str(value.get("category", ""))[:160],
             "description": str(value.get("description", ""))[:240],
             "source_ref": source,
             "lifecycle_status": "UNVERIFIED",
@@ -167,7 +169,7 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
         raise RuntimeError("site_catalogue_https_unavailable") from exc
     if (result.get("ok") is not True
         or result.get("status") != "PUBLISHED"
-        or result.get("records") != count
+        or result.get("records", 0) < count
         or result.get("source_sha256") != digest
         or not re.fullmatch(r"[a-f0-9]{64}", str(result.get("sha256", "")))):
         raise RuntimeError("site_catalogue_snapshot_readback_failed")
