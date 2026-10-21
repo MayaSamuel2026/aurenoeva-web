@@ -171,4 +171,12 @@ class Tests(unittest.TestCase):
     self.assertEqual(result["failed"],1)
     self.assertEqual(result["new_products"],1)
 
+  def test_official_nonnumeric_product_hint_can_be_exported(self):
+    from catalogue_worker import product_from_page
+    source={**SOURCE["official"],"manufacturer":"Siemens Healthineers"}
+    page="<h1>MAGNETOM Lumina Confidence to deliver</h1><title>MAGNETOM Lumina - MRI</title>"
+    product,_,_=product_from_page(source,"https://example.org/products/magnetom-lumina",page,"MAGNETOM Lumina")
+    self.assertIsNotNone(product)
+    self.assertEqual(product["model"],"MAGNETOM Lumina")
+
 if __name__=='__main__': unittest.main()
