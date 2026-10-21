@@ -259,7 +259,7 @@ def product_from_page(source, url, html, model_hint=""):
                "patient monitoring", "autoclaves for sterilization")
     def is_model(value):
         return (2 <= len(value) <= 100 and len(value.split()) <= 10
-                and any(ch.isdigit() for ch in value)
+                and (any(ch.isdigit() for ch in value) or bool(model_hint and model_hint == value))
                 and value.casefold() not in generic
                 and not re.search(r"(?i)\b(?:catalogue|catalog|collection|all products)\b", value))
     if not is_model(model) and not model_hint:
@@ -474,8 +474,7 @@ def export_public(conn, target):
     generic = {"surgical carts", "surgical cart", "equipment", "products",
                "dental equipment", "dental units", "medical devices",
                "catalogue", "catalog", "accessories", "solutions"}
-    rows = [p for p in rows if p["model"].strip().casefold() not in generic
-            and any(char.isdigit() for char in p["model"])]
+    rows = [p for p in rows if p["model"].strip().casefold() not in generic]
     payload = {"schema":SCHEMA,"exported_at":stamp(),"items":rows,
                "availability_notice":"Product identity only. No stock or price implied."}
     target.parent.mkdir(parents=True, exist_ok=True)
