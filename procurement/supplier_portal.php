@@ -5,7 +5,8 @@ $worldStats=aur_worldwide_stats($supplierResearch);
 $routeDirectory=aur_supplier_route_directory();
 $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 ?>
-<section style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
+<section id="supplier-workspace" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
+<?php if(!empty($supplierResearchMode)): ?><p class="muted" role="status"><?=aur_escape((string)$supplierResearchMode)?></p><?php endif; ?>
 <h2>Worldwide supplier discovery and RFQ workflow</h2>
 <p>Find candidates globally and approach selected vendors with the original equipment specification. A website citation is evidence of a lead, not stock, authority to distribute or regulatory clearance.</p>
 <p>
