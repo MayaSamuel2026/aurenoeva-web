@@ -232,7 +232,7 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <span class="pill">0 confirmed supplier quotes</span></p>
 <?php $discoveryStats=aur_supplier_discovery_stats($supplierResearch); ?>
 <p><span class="pill"><?= (int)$discoveryStats['checked'] ?> / <?= (int)$discoveryStats['total'] ?> entries searched online</span>
-<span class="pill"><?= (int)$discoveryStats['links'] ?> unverified public seller/product links</span></p>
+<span class="pill"><?= (int)$discoveryStats['links'] ?> relevance-matched research links (unverified)</span></p>
 <form method="post" style="margin:15px 0">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -241,7 +241,7 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <span class="muted" id="aur-discovery-progress" role="status" aria-live="polite"></span>
 </form>
 <?php if ($supplierDiscoveryMessage): ?><p class="muted" role="status"><?=aur_escape($supplierDiscoveryMessage)?></p><?php endif; ?>
-<p class="muted">Discovery runs in small batches, keeping the website responsive. Completed results refresh after 24 hours; provider failures may retry after 15 minutes. Automated search may be unavailable if the public search provider blocks access. Regional research links are always available.</p>
+<p class="muted">Discovery now validates equipment/model relevance before saving search leads. Old unqualified results have been hidden and will be rechecked immediately when you select Search entire case worldwide. Completed results refresh after 24 hours; temporary provider failures retry after 15 minutes. Automated search may be unavailable if the public search provider blocks access. Regional research links are always available.</p>
 <p class="muted">Product evidence source set: <?=aur_escape((string)$supplierResearch['rule_version'])?>. Source verification and current country representation remain open. Alternatives stay distinct; sanctions, destination-use, registration and licensing checks remain mandatory before supplier outreach.</p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment</th><th>Potential supply route / evidence</th><th>Next research action</th></tr></thead><tbody>
 <?php foreach (($supplierResearch['rows'] ?? []) as $candidate): ?>
@@ -263,12 +263,13 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <a style="display:inline-block;margin:0 9px 6px 0" target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape($url)?>"><?=aur_escape($region)?> ↗</a>
 <?php endforeach; ?>
 <?php $publicRow=$supplierResearch['global_discovery']['rows'][(string)$candidate['source_row']]??null; ?>
+<?php if (is_array($publicRow) && ($publicRow['version']??'')!==AUR_GLOBAL_DISCOVERY_VERSION) $publicRow=null; // Previously saved unrelated results are not displayed. ?>
 <?php if (is_array($publicRow)): ?>
 <div class="muted"><b><?=aur_escape((string)$publicRow['status'])?></b> · Checked <?=aur_escape((string)$publicRow['checked_at'])?></div>
 <?php foreach (($publicRow['leads']??[]) as $webLead): ?>
 <div style="margin-top:10px">
 <a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$webLead['source_url'])?>"><?=aur_escape((string)$webLead['page_title'])?> ↗</a>
-<div class="muted"><?=aur_escape((string)$webLead['website'])?> · unverified web discovery, not confirmed inventory</div>
+<div class="muted"><?=aur_escape((string)$webLead['website'])?> · <?=aur_escape((string)($webLead['match_basis']??'relevance checked'))?> · seller/stock not confirmed</div>
 <?php if (!empty($webLead['snippet'])): ?><div class="muted"><?=aur_escape((string)$webLead['snippet'])?></div><?php endif; ?>
 </div>
 <?php endforeach; ?>
