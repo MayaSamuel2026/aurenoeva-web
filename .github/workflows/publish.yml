@@ -245,6 +245,8 @@ jobs:
           grep -q 'aur_case_import' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'Products by sector and subcategory' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'catalogueSnapshotManufacturers' "$RUNNER_TEMP/source/site/procurement/index.php"
+          grep -q 'export_catalogue' "$RUNNER_TEMP/source/site/procurement/index.php"
+          grep -q 'Download catalogue CSV' "$RUNNER_TEMP/source/site/procurement/index.php"
           # Release qualification: the permanent original case, supplier sources and
           # full-case worldwide search must ALL be present in the deployable payload.
           grep -q 'id="original-rfq-equipment"' "$RUNNER_TEMP/source/site/procurement/index.php"
