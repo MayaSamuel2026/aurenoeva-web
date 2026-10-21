@@ -55,3 +55,40 @@ function aur_staff_cookie_send(string $token,int $expires):void {
         'httponly'=>true,'samesite'=>'Lax',
     ]);
 }
+
+/**
+ * Translate a small authenticated dashboard request into the EXISTING form
+ * workflow. The signed staff cookie and credential-bound CSRF are validated
+ * by index.php exactly as for an ordinary POST; this is not a new API.
+ */
+function aur_staff_procurement_json_post(string $body):array {
+    if(strlen($body)<2||strlen($body)>26000)throw new InvalidArgumentException('invalid_dashboard_request_size');
+    $request=json_decode($body,true,8,JSON_THROW_ON_ERROR);
+    if(!is_array($request))throw new InvalidArgumentException('invalid_dashboard_request');
+    foreach(['csrf','case_ref'] as $field) {
+        if(!is_string($request[$field]??null))throw new InvalidArgumentException('invalid_dashboard_form');
+    }
+    $post=['csrf'=>$request['csrf'],'case_ref'=>$request['case_ref']];
+    if(($request['task']??'')==='prepare') {
+        $vendors=$request['vendors']??null;
+        if(!is_array($vendors)||!array_is_list($vendors)||count($vendors)<1||count($vendors)>300)
+            throw new InvalidArgumentException('invalid_dashboard_vendor_selection');
+        foreach($vendors as $token) {
+            if(!is_string($token)||!preg_match('/^[a-f0-9]{64}$/D',$token))
+                throw new InvalidArgumentException('invalid_dashboard_vendor_token');
+        }
+        $post['selected_vendors']=array_values(array_unique($vendors));
+        $post['prepare_vendor_rfqs']='1';
+        return $post;
+    }
+    if(($request['task']??'')==='send') {
+        if(!is_string($request['draft_id']??null)
+            ||!preg_match('/^[a-f0-9]{24}$/D',$request['draft_id']))
+            throw new InvalidArgumentException('invalid_dashboard_draft');
+        $post['draft_id']=$request['draft_id'];
+        $post['manual_review']=($request['manual_review']??false)===true?'1':'0';
+        $post['send_vendor_rfqs']='1';
+        return $post;
+    }
+    throw new InvalidArgumentException('unknown_dashboard_request');
+}
