@@ -5,6 +5,14 @@ $researchRows=is_array($supplierResearch['rows']??null)?$supplierResearch['rows'
 try{$worldStats=aur_worldwide_stats($supplierResearch);}
 catch(Throwable $e){error_log('AURENOEVA vendor stats: '.get_class($e));$worldStats=['scanned'=>0,'total'=>count($researchRows),'unique_vendors'=>0,'new_source_pages'=>0];}
 $dashboard=[];$regions=[];
+$quantityByRow=[];$numberByRow=[];$optionByRow=[];
+foreach(($result['payload']['sourcing_lines']??[]) as $source) {
+    if(!is_array($source))continue;
+    $sr=(string)($source['source_row']??'');
+    $quantityByRow[$sr]=$source['quantity']??null;
+    $numberByRow[$sr]=(int)($source['customer_item_number']??0);
+    $optionByRow[$sr]=(string)($source['option_type']??'REQUESTED');
+}
 foreach($researchRows as $row) {
     if(!is_array($row))continue;
     $key=(string)($row['source_row']??'');
@@ -50,6 +58,7 @@ foreach($researchRows as $row) {
         $dashboard[$groupKey]['items'][$key]=[
             'number'=>(int)($row['customer_item_number']??0),
             'description'=>$description,
+            'quantity'=>$quantityByRow[$key]??null,
             'option'=>aur_worldwide_candidate_text($row['option_type']??null,'REQUESTED')];
         $url=aur_worldwide_candidate_text($vendor['evidence_url']??null);
         if(preg_match('~^https?://~i',$url))$dashboard[$groupKey]['sources'][$url]=true;
@@ -159,7 +168,7 @@ if(!is_array($contact))continue;
 <td><b><?=count($supplier['items'])?> lines</b> — items <?=aur_escape(implode(', ',$numbers))?>
 <details><summary>View equipment</summary><div style="max-width:390px">
 <?php foreach($supplier['items'] as $equipment):?>
-<p style="margin:7px 0">#<?=(int)$equipment['number']?> · Qty <?=isset($reportVendor['items']) && isset($reportVendor['items'][array_search($equipment,$supplier['items'],true)]['quantity'])?(int)$reportVendor['items'][array_search($equipment,$supplier['items'],true)]['quantity']:'TBC'?> · <?=aur_escape($equipment['description'])?></p>
+<p style="margin:7px 0">#<?=(int)$equipment['number']?> · Qty <?=isset($equipment['quantity'])?(int)$equipment['quantity']:'TBC'?> · <?=aur_escape($equipment['description'])?></p>
 <?php endforeach;?></div></details></td>
 <td><?php if($supplier['contactable']):?><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a>
 <?php else:?><span class="muted">Email not confirmed</span><?php endif;?>
@@ -207,8 +216,13 @@ if(!is_array($contact))continue;
 <tr>
 <td><strong><?=aur_escape((string)$msg['vendor_name'])?></strong></td>
 <td><?=aur_escape((string)$msg['to'])?></td>
-<td><?php foreach(($msg['items']??[]) as $mi):?>
-<div>#<?=(int)($mi['customer_item_number']??0)?> · Qty <?=isset($mi['quantity'])?(int)$mi['quantity']:'TBC'?><?=($mi['option_type']??'')==='ALTERNATIVE'?' · Alternative':''?></div>
+<td><?php foreach(($msg['items']??[]) as $mi):
+ $mr=(string)($mi['source_row']??'');
+ $mn=(int)($mi['customer_item_number']??($numberByRow[$mr]??0));
+ $mq=$mi['quantity']??($quantityByRow[$mr]??null);
+ $mo=$mi['option_type']??($optionByRow[$mr]??'REQUESTED');
+?>
+<div>#<?=$mn?> · Qty <?= $mq===null?'TBC':(int)$mq ?><?=$mo==='ALTERNATIVE'?' · Alternative':''?></div>
 <?php endforeach;?></td>
 <td><?=aur_escape((string)$msg['status'])?></td>
 <td><details><summary>View customized email</summary><div><b><?=aur_escape((string)$msg['subject'])?></b></div><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre></details></td>
