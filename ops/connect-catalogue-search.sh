@@ -14,7 +14,7 @@ id -u aurenoeva >/dev/null || { echo "Existing 'aurenoeva' service user missing.
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"; unset SYNC_KEY' EXIT
 mkdir -p "$WORK/tools" "$WORK/tests"
-BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/16dae84437ceac7ef8c291bbd15468c1a3ccb7fd
+BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/135945586dcf2f527da53aadec413c5317b75b22
 for file in tools/catalogue_publish.py tests/test_catalogue_publish.py; do
     curl -fsSL --retry 2 --connect-timeout 10 --max-time 45 "$BASE/$file" -o "$WORK/$file"
 done
@@ -60,9 +60,25 @@ if [[ -f "$SNAPSHOT" ]]; then
         echo "WEBSITE PUSH FAILED. Confirm the website release is deployed and the key matches."
         exit 1
     fi
-    echo "=== WEBSITE SEARCH ==="
-    curl -fsS --connect-timeout 8 --max-time 20 'https://aurenoeva.com/catalogue-search.php?q=WATO%20EX-35' | head -c 1500 || true
-    echo
+    echo "=== VERIFY LIVE WEBSITE SEARCH AGAINST A REAL CATALOGUE RECORD ==="
+    python3 - "$SNAPSHOT" <<'PY'
+import json,sys
+from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import urlopen
+item = json.loads(Path(sys.argv[1]).read_text())['items'][0]
+model = item['model']
+uri = 'https://aurenoeva.com/catalogue-search.php?' + urlencode({'q':model})
+with urlopen(uri, timeout=20) as response:
+    result = json.loads(response.read(80000))
+matches = result.get('items',[])
+if result.get('source') != 'AURENOEVA_OWNED_CATALOGUE' or not any(
+       p.get('canonical_id') == item.get('canonical_id') for p in matches):
+    raise SystemExit('BLOCKED: live website search does not yet show the new snapshot')
+print('LIVE_WEBSITE_CATALOGUE_SEARCH=PASS')
+print('Matched model:', model)
+print('Results:', len(matches))
+PY
 else
     echo "Token configured; the next successful crawler export will publish automatically."
 fi
