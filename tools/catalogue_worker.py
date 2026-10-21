@@ -132,6 +132,7 @@ def init_db(conn):
       product_id TEXT PRIMARY KEY, manufacturer TEXT NOT NULL, model TEXT NOT NULL,
       description TEXT NOT NULL, source_url TEXT NOT NULL, content_sha256 TEXT NOT NULL,
       first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+      sector TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '',
       identity_evidence TEXT NOT NULL DEFAULT 'OFFICIAL_MANUFACTURER_PAGE',
       lifecycle_status TEXT NOT NULL DEFAULT 'UNVERIFIED',
       UNIQUE(manufacturer, model)
@@ -155,6 +156,11 @@ def init_db(conn):
       new_products INTEGER NOT NULL DEFAULT 0, state TEXT NOT NULL DEFAULT 'RUNNING'
     );
     """)
+    # Additive migration: preserve all existing products, primary keys and crawl history.
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(products)")}
+    for column in ("sector", "category"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE products ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
     conn.commit()
 
 
@@ -178,6 +184,14 @@ def load_sources(file):
             raise ValueError("model_hints_must_match_seeds")
         if row.get("follow_regex"):
             re.compile(row["follow_regex"])
+        if row.get("sector", "") not in ("", "laboratory", "test", "medical", "industrial", "energy", "marine", "aviation"):
+            raise ValueError("invalid_sector")
+        if len(str(row.get("category", ""))) > 160:
+            raise ValueError("category_too_long")
+        for rule in row.get("category_rules", []):
+            re.compile(rule["path_regex"])
+            if len(str(rule["category"])) > 160:
+                raise ValueError("category_too_long")
         if not 0 <= int(row.get("max_depth", 1)) <= 3:
             raise ValueError("max_depth_out_of_range")
         byid[sid] = {**row, "hosts": hosts}
@@ -307,14 +321,47 @@ def sitemap_urls(xml, source, depth):
     return results
 
 
+def classify_product(source, url):
+    """Return site-compatible classification, never infer inventory or availability."""
+    path = urlsplit(url).path
+    for rule in source.get("category_rules", []):
+        if re.search(rule["path_regex"], path):
+            return source.get("sector", ""), rule["category"]
+    return source.get("sector", ""), source.get("category", "")
+
+
+def backfill_classification(conn, sources):
+    """Enrich pre-existing records without deleting them or rewriting product identities."""
+    for row in conn.execute("SELECT product_id, manufacturer, source_url FROM products WHERE sector='' OR category=''").fetchall():
+        ident, maker, url = row
+        task = conn.execute("SELECT source_id FROM tasks WHERE url=?", (url,)).fetchone()
+        source = sources.get(task[0]) if task else None
+        if source is None:
+            matches = [item for item in sources.values() if
+                       item["manufacturer"].casefold() == maker.casefold() and
+                       urlsplit(url).hostname in item["hosts"]]
+            if len(matches) == 1:
+                source = matches[0]
+        if source:
+            sector, category = classify_product(source, url)
+            conn.execute("""UPDATE products SET
+                sector=CASE WHEN sector='' THEN ? ELSE sector END,
+                category=CASE WHEN category='' THEN ? ELSE category END
+                WHERE product_id=?""", (sector, category, ident))
+    conn.commit()
+
+
 def write_product(conn, p, now):
     exists = conn.execute("SELECT 1 FROM products WHERE product_id=?", (p["product_id"],)).fetchone()
     conn.execute("""INSERT INTO products
-      (product_id,manufacturer,model,description,source_url,content_sha256,first_seen,last_seen)
-      VALUES (:product_id,:manufacturer,:model,:description,:source_url,:content_sha256,:now,:now)
+      (product_id,manufacturer,model,description,source_url,content_sha256,first_seen,last_seen,sector,category)
+      VALUES (:product_id,:manufacturer,:model,:description,:source_url,:content_sha256,:now,:now,:sector,:category)
       ON CONFLICT(product_id) DO UPDATE SET
       description=excluded.description, source_url=excluded.source_url,
-      content_sha256=excluded.content_sha256,last_seen=excluded.last_seen""", {**p, "now": now})
+      content_sha256=excluded.content_sha256,last_seen=excluded.last_seen,
+      sector=CASE WHEN excluded.sector<>'' THEN excluded.sector ELSE products.sector END,
+      category=CASE WHEN excluded.category<>'' THEN excluded.category ELSE products.category END""",
+      {**p, "sector": p.get("sector", ""), "category": p.get("category", ""), "now": now})
     # A product page does not imply supplier inventory or stock.
     conn.execute("""INSERT OR IGNORE INTO inventory
         (product_id,supplier_id,reported_status,verification_state)
@@ -326,6 +373,7 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
     start = time.monotonic()
     at = stamp(now)
     seed(conn, sources, at)
+    backfill_classification(conn, sources)
     conn.execute("UPDATE runs SET state='INTERRUPTED', ended_at=? WHERE state='RUNNING'", (at,))
     conn.commit()
     run_id = conn.execute("INSERT INTO runs(started_at) VALUES (?)", (at,)).lastrowid
@@ -366,6 +414,7 @@ def run_worker(conn, sources, max_pages=30, max_seconds=240, now=None, fetch=fet
                 last_checked=excluded.last_checked,http_status=excluded.http_status""",
                 (url,task["source_id"],digest,title,at,status))
             if p:
+                p["sector"], p["category"] = classify_product(source, url)
                 outcome["new_products"] += int(write_product(conn,p,at))
             # Follow verified on-domain product/category links for bounded depth.
             # Queued pages inherit the source filter so intermediate categories lead
@@ -466,7 +515,7 @@ def import_supplier_inventory(conn, path):
 
 def export_public(conn, target):
     rows = [dict(x) for x in conn.execute("""SELECT product_id AS canonical_id, manufacturer,
-          model, description, source_url AS source_ref,
+          model, description, source_url AS source_ref, sector, category,
           'CANDIDATE' AS relationship_type, lifecycle_status, last_seen
           FROM products ORDER BY manufacturer,model""")]
     # Historical crawls may contain broad page headings (e.g. 'Surgical carts').
@@ -492,7 +541,10 @@ def export_public(conn, target):
 
 def status(conn):
     last = conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+    sector_counts = {sector or "unclassified": count for sector, count in
+                     conn.execute("SELECT sector,COUNT(*) FROM products GROUP BY sector")}
     return {"last_run":dict(last) if last else None,
+            "by_sector":sector_counts,
             "products":conn.execute("SELECT count(*) FROM products").fetchone()[0],
             "pending":conn.execute("SELECT count(*) FROM tasks WHERE state='PENDING'").fetchone()[0],
             "quarantined":conn.execute("SELECT count(*) FROM tasks WHERE state='QUARANTINED'").fetchone()[0],
