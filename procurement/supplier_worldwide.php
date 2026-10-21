@@ -126,8 +126,25 @@ function aur_worldwide_seed_candidates(string $description):array {
 function aur_worldwide_case_candidates(array $intel,string $rowKey,string $description):array {
     $known=aur_worldwide_seed_candidates($description);
     $latest=$intel['worldwide_research']['rows'][$rowKey]??null;
-    if(is_array($latest) && ($latest['version']??'')===AUR_WORLDWIDE_VERSION) {
-        foreach(($latest['vendors']??[]) as $v) $known[]=$v;
+    // Preserve saved source links across crawler upgrades, irrespective of version.
+    if(is_array($latest)) {
+        foreach(($latest['vendors']??[]) as $v) if(is_array($v))$known[]=$v;
+    }
+    // Existing global-search results are useful leads even before site verification.
+    foreach(($intel['global_discovery']['rows'][$rowKey]['leads']??[]) as $lead) {
+        if(!is_array($lead))continue;
+        $url=(string)($lead['source_url']??'');
+        $host=strtolower((string)parse_url($url,PHP_URL_HOST));
+        if(!str_starts_with($url,'https://')||$host==='')continue;
+        $known[]=[
+            'id'=>aur_worldwide_vendor_id($host),
+            'name'=>(string)($lead['page_title']??$host),'website'=>$host,
+            'country'=>'Not established','email'=>'','phone'=>'',
+            'evidence_url'=>$url,
+            'match_basis'=>(string)($lead['match_basis']??'PUBLIC_SEARCH_RESULT'),
+            'status'=>'SEARCH_RESULT_NOT_SITE_VERIFIED',
+            'authorization'=>'NOT_VERIFIED','availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED'
+        ];
     }
     // Reuse evidence from all previously scanned procurement cases.
     foreach(($intel['worldwide_vendor_master']??[]) as $vendor) {
@@ -211,7 +228,7 @@ function aur_worldwide_stats(array $intel):array {
     foreach($rows as $row) {
         $key=(string)($row['source_row']??'');
         $r=$intel['worldwide_research']['rows'][$key]??null;
-        if(is_array($r)&&($r['version']??'')===AUR_WORLDWIDE_VERSION) $scanned++;
+        if(is_array($r) && !empty($r['checked_at'])) $scanned++;
         foreach(aur_worldwide_case_candidates($intel,$key,(string)($row['description']??'')) as $v) {
             if(!empty($v['email'])){$contactable++;$names[$v['id']]=1;}
             if(str_starts_with((string)$v['id'],'web-'))$new++;
@@ -277,6 +294,16 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
             }
             foreach($foundVendors as $domain=>$v)unset($unverified[$domain]);
             $vendors=array_merge(array_values($foundVendors),array_values($unverified));
+            // Repeat scans add sources. Do not overwrite links discovered earlier.
+            $knownUrls=[];
+            foreach($vendors as $v) $knownUrls[(string)($v['evidence_url']??'')]=true;
+            foreach(($prior['vendors']??[]) as $oldVendor) {
+                if(!is_array($oldVendor))continue;
+                $oldUrl=(string)($oldVendor['evidence_url']??'');
+                if($oldUrl!=='' && !isset($knownUrls[$oldUrl])) {
+                    $vendors[]=$oldVendor;$knownUrls[$oldUrl]=true;
+                }
+            }
             $intel['worldwide_research']['rows'][$key]=[
                 'version'=>AUR_WORLDWIDE_VERSION,'checked_at'=>gmdate('c'),
                 'checked_timestamp'=>$now,'status'=>$providerOk?'SEARCHED':'SEARCH_UNAVAILABLE',
