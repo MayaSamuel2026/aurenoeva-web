@@ -100,7 +100,7 @@ try {
     // Global discovery consumes public search-result evidence, not RFQ approval.
     // Direct contact routes, distinct from Bing snippets.
     $directory=aur_supplier_route_directory();
-    check(count($directory)===6,'expected source-backed Uzbekistan supplier contacts');
+    check(count($directory)===7,'expected source-backed Uzbekistan supplier contacts');
     foreach($directory as $company) {
         check(filter_var($company['email'],FILTER_VALIDATE_EMAIL)!==false,'supplier email not usable');
         check(str_starts_with($company['url'],'https://'),'supplier evidence link not HTTPS');
