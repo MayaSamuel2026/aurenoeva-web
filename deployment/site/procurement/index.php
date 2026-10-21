@@ -154,12 +154,18 @@ if (isset($_GET['export_catalogue'])) {
     fputcsv($csv, ['ID','Sector','Category','Manufacturer','Model','Description','Source URL','Last seen']);
     foreach ($catalogueSnapshot['items'] as $item) {
         if (!is_array($item)) continue;
-        fputcsv($csv, [
+        $cells = [
             (string)($item['canonical_id'] ?? ''), (string)($item['sector'] ?? ''),
             (string)($item['category'] ?? ''), (string)($item['manufacturer'] ?? ''),
             (string)($item['model'] ?? ''), (string)($item['description'] ?? ''),
             (string)($item['source_ref'] ?? ''), (string)($item['last_seen'] ?? ''),
-        ]);
+        ];
+        // Untrusted page titles must never become Excel formulas.
+        foreach ($cells as &$cell) {
+            if (preg_match('/^\\s*[=+@-]/u', $cell)) $cell = "'" . $cell;
+        }
+        unset($cell);
+        fputcsv($csv, $cells);
     }
     fclose($csv);
     exit;
