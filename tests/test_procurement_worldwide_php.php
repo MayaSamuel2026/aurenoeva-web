@@ -6,6 +6,7 @@ require dirname(__DIR__).'/deployment/site/procurement/supplier_routes.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_discovery.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_worldwide.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_rfq.php';
+require dirname(__DIR__).'/deployment/site/procurement/staff_auth.php';
 function verify(bool $ok,string $reason):void { if(!$ok)throw new RuntimeException($reason); }
 $root=sys_get_temp_dir().'/aurenoeva-rfq-'.bin2hex(random_bytes(5));
 mkdir($root.'/public_html',0700,true);
@@ -20,6 +21,35 @@ try{
        'customer_item_number'=>1,'quantity'=>2,'option_type'=>'REQUESTED']
    ]]
  ];
+ // The production dashboard sends a compact JSON POST; it must translate
+ // into the existing CSRF-protected draft workflow without changing recipients.
+ $testTokens=[hash('sha256','sales@example.com'),hash('sha256','info@example.com')];
+ $json=json_encode(['task'=>'prepare','csrf'=>'sample-signed-form-token',
+    'case_ref'=>$case['reference'],'vendors'=>$testTokens],JSON_THROW_ON_ERROR);
+ $decoded=aur_staff_procurement_json_post($json);
+ verify(($decoded['prepare_vendor_rfqs']??'')==='1'
+    && $decoded['selected_vendors']===$testTokens
+    && !isset($decoded['send_vendor_rfqs']),
+    'JSON RFQ preparation did not translate into the existing protected action');
+ $sendJson=json_encode(['task'=>'send','csrf'=>'sample-signed-form-token',
+    'case_ref'=>$case['reference'],'draft_id'=>str_repeat('a',24),
+    'manual_review'=>true],JSON_THROW_ON_ERROR);
+ $sendPost=aur_staff_procurement_json_post($sendJson);
+ verify(($sendPost['send_vendor_rfqs']??'')==='1'
+    && ($sendPost['manual_review']??'')==='1'
+    && !isset($sendPost['prepare_vendor_rfqs']),
+    'JSON send action lost compliance approval requirements');
+ $invalidJsonRejected=false;
+ try {aur_staff_procurement_json_post('{"task":"prepare","csrf":"a","case_ref":"b","vendors":["garbage"]}');}
+ catch(Throwable $e){$invalidJsonRejected=true;}
+ verify($invalidJsonRejected,'untrusted selection tokens accepted');
+ $entryHtml=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php');
+ $dashboardJs=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/worldwide.js');
+ verify(str_contains($entryHtml,'id="aur-draft-progress"')
+   && str_contains($dashboardJs,"task: 'prepare'")
+   && str_contains($dashboardJs,"fetch('/procurement/index.php'"),
+   'dashboard must submit compact RFQ drafts and show in-place errors');
+ echo "AURENOEVA_COMPACT_RFQ_PREPARATION=PASS\n";
  $research=aur_supplier_save($store,$case);
  $routes=aur_vendor_rfq_allowed($case,$research);
  verify(isset($routes['2~seed-intermed']),'published WATO contact not selectable');

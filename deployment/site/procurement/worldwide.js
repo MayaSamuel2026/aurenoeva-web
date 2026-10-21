@@ -64,6 +64,55 @@
   checks.forEach(c => c.addEventListener('change', render));
   render();
 
+  // Never navigate away from the saved case on a rejected RFQ submission.
+  // One compact JSON body avoids Hostinger form-array filtering and gives a
+  // clear, in-place result before opening the persistent review draft.
+  const draftForm = document.getElementById('aur-vendor-selection-form');
+  const draftButton = document.getElementById('aur-prepare-rfqs');
+  const draftProgress = document.getElementById('aur-draft-progress');
+  if (draftForm && draftButton && draftProgress) {
+    draftForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const vendors = [...new Set(checks.filter(c => c.checked).map(c => c.value))];
+      if (vendors.length < 1) {
+        draftProgress.textContent = 'Select at least one supplier with a published contact email.';
+        return;
+      }
+      const csrf = draftForm.querySelector('input[name="csrf"]')?.value;
+      const caseRef = draftForm.querySelector('input[name="case_ref"]')?.value;
+      if (!csrf || !caseRef) {
+        draftProgress.textContent = 'Your session information is missing. Reload this case; the original RFQ remains saved.';
+        return;
+      }
+      draftButton.disabled = true;
+      draftProgress.textContent = 'Preparing one consolidated draft for ' + vendors.length + ' suppliers. No email is being sent.';
+      try {
+        const response = await fetch('/procurement/index.php', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ task: 'prepare', csrf, case_ref: caseRef, vendors })
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || result?.ok !== true || !result.draft_id) {
+          const description = response.status === 403
+            ? 'Hostinger denied the RFQ preparation request (403).'
+            : response.status === 401 ? 'Your administrator session has expired. Sign in again.'
+            : response.status === 422 ? 'The selected suppliers need review. ' + (result?.reason || '')
+            : 'RFQ preparation returned HTTP ' + response.status + '. ' + (result?.error || '');
+          throw new Error(description);
+        }
+        draftProgress.textContent = 'Saved: ' + result.vendor_count +
+          ' consolidated supplier emails. Opening review (nothing sent).';
+        window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
+          '&draft=' + encodeURIComponent(result.draft_id) + '#supplier-history');
+      } catch (error) {
+        draftProgress.textContent = 'Preparation paused: ' + (error?.message || 'Network failure') +
+          ' The original enquiry and supplier selections remain on this page; no email has been sent by this action.';
+        draftButton.disabled = false;
+      }
+    });
+  }
+
   const sendForm = document.getElementById('aur-vendor-send-form');
   const sendButton = document.getElementById('aur-send-all-rfqs');
   const sendProgress = document.getElementById('aur-send-progress');
@@ -82,12 +131,11 @@
     }
     try {
       for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {
-        const data = new URLSearchParams({
-          csrf,case_ref:caseRef,draft_id:draftId,manual_review:'1',send_vendor_rfqs:'1'
-        });
-        const response = await fetch('/procurement/',{
+        const response = await fetch('/procurement/index.php',{
           method:'POST',credentials:'same-origin',
-          headers:{Accept:'application/json'},body:data
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
+            draft_id:draftId,manual_review:true})
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result.ok !== true)

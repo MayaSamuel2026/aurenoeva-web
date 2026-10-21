@@ -28,6 +28,19 @@ require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/staff_auth.php';
+// The supplier dashboard uses one compact JSON request instead of a large
+// multipart/array form. Same signed-cookie authentication and CSRF validation.
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' &&
+    strtolower(trim(explode(';',(string)($_SERVER['CONTENT_TYPE']??''),2)[0]))==='application/json') {
+    try{
+        $_POST=aur_staff_procurement_json_post((string)file_get_contents('php://input'));
+    }catch(Throwable $e){
+        http_response_code(400);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok'=>false,'error'=>'invalid_dashboard_request']);
+        exit;
+    }
+}
 try {
     $aurStore = aur_store_root();
 } catch (Throwable $e) {
@@ -160,10 +173,24 @@ if ($isAdmin) {
             $selected=array_values(array_unique(array_merge($selected,
                 aur_vendor_rfq_expand_vendors($result,$intel,$selectedVendors))));
             $draft=aur_vendor_rfq_prepare($aurStore,$result,$intel,$selected);
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>true,'draft_id'=>$draft['draft_id'],
+                    'vendor_count'=>count($draft['messages']??[]),'status'=>'DRAFT_REVIEW'],
+                    JSON_THROW_ON_ERROR);
+                exit;
+            }
             header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.$draft['draft_id'],true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ draft: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                http_response_code(422);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>false,'error'=>'rfq_draft_unavailable',
+                    'reason'=>$e instanceof InvalidArgumentException?'invalid_selection':'private_save_or_hosting_error']);
+                exit;
+            }
             aur_denied(422,'RFQ preparation unsuccessful: choose at least one supplier with a published contact email and check that selected records are still valid');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_vendor_rfqs'])) {
@@ -406,5 +433,5 @@ try {
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=2"></script>
+<script defer src="/procurement/worldwide.js?v=3"></script>
 <?php endif; ?></body></html>
