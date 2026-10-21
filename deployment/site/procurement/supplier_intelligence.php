@@ -208,10 +208,13 @@ function aur_supplier_save(string $store,array $case): array {
             && ($prior['rule_version']??'')===AUR_SUPPLIER_RESEARCH_VERSION) {
             return $prior;
         }
-        // Enrichment belongs to the same private case and survives OEM rule revisions.
-        if (is_array($prior) && ($prior['case_source_sha256']??'')===$result['case_source_sha256']
-            && isset($prior['global_discovery']) && is_array($prior['global_discovery'])) {
-            $result['global_discovery']=$prior['global_discovery'];
+        // Updating manufacturer rules must not reset saved supplier research.
+        if (is_array($prior) && ($prior['case_source_sha256']??'')===$result['case_source_sha256']) {
+            foreach (['global_discovery','worldwide_research'] as $section) {
+                if (isset($prior[$section]) && is_array($prior[$section])) {
+                    $result[$section]=$prior[$section];
+                }
+            }
         }
         $tmp=$dir.'/.new-'.bin2hex(random_bytes(10));
         $json=json_encode($result,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);

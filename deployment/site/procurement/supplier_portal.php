@@ -16,13 +16,7 @@ $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 <span class="pill"><b><?= count($supplierResearch['worldwide_vendor_master']??[])?></b> reusable worldwide catalogue vendors</span>
 <span class="pill"><b><?= (int)$routeStats['exact_product_listings']?></b> exact local model listings</span>
 </p>
-<form id="aur-worldwide-scan-form" method="post" action="/procurement/" style="margin:15px 0">
-<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
-<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
-<button type="submit" name="scan_worldwide" value="1">Scan next item worldwide</button>
-<button type="button" id="aur-worldwide-scan-all" data-total="<?= (int)$worldStats['total']?>">Discover suppliers worldwide for entire case</button>
-<span id="aur-worldwide-progress" role="status" class="muted"></span>
-</form>
+<p><a href="#supplier-search-controls">↑ Worldwide search controls are always available with the original enquiry</a></p>
 <p class="muted">Broad discovery preserves plausible leads, including suppliers without confirmed email addresses. Fetched product pages and published supplier emails are identified separately. Nothing is sent automatically.</p>
 <?php if(!empty($supplierDiscoveryMessage)): ?><p><?=aur_escape((string)$supplierDiscoveryMessage)?></p><?php endif;?>
 <h3>Published supplier directory</h3>
@@ -35,7 +29,8 @@ $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 <td><a target="_blank" rel="noopener noreferrer" href="<?=aur_escape($v['url'])?>">Published supplier site ↗</a><div class="muted"><?=aur_escape($v['scope'])?></div></td>
 </tr>
 <?php endforeach;?></tbody></table></div>
-<h3 style="margin-top:26px">Select vendor enquiries per equipment line</h3>
+<h3 style="margin-top:26px">All saved supplier sources — select vendor enquiries per equipment line</h3>
+<p class="muted">Earlier search links and checked supplier sources remain visible after repeat scans. Unverified search results are labelled separately from verified website contacts.</p>
 <form method="post" action="/procurement/">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -46,7 +41,8 @@ $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
   $vendors=aur_worldwide_case_candidates($supplierResearch,$key,(string)$row['description']);
 ?>
 <tr><td><?= (int)$row['customer_item_number']?><?php if(($row['option_type']??'')==='ALTERNATIVE'):?><div class="muted">Alternative</div><?php endif;?></td>
-<td><?=aur_escape((string)$row['description'])?></td>
+<td><?=aur_escape((string)$row['description'])?>
+<div><a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)$row['search_url'])?>">Find more sources worldwide ↗</a></div></td>
 <td>
 <?php if(!$vendors):?><span class="muted">No supplier discovered yet. Run worldwide search.</span><?php endif;?>
 <?php foreach($vendors as $v): ?>

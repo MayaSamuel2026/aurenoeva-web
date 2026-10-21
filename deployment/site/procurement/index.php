@@ -309,6 +309,18 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <?php endforeach; ?></tbody></table></div>
 <p class="muted">Saved reference: <?=aur_escape((string)$result['reference'])?> · <a href="?case=<?=rawurlencode((string)$result['reference'])?>">Reload original enquiry</a></p>
 </section>
+<section id="supplier-search-controls" aria-label="Persistent worldwide supplier search" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
+<h3>Search for suppliers worldwide</h3>
+<p>This search remains available alongside the original enquiry, even if supplier research is temporarily unavailable. Previously discovered source links are preserved independently of the uploaded customer specifications.</p>
+<form id="aur-worldwide-scan-form" method="post" action="/procurement/" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="button" id="aur-worldwide-scan-all" data-total="<?= (int)($result['line_count']??count($result['payload']['sourcing_lines']??[]))?>">Discover suppliers worldwide for entire case</button>
+<button type="submit" name="scan_worldwide" value="1" class="ghost">Scan next item worldwide</button>
+</form>
+<p id="aur-worldwide-progress" role="status" class="muted"></p>
+<a href="#supplier-workspace">View saved supplier sources and prepare RFQs ↓</a>
+</section>
 </section>
 <?php if (is_array($supplierResearch)): ?>
 <section class="card">

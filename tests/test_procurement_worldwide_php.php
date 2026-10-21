@@ -73,7 +73,7 @@ try{
  ob_start();
  require dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php';
  $page=(string)ob_get_clean();
- verify(str_contains($page,'Discover suppliers worldwide for entire case'),'worldwide scan button missing');
+ verify(str_contains($page,'Worldwide search controls are always available'),'supplier workspace must link to permanent search');
  verify(str_contains($page,'Prepare RFQs for selected suppliers'),'RFQ selection action missing');
  verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
 
@@ -92,6 +92,11 @@ try{
 
  verify(str_contains($entry,'$supplierResearch=aur_supplier_preview($result);'),
    'supplier portal can disappear when saved research is temporarily unavailable');
+ verify(str_contains($entry,'id="aur-worldwide-scan-all"') &&
+   strpos($entry,'id="original-rfq-equipment"')<strpos($entry,'id="aur-worldwide-scan-all"'),
+   'worldwide scan controls missing from original case workspace');
+ verify(str_contains($entry,'id="aur-worldwide-scan-form"'),
+   'permanent search form missing');
  verify(str_contains($page,'supplier-workspace'),'direct supplier workspace anchor missing');
  $many=$case;
  $many['payload']['sourcing_lines']=[];
@@ -105,6 +110,33 @@ try{
  $fortyFour=aur_supplier_preview($many);
  verify(count($fortyFour['rows'])===44,'44-equipment case could not be reconstructed');
  verify(aur_worldwide_stats($fortyFour)['total']===44,'44-equipment case failed supplier statistics');
+ // An OEM rule revision and a crawler version revision must not erase prior sources.
+ $record=aur_supplier_read($store,$case['reference'],$case['source_sha256']);
+ $record['rule_version']='legacy-rule-version';
+ $record['worldwide_research']=['rows'=>['2'=>[
+   'version'=>'legacy-crawler','checked_at'=>'2026-10-20T00:00:00Z',
+   'vendors'=>[['id'=>'web-historical','name'=>'Historical vendor',
+      'website'=>'old-supplier.example','evidence_url'=>'https://old-supplier.example/model',
+      'status'=>'SEARCH_RESULT_NOT_SITE_VERIFIED','email'=>'','phone'=>'',
+      'country'=>'Not established','match_basis'=>'HISTORICAL_EVIDENCE']]
+ ]]];
+ $record['global_discovery']=['rows'=>['2'=>['leads'=>[[
+   'source_url'=>'https://another-supplier.example/item',
+   'website'=>'another-supplier.example','page_title'=>'Historical public listing'
+ ]]]]];
+ file_put_contents(aur_supplier_private_file($store,$case['reference']),json_encode($record,JSON_THROW_ON_ERROR));
+ $regenerated=aur_supplier_save($store,$case);
+ verify(isset($regenerated['worldwide_research']['rows']['2']) &&
+   isset($regenerated['global_discovery']['rows']['2']),
+   'rule upgrade erased saved supplier sources');
+ $historical=aur_worldwide_case_candidates($regenerated,'2','Mindray WATO EX-35 anesthesia workstation');
+ verify(count(array_filter($historical,static fn($v):bool =>
+   str_contains((string)($v['evidence_url']??''),'old-supplier.example')))>0,
+   'crawler version upgrade hid an old source');
+ verify(count(array_filter($historical,static fn($v):bool =>
+   str_contains((string)($v['evidence_url']??''),'another-supplier.example')))>0,
+   'saved global discovery source was hidden');
+ echo "AURENOEVA_RESEARCH_PERSISTENCE=PASS\n";
 
  // Dummy email automation must address only the owner's fixed mailbox,
  // exercise the real RFQ format and never send a duplicate on repeated clicks.
