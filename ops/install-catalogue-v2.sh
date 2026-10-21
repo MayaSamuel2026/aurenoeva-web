@@ -10,7 +10,7 @@ UNIT=/etc/systemd/system/aurenoeva-catalogue.service
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/tools" "$WORK/tests" "$WORK/config" "$WORK/ops"
-BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/5dc342aeaacda32709d7ad5ceb90651a2577284b
+BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/ee5c0c46818b67221a19e94a0222e1b0eb91425d
 for file in tools/catalogue_worker.py tests/test_catalogue_worker.py config/catalogue_sources.json ops/aurenoeva-catalogue.service; do
   curl -fsSL --retry 2 --connect-timeout 10 --max-time 45 "$BASE/$file" -o "$WORK/$file"
 done
