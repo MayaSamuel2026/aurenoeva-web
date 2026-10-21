@@ -223,6 +223,25 @@ try{
    'website'=>'another-supplier.example','page_title'=>'Historical public listing'
  ]]]]];
  file_put_contents(aur_supplier_private_file($store,$case['reference']),json_encode($record,JSON_THROW_ON_ERROR));
+ $historyBefore=aur_worldwide_research_inventory($store,false);
+ verify($historyBefore['saved_research_cases']===1
+   && $historyBefore['distinct_evidence_urls']>=3
+   && $historyBefore['global_supplier_master']===1,
+   'Historical source accounting excludes previously saved evidence');
+ $historyMerged=aur_worldwide_research_inventory($store,true);
+ verify($historyMerged['newly_consolidated_supplier_websites']>=2
+   && $historyMerged['global_supplier_master']>=3,
+   'Historical worldwide and older search-only sources not imported');
+ verify(aur_worldwide_research_inventory($store,true)['newly_consolidated_supplier_websites']===0,
+   'Historical reconciliation is not idempotent');
+ $historicalMaster=aur_worldwide_master_read($store);
+ verify(($historicalMaster['vendors'][aur_worldwide_vendor_id('another-supplier.example')]['status']??'')
+   ==='SEARCH_RESULT_NOT_SITE_VERIFIED',
+   'Unverified historical search lead was mislabeled as checked supplier');
+ verify(($historicalMaster['vendors'][aur_worldwide_vendor_id('vendor-health.fr')]['email']??'')
+   ==='research@vendor-health.fr',
+   'Reconciliation removed a previously published vendor email');
+ echo "AURENOEVA_HISTORICAL_SUPPLIER_RECONCILIATION=PASS\n";
  $regenerated=aur_supplier_save($store,$case);
  verify(isset($regenerated['worldwide_research']['rows']['2']) &&
    isset($regenerated['global_discovery']['rows']['2']),
