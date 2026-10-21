@@ -83,8 +83,14 @@ if ((empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off')
     && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') !== 'https') {
     http_response_code(403); echo '{"ok":false,"error":"https_required"}'; exit;
 }
-// Use the same deterministic private directory as the existing procurement workspace.
-$private = dirname(__DIR__) . '/.aurenoeva-private';
+// One canonical private path for administrator credentials, procurement
+// cases, and catalogue snapshots, regardless of Hostinger release symlinks.
+require_once __DIR__ . '/procurement/private_cases.php';
+try {
+    $private = aur_store_root();
+} catch (Throwable $e) {
+    http_response_code(503); echo '{"ok":false,"error":"private_storage_unavailable"}'; exit;
+}
 $tokenFile = $private . '/catalogue-sync-token.sha256';
 $expected = is_file($tokenFile) ? trim((string)@file_get_contents($tokenFile)) : '';
 $supplied = (string)($_SERVER['HTTP_X_AURENOEVA_SYNC_TOKEN'] ?? '');
