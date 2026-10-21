@@ -213,14 +213,37 @@ if ($isAdmin) {
 // case, automatically refreshed on import and on authenticated case opening.
 $supplierResearch=null;
 $rfqPreview=null;
+$supplierResearchMode='';
 if ($isAdmin && is_array($result) && isset($result['reference'])) {
     try {
-        $supplierResearch=aur_worldwide_attach_master($aurStore,aur_supplier_save($aurStore,$result));
-        if(isset($_GET['draft']) && is_string($_GET['draft'])) {
-            $rfqPreview=aur_vendor_rfq_read($aurStore,$result,(string)$_GET['draft']);
-        }
+        $supplierResearch=aur_supplier_save($aurStore,$result);
     } catch (Throwable $e) {
-        error_log('AURENOEVA private supplier research: '.get_class($e));
+        error_log('AURENOEVA supplier research save: '.get_class($e).' '.substr($e->getMessage(),0,110));
+        $supplierResearchMode='Supplier records are temporarily read-only. Existing equipment and known supplier routes remain available.';
+        try {
+            $supplierResearch=aur_supplier_read($aurStore,(string)$result['reference'],(string)$result['source_sha256']);
+        } catch (Throwable $readError) {
+            error_log('AURENOEVA supplier research read: '.get_class($readError));
+        }
+        if (!is_array($supplierResearch)) {
+            $supplierResearch=aur_supplier_preview($result);
+        }
+    }
+    if (is_array($supplierResearch)) {
+        try {
+            $supplierResearch=aur_worldwide_attach_master($aurStore,$supplierResearch);
+        } catch (Throwable $e) {
+            error_log('AURENOEVA worldwide master read: '.get_class($e));
+            $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
+        }
+    }
+    if (isset($_GET['draft']) && is_string($_GET['draft'])) {
+        try {
+            $rfqPreview=aur_vendor_rfq_read($aurStore,$result,(string)$_GET['draft']);
+        } catch (Throwable $e) {
+            error_log('AURENOEVA RFQ draft read: '.get_class($e));
+            $supplierResearchMode='The requested draft could not be opened; the underlying case remains available.';
+        }
     }
 }
 header('Content-Type: text/html; charset=utf-8');
@@ -252,6 +275,39 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <p><button type="submit">Open procurement workspace</button></p></form></div>
 <?php else: ?>
 <h1>Customer enquiries</h1><p>Upload once. AURENOEVA stores one private sourcing case, preserves alternatives and prepares its legal review. No supplier RFQ is sent automatically.</p>
+<?php if (is_array($result) && isset($result['reference'])): ?>
+<section class="card"><span class="pill">Saved · verified database readback</span><h2 style="margin-top:16px">Case <?=aur_escape((string)$result['reference'])?></h2>
+<p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·
+<b><?= (int)($result['line_count'] ?? 0) ?></b> entries ·
+<b><?= (int)($result['alternatives'] ?? 0) ?></b> alternative options ·
+<b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
+<p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
+Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
+<p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+<a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original case RFQ draft</a>
+<a href="#supplier-workspace">View suppliers, contacts and RFQ selection ↓</a>
+</p>
+<?php if (is_array($supplierResearch)): ?>
+<?php define('AUR_PROCUREMENT_VIEW',true); require __DIR__.'/supplier_portal.php'; ?>
+<?php else: ?><div class="card"><h2>Supplier identification pending</h2><p>The original procurement case is saved. Supplier matching will be available after the research source module is verified.</p></div><?php endif; ?>
+
+<p><a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download supplier RFQ draft</a></p>
+<p class="muted">Automatically prepared from the saved enquiry · editable text · NOT SENT. Supplier identification, sanctions screening, goods classification and compliance review are required before dispatch.</p>
+<p><a href="?case=<?=rawurlencode((string)$result['reference'])?>">Read this case again from the database</a></p>
+<div class="scroll"><table><thead><tr><th>Item</th><th>Equipment / specification</th><th>Quantity</th><th>Type</th></tr></thead><tbody>
+<?php foreach (array_slice($result['payload']['sourcing_lines'] ?? [],0,250) as $line): ?>
+<tr><td><?= (int)($line['customer_item_number'] ?? 0)?></td><td><?=aur_escape((string)($line['description_original'] ?? ''))?></td>
+<td><?=isset($line['quantity']) ? (int)$line['quantity'] : '—'?></td><td><?=aur_escape((string)($line['option_type'] ?? ''))?></td></tr>
+<?php endforeach; ?></tbody></table></div>
+<?php if ((int)($result['line_count'] ?? 0)>250): ?><p class="muted">Showing first 250 entries; all entries are persisted privately.</p><?php endif; ?></section>
+<?php elseif (is_array($result) && isset($result['cases'])): ?>
+<section class="card"><h2>Existing enquiries</h2><div class="scroll"><table><thead><tr><th>Case reference</th><th>Country</th><th>Items</th><th>Received (UTC)</th><th>RFQ</th></tr></thead><tbody>
+<?php foreach ($result['cases'] as $case): ?><tr><td><a href="?case=<?=rawurlencode((string)$case['reference'])?>"><?=aur_escape((string)$case['reference'])?></a></td>
+<td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td><td><a href="?rfq=<?=rawurlencode((string)$case['reference'])?>">Draft</a></td></tr><?php endforeach; ?>
+</tbody></table></div></section>
+<?php endif; ?>
+<?php endif; ?>
+
 <section class="card">
 <h2>Email automation — dummy RFQ test</h2>
 <p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to <b>fredericksamuel1965@gmail.com</b>, using the website's real outbound email transport. This does not contact any supplier or alter existing enquiries.</p>
@@ -285,34 +341,6 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <button type="submit" name="generate_catalogue_sync" value="1">Generate / rotate catalogue sync key</button></form>
 <?php endif; ?>
 </section>
-<?php if (is_array($result) && isset($result['reference'])): ?>
-<section class="card"><span class="pill">Saved · verified database readback</span><h2 style="margin-top:16px">Case <?=aur_escape((string)$result['reference'])?></h2>
-<p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·
-<b><?= (int)($result['line_count'] ?? 0) ?></b> entries ·
-<b><?= (int)($result['alternatives'] ?? 0) ?></b> alternative options ·
-<b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
-<p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
-Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
-<?php if (is_array($supplierResearch)): ?>
-<?php define('AUR_PROCUREMENT_VIEW',true); require __DIR__.'/supplier_portal.php'; ?>
-<?php else: ?><div class="card"><h2>Supplier identification pending</h2><p>The original procurement case is saved. Supplier matching will be available after the research source module is verified.</p></div><?php endif; ?>
-
-<p><a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download supplier RFQ draft</a></p>
-<p class="muted">Automatically prepared from the saved enquiry · editable text · NOT SENT. Supplier identification, sanctions screening, goods classification and compliance review are required before dispatch.</p>
-<p><a href="?case=<?=rawurlencode((string)$result['reference'])?>">Read this case again from the database</a></p>
-<div class="scroll"><table><thead><tr><th>Item</th><th>Equipment / specification</th><th>Quantity</th><th>Type</th></tr></thead><tbody>
-<?php foreach (array_slice($result['payload']['sourcing_lines'] ?? [],0,250) as $line): ?>
-<tr><td><?= (int)($line['customer_item_number'] ?? 0)?></td><td><?=aur_escape((string)($line['description_original'] ?? ''))?></td>
-<td><?=isset($line['quantity']) ? (int)$line['quantity'] : '—'?></td><td><?=aur_escape((string)($line['option_type'] ?? ''))?></td></tr>
-<?php endforeach; ?></tbody></table></div>
-<?php if ((int)($result['line_count'] ?? 0)>250): ?><p class="muted">Showing first 250 entries; all entries are persisted privately.</p><?php endif; ?></section>
-<?php elseif (is_array($result) && isset($result['cases'])): ?>
-<section class="card"><h2>Existing enquiries</h2><div class="scroll"><table><thead><tr><th>Case reference</th><th>Country</th><th>Items</th><th>Received (UTC)</th><th>RFQ</th></tr></thead><tbody>
-<?php foreach ($result['cases'] as $case): ?><tr><td><a href="?case=<?=rawurlencode((string)$case['reference'])?>"><?=aur_escape((string)$case['reference'])?></a></td>
-<td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td><td><a href="?rfq=<?=rawurlencode((string)$case['reference'])?>">Draft</a></td></tr><?php endforeach; ?>
-</tbody></table></div></section>
-<?php endif; ?>
-<?php endif; ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js"></script>
