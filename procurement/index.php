@@ -140,6 +140,36 @@ if ($isAdmin && is_file($catalogueSnapshotFile)) {
         }
     }
 }
+// Reuse the already-authenticated procurement session for a searchable
+// catalogue export. This is the website snapshot, not an assertion about stock.
+if (isset($_GET['export_catalogue'])) {
+    if (!$isAdmin) aur_denied(403, 'administrator access required');
+    if (!isset($catalogueSnapshot['items']) || !is_array($catalogueSnapshot['items']))
+        aur_denied(404, 'website catalogue not synchronized');
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="AURENOEVA-CATALOGUE-' . gmdate('Ymd') . '.csv"');
+    echo "\xEF\xBB\xBF";
+    $csv = fopen('php://output', 'wb');
+    if (!$csv) aur_denied(500, 'CSV output unavailable');
+    fputcsv($csv, ['ID','Sector','Category','Manufacturer','Model','Description','Source URL','Last seen']);
+    foreach ($catalogueSnapshot['items'] as $item) {
+        if (!is_array($item)) continue;
+        $cells = [
+            (string)($item['canonical_id'] ?? ''), (string)($item['sector'] ?? ''),
+            (string)($item['category'] ?? ''), (string)($item['manufacturer'] ?? ''),
+            (string)($item['model'] ?? ''), (string)($item['description'] ?? ''),
+            (string)($item['source_ref'] ?? ''), (string)($item['last_seen'] ?? ''),
+        ];
+        // Untrusted page titles must never become Excel formulas.
+        foreach ($cells as &$cell) {
+            if (preg_match('/^\\s*[=+@-]/u', $cell)) $cell = "'" . $cell;
+        }
+        unset($cell);
+        fputcsv($csv, $cells);
+    }
+    fclose($csv);
+    exit;
+}
 $aurSupplierAuditMessage=null;
 if ($isAdmin) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['consolidate_supplier_history'])) {
@@ -511,6 +541,7 @@ try {
 <tr><td style="padding:5px 0"><?=aur_escape($sectorName)?></td><td style="text-align:right"><?= (int)($catalogueSnapshotSectors[$sectorKey] ?? 0) ?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
+<p><a href="?export_catalogue=1" style="font-weight:600;text-decoration:underline">Download catalogue CSV — published products, models and source links</a></p>
 <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Products by sector and subcategory</summary>
 <table style="width:100%;border-collapse:collapse;margin-top:10px">
 <thead><tr><th style="text-align:left">Sector</th><th style="text-align:left">Category</th><th style="text-align:right">Products</th></tr></thead><tbody>
