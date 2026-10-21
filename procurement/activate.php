@@ -22,6 +22,29 @@ function aur_setup_fail(int $status, string $reason): never {
     echo 'AURENOEVA setup: ' . $reason;
     exit;
 }
+/**
+ * Stateless, authenticated activation-form token: Hostinger PHP session
+ * persistence is not a prerequisite for this one-time setup. Signed with
+ * the owner's never-public high-entropy activation code; no code is sent
+ * back to the browser except the HMAC.
+ */
+function aur_setup_form_token(string $store, ?int $issuedAt = null): ?string {
+    $file=dirname($store).'/aurenoeva-activation-token.txt';
+    if (!is_file($file) || is_link($file) || !is_readable($file)) return null;
+    $secret=trim((string)@file_get_contents($file));
+    if (strlen($secret)<32 || strlen($secret)>200 || preg_match('/\\s/', $secret)) return null;
+    $issuedAt=$issuedAt ?? time();
+    return (string)$issuedAt.'.'.hash_hmac('sha256','AURENOEVA_ACTIVATE_FORM_V2|'.$issuedAt,$secret);
+}
+function aur_setup_verify_form_token(string $store, string $provided, ?int $now = null): bool {
+    $now=$now ?? time();
+    if (!preg_match('/^([0-9]{10})\\.([a-f0-9]{64})$/D',$provided,$m)) return false;
+    $issuedAt=(int)$m[1];
+    // 30-minute expiry, plus 30s tolerance for server clock variation.
+    if ($issuedAt>$now+30 || $issuedAt<$now-1800) return false;
+    $expected=aur_setup_form_token($store,$issuedAt);
+    return is_string($expected) && hash_equals($expected,$provided);
+}
 function aur_setup_apply(string $store, string $suppliedToken, string $password, string $confirmation): string {
     // The file is created via the owner's authenticated Hostinger File Manager,
     // outside the public webroot. No hardcoded or guessable bootstrap secrets.
@@ -91,15 +114,19 @@ if (is_file($hashPath) && !is_link($hashPath)) {
     header('Location: /procurement/',true,303);
     exit;
 }
-ini_set('session.use_strict_mode','1');
-ini_set('session.use_only_cookies','1');
-session_name('aurenoeva_admin_setup');
-session_set_cookie_params(['lifetime'=>0,'path'=>'/procurement','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
-session_start();
-if (!isset($_SESSION['csrf'])) $_SESSION['csrf']=bin2hex(random_bytes(24));
+$formToken=aur_setup_form_token($store);
 $error='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
-    if (!hash_equals((string)$_SESSION['csrf'],(string)($_POST['csrf'] ?? ''))) aur_setup_fail(403,'invalid request token');
+    $origin=(string)($_SERVER['HTTP_ORIGIN'] ?? '');
+    if ($origin!=='' && $origin!=='https://aurenoeva.com' && $origin!=='https://www.aurenoeva.com') {
+        aur_setup_fail(403,'invalid form origin');
+    }
+    if (!aur_setup_verify_form_token($store,(string)($_POST['csrf'] ?? ''))) {
+        // The token file may not be at the expected hosting path, or a
+        // browser may have submitted a pre-release form; neither is a
+        // reason to relax one-time setup authentication.
+        aur_setup_fail(403,'activation form expired or unavailable; reopen /procurement/activate.php and try again');
+    }
     $limitPath=$store.'/activation-attempts.json';
     $rateLock=@fopen($store.'/activation-rate.lock','c');
     if (!$rateLock || !flock($rateLock,LOCK_EX)) aur_setup_fail(503,'activation rate limiter unavailable');
@@ -121,7 +148,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         fclose($rateLock);
     }
     if ($outcome==='activated' || $outcome==='already_activated') {
-        session_regenerate_id(true);
         header('Location: /procurement/',true,303);
         exit;
     }
@@ -148,10 +174,11 @@ small{display:block;margin:25px 0;color:#64736b;font-size:12px}.error{padding:12
 </style></head><body>
 <main><div class="wordmark">AURENOEVA</div>
 <h1>Activate private procurement</h1>
-<p>One-time administrator setup. First create <code>aurenoeva-activation-token.txt</code> beside <code>public_html</code> in Hostinger File Manager using Hostinger File Manager. It must contain a unique, unpredictable code of at least 32 characters.</p>
+<p>One-time administrator setup. First create <code>aurenoeva-activation-token.txt</code> beside <code>public_html</code> in Hostinger File Manager. It must contain a unique, unpredictable code of at least 32 characters.</p>
 <?php if ($error!==''):?><p class="error"><?=aur_setup_escape($error)?></p><?php endif;?>
+<?php if ($formToken!==null): ?>
 <form method="post" action="/procurement/activate.php" autocomplete="off">
-<input type="hidden" name="csrf" value="<?=aur_setup_escape((string)$_SESSION['csrf'])?>">
+<input type="hidden" name="csrf" value="<?=aur_setup_escape($formToken)?>">
 <label for="code">Private activation code</label>
 <input id="code" name="code" type="password" required autocomplete="off" minlength="32">
 <label for="password">New administrator password</label>
@@ -160,5 +187,8 @@ small{display:block;margin:25px 0;color:#64736b;font-size:12px}.error{padding:12
 <input id="confirm" name="confirm" type="password" minlength="16" maxlength="256" autocomplete="new-password" required>
 <button type="submit">Activate administrator</button>
 </form>
+<?php else: ?>
+<p class="error">The private activation file has not been found or is invalid. Check the filename and its location beside <code>public_html</code> in Hostinger File Manager, then reload this page.</p>
+<?php endif; ?>
 <small>The code is checked against a file outside public_html, consumed once, and never stored in GitHub. No supplier RFQ is sent during activation.</small>
 </main></body></html>
