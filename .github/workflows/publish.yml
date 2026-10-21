@@ -205,6 +205,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m py_compile tools/catalogue_harvester.py tools/catalogue_publish.py
+          bash -n ops/activate-harvester-v4.sh
           python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
           php hotfix/v8.2.6.12/tests/catalogue_sync_test.php
@@ -247,6 +249,9 @@ jobs:
           grep -q 'catalogueSnapshotManufacturers' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'export_catalogue' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'Download catalogue CSV' "$RUNNER_TEMP/source/site/procurement/index.php"
+          grep -q 'catalogueVendorProductLinks' "$RUNNER_TEMP/source/site/procurement/index.php"
+          grep -q 'aur_worldwide_master_merge' "$RUNNER_TEMP/source/site/procurement/supplier_worldwide.php"
+          grep -q 'aur_catalogue_merge_vendor_evidence' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           # Release qualification: the permanent original case, supplier sources and
           # full-case worldwide search must ALL be present in the deployable payload.
           grep -q 'id="original-rfq-equipment"' "$RUNNER_TEMP/source/site/procurement/index.php"
