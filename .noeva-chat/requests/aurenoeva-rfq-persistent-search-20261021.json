@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-rfq-persistent-search-20261021",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "674827b723a7a3c2c59322dac7bd908b1e7c8047",
+  "authorize_release": true
+}
