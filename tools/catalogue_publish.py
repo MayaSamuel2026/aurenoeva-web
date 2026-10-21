@@ -45,7 +45,7 @@ def normalized_snapshot(path: Path) -> tuple[bytes, int]:
         source = str(value.get("source_ref", "")).strip()[:500]
         p = urlsplit(source)
         if (not IDENTITY.fullmatch(ident) or not maker or not model
-                or model.casefold() in GENERIC or not any(c.isdigit() for c in model)
+                or model.casefold() in GENERIC
                 or p.scheme != "https" or not p.hostname or p.username or p.password):
             continue
         records[ident] = {
