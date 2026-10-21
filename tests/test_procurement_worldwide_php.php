@@ -45,10 +45,10 @@ try{
  verify($duplicateBlocked,'duplicate send was not blocked');
  verify(!aur_worldwide_safe_ip('127.0.0.1') && !aur_worldwide_safe_ip('10.0.0.1'),'unsafe crawl IP admitted');
  $html='<html><title>Mindray WATO EX-35</title><p>Hospital medical anesthesia workstation distributor</p>'
-  .'<a href="mailto:info@example-medical.com">Info</a></html>';
+  .'<a href="mailto:research@vendor-health.fr">Info</a></html>';
  $lead=aur_worldwide_source_candidate('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'),
-   ['page_title'=>'Mindray WATO EX-35 anesthesia'], $html,'https://example-medical.com/product');
- verify(is_array($lead)&&$lead['email']==='info@example-medical.com','website contact extraction broken');
+   ['page_title'=>'Mindray WATO EX-35 anesthesia'], $html,'https://vendor-health.fr/product');
+ verify(is_array($lead)&&$lead['email']==='research@vendor-health.fr','website contact extraction broken');
  verify(aur_worldwide_source_candidate('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'),
    ['page_title'=>'Cattle jobs'],'<html><p>Breeding cattle jobs and career</p></html>',
    'https://masterrind.com/jobs')===null,'irrelevant supplier admitted');
