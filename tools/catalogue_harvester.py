@@ -402,9 +402,18 @@ def main():
         with sqlite3.connect(a.db) as db:
             db.row_factory=sqlite3.Row;db_init(db)
             if a.status:
-                print(json.dumps({"products":db.execute("SELECT COUNT(*) FROM products").fetchone()[0],
+                sector={str(row[0] or "unclassified"):int(row[1]) for row in
+                        db.execute("SELECT sector,COUNT(*) FROM products GROUP BY sector")}
+                last=[dict(row) for row in db.execute(
+                    "SELECT * FROM harvest_runs ORDER BY id DESC LIMIT 5")]
+                print(json.dumps({
+                    "products":db.execute("SELECT COUNT(*) FROM products").fetchone()[0],
+                    "by_sector":sector,
                     "queued":db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],
-                    "vendors":db.execute("SELECT COUNT(DISTINCT website) FROM vendor_leads").fetchone()[0]}))
+                    "vendors":db.execute("SELECT COUNT(DISTINCT website) FROM vendor_leads").fetchone()[0],
+                    "vendor_product_links":db.execute("SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],
+                    "retrying_urls":db.execute("SELECT COUNT(*) FROM harvest_queue WHERE failures>0").fetchone()[0],
+                    "recent_runs":last},ensure_ascii=False))
                 return 0
             try:
                 prior=import_existing_rfq_vendors(db)
