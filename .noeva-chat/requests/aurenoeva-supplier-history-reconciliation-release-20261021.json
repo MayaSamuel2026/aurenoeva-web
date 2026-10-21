@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-supplier-history-reconciliation-release-20261021",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "6fd910a029ec937c96667dfbd313fde1d220aae6",
+  "authorize_release": true
+}
