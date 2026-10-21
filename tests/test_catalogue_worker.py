@@ -44,11 +44,11 @@ class Tests(unittest.TestCase):
     again=run_worker(self.db,SOURCE,now=tomorrow,fetch=f)
     self.assertEqual((again["succeeded"],again["new_products"]),(1,0))
   def test_failure_does_not_starve_next_source(self):
-    second={**SOURCE["official"],"id":"official2","seeds":["https://example.org/products/other"],"model_hint":"Other"}
+    second={**SOURCE["official"],"id":"official2","seeds":["https://example.org/products/other"],"model_hint":"Other 200"}
     sources={**SOURCE,"official2":second}
     def f(url, source):
       if "wato" in url:raise TimeoutError("timed out")
-      return ("<h1>Other</h1><title>Other - Mindray</title>",200)
+      return ("<h1>Other 200</h1><title>Other 200 - Mindray</title>",200)
     outcome=run_worker(self.db,sources,now=TIME,fetch=f)
     self.assertEqual((outcome["processed"],outcome["failed"],outcome["succeeded"]),(2,1,1))
     self.assertEqual(status(self.db)["products"],1)
