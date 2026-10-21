@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-one-click-global-supplier-release-20261021-a",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "9168c868d54141fcb7617454552edd091f6393c1",
+  "authorize_release": true
+}
