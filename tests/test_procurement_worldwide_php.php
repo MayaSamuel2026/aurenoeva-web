@@ -76,6 +76,22 @@ try{
  verify(str_contains($page,'Discover suppliers worldwide for entire case'),'worldwide scan button missing');
  verify(str_contains($page,'Prepare RFQs for selected suppliers'),'RFQ selection action missing');
  verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
+ // Dummy email automation must address only the owner's fixed mailbox,
+ // exercise the real RFQ format and never send a duplicate on repeated clicks.
+ $testCalls=0;
+ $smoke=aur_vendor_rfq_send_smoke_test($store,
+     static function($to,$subject,$body)use(&$testCalls):bool{
+         $testCalls++;
+         verify($to==='fredericksamuel1965@gmail.com','dummy RFQ went to an unexpected recipient');
+         verify(str_contains($subject,'TEST') && str_contains($body,'Quantity: 2 units')
+             && str_contains($body,'Uzbekistan'),'dummy RFQ misses specification');
+         return true;
+     });
+ verify($smoke['status']==='ACCEPTED_BY_MAIL_TRANSPORT' && $testCalls===1,
+   'dummy mail transport not accepted');
+ $repeat=aur_vendor_rfq_send_smoke_test($store,static function()use(&$testCalls):bool{$testCalls++;return true;});
+ verify($testCalls===1 && !empty($repeat['recent_test_preserved']),'dummy mail sent twice');
+ echo "AURENOEVA_DUMMY_EMAIL_TEST=PASS\n";
  echo "AURENOEVA_WORLDWIDE_UI_RENDER=PASS\n";
  echo "AURENOEVA_WORLDWIDE_RFQ_MOCK=PASS\n";
 } finally{
