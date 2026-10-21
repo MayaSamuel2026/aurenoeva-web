@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Activate AURENOEVA V4 on EXISTING Hostinger VPS; preserve databases and RFQ data.
 set -euo pipefail
+umask 077
 [[ $(id -u) == 0 ]] || { echo "Run as root on the existing Hostinger VPS"; exit 2; }
 APP=/opt/aurenoeva
 DB=/var/lib/aurenoeva/catalogue.sqlite3
