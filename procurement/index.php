@@ -117,6 +117,15 @@ if ($isAdmin) {
             aur_denied(503, 'catalogue synchronization credential could not be stored');
         }
         @chmod($credentialFile, 0600);
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_rfq'])) {
+        try {
+            $testStatus=aur_vendor_rfq_send_smoke_test($aurStore);
+            $ref=trim((string)($_POST['case_ref']??''));
+            $result=$ref!==''?aur_case_read($aurStore,$ref):aur_case_list($aurStore);
+        } catch(Throwable $e) {
+            error_log('AURENOEVA SMTP test: '.get_class($e));
+            aur_denied(503,'Dummy RFQ transport test unavailable; no supplier contacted');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['scan_worldwide'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
@@ -243,6 +252,21 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <p><button type="submit">Open procurement workspace</button></p></form></div>
 <?php else: ?>
 <h1>Customer enquiries</h1><p>Upload once. AURENOEVA stores one private sourcing case, preserves alternatives and prepares its legal review. No supplier RFQ is sent automatically.</p>
+<section class="card">
+<h2>Email automation — dummy RFQ test</h2>
+<p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to <b>fredericksamuel1965@gmail.com</b>, using the website's real outbound email transport. This does not contact any supplier or alter existing enquiries.</p>
+<form method="post">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<?php if(is_array($result)&&isset($result['reference'])):?><input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>"><?php endif;?>
+<button type="submit" name="send_test_rfq" value="1">Send one dummy RFQ to my Gmail</button>
+</form>
+<?php $smtpSmoke=aur_vendor_rfq_smoke_status($aurStore); ?>
+<?php if(is_array($smtpSmoke)): ?>
+<p><b>Latest test:</b> <?=aur_escape((string)($smtpSmoke['status']??'UNKNOWN'))?> · <?=aur_escape((string)($smtpSmoke['checked_at']??''))?> UTC</p>
+<p class="muted">To: <?=aur_escape((string)($smtpSmoke['recipient']??''))?>. <?=($smtpSmoke['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT'?'Mail transport accepted the message. Check Gmail to confirm delivery.':'Transport delivery was not confirmed. Review the mail service configuration.'?></p>
+<?php endif;?>
+<p class="muted">A repeated click within 15 minutes returns the prior test result and does not send another email.</p>
+</section>
 <section class="card"><h2>Import Excel or CSV</h2><form method="post" enctype="multipart/form-data" class="inline">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <label>Destination country<input name="country" value="UZ" pattern="[A-Za-z]{2}" maxlength="2" required style="width:110px"></label>
