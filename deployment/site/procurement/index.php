@@ -24,6 +24,7 @@ function aur_denied(int $status, string $message): never {
 require_once __DIR__ . '/private_cases.php';
 require_once __DIR__ . '/supplier_intelligence.php';
 require_once __DIR__ . '/supplier_discovery.php';
+require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/staff_auth.php';
 try {
     $aurStore = aur_store_root();
@@ -225,59 +226,61 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <?php if (is_array($supplierResearch)): ?>
 <div style="border-top:1px solid #e1e7e4;margin-top:24px;padding-top:23px">
-<h2>Supplier intelligence — worldwide discovery</h2>
-<p>Manufacturer matching plus worldwide supplier research for the <strong>existing private case</strong>. Search covers all countries; the destination country is used for delivery, servicing and legal review only. Public search results are leads, not quotations, stock or authorised distributors.</p>
-<p><span class="pill"><b><?= (int)$supplierResearch['summary']['entries_with_oem_route']?></b> equipment entries with product / manufacturer routes</span>
-<span class="pill"><b><?= (int)$supplierResearch['summary']['entries_needing_identity_research']?></b> unresolved</span>
-<span class="pill">0 confirmed supplier quotes</span></p>
-<?php $discoveryStats=aur_supplier_discovery_stats($supplierResearch); ?>
-<p><span class="pill"><?= (int)$discoveryStats['checked'] ?> / <?= (int)$discoveryStats['total'] ?> entries searched online</span>
-<span class="pill"><?= (int)$discoveryStats['links'] ?> relevance-matched research links (unverified)</span></p>
-<form method="post" style="margin:15px 0">
-<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
-<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
-<button type="submit" name="discover_suppliers" value="1">Search next 2 entries</button>
-<button type="button" id="aur-discover-all" data-total="<?= (int)$discoveryStats['total'] ?>">Search entire case worldwide</button>
-<span class="muted" id="aur-discovery-progress" role="status" aria-live="polite"></span>
-</form>
-<?php if ($supplierDiscoveryMessage): ?><p class="muted" role="status"><?=aur_escape($supplierDiscoveryMessage)?></p><?php endif; ?>
-<p class="muted">Discovery now validates equipment/model relevance before saving search leads. Old unqualified results have been hidden and will be rechecked immediately when you select Search entire case worldwide. Completed results refresh after 24 hours; temporary provider failures retry after 15 minutes. Automated search may be unavailable if the public search provider blocks access. Regional research links are always available.</p>
-<p class="muted">Product evidence source set: <?=aur_escape((string)$supplierResearch['rule_version'])?>. Source verification and current country representation remain open. Alternatives stay distinct; sanctions, destination-use, registration and licensing checks remain mandatory before supplier outreach.</p>
-<div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment</th><th>Potential supply route / evidence</th><th>Next research action</th></tr></thead><tbody>
+<h2>Supplier intelligence — contactable manufacturers and distributors</h2>
+<p>Practical sourcing channels for the existing private case. This list uses publicly documented company contact pages and equipment portfolios — not generic web-search links. Each route names a company that can be asked about the item. <strong>Category enquiry does not confirm the exact model, stock, supply rights, servicing or price.</strong></p>
+<?php $routeDirectory=aur_supplier_route_directory(); $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]); ?>
+<p>
+<span class="pill"><b><?= (int)$routeStats['contactable_companies']?></b> Uzbekistan supplier contact channels</span>
+<span class="pill"><b><?= (int)$routeStats['entries_with_contacts']?> / <?= (int)$routeStats['total']?></b> entries with category or product enquiry routes</span>
+<span class="pill"><b><?= (int)$routeStats['exact_product_listings']?></b> exact local product listings</span>
+<span class="pill"><b><?= (int)$supplierResearch['summary']['entries_with_oem_route']?></b> OEM identification routes</span>
+</p>
+<p class="muted">Research sources <?=aur_escape(AUR_SUPPLIER_ROUTE_VERSION)?>. Old Bing search snippets are no longer used as suppliers. We have retained the previously saved customer case, RFQ and research files. No supplier has been contacted automatically.</p>
+<section style="padding:16px 0;border-top:1px solid #dae4e0;border-bottom:1px solid #dae4e0">
+<h2>Uzbekistan supplier directory — real contact details</h2>
+<div class="scroll"><table><thead><tr><th>Company</th><th>Contact</th><th>Evidence and scope</th></tr></thead><tbody>
+<?php foreach ($routeDirectory as $supplier): ?>
+<tr>
+<td><b><?=aur_escape($supplier['name'])?></b><div class="muted"><?=aur_escape($supplier['city'])?>, <?=aur_escape($supplier['country'])?></div></td>
+<td><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a><div><?=aur_escape($supplier['phone'])?></div></td>
+<td><a href="<?=aur_escape($supplier['url'])?>" target="_blank" rel="noopener noreferrer">Published company evidence ↗</a><div class="muted"><?=aur_escape($supplier['scope'])?></div></td>
+</tr>
+<?php endforeach; ?></tbody></table></div>
+</section>
+<h2 style="margin-top:28px">Equipment-by-equipment sourcing shortlist</h2>
+<p class="muted">Contact the listed channel to ask for the exact model, destination-country installation/service, regulatory documentation, lead time and quotation. All proposed suppliers must be screened before any actual RFQ is sent.</p>
+<div class="scroll"><table><thead><tr><th style="width:5%">Item</th><th style="width:30%">Equipment requested</th><th style="width:31%">Contactable Uzbekistan suppliers</th><th style="width:34%">Manufacturer / model evidence</th></tr></thead><tbody>
 <?php foreach (($supplierResearch['rows'] ?? []) as $candidate): ?>
-<tr><td><?= (int)$candidate['customer_item_number'] ?>
-<?php if (($candidate['option_type']??'')==='ALTERNATIVE'): ?><div class="muted">Alternative</div><?php endif;?></td>
-<td><?=aur_escape((string)$candidate['description'])?></td><td>
-<?php if (empty($candidate['sources'])): ?>
-<span class="muted">Manufacturer not yet reliably identified.</span>
+<?php $routes=aur_supplier_contact_routes((string)$candidate['description']); ?>
+<tr>
+<td><?= (int)$candidate['customer_item_number'] ?><?php if (($candidate['option_type']??'')==='ALTERNATIVE'): ?><div class="muted">Alternative</div><?php endif;?></td>
+<td><?=aur_escape((string)$candidate['description'])?></td>
+<td>
+<?php if (!$routes): ?><span class="muted">No supported local route yet. Manufacturer identification or a specialist distributor is needed.</span><?php endif; ?>
+<?php foreach ($routes as $route): $supplier=$routeDirectory[$route['id']]; ?>
+<div style="margin:0 0 18px;padding-bottom:13px;border-bottom:1px solid #e6ece9">
+<b><?=aur_escape($supplier['name'])?></b>
+<div class="muted"><?= $route['grade']==='EXACT_PRODUCT_LISTED' ? 'Exact model shown on supplier website' : 'Category enquiry — exact item not verified' ?></div>
+<div><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a> · <?=aur_escape($supplier['phone'])?></div>
+<div><a href="<?=aur_escape($route['grade']==='EXACT_PRODUCT_LISTED' ? $supplier['exact_url'] : $supplier['url'])?>" target="_blank" rel="noopener noreferrer">Company source ↗</a></div>
+<div class="muted"><?=aur_escape($route['reason'])?></div>
+</div>
+<?php endforeach; ?>
+</td>
+<td>
+<?php if (empty($candidate['sources'])): ?><span class="muted">No confirmed manufacturer/model evidence yet.</span>
 <?php else: foreach ($candidate['sources'] as $lead): ?>
-<div style="margin-bottom:13px">
-<b><?=aur_escape((string)$lead['company'])?></b> <small class="muted"><?=aur_escape((string)$lead['role'])?></small>
-<div><a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$lead['evidence_url'])?>">Open source evidence ↗</a></div>
-<div class="muted"><?=aur_escape((string)($lead['match_quality']??''))?> · availability and authorisation unverified.</div>
-<?php if (!empty($lead['note'])): ?><div class="muted"><?=aur_escape((string)$lead['note'])?></div><?php endif;?>
+<div style="margin-bottom:12px">
+<b><?=aur_escape((string)$lead['company'])?></b>
+<div class="muted"><?=aur_escape((string)($lead['match_quality']??$lead['role']))?></div>
+<a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)$lead['evidence_url'])?>">Product or contact evidence ↗</a>
+<?php if (!empty($lead['note'])): ?><div class="muted"><?=aur_escape((string)$lead['note'])?></div><?php endif; ?>
 </div>
-<?php endforeach; endif;?>
-</td><td>
-<?php foreach (aur_supplier_global_search_links((string)$candidate['description'],aur_supplier_match((string)$candidate['description'])) as $region=>$url): ?>
-<a style="display:inline-block;margin:0 9px 6px 0" target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape($url)?>"><?=aur_escape($region)?> ↗</a>
-<?php endforeach; ?>
-<?php $publicRow=$supplierResearch['global_discovery']['rows'][(string)$candidate['source_row']]??null; ?>
-<?php if (is_array($publicRow) && ($publicRow['version']??'')!==AUR_GLOBAL_DISCOVERY_VERSION) $publicRow=null; // Previously saved unrelated results are not displayed. ?>
-<?php if (is_array($publicRow)): ?>
-<div class="muted"><b><?=aur_escape((string)$publicRow['status'])?></b> · Checked <?=aur_escape((string)$publicRow['checked_at'])?></div>
-<?php foreach (($publicRow['leads']??[]) as $webLead): ?>
-<div style="margin-top:10px">
-<a target="_blank" rel="noopener noreferrer nofollow" href="<?=aur_escape((string)$webLead['source_url'])?>"><?=aur_escape((string)$webLead['page_title'])?> ↗</a>
-<div class="muted"><?=aur_escape((string)$webLead['website'])?> · <?=aur_escape((string)($webLead['match_basis']??'relevance checked'))?> · seller/stock not confirmed</div>
-<?php if (!empty($webLead['snippet'])): ?><div class="muted"><?=aur_escape((string)$webLead['snippet'])?></div><?php endif; ?>
-</div>
-<?php endforeach; ?>
-<?php else: ?><div class="muted">Live discovery not yet run for this entry.</div><?php endif; ?>
-<div class="muted"><?=aur_escape((string)$candidate['status'])?></div>
-</td></tr>
-<?php endforeach;?></tbody></table></div>
-<p class="muted">Search links launch user-directed research. A listed OEM, historical dealer or web-search result is NOT evidence of confirmed stock, approved distribution in the destination, pricing, or lawful export. Every entity and shipment route requires individual screening.</p>
+<?php endforeach; endif; ?>
+</td>
+</tr>
+<?php endforeach; ?></tbody></table></div>
+<p class="muted">Status: research candidates only, 0 confirmed supplier quotations. No quotations sent. Manufacturer/model identity, exact clinical variant, export eligibility, country registration, after-sales service and supplier approval must be checked before a transaction.</p>
 </div>
 <?php else: ?><div class="card"><h2>Supplier identification pending</h2><p>The original procurement case is saved. Supplier matching will be available after the research source module is verified.</p></div><?php endif; ?>
 
@@ -299,5 +302,5 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <?php endif; ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/discover.js"></script>
+
 <?php endif; ?></body></html>
