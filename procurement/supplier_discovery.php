@@ -167,6 +167,65 @@ function aur_supplier_public_rss(string $query): string {
     if ($ok===false || $status!==200 || $body==='') throw new RuntimeException('search_provider_unavailable');
     return $body;
 }
+/**
+ * Second public search source; returns lead URLs, not confirmed stock or exports.
+ * Requests only the fixed lightweight DuckDuckGo search endpoint.
+ */
+function aur_supplier_duckduckgo_parse(string $html,int $limit=9,string $desc='',?array $match=null):array {
+    $leads=[];$seen=[];
+    preg_match_all('~<a\b[^>]*\bhref\s*=\s*(["\x27])(.*?)\1[^>]*>(.*?)</a>~is',$html,$links,PREG_SET_ORDER);
+    foreach($links as $a) {
+        $href=html_entity_decode((string)$a[2],ENT_QUOTES|ENT_HTML5,'UTF-8');
+        $title=trim(preg_replace('/\s+/u',' ',html_entity_decode(strip_tags($a[3]),ENT_QUOTES|ENT_HTML5,'UTF-8'))??'');
+        if($title===''||strlen($title)>260)continue;
+        if(str_starts_with($href,'//'))$href='https:'.$href;
+        if(str_starts_with($href,'/l/'))$href='https://duckduckgo.com'.$href;
+        $url=$href;$parts=parse_url($href);
+        if(is_array($parts)&&in_array(strtolower((string)($parts['host']??'')),['duckduckgo.com','www.duckduckgo.com'],true)) {
+            parse_str((string)($parts['query']??''),$params);
+            $url=is_string($params['uddg']??null)?$params['uddg']:'';
+        }
+        $dest=parse_url($url);$host=strtolower((string)($dest['host']??''));
+        if(!is_array($dest)||($dest['scheme']??'')!=='https'||$host===''
+          ||strlen($url)>1200||!preg_match('/^[a-z0-9.-]+$/D',$host)
+          ||filter_var($host,FILTER_VALIDATE_IP)||isset($seen[$url])
+          ||preg_match('/(^|\.)(?:duckduckgo|bing|google)\.(?:com|net|org)$/',$host))continue;
+        $lead=['page_title'=>$title,'source_url'=>$url,'website'=>$host,'snippet'=>'',
+            'role'=>'PUBLIC_SEARCH_RESULT_UNVERIFIED','availability'=>'NOT_CHECKED',
+            'authorization'=>'NOT_CHECKED','quotation'=>'NOT_RECEIVED','outreach'=>'NOT_SENT'];
+        if($desc!=='') {
+            $basis=aur_supplier_relevance($desc,$match,$lead);
+            if($basis===null)continue;
+            $lead['match_basis']=$basis;
+        }
+        $seen[$url]=true;$leads[]=$lead;
+        if(count($leads)>=$limit)break;
+    }
+    return $leads;
+}
+function aur_supplier_duckduckgo_search(string $query,string $desc='',?array $match=null):array {
+    if(!function_exists('curl_init'))throw new RuntimeException('public_search_http_unavailable');
+    $url='https://lite.duckduckgo.com/lite/?'.http_build_query(['q'=>$query],'','&',PHP_QUERY_RFC3986);
+    $c=curl_init($url);if($c===false)throw new RuntimeException('public_search_http_unavailable');
+    $body='';
+    curl_setopt_array($c,[
+        CURLOPT_RETURNTRANSFER=>false,CURLOPT_FOLLOWLOCATION=>false,
+        CURLOPT_CONNECTTIMEOUT=>2,CURLOPT_TIMEOUT=>5,
+        CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
+        CURLOPT_USERAGENT=>'Mozilla/5.0 (compatible; AURENOEVA supplier research)',
+        CURLOPT_HTTPHEADER=>['Accept: text/html'],
+        CURLOPT_WRITEFUNCTION=>static function($ch,string $chunk)use(&$body):int{
+            if(strlen($body)+strlen($chunk)>180000)return 0;
+            $body.=$chunk;return strlen($chunk);
+        },
+    ]);
+    if(defined('CURLOPT_PROTOCOLS_STR'))curl_setopt($c,CURLOPT_PROTOCOLS_STR,'https');
+    elseif(defined('CURLPROTO_HTTPS'))curl_setopt($c,CURLOPT_PROTOCOLS,CURLPROTO_HTTPS);
+    $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_HTTP_CODE);
+    curl_close($c);
+    if($ok===false||$status!==200||$body==='')throw new RuntimeException('public_search_provider_unavailable');
+    return aur_supplier_duckduckgo_parse($body,9,$desc,$match);
+}
 function aur_supplier_discovery_stats(array $intel): array {
     $rows=$intel['global_discovery']['rows']??[];
     $checked=0;$links=0;
