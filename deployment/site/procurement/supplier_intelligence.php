@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Public official product pages establish potential manufacturer channels only.
  * Zero vendor outreach, zero quote claims, zero sanctions approval.
  */
-const AUR_SUPPLIER_RESEARCH_VERSION = '2026-10-21.2';
+const AUR_SUPPLIER_RESEARCH_VERSION = '2026-10-21.3';
 
 function aur_supplier_rules(): array {
     // Matching is case-insensitive. Specific product names precede family hints.
@@ -113,7 +113,7 @@ function aur_supplier_search_url(string $description,string $country): string {
     $part=function_exists('mb_substr')?mb_substr($description,0,160):substr($description,0,160);
     $text=preg_replace('/[\x00-\x1F\x7F]/u',' ',$part) ?? $part;
     return 'https://www.google.com/search?'.http_build_query(
-        ['q'=>trim($text).' manufacturer distributor medical equipment Uzbekistan '.$country],
+        ['q'=>trim($text).' manufacturer distributor supplier worldwide'],
         '', '&', PHP_QUERY_RFC3986);
 }
 function aur_supplier_match(string $description): ?array {
@@ -207,6 +207,11 @@ function aur_supplier_save(string $store,array $case): array {
         if (is_array($prior) && ($prior['case_source_sha256']??'')===$result['case_source_sha256']
             && ($prior['rule_version']??'')===AUR_SUPPLIER_RESEARCH_VERSION) {
             return $prior;
+        }
+        // Enrichment belongs to the same private case and survives OEM rule revisions.
+        if (is_array($prior) && ($prior['case_source_sha256']??'')===$result['case_source_sha256']
+            && isset($prior['global_discovery']) && is_array($prior['global_discovery'])) {
+            $result['global_discovery']=$prior['global_discovery'];
         }
         $tmp=$dir.'/.new-'.bin2hex(random_bytes(10));
         $json=json_encode($result,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
