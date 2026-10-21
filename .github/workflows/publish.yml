@@ -241,7 +241,9 @@ jobs:
           # full-case worldwide search must ALL be present in the deployable payload.
           grep -q 'id="original-rfq-equipment"' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'id="aur-worldwide-scan-all"' "$RUNNER_TEMP/source/site/procurement/index.php"
-          grep -q 'All saved supplier sources' "$RUNNER_TEMP/source/site/procurement/supplier_portal.php"
+          grep -q 'Consolidated supplier selection' "$RUNNER_TEMP/source/site/procurement/supplier_portal.php"
+          grep -q 'id="aur-vendor-selection-form"' "$RUNNER_TEMP/source/site/procurement/supplier_portal.php"
+          grep -q 'aur_vendor_rfq_expand_vendors' "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
           grep -q 'function aur_worldwide_scan_batch' "$RUNNER_TEMP/source/site/procurement/supplier_worldwide.php"
           test -s "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
           node --check "$RUNNER_TEMP/source/site/procurement/discover.js"
