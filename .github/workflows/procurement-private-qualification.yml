@@ -42,6 +42,7 @@ jobs:
           php -l deployment/site/procurement/index.php
           php -l deployment/site/procurement/private_cases.php
           php -l deployment/site/procurement/setup-cli.php
+          php -l deployment/site/procurement/activate.php
           php tests/test_procurement_hostinger_php.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
           php -l hotfix/v8.2.6.11/catalogue-search.php
