@@ -64,7 +64,9 @@ try {
     check($intel['summary']['equipment_entries']===3,'supplier research omitted case alternatives');
     check($intel['summary']['entries_with_oem_route']===1,'supplier maker matching incorrect');
     check($intel['summary']['supplier_quotes_confirmed']===0 && $intel['outreach_sent']===false,'fake supplier offer or email send');
-    check(str_contains($intel['rows'][0]['sources'][0]['note'],'VET'),'WATO veterinary mismatch safety warning missing');
+    check(count($intel['rows'][0]['sources'])===2, 'local WATO lead not included');
+    check($intel['rows'][0]['sources'][1]['role']==='LOCAL_MARKET_PRODUCT_LISTING_UNVERIFIED_STOCK','unverified supplier lead incorrectly qualified');
+    check(str_contains($intel['rows'][0]['sources'][0]['note'],'Vet'),'WATO veterinary mismatch safety warning missing');
     check($intel['rows'][1]['status']==='IDENTITY_RESEARCH_REQUIRED','alternative incorrectly converted to model');
     check(str_contains($intel['rows'][2]['search_url'],'Uzbekistan'),'fallback discovery query missing');
     $intelAgain=aur_supplier_save($store,$one);
