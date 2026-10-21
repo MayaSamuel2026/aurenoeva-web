@@ -20,6 +20,21 @@ define('AUR_ACTIVATION_TEST_LIBRARY',true);
 require dirname(__DIR__).'/deployment/site/procurement/activate.php';
 try {
     $store=aur_store_root($root.'/public_html');
+    // Hostinger releases may live in builds/<release>/ while public_html
+    // remains the stable website. Credentials must survive release switches.
+    $siteDomain=$root.'/domains/aurenoeva.com';
+    mkdir($siteDomain.'/public_html',0700,true);
+    mkdir($siteDomain.'/builds/release-01/public_html',0700,true);
+    mkdir($siteDomain.'/builds/release-02/public_html',0700,true);
+    $firstReleasePrivate=aur_store_root($siteDomain.'/builds/release-01/public_html');
+    $expectedPrivate=$siteDomain.'/.aurenoeva-private';
+    check($firstReleasePrivate===$expectedPrivate,'release 01 stored credentials beside temporary build');
+    file_put_contents($firstReleasePrivate.'/admin-password.hash','PRESERVE_PRIVATE_CREDENTIAL');
+    $secondReleasePrivate=aur_store_root($siteDomain.'/builds/release-02/public_html');
+    check($secondReleasePrivate===$expectedPrivate,'private root changed with release');
+    check(file_get_contents($secondReleasePrivate.'/admin-password.hash')==='PRESERVE_PRIVATE_CREDENTIAL',
+        'admin credential lost between deployments');
+    echo "AURENOEVA_STABLE_DOMAIN_PRIVATE_STORAGE=PASS\n";
     // Prove default resolution uses the deployed script path, not DOCUMENT_ROOT.
     $isolated=$root.'/public_html/procurement';
     mkdir($isolated,0700,true);
