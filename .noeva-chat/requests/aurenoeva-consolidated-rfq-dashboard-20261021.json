@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-consolidated-rfq-dashboard-20261021",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "b20cbe9ba066dc69042d0af5445b3dded2c644dc",
+  "authorize_release": true
+}
