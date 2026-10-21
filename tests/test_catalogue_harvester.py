@@ -105,6 +105,25 @@ class Tests(unittest.TestCase):
         self.assertEqual(output["new_products"],0)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM vendor_leads").fetchone()[0],2)
 
+    def test_furuno_detail_model_when_h1_is_generic(self):
+        sample=('<html><title>MARINE RADAR FAR-15x8 series | Marine Radar | FURUNO</title>'
+                '<h1>MARINE RADAR</h1></html>')
+        products,_,_=parse_page(sample,
+            "https://www.furuno.com/en/products/radar/far-15x8/index.html",
+            "Furuno","marine","Navigation / instrumentation")
+        self.assertEqual(len(products),1)
+        self.assertIn("FAR-15x8",products[0]["model"])
+        self.assertEqual(products[0]["manufacturer"],"Furuno")
+
+    def test_wartsila_engine_specific_model_and_source(self):
+        sample='<html><title>Wärtsilä 32 marine engine</title><h1>Wärtsilä 32 marine engine</h1></html>'
+        products,_,_=parse_page(sample,
+            "https://www.wartsila.com/marine/products/engines-and-generating-sets/wartsila-32",
+            "Wärtsilä","marine","Engines & propulsion")
+        self.assertEqual(len(products),1)
+        self.assertEqual(products[0]["sector"],"marine")
+        self.assertIn("32",products[0]["model"])
+
     def test_all_six_sources_configured_as_reusable_discovery(self):
         cfg=json.loads((Path(__file__).resolve().parents[1]/
            "config/catalogue_harvester.json").read_text())
