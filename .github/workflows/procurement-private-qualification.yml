@@ -46,6 +46,9 @@ jobs:
           php tests/test_procurement_hostinger_php.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
           php -l hotfix/v8.2.6.11/catalogue-search.php
+          php -l hotfix/v8.2.6.12/catalogue-sync.php
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
+          php hotfix/v8.2.6.12/tests/catalogue_sync_test.php
+          bash -n ops/connect-catalogue-search.sh
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh
