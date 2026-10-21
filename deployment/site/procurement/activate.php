@@ -174,10 +174,10 @@ small{display:block;margin:25px 0;color:#64736b;font-size:12px}.error{padding:12
 </style></head><body>
 <main><div class="wordmark">AURENOEVA</div>
 <h1>Activate private procurement</h1>
-<p>One-time administrator setup. First create <code>aurenoeva-activation-token.txt</code> beside <code>public_html</code> in Hostinger File Manager using Hostinger File Manager. It must contain a unique, unpredictable code of at least 32 characters.</p>
+<p>One-time administrator setup. First create <code>aurenoeva-activation-token.txt</code> beside <code>public_html</code> in Hostinger File Manager. It must contain a unique, unpredictable code of at least 32 characters.</p>
 <?php if ($error!==''):?><p class="error"><?=aur_setup_escape($error)?></p><?php endif;?>
-<form method="post" action="/procurement/activate.php" autocomplete="off">
 <?php if ($formToken!==null): ?>
+<form method="post" action="/procurement/activate.php" autocomplete="off">
 <input type="hidden" name="csrf" value="<?=aur_setup_escape($formToken)?>">
 <label for="code">Private activation code</label>
 <input id="code" name="code" type="password" required autocomplete="off" minlength="32">
