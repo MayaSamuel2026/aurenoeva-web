@@ -443,6 +443,19 @@ def main():
                         db.execute("SELECT sector,COUNT(*) FROM products GROUP BY sector")}
                 last=[dict(row) for row in db.execute(
                     "SELECT * FROM harvest_runs ORDER BY id DESC LIMIT 5")]
+                top_errors=[{"reason":str(row[0]),"urls":int(row[1])} for row in
+                    db.execute("""SELECT substr(last_error,1,100), COUNT(*)
+                      FROM harvest_queue WHERE last_error<>''
+                      GROUP BY substr(last_error,1,100)
+                      ORDER BY COUNT(*) DESC LIMIT 12""")]
+                top_failed_hosts=[{"host":str(row[0]),"urls":int(row[1])} for row in
+                    db.execute("""SELECT
+                         substr(url,instr(url,'//')+2,
+                            CASE WHEN instr(substr(url,instr(url,'//')+2),'/')>0
+                            THEN instr(substr(url,instr(url,'//')+2),'/')-1
+                            ELSE 120 END) AS host,COUNT(*) AS n
+                      FROM harvest_queue WHERE failures>0
+                      GROUP BY host ORDER BY n DESC LIMIT 12""")]
                 print(json.dumps({
                     "products":db.execute("SELECT COUNT(*) FROM products").fetchone()[0],
                     "by_sector":sector,
@@ -450,6 +463,8 @@ def main():
                     "vendors":db.execute("SELECT COUNT(DISTINCT website) FROM vendor_leads").fetchone()[0],
                     "vendor_product_links":db.execute("SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],
                     "retrying_urls":db.execute("SELECT COUNT(*) FROM harvest_queue WHERE failures>0").fetchone()[0],
+                    "top_errors":top_errors,
+                    "top_failed_hosts":top_failed_hosts,
                     "recent_runs":last},ensure_ascii=False))
                 return 0
             try:
