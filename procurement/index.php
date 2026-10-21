@@ -306,7 +306,6 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td><td><a href="?rfq=<?=rawurlencode((string)$case['reference'])?>">Draft</a></td></tr><?php endforeach; ?>
 </tbody></table></div></section>
 <?php endif; ?>
-<?php endif; ?>
 
 <section class="card">
 <h2>Email automation — dummy RFQ test</h2>
@@ -341,6 +340,7 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <button type="submit" name="generate_catalogue_sync" value="1">Generate / rotate catalogue sync key</button></form>
 <?php endif; ?>
 </section>
+<?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js"></script>
