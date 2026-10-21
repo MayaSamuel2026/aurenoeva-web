@@ -62,3 +62,8 @@ jobs:
           bash -n ops/connect-catalogue-search.sh
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh
+          # Guard against a future release omitting the RFQ/source/search modules.
+          for name in supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_portal.php worldwide.js; do
+            grep -q " $name " .github/workflows/publish.yml
+          done
+          grep -q 'id="aur-worldwide-scan-all"' deployment/site/procurement/index.php
