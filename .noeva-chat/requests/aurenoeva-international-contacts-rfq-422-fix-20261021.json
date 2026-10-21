@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-international-contacts-rfq-422-fix-20261021",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "57a9181dde6d5829abf19767582cc2218f2be976",
+  "authorize_release": true
+}
