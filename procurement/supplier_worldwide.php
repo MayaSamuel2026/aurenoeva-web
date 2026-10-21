@@ -29,8 +29,8 @@ function aur_worldwide_fetch(string $url): string {
     curl_setopt_array($c,[
         CURLOPT_RETURNTRANSFER=>false,
         CURLOPT_FOLLOWLOCATION=>false,
-        CURLOPT_CONNECTTIMEOUT=>3,
-        CURLOPT_TIMEOUT=>7,
+        CURLOPT_CONNECTTIMEOUT=>2,
+        CURLOPT_TIMEOUT=>3,
         CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
         CURLOPT_USERAGENT=>'AURENOEVA-Procurement/1.0 (+https://aurenoeva.com)',
         CURLOPT_HTTPHEADER=>['Accept: text/html,application/xhtml+xml'],
@@ -123,35 +123,43 @@ function aur_worldwide_seed_candidates(string $description):array {
     }
     return $out;
 }
+function aur_worldwide_candidate_text(mixed $value,string $fallback=''):string {
+    return is_string($value)||is_int($value)||is_float($value) ? (string)$value : $fallback;
+}
 function aur_worldwide_case_candidates(array $intel,string $rowKey,string $description):array {
     $known=aur_worldwide_seed_candidates($description);
     $latest=$intel['worldwide_research']['rows'][$rowKey]??null;
-    // Preserve saved source links across crawler upgrades, irrespective of version.
-    if(is_array($latest)) {
-        foreach(($latest['vendors']??[]) as $v) if(is_array($v))$known[]=$v;
+    // Research from earlier runs and older crawler versions is permanent evidence.
+    if(is_array($latest) && is_array($latest['vendors']??null)) {
+        foreach($latest['vendors'] as $v) if(is_array($v))$known[]=$v;
     }
-    // Existing global-search results are useful leads even before site verification.
-    foreach(($intel['global_discovery']['rows'][$rowKey]['leads']??[]) as $lead) {
+    $oldLeads=$intel['global_discovery']['rows'][$rowKey]['leads']??[];
+    if(is_array($oldLeads)) foreach($oldLeads as $lead) {
         if(!is_array($lead))continue;
-        $url=(string)($lead['source_url']??'');
+        $url=aur_worldwide_candidate_text($lead['source_url']??null);
         $host=strtolower((string)parse_url($url,PHP_URL_HOST));
-        if(!str_starts_with($url,'https://')||$host==='')continue;
+        if(!preg_match('~^https?://~i',$url)||$host==='')continue;
         $known[]=[
             'id'=>aur_worldwide_vendor_id($host),
-            'name'=>(string)($lead['page_title']??$host),'website'=>$host,
-            'country'=>'Not established','email'=>'','phone'=>'',
+            'name'=>aur_worldwide_candidate_text($lead['page_title']??null,$host),
+            'website'=>$host,'country'=>'Not established','email'=>'','phone'=>'',
             'evidence_url'=>$url,
-            'match_basis'=>(string)($lead['match_basis']??'PUBLIC_SEARCH_RESULT'),
+            'match_basis'=>aur_worldwide_candidate_text($lead['match_basis']??null,'PUBLIC_SEARCH_RESULT'),
             'status'=>'SEARCH_RESULT_NOT_SITE_VERIFIED',
             'authorization'=>'NOT_VERIFIED','availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED'
         ];
     }
-    // Reuse evidence from all previously scanned procurement cases.
-    foreach(($intel['worldwide_vendor_master']??[]) as $vendor) {
+    // Shared catalogue candidates supplement—not replace—case-owned sources.
+    $master=$intel['worldwide_vendor_master']??[];
+    $match=aur_supplier_match($description);
+    if(is_array($master)) foreach($master as $vendor) {
         if(!is_array($vendor))continue;
-        foreach(($vendor['equipment_hints']??[]) as $hint) {
-            $basis=aur_supplier_relevance($description,aur_supplier_match($description),
-                ['page_title'=>(string)$hint,'snippet'=>(string)$hint]);
+        $hints=$vendor['equipment_hints']??[];
+        if(!is_array($hints))continue;
+        foreach($hints as $hint) {
+            if(!is_string($hint)||$hint==='')continue;
+            $basis=aur_supplier_relevance($description,$match,
+                ['page_title'=>$hint,'snippet'=>$hint]);
             if($basis!==null) {
                 $vendor['match_basis']='REUSED_WORLDWIDE_CATALOGUE_'.$basis;
                 $known[]=$vendor;break;
@@ -160,9 +168,26 @@ function aur_worldwide_case_candidates(array $intel,string $rowKey,string $descr
     }
     $result=[];$seen=[];
     foreach($known as $vendor) {
-        $key=strtolower(trim((string)($vendor['email']??''))).'|'.strtolower((string)($vendor['website']??''));
-        if(isset($seen[$key])) continue;
-        $seen[$key]=true;$result[]=$vendor;
+        if(!is_array($vendor))continue;
+        $website=aur_worldwide_candidate_text($vendor['website']??null);
+        $url=aur_worldwide_candidate_text($vendor['evidence_url']??null);
+        $email=aur_worldwide_candidate_text($vendor['email']??null);
+        $name=aur_worldwide_candidate_text($vendor['name']??null,$website);
+        if($name==='' && $website==='')continue;
+        // Keep distinct page URLs even when they belong to the same supplier.
+        $key=strtolower($website.'|'.$email.'|'.$url);
+        if(isset($seen[$key]))continue;
+        $seen[$key]=true;
+        $vendor['id']=aur_worldwide_candidate_text($vendor['id']??null,aur_worldwide_vendor_id($website?:$name));
+        $vendor['name']=$name;
+        $vendor['website']=$website;
+        $vendor['email']=$email;
+        $vendor['phone']=aur_worldwide_candidate_text($vendor['phone']??null);
+        $vendor['country']=aur_worldwide_candidate_text($vendor['country']??null,'Not established');
+        $vendor['match_basis']=aur_worldwide_candidate_text($vendor['match_basis']??null,'RESEARCH_LEAD');
+        $vendor['status']=aur_worldwide_candidate_text($vendor['status']??null,'UNVERIFIED');
+        $vendor['evidence_url']=preg_match('~^https?://~i',$url)?$url:'';
+        $result[]=$vendor;
     }
     return $result;
 }
@@ -224,18 +249,42 @@ function aur_worldwide_attach_master(string $store,array $intel):array {
     return $intel;
 }
 function aur_worldwide_stats(array $intel):array {
-    $rows=$intel['rows']??[];$scanned=0;$contactable=0;$new=0;$names=[];
+    // Statistics must never run a full cross-catalogue match. That expensive
+    // calculation previously made BOTH page rendering and scan responses fail.
+    $rows=is_array($intel['rows']??null)?$intel['rows']:[];
+    $scanned=0;$newUrls=[];$contactable=[];
     foreach($rows as $row) {
+        if(!is_array($row))continue;
         $key=(string)($row['source_row']??'');
-        $r=$intel['worldwide_research']['rows'][$key]??null;
-        if(is_array($r) && !empty($r['checked_at'])) $scanned++;
-        foreach(aur_worldwide_case_candidates($intel,$key,(string)($row['description']??'')) as $v) {
-            if(!empty($v['email'])){$contactable++;$names[$v['id']]=1;}
-            if(str_starts_with((string)$v['id'],'web-'))$new++;
+        $saved=$intel['worldwide_research']['rows'][$key]??null;
+        if(is_array($saved)&&!empty($saved['checked_at']))$scanned++;
+        $vendors=is_array($saved['vendors']??null)?$saved['vendors']:[];
+        foreach($vendors as $v) {
+            if(!is_array($v))continue;
+            $url=aur_worldwide_candidate_text($v['evidence_url']??null);
+            if($url!=='')$newUrls[$url]=true;
+            $mail=aur_worldwide_candidate_text($v['email']??null);
+            $site=aur_worldwide_candidate_text($v['website']??null);
+            if(filter_var($mail,FILTER_VALIDATE_EMAIL))$contactable[$mail.'|'.$site]=true;
+        }
+        $leads=$intel['global_discovery']['rows'][$key]['leads']??[];
+        if(is_array($leads))foreach($leads as $lead) {
+            if(!is_array($lead))continue;
+            $url=aur_worldwide_candidate_text($lead['source_url']??null);
+            if($url!=='')$newUrls[$url]=true;
         }
     }
-    return ['scanned'=>$scanned,'total'=>count($rows),'contactable_routes'=>$contactable,
-            'unique_vendors'=>count($names),'new_source_pages'=>$new];
+    // Known contactable sources in the reusable global catalogue.
+    $master=$intel['worldwide_vendor_master']??[];
+    if(is_array($master))foreach($master as $vendor) {
+        if(!is_array($vendor))continue;
+        $mail=aur_worldwide_candidate_text($vendor['email']??null);
+        $site=aur_worldwide_candidate_text($vendor['website']??null);
+        if(filter_var($mail,FILTER_VALIDATE_EMAIL))$contactable[$mail.'|'.$site]=true;
+    }
+    return ['scanned'=>$scanned,'total'=>count($rows),
+            'contactable_routes'=>count($contactable),
+            'unique_vendors'=>count($contactable),'new_source_pages'=>count($newUrls)];
 }
 function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callable $search=null,?callable $fetch=null):array {
     if($limit<1 || $limit>2)throw new InvalidArgumentException('scan_batch_limit');
@@ -284,7 +333,7 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
                         ];
                     }
                     // Limit page fetches, not lead discovery.
-                    if($i>=3)continue;
+                    if($i>=1)continue; // bounded webpage fetch; retain all search leads
                     try {
                         $html=$fetch ? $fetch($url) : aur_worldwide_fetch($url);
                         $v=aur_worldwide_source_candidate($desc,$match,$candidate,(string)$html,$url);
@@ -325,7 +374,13 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
         $sharedAdded=0;
         try{$sharedAdded=aur_worldwide_master_merge($store,$catalogueObservations);}
         catch(Throwable $e){error_log('AURENOEVA global supplier catalogue: '.get_class($e));}
-        return ['processed'=>$processed,'shared_new_vendors'=>$sharedAdded,'new_vendor_pages'=>$found,'provider_failures'=>$failed,
-                'stats'=>aur_worldwide_stats($intel)];
+        // A presentation/statistics error is not a failed scan or lost evidence.
+        try{$stats=aur_worldwide_stats($intel);}
+        catch(Throwable $e){
+            error_log('AURENOEVA scan stats: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            $stats=['scanned'=>0,'total'=>count($intel['rows']??[]),'contactable_routes'=>0,
+                    'unique_vendors'=>0,'new_source_pages'=>0];
+        }
+        return ['processed'=>$processed,'shared_new_vendors'=>$sharedAdded,'new_vendor_pages'=>$found,'provider_failures'=>$failed,'stats'=>$stats];
     }finally{flock($handle,LOCK_UN);fclose($handle);}
 }

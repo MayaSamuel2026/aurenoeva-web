@@ -1,7 +1,13 @@
 <?php
 declare(strict_types=1);
 if(!defined('AUR_PROCUREMENT_VIEW')){http_response_code(403);exit;}
-$worldStats=aur_worldwide_stats($supplierResearch);
+try {
+    $worldStats=aur_worldwide_stats($supplierResearch);
+} catch(Throwable $e) {
+    error_log('AURENOEVA supplier statistics: '.get_class($e).' '.substr($e->getMessage(),0,120));
+    $worldStats=['scanned'=>0,'total'=>count($supplierResearch['rows']??[]),
+                 'unique_vendors'=>0,'new_source_pages'=>0];
+}
 $routeDirectory=aur_supplier_route_directory();
 $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 ?>
@@ -37,12 +43,18 @@ $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 <div class="scroll"><table>
 <thead><tr><th>Item</th><th>Requested equipment</th><th>Potential worldwide suppliers and contacts</th><th>Manufacturer evidence</th></tr></thead><tbody>
 <?php foreach(($supplierResearch['rows']??[]) as $row):
-  $key=(string)$row['source_row'];
-  $vendors=aur_worldwide_case_candidates($supplierResearch,$key,(string)$row['description']);
+  if(!is_array($row))continue;
+  $key=(string)($row['source_row']??'');
+  try {
+      $vendors=aur_worldwide_case_candidates($supplierResearch,$key,(string)($row['description']??''));
+  } catch(Throwable $e) {
+      error_log('AURENOEVA supplier row: '.get_class($e).' '.substr($e->getMessage(),0,120));
+      $vendors=aur_worldwide_seed_candidates((string)($row['description']??''));
+  }
 ?>
-<tr><td><?= (int)$row['customer_item_number']?><?php if(($row['option_type']??'')==='ALTERNATIVE'):?><div class="muted">Alternative</div><?php endif;?></td>
-<td><?=aur_escape((string)$row['description'])?>
-<div><a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)$row['search_url'])?>">Find more sources worldwide ↗</a></div></td>
+<tr><td><?= (int)($row['customer_item_number']??0)?><?php if(($row['option_type']??'')==='ALTERNATIVE'):?><div class="muted">Alternative</div><?php endif;?></td>
+<td><?=aur_escape((string)($row['description']??''))?>
+<div><a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)($row['search_url']??aur_supplier_search_url((string)($row['description']??''),'UZ')))?>">Find more sources worldwide ↗</a></div></td>
 <td>
 <?php if(!$vendors):?><span class="muted">No supplier discovered yet. Run worldwide search.</span><?php endif;?>
 <?php foreach($vendors as $v): ?>
@@ -63,11 +75,11 @@ $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 <?php endforeach;?>
 </td><td>
 <?php if(empty($row['sources'])):?><span class="muted">Manufacturer identification pending</span><?php endif;?>
-<?php foreach(($row['sources']??[]) as $oem): ?>
-<div style="margin-bottom:12px"><b><?=aur_escape((string)$oem['company'])?></b>
-<div class="muted"><?=aur_escape((string)$oem['match_quality'])?></div>
-<a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)$oem['evidence_url'])?>">Manufacturer evidence ↗</a>
-<?php if(!empty($oem['note'])):?><div class="muted"><?=aur_escape((string)$oem['note'])?></div><?php endif;?>
+<?php foreach((is_array($row['sources']??null)?$row['sources']:[]) as $oem): if(!is_array($oem))continue; ?>
+<div style="margin-bottom:12px"><b><?=aur_escape(aur_worldwide_candidate_text($oem['company']??null))?></b>
+<div class="muted"><?=aur_escape(aur_worldwide_candidate_text($oem['match_quality']??null))?></div>
+<a target="_blank" rel="noopener noreferrer" href="<?=aur_escape(aur_worldwide_candidate_text($oem['evidence_url']??null))?>">Manufacturer evidence ↗</a>
+<?php if(!empty($oem['note'])):?><div class="muted"><?=aur_escape(aur_worldwide_candidate_text($oem['note']??null))?></div><?php endif;?>
 </div>
 <?php endforeach;?>
 </td></tr>
