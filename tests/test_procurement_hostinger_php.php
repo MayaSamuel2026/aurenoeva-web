@@ -28,6 +28,14 @@ try {
     check($probeExit===0 && trim(implode("\\n",$probeOutput))===$store,'CLI/web private root drift');
     $activationToken='AURENOEVA-TEST-CODE-ONLY-'.str_repeat('x',40);
     file_put_contents(dirname($store).'/aurenoeva-activation-token.txt',$activationToken);
+    $signed=aur_setup_form_token($store,1761039000);
+    check(is_string($signed) && aur_setup_verify_form_token($store,$signed,1761039050), 'stateless signed activation token rejected');
+    check(!aur_setup_verify_form_token($store,$signed,1761040901), 'expired activation form accepted');
+    check(!aur_setup_verify_form_token($store,$signed.'modified',1761039050), 'tampered activation form accepted');
+    check(!aur_setup_verify_form_token($store,'',1761039050), 'missing activation token accepted');
+    // Simulate Hostinger PHP requests without a persistent session:
+    // the signed form survives independent requests, but never exposes the owner's secret.
+    check(!str_contains($signed,$activationToken),'private owner code exposed in form');
     check(aur_setup_apply($store,'invalid-token','VeryStrongTestPassword123!','VeryStrongTestPassword123!')==='invalid_activation_code','activation accepted incorrect token');
     check(!is_file($store.'/admin-password.hash'),'credential unexpectedly written');
     check(aur_setup_apply($store,$activationToken,'VeryStrongTestPassword123!','different')==='password_invalid_or_mismatched','mismatch accepted');
