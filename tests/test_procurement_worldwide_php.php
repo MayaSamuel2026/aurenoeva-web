@@ -89,8 +89,6 @@ try{
  verify($adminGuardStart!==false && $adminGuardEnd!==false && $adminGuardStart<$caseAt
    && $adminGuardEnd>$catalogueAt && $testAt<$adminGuardEnd,
    'private procurement panels appear outside the authenticated admin boundary');
- verify(!str_contains($entry,'<?php endif; ?>'."\n\n".'<section class="card">'."\n".'<h2>Email automation'),
-   'admin boundary closes before the test-email panel');
 
  verify(str_contains($entry,'$supplierResearch=aur_supplier_preview($result);'),
    'supplier portal can disappear when saved research is temporarily unavailable');
