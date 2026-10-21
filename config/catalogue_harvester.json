@@ -493,6 +493,203 @@
       "follow_regex": "(?i)^/collinsaerospace/what-we-do/industries/(?:military-and-defense|commercial-aviation)/[a-z0-9/-]+/?$",
       "max_depth": 3,
       "refresh_hours": 72
+    },
+    {
+      "id": "ersaal-industrial-directory",
+      "active": true,
+      "manufacturer": "",
+      "sector": "industrial",
+      "category": "Machine / process equipment",
+      "role": "multibrand_supplier_directory",
+      "seeds": [
+        "https://www.ersaal.de/en/produkte",
+        "https://www.ersaal.de/en/hersteller",
+        "https://www.ersaal.de/en/kategorien",
+        "https://www.ersaal.de/en/kategorien/industrial-components",
+        "https://www.ersaal.de/en/product/pepperl-fuchs-071801"
+      ],
+      "follow_paths": [
+        "/en/produkte",
+        "/en/kategorien/",
+        "/en/hersteller/",
+        "/en/product/"
+      ],
+      "refresh_hours": 96
+    },
+    {
+      "id": "ersaal-drive-technology",
+      "active": true,
+      "manufacturer": "",
+      "sector": "industrial",
+      "category": "Drives / servo / motion",
+      "role": "multibrand_supplier_directory",
+      "seeds": [
+        "https://www.ersaal.de/en/kategorien/drive-technology"
+      ],
+      "follow_paths": [
+        "/en/kategorien/",
+        "/en/product/"
+      ],
+      "refresh_hours": 96
+    },
+    {
+      "id": "ersaal-automation",
+      "active": true,
+      "manufacturer": "",
+      "sector": "industrial",
+      "category": "PLC / control modules",
+      "role": "multibrand_supplier_directory",
+      "seeds": [
+        "https://www.ersaal.de/en/kategorien/automation"
+      ],
+      "follow_paths": [
+        "/en/kategorien/",
+        "/en/product/"
+      ],
+      "refresh_hours": 96
+    },
+    {
+      "id": "ersaal-sensors",
+      "active": true,
+      "manufacturer": "",
+      "sector": "industrial",
+      "category": "Sensors / instrumentation",
+      "role": "multibrand_supplier_directory",
+      "seeds": [
+        "https://www.ersaal.de/en/kategorien/sensors"
+      ],
+      "follow_paths": [
+        "/en/kategorien/",
+        "/en/product/"
+      ],
+      "refresh_hours": 96
+    },
+    {
+      "id": "ersaal-energy-components",
+      "active": true,
+      "manufacturer": "",
+      "sector": "energy",
+      "category": "Switchgear & protection",
+      "role": "multibrand_supplier_directory",
+      "seeds": [
+        "https://www.ersaal.de/en/kategorien/power-distribution",
+        "https://www.ersaal.de/en/kategorien/electrical-engineering"
+      ],
+      "follow_paths": [
+        "/en/kategorien/",
+        "/en/product/"
+      ],
+      "refresh_hours": 96
+    },
+    {
+      "id": "labx-manufacturer-directory",
+      "active": true,
+      "manufacturer": "",
+      "sector": "laboratory",
+      "category": "General laboratory equipment",
+      "role": "multibrand_supplier_directory",
+      "seeds": [
+        "https://www.labx.com/manufacturers",
+        "https://www.labx.com/manufacturers/hettich",
+        "https://www.labx.com/manufacturers/hach-company"
+      ],
+      "follow_paths": [
+        "/manufacturers/",
+        "/manufacturers",
+        "/products/",
+        "/categories/"
+      ],
+      "refresh_hours": 96
+    },
+    {
+      "id": "agilent-all-products",
+      "active": true,
+      "manufacturer": "Agilent",
+      "sector": "laboratory",
+      "category": "General laboratory equipment",
+      "role": "manufacturer",
+      "seeds": [
+        "https://www.agilent.com/en/products",
+        "https://www.agilent.com/en/product/chromatography-columns",
+        "https://www.agilent.com/en/product/hplc-columns"
+      ],
+      "follow_paths": [
+        "/en/product/",
+        "/en/products"
+      ],
+      "refresh_hours": 72
+    },
+    {
+      "id": "phoenix-contact-industrial",
+      "active": true,
+      "manufacturer": "Phoenix Contact",
+      "sector": "industrial",
+      "category": "PLC / control modules",
+      "role": "manufacturer",
+      "seeds": [
+        "https://www.phoenixcontact.com/en-pc/products",
+        "https://www.phoenixcontact.com/en-pc/products/plcs-controllers-and-i-os",
+        "https://www.phoenixcontact.com/en-pc/products/connectors",
+        "https://www.phoenixcontact.com/en-pc/products/terminal-blocks",
+        "https://www.phoenixcontact.com/en-pc/products/pcb-terminal-blocks-and-pcb-connectors"
+      ],
+      "follow_paths": [
+        "/en-pc/products/"
+      ],
+      "refresh_hours": 72
+    },
+    {
+      "id": "phoenix-contact-power",
+      "active": true,
+      "manufacturer": "Phoenix Contact",
+      "sector": "energy",
+      "category": "Power conversion / inverters",
+      "role": "manufacturer",
+      "seeds": [
+        "https://www.phoenixcontact.com/en-pc/products/power-supplies",
+        "https://www.phoenixcontact.com/en-pc/products/distribution-blocks"
+      ],
+      "follow_paths": [
+        "/en-pc/products/"
+      ],
+      "refresh_hours": 72
+    },
+    {
+      "id": "furuno-marine-products",
+      "active": true,
+      "manufacturer": "Furuno",
+      "sector": "marine",
+      "category": "Navigation / instrumentation",
+      "role": "manufacturer",
+      "seeds": [
+        "https://www.furuno.com/en/products/index.html",
+        "https://www.furuno.com/en/products/ais/index.html",
+        "https://www.furuno.com/en/products/compass/index.html",
+        "https://www.furuno.com/en/products/instruments/index.html",
+        "https://www.furuno.com/en/products/multi-display/index.html"
+      ],
+      "follow_paths": [
+        "/en/products/"
+      ],
+      "refresh_hours": 72
+    },
+    {
+      "id": "wartsila-marine-engines",
+      "active": true,
+      "manufacturer": "Wärtsilä",
+      "sector": "marine",
+      "category": "Engines & propulsion",
+      "role": "manufacturer",
+      "seeds": [
+        "https://www.wartsila.com/marine/products/engines-and-generating-sets",
+        "https://www.wartsila.com/marine/products/engines-and-generating-sets/diesel-engines",
+        "https://www.wartsila.com/marine/products/engines-and-generating-sets/wartsila-20",
+        "https://www.wartsila.com/marine/products/engines-and-generating-sets/wartsila-32"
+      ],
+      "follow_paths": [
+        "/marine/products/"
+      ],
+      "refresh_hours": 72
     }
   ]
 }
