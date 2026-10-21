@@ -46,9 +46,19 @@ try{
  $entryHtml=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php');
  $dashboardJs=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/worldwide.js');
  verify(str_contains($entryHtml,'id="aur-draft-progress"')
-   && str_contains($dashboardJs,"task: 'prepare'")
-   && str_contains($dashboardJs,"fetch('/procurement/index.php'"),
-   'dashboard must submit compact RFQ drafts and show in-place errors');
+   && str_contains($entryHtml,'name="vendor_tokens"')
+   && str_contains($entryHtml,'name="prepare_vendor_rfqs"')
+   && str_contains($dashboardJs,"selected.join(',')")
+   && str_contains($dashboardJs,"Do NOT preventDefault")
+   && !str_contains($dashboardJs,"task: 'prepare'"),
+   'RFQ preparation must use ordinary native form POST, not fragile AJAX JSON');
+ $nativeForm='csrf=test&case_ref=AUR-UZ-1234567890ABCDEF&prepare_vendor_rfqs=1&vendor_tokens='.
+    rawurlencode(implode(',',$testTokens));
+ parse_str($nativeForm,$decodedForm);
+ verify(($decodedForm['prepare_vendor_rfqs']??'')==='1'
+   && explode(',',$decodedForm['vendor_tokens']??'')===$testTokens,
+   'Native compact supplier post lost vendor selection');
+
  echo "AURENOEVA_COMPACT_RFQ_PREPARATION=PASS\n";
  // International sources are real published enquiry channels, not invented stock.
  $intl=aur_supplier_international_contacts('Mindray WATO EX-35 anesthesia workstation');
