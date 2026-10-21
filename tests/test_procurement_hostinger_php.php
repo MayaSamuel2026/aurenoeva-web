@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/private_cases.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_intelligence.php';
+require dirname(__DIR__).'/deployment/site/procurement/supplier_discovery.php';
 $root=sys_get_temp_dir().'/aurenoeva-qa-'.bin2hex(random_bytes(6));
 mkdir($root.'/public_html',0700,true);
 // Simulate a web server which supplies an unrelated document root.
@@ -68,7 +69,7 @@ try {
     check($intel['rows'][0]['sources'][1]['role']==='LOCAL_MARKET_PRODUCT_LISTING_UNVERIFIED_STOCK','unverified supplier lead incorrectly qualified');
     check(str_contains($intel['rows'][0]['sources'][0]['note'],'Vet'),'WATO veterinary mismatch safety warning missing');
     check($intel['rows'][1]['status']==='IDENTITY_RESEARCH_REQUIRED','alternative incorrectly converted to model');
-    check(str_contains($intel['rows'][2]['search_url'],'Uzbekistan'),'fallback discovery query missing');
+    check(str_contains($intel['rows'][2]['search_url'],'worldwide') && !str_contains($intel['rows'][2]['search_url'],'Uzbekistan'),'global fallback discovery query missing');
     $intelAgain=aur_supplier_save($store,$one);
     check($intelAgain['compiled_at']===$intel['compiled_at'],'supplier evidence write was not idempotent');
     check(aur_supplier_read($store,$one['reference'],$one['source_sha256'])!==null,'supplier readback failed');
