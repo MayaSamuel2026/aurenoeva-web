@@ -13,6 +13,10 @@ on:
       - 'hotfix/v8.2.6.11/tests/**'
       - 'hotfix/v8.2.6.12/tests/**'
       - 'ops/upgrade-catalogue-sectors.sh'
+      - 'ops/activate-harvester-v4.sh'
+      - 'ops/aurenoeva-catalogue.service'
+      - 'ops/aurenoeva-catalogue.timer'
+      - 'config/catalogue_harvester.json'
       - 'tests/test_procurement_*.py'
       - 'deployment/crm/aurenoeva-v1/import.php'
       - 'deployment/site/procurement/**'
@@ -38,10 +42,10 @@ jobs:
           python3 -m compileall -q tools/procurement_intake.py tools/procurement_rfq.py tools/procurement_inbox.py tools/procurement_case_store.py tools/procurement_sanctions.py tools/procurement_hostinger_worker.py
           python3 -m unittest discover -s tests -p 'test_procurement_*.py' -v
       - name: Catalogue VPS upgrade script syntax
-        run: bash -n ops/upgrade-catalogue-sectors.sh
+        run: bash -n ops/upgrade-catalogue-sectors.sh ops/activate-harvester-v4.sh
       - name: Catalogue crawler and private SSH publisher regression tests
         run: |
-          python3 -m compileall -q tools/catalogue_worker.py tools/catalogue_publish.py
+          python3 -m compileall -q tools/catalogue_worker.py tools/catalogue_harvester.py tools/catalogue_publish.py
           python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
       - name: Configure current PHP with ZIP and XML
         uses: shivammathur/setup-php@v2
