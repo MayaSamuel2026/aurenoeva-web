@@ -100,6 +100,8 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <form method="post" action="/procurement/index.php" id="aur-vendor-selection-form">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<input type="hidden" name="vendor_tokens" id="aur-compact-vendor-tokens" value="">
+<input type="hidden" name="prepare_vendor_rfqs" value="1">
 <p style="display:flex;gap:10px;flex-wrap:wrap">
 <button type="button" id="aur-select-all-vendors" class="ghost">Select all contactable suppliers</button>
 <button type="button" id="aur-clear-vendors" class="ghost">Clear selection</button>
