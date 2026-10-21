@@ -15,6 +15,8 @@ import re
 import subprocess
 import tempfile
 from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 SCHEMA = "aurenoeva-catalogue/1"
 IDENTITY = re.compile(r"^AUR-P-[A-F0-9]{20}$")
@@ -128,6 +130,53 @@ def publish(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     return {"status": "PUBLISHED", "records": count, "sha256": digest}
 
 
+def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
+    """Deliver a sanitized identity-only snapshot to the existing PHP website.
+
+    Pairing requires only one private token created through the website staff
+    administration. No new daemon, SFTP user, database, or paid service.
+    """
+    token_path = Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
+                              "/var/lib/aurenoeva/catalogue-sync-token"))
+    if not token_path.is_file():
+        return {"status": "SKIPPED_UNCONFIGURED", "reason": "Catalogue push key not installed"}
+    if token_path.stat().st_mode & 0o077:
+        raise ValueError("catalogue_push_key_permissions")
+    token = token_path.read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"[a-f0-9]{64}", token):
+        raise ValueError("catalogue_push_key_invalid")
+    # Pin the owner-controlled endpoint rather than accepting an arbitrary URL.
+    url = "https://aurenoeva.com/catalogue-sync.php"
+    payload, count = normalized_snapshot(snapshot)
+    digest = hashlib.sha256(payload).hexdigest()
+    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    receipt = state_dir / "catalogue-pushed.sha256"
+    if receipt.is_file() and receipt.read_text().strip() == digest:
+        return {"status": "UNCHANGED", "records": count, "sha256": digest}
+    request = Request(url, data=payload, method="POST", headers={
+        "Content-Type": "application/json",
+        "User-Agent": "AurenoevaCataloguePublisher/1.0",
+        "X-Aurenoeva-Sync-Token": token,
+    })
+    try:
+        with urlopen(request, timeout=70) as response:
+            if response.status != 200:
+                raise RuntimeError("site_rejected_snapshot")
+            result = json.loads(response.read(16384).decode("utf-8"))
+    except (HTTPError, URLError) as exc:
+        raise RuntimeError("site_catalogue_https_unavailable") from exc
+    if (result.get("ok") is not True
+        or result.get("status") != "PUBLISHED"
+        or result.get("records") != count
+        or result.get("source_sha256") != digest
+        or not re.fullmatch(r"[a-f0-9]{64}", str(result.get("sha256", "")))):
+        raise RuntimeError("site_catalogue_snapshot_readback_failed")
+    temp = receipt.with_suffix(".new")
+    temp.write_text(digest + "\n", encoding="ascii")
+    os.replace(temp, receipt)
+    return {"status": "PUBLISHED", "records": count, "sha256": result["sha256"]}
+
+
 def main() -> int:
     import argparse
     parser = argparse.ArgumentParser()
@@ -135,7 +184,12 @@ def main() -> int:
     parser.add_argument("--state-dir", type=Path, default=Path("/var/lib/aurenoeva"))
     args = parser.parse_args()
     try:
-        result = publish(args.snapshot, args.state_dir, dict(os.environ))
+        env = dict(os.environ)
+        if Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
+                         "/var/lib/aurenoeva/catalogue-sync-token")).is_file():
+            result = publish_https(args.snapshot, args.state_dir, env)
+        else:
+            result = publish(args.snapshot, args.state_dir, env)  # preserve existing SFTP option
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         print(json.dumps({"status": "DELIVERY_FAILED", "reason": str(exc)}))
         return 1
