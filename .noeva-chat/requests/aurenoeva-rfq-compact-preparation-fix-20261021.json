@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-rfq-compact-preparation-fix-20261021",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "af67d2f64911ffd779bdddd0ebfe620fc35a866e",
+  "authorize_release": true
+}
