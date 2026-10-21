@@ -46,6 +46,38 @@ try {
         throw new RuntimeException('sector_filter_not_applied');
     if (count(aur_catalogue_snapshot_search('WATO EX-35') ?? []) !== 1)
         throw new RuntimeException('original_model_lost_during_reconciliation');
+    // The same case-owned worldwide vendor master must absorb new product evidence
+    // without losing email/contact details already discovered by RFQ research.
+    require_once dirname(__DIR__,3) . '/deployment/site/procurement/private_cases.php';
+    require_once dirname(__DIR__,3) . '/deployment/site/procurement/supplier_worldwide.php';
+    $store=$root . '/existing-private';
+    mkdir($store,0700,true);
+    $host='www.garmin.com';
+    $id=aur_worldwide_vendor_id($host);
+    aur_worldwide_master_merge($store,[['vendor'=>[
+        'id'=>$id,'website'=>$host,'name'=>'Known Garmin Contact',
+        'email'=>'published@example.net','phone'=>'+49 123',
+        'status'=>'SOURCE_CHECKED_EMAIL_PUBLISHED','evidence_url'=>'https://www.garmin.com/en-US/p/2001334/'
+    ],'description'=>'marine navigation']]);
+    $enrichment=json_encode(['vendor_leads'=>[
+        ['website'=>'www.garmin.com','evidence_url'=>'https://www.garmin.com/en-US/p/2001334/',
+         'sector'=>'marine','category'=>'Navigation / instrumentation']],
+      'vendor_products'=>[
+        ['website'=>'www.garmin.com','product_id'=>'AUR-P-'.str_repeat('C',20),
+         'source_url'=>'https://www.garmin.com/en-US/p/2001334/',
+         'manufacturer'=>'Garmin','model'=>'GPSMAP 9217xsv',
+         'sector'=>'marine','category'=>'Navigation / instrumentation',
+         'evidence_type'=>'STRUCTURED_PRODUCT','last_seen'=>gmdate('c')]
+      ]]);
+    $v=aur_catalogue_merge_vendor_evidence($store,$enrichment);
+    if($v['product_links']!==1 || $v['vendors_added']!==0)
+        throw new RuntimeException('vendor_products_not_merged_with_prior_master');
+    $master=aur_worldwide_master_read($store);
+    $vendor=$master['vendors'][$id]??[];
+    if (($vendor['email']??'')!=='published@example.net'
+        || !isset($vendor['catalogue_products']['AUR-P-'.str_repeat('C',20)])
+        || !in_array('Garmin GPSMAP 9217xsv',$vendor['equipment_hints']??[],true))
+        throw new RuntimeException('contact_or_crawled_product_lost');
     $saved = file_get_contents($private . '/catalogue-public.json');
     $digest = hash('sha256', $saved);
     try { aur_catalogue_write_snapshot(json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>[]]), $private); }
@@ -55,5 +87,9 @@ try {
     echo "AURENOEVA_CATALOGUE_HTTPS_SYNC_AND_SEARCH=PASS\n";
 } finally {
     @unlink($private . '/catalogue-public.json');
+    @unlink($root . '/existing-private/supplier-intelligence/worldwide-vendors.json');
+    @unlink($root . '/existing-private/supplier-intelligence/.worldwide-vendors.lock');
+    @rmdir($root . '/existing-private/supplier-intelligence');
+    @rmdir($root . '/existing-private');
     @rmdir($web); @rmdir($private); @rmdir($root);
 }
