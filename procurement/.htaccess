@@ -1,6 +1,6 @@
 Options -Indexes
 DirectoryIndex index.php
-<FilesMatch "^(private_cases|setup-cli)\.php$">
+<FilesMatch "^(private_cases|supplier_intelligence|setup-cli)\.php$">
   Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>
