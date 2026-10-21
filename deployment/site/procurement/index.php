@@ -202,7 +202,9 @@ if ($isAdmin) {
                     'reason'=>aur_vendor_rfq_safe_error($e)]);
                 exit;
             }
-            aur_denied(422,'RFQ preparation unsuccessful: choose at least one supplier with a published contact email and check that selected records are still valid');
+            // HTML fallback must retain the case and supplier dashboard,
+            // never replace the whole workspace with a plaintext 422 page.
+            $supplierDiscoveryMessage='RFQ draft not created ('.aur_vendor_rfq_safe_error($e).'). Your original equipment and all supplier leads remain saved. Re-select the intended suppliers or retry after correcting the error.';
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_vendor_rfqs'])) {
         try {
