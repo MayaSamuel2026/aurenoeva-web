@@ -86,7 +86,7 @@ def normalized_snapshot(path: Path) -> tuple[bytes, int]:
         host=str(v.get("website","")).lower()[:250]
         if host != urlsplit(str(v["evidence_url"])).hostname:continue
         leads.append({k:str(v.get(k,""))[:(600 if k=="evidence_url" else 160)]
-                      for k in ("website","evidence_url","sector","category","last_seen")})
+                      for k in ("website","evidence_url","sector","category","last_seen","checked","email","phone")})
     payload = {
         "schema": SCHEMA,
         "items": [records[key] for key in sorted(records)],
@@ -193,6 +193,8 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
             result = json.loads(response.read(16384).decode("utf-8"))
     except (HTTPError, URLError) as exc:
         raise RuntimeError("site_catalogue_https_unavailable") from exc
+    if result.get("vendor_sync") == "RETRY_REQUIRED":
+        raise RuntimeError("vendor_intelligence_sync_retry_required")
     if (result.get("ok") is not True
         or result.get("status") != "PUBLISHED"
         or result.get("records", 0) < count
