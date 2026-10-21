@@ -64,7 +64,7 @@ function aur_catalogue_write_snapshot(string $body, string $directory): array {
         $incoming = '';
         $digest = hash('sha256', $clean);
         if (hash_file('sha256', $target) !== $digest) throw new RuntimeException('snapshot_readback');
-        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$digest];
+        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$digest,'source_sha256'=>hash('sha256', $body)];
     } finally {
         if ($incoming !== '' && is_file($incoming)) @unlink($incoming);
     }
