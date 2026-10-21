@@ -12,6 +12,7 @@ $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]);
 <span class="pill"><b><?= (int)$worldStats['scanned']?> / <?= (int)$worldStats['total']?></b> lines scanned worldwide</span>
 <span class="pill"><b><?= (int)$worldStats['unique_vendors']?></b> contactable vendor identities</span>
 <span class="pill"><b><?= (int)$worldStats['new_source_pages']?></b> additional worldwide research leads</span>
+<span class="pill"><b><?= count($supplierResearch['worldwide_vendor_master']??[])?></b> reusable worldwide catalogue vendors</span>
 <span class="pill"><b><?= (int)$routeStats['exact_product_listings']?></b> exact local model listings</span>
 </p>
 <form id="aur-worldwide-scan-form" method="post" action="/procurement/" style="margin:15px 0">
