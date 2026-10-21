@@ -1,8 +1,86 @@
 {
-  "schema":"aurenoeva-catalogue-sources/1",
-  "sources":[
-    {"id":"mindray-wato-ex35","active":true,"manufacturer":"Mindray","allowed_hosts":["www.mindray.com"],"seeds":["https://www.mindray.com/en/products/anesthesia/wato-ex-35"],"model_hint":"WATO EX-35","refresh_hours":24},
-    {"id":"anthos-units","active":true,"manufacturer":"Anthos","allowed_hosts":["www.anthos.it"],"seeds":["https://www.anthos.it/en/dental-units-listing"],"follow_regex":"^/en/dental-units/[a-z0-9-]+/?$","refresh_hours":48},
-    {"id":"haagstreit-products","active":true,"manufacturer":"Haag-Streit","allowed_hosts":["de.haag-streit.com"],"seeds":["https://de.haag-streit.com/produkte"],"refresh_hours":48}
+  "schema": "aurenoeva-catalogue-sources/1",
+  "sources": [
+    {
+      "id": "mindray-anesthesia",
+      "active": true,
+      "manufacturer": "Mindray",
+      "allowed_hosts": [
+        "www.mindray.com"
+      ],
+      "seeds": [
+        "https://www.mindray.com/en/products/anesthesia",
+        "https://www.mindray.com/en/products/anesthesia/wato-ex-35",
+        "https://www.mindray.com/en/products/anesthesia/a9",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19"
+      ],
+      "model_hints": {
+        "https://www.mindray.com/en/products/anesthesia/wato-ex-35": "WATO EX-35",
+        "https://www.mindray.com/en/products/anesthesia/a9": "A9",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19": "BeneVision N22/N19"
+      },
+      "follow_regex": "^/en/products/(anesthesia|patient-monitoring)/[a-z0-9/\\-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 24
+    },
+    {
+      "id": "anthos-units",
+      "active": true,
+      "manufacturer": "Anthos",
+      "allowed_hosts": [
+        "www.anthos.it"
+      ],
+      "seeds": [
+        "https://www.anthos.it/en/dental-units-listing",
+        "https://www.anthos.it/en/dental-units/a3/",
+        "https://www.anthos.it/en/dental-units/a5/",
+        "https://www.anthos.it/en/dental-units/a6/",
+        "https://www.anthos.it/en/dental-units/a7/",
+        "https://www.anthos.it/en/dental-units/l6/",
+        "https://www.anthos.it/en/dental-units/l9/",
+        "https://www.anthos.it/en/dental-units/r7/",
+        "https://www.anthos.it/en/dental-units/c9/"
+      ],
+      "model_hints": {
+        "https://www.anthos.it/en/dental-units/a3/": "A3",
+        "https://www.anthos.it/en/dental-units/a5/": "A5",
+        "https://www.anthos.it/en/dental-units/a6/": "A6 PLUS",
+        "https://www.anthos.it/en/dental-units/a7/": "A7 PLUS",
+        "https://www.anthos.it/en/dental-units/l6/": "L6",
+        "https://www.anthos.it/en/dental-units/l9/": "L9",
+        "https://www.anthos.it/en/dental-units/r7/": "R7",
+        "https://www.anthos.it/en/dental-units/c9/": "C9"
+      },
+      "follow_regex": "^/en/dental-units/[a-z0-9-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 48
+    },
+    {
+      "id": "haagstreit-products",
+      "active": true,
+      "manufacturer": "Haag-Streit",
+      "allowed_hosts": [
+        "de.haag-streit.com"
+      ],
+      "seeds": [
+        "https://de.haag-streit.com/produkte",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/lenstar-900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/eyestar-900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/myopie-management/lenstar-myopia",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/spaltlampe/bq-900",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/tonometer/applanation-tonometer-at-900-model-bq-bp"
+      ],
+      "model_hints": {
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/lenstar-900": "Lenstar 900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/biometrie/eyestar-900": "Eyestar 900",
+        "https://de.haag-streit.com/produkte/kategorien/fachdiagnostik/myopie-management/lenstar-myopia": "Lenstar Myopia",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/spaltlampe/bq-900": "BQ 900",
+        "https://de.haag-streit.com/produkte/kategorien/allgemeine-diagnostik/tonometer/applanation-tonometer-at-900-model-bq-bp": "AT 900 model BQ"
+      },
+      "follow_regex": "^/produkte/kategorien/(allgemeine-diagnostik|fachdiagnostik)/[^?#]+$",
+      "max_depth": 2,
+      "refresh_hours": 48
+    }
   ]
 }
