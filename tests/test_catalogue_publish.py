@@ -57,6 +57,17 @@ class PublicationTests(unittest.TestCase):
         self.assertNotIn("supplier_private", data.decode())
         self.assertNotIn("stock", json.dumps(parsed["items"]))
 
+    def test_named_official_model_without_digits_is_retained(self):
+        doc=json.loads(self.source.read_text())
+        doc["items"].append({"canonical_id":"AUR-P-"+"C"*20,
+          "manufacturer":"Siemens Healthineers", "model":"MAGNETOM Lumina",
+          "source_ref":"https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-lumina",
+          "last_seen":"2026-10-21T07:40:00Z"})
+        self.source.write_text(json.dumps(doc))
+        data,count=normalized_snapshot(self.source)
+        self.assertEqual(count,2)
+        self.assertIn("MAGNETOM Lumina",data.decode())
+
     def test_no_connection_yet_is_explicit_noop(self):
         self.assertEqual(publish(self.source, self.root, {})["status"], "SKIPPED_UNCONFIGURED")
 
