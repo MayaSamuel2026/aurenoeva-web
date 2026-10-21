@@ -116,6 +116,8 @@ $supplierDiscoveryMessage = null;
 $catalogueSyncToken = null;
 $catalogueSnapshotCount = null;
 $catalogueSnapshotSectors = [];
+$catalogueSnapshotCategories = [];
+$catalogueSnapshotManufacturers = [];
 $catalogueSnapshotUpdated = null;
 $catalogueSnapshotFile = $aurStore . '/catalogue-public.json';
 if ($isAdmin && is_file($catalogueSnapshotFile)) {
@@ -129,6 +131,12 @@ if ($isAdmin && is_file($catalogueSnapshotFile)) {
                 $sector = 'unclassified';
             }
             $catalogueSnapshotSectors[$sector] = ($catalogueSnapshotSectors[$sector] ?? 0) + 1;
+            $category = trim((string)($item['category'] ?? ''));
+            if ($category === '') $category = 'Category not yet classified';
+            $catalogueSnapshotCategories[$sector][$category] =
+                ($catalogueSnapshotCategories[$sector][$category] ?? 0) + 1;
+            $maker = trim((string)($item['manufacturer'] ?? ''));
+            if ($maker !== '') $catalogueSnapshotManufacturers[$maker] = true;
         }
     }
 }
@@ -494,7 +502,7 @@ try {
 <p class="muted">Maximum 20 MB · Customer files and quotations stay private · Duplicate files reuse their existing case.</p></section>
 <section class="card"><h2>Live product catalogue</h2>
 <p>Searchable products in the website's private catalogue: <strong><?= $catalogueSnapshotCount === null ? 'Not synchronized' : (int)$catalogueSnapshotCount ?></strong>.</p>
-<p class="muted">Snapshot updated: <?= aur_escape((string)($catalogueSnapshotUpdated ?? 'not yet synchronized')) ?>. Counts refer to searchable product identities, not stock.</p>
+<p class="muted">Snapshot updated: <?= aur_escape((string)($catalogueSnapshotUpdated ?? 'not yet synchronized')) ?>. Products: <?= (int)($catalogueSnapshotCount ?? 0) ?> · Manufacturers: <?= count($catalogueSnapshotManufacturers) ?>. Counts refer to searchable product identities, not stock.</p>
 <?php if ($catalogueSnapshotCount !== null): ?>
 <table style="width:100%;max-width:500px;border-collapse:collapse">
 <thead><tr><th style="text-align:left">Sector</th><th style="text-align:right">Products</th></tr></thead>
@@ -503,6 +511,17 @@ try {
 <tr><td style="padding:5px 0"><?=aur_escape($sectorName)?></td><td style="text-align:right"><?= (int)($catalogueSnapshotSectors[$sectorKey] ?? 0) ?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
+<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Products by sector and subcategory</summary>
+<table style="width:100%;border-collapse:collapse;margin-top:10px">
+<thead><tr><th style="text-align:left">Sector</th><th style="text-align:left">Category</th><th style="text-align:right">Products</th></tr></thead><tbody>
+<?php foreach ($catalogueSnapshotCategories as $sectorKey=>$categories): ?>
+<?php ksort($categories); foreach ($categories as $categoryName=>$categoryCount): ?>
+<tr><td style="padding:4px 8px 4px 0"><?=aur_escape(ucfirst((string)$sectorKey))?></td>
+<td><?=aur_escape((string)$categoryName)?></td><td style="text-align:right"><?= (int)$categoryCount ?></td></tr>
+<?php endforeach; endforeach; ?>
+</tbody></table>
+<p class="muted">Categories absent from this table have no classified products in the current website snapshot.</p>
+</details>
 <?php endif; ?>
 <p class="muted">Records are preserved across scans. The existing Hostinger crawler updates this catalogue after synchronization; supplier prices and stock remain private.</p>
 <?php if ($catalogueSyncToken !== null): ?>
