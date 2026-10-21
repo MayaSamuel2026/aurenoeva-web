@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         $outcome=$hasCredential
             ? aur_setup_recover($store,(string)($_POST['code'] ?? ''),(string)($_POST['password'] ?? ''),(string)($_POST['confirm'] ?? ''))
             : aur_setup_apply($store,(string)($_POST['code'] ?? ''),(string)($_POST['password'] ?? ''),(string)($_POST['confirm'] ?? ''));
-        if ($outcome!=='activated' && $outcome!=='already_activated') {
+        if ($outcome!=='activated' && $outcome!=='already_activated' && $outcome!=='recovered') {
             $state['fails']=(int)$state['fails']+1;
             @file_put_contents($limitPath,json_encode($state),LOCK_EX);
         }
@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     $error=$outcome==='password_invalid_or_mismatched'
         ? 'Choose matching administrator passwords of at least 16 characters.'
         : ($outcome==='activation_token_missing'
-           ? 'Create aurenoeva-activation-token.txt beside public_html in File Manager first.'
+           ? 'Create activation-token.txt in the .aurenoeva-private folder beside public_html, then refresh this page.'
            : 'Activation was not completed. Check the activation code and private setup file.');
 }
 header('Content-Type: text/html; charset=utf-8');
