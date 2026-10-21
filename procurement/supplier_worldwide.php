@@ -129,6 +129,18 @@ function aur_worldwide_case_candidates(array $intel,string $rowKey,string $descr
     if(is_array($latest) && ($latest['version']??'')===AUR_WORLDWIDE_VERSION) {
         foreach(($latest['vendors']??[]) as $v) $known[]=$v;
     }
+    // Reuse evidence from all previously scanned procurement cases.
+    foreach(($intel['worldwide_vendor_master']??[]) as $vendor) {
+        if(!is_array($vendor))continue;
+        foreach(($vendor['equipment_hints']??[]) as $hint) {
+            $basis=aur_supplier_relevance($description,aur_supplier_match($description),
+                ['page_title'=>(string)$hint,'snippet'=>(string)$hint]);
+            if($basis!==null) {
+                $vendor['match_basis']='REUSED_WORLDWIDE_CATALOGUE_'.$basis;
+                $known[]=$vendor;break;
+            }
+        }
+    }
     $result=[];$seen=[];
     foreach($known as $vendor) {
         $key=strtolower(trim((string)($vendor['email']??''))).'|'.strtolower((string)($vendor['website']??''));
@@ -136,6 +148,63 @@ function aur_worldwide_case_candidates(array $intel,string $rowKey,string $descr
         $seen[$key]=true;$result[]=$vendor;
     }
     return $result;
+}
+/**
+ * Reusable supplier master is a single private JSON file beside case research.
+ * Identified websites can be reused in future cases without another service.
+ */
+function aur_worldwide_master_path(string $store):string {
+    return aur_private_directory($store,'supplier-intelligence').'/worldwide-vendors.json';
+}
+function aur_worldwide_master_read(string $store):array {
+    $path=aur_worldwide_master_path($store);
+    if(!is_file($path))return ['version'=>AUR_WORLDWIDE_VERSION,'vendors'=>[]];
+    $data=json_decode((string)file_get_contents($path),true);
+    return is_array($data) && isset($data['vendors']) && is_array($data['vendors'])
+        ?$data:['version'=>AUR_WORLDWIDE_VERSION,'vendors'=>[]];
+}
+function aur_worldwide_master_merge(string $store,array $observed):int {
+    if(!$observed)return 0;
+    $path=aur_worldwide_master_path($store);
+    $lock=fopen(dirname($path).'/.worldwide-vendors.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('global_vendor_catalogue_lock_unavailable');
+    try{
+        $master=aur_worldwide_master_read($store);
+        $add=0;
+        foreach($observed as $record) {
+            $vendor=$record['vendor'];$description=(string)$record['description'];
+            $id=(string)($vendor['id']??'');
+            if(!preg_match('/^web-[a-f0-9]{16}$/D',$id))continue;
+            if(!isset($master['vendors'][$id])) {
+                $master['vendors'][$id]=$vendor;
+                $master['vendors'][$id]['equipment_hints']=[];
+                $add++;
+            } else {
+                $old=$master['vendors'][$id];
+                // Do not downgrade a previously published contact.
+                if(empty($vendor['email']) && !empty($old['email']))$vendor['email']=$old['email'];
+                if(empty($vendor['phone']) && !empty($old['phone']))$vendor['phone']=$old['phone'];
+                $master['vendors'][$id]=array_merge($old,$vendor);
+            }
+            $description=preg_replace('/[\x00-\x1F\x7F]+/u',' ',$description)??$description;
+            $description=trim(substr($description,0,160));
+            $hints=$master['vendors'][$id]['equipment_hints']??[];
+            if($description!==''&&!in_array($description,$hints,true))$hints[]=$description;
+            $master['vendors'][$id]['equipment_hints']=array_slice($hints,-24);
+            $master['vendors'][$id]['last_seen_at']=gmdate('c');
+        }
+        $master['updated_at']=gmdate('c');
+        $json=json_encode($master,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+        $tmp=dirname($path).'/.vendor-master-'.bin2hex(random_bytes(6));
+        if(file_put_contents($tmp,$json,LOCK_EX)!==strlen($json))throw new RuntimeException('global_vendor_catalogue_write_failed');
+        @chmod($tmp,0600);
+        if(!rename($tmp,$path))throw new RuntimeException('global_vendor_catalogue_commit_failed');
+        return $add;
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+function aur_worldwide_attach_master(string $store,array $intel):array {
+    $intel['worldwide_vendor_master']=aur_worldwide_master_read($store)['vendors'];
+    return $intel;
 }
 function aur_worldwide_stats(array $intel):array {
     $rows=$intel['rows']??[];$scanned=0;$contactable=0;$new=0;$names=[];
@@ -161,7 +230,7 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
         $intel=aur_supplier_read($store,(string)$case['reference'],(string)$case['source_sha256']);
         if(!is_array($intel))throw new RuntimeException('catalogue_case_unavailable');
         if(!isset($intel['worldwide_research']))$intel['worldwide_research']=['rows'=>[]];
-        $processed=0;$found=0;$failed=0;$now=time();
+        $processed=0;$found=0;$failed=0;$now=time();$catalogueObservations=[];
         foreach($intel['rows'] as $row) {
             $key=(string)($row['source_row']??'');$prior=$intel['worldwide_research']['rows'][$key]??null;
             if(is_array($prior)&&($prior['version']??'')===AUR_WORLDWIDE_VERSION
@@ -214,6 +283,7 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
                 'vendors'=>$vendors,
             ];
             if(!$providerOk)$failed++;
+            foreach($vendors as $v)if(($v['status']??'')!=='SEARCH_RESULT_NOT_SITE_VERIFIED')$catalogueObservations[]=['vendor'=>$v,'description'=>$desc];
             $found+=count($vendors);$processed++;
             if($processed>=$limit)break;
         }
@@ -224,7 +294,11 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
             @chmod($tmp,0600);
             if(!rename($tmp,$target))throw new RuntimeException('worldwide_commit_failed');
         }
-        return ['processed'=>$processed,'new_vendor_pages'=>$found,'provider_failures'=>$failed,
+        // Catalogue is best-effort; a master write problem never erases case results.
+        $sharedAdded=0;
+        try{$sharedAdded=aur_worldwide_master_merge($store,$catalogueObservations);}
+        catch(Throwable $e){error_log('AURENOEVA global supplier catalogue: '.get_class($e));}
+        return ['processed'=>$processed,'shared_new_vendors'=>$sharedAdded,'new_vendor_pages'=>$found,'provider_failures'=>$failed,
                 'stats'=>aur_worldwide_stats($intel)];
     }finally{flock($handle,LOCK_UN);fclose($handle);}
 }
