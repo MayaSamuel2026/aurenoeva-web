@@ -53,6 +53,7 @@ try{
  // International sources are real published enquiry channels, not invented stock.
  $intl=aur_supplier_international_contacts('Mindray WATO EX-35 anesthesia workstation');
  $intlCountries=array_unique(array_column($intl,'country'));
+ echo 'AURENOEVA_SOURCE_DIAGNOSTIC='.json_encode(['count'=>count($intl),'countries'=>array_values($intlCountries),'names'=>array_column($intl,'name')],JSON_UNESCAPED_UNICODE)."\n";
  verify(count($intl)>=9 && count($intlCountries)>=6
    && in_array('US',$intlCountries,true) && in_array('DE',$intlCountries,true)
    && in_array('JP',$intlCountries,true) && in_array('AE',$intlCountries,true),
