@@ -497,5 +497,5 @@ try {
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=4"></script>
+<script defer src="/procurement/worldwide.js?v=5"></script>
 <?php endif; ?></body></html>
