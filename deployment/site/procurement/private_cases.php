@@ -13,7 +13,32 @@ function aur_store_root(?string $siteRoot = null): string {
     // DOCUMENT_ROOT can point to a different path under reverse proxies/aliases.
     $docroot = realpath($siteRoot ?? dirname(__DIR__));
     if ($docroot === false || !is_dir($docroot)) throw new RuntimeException('invalid_site_directory');
+    // Hostinger can serve public_html from a symlink into builds/releases.
+    // A private store beside that transient build disappears on redeployment.
+    // Anchor it to the stable domain folder containing public_html instead.
     $base = dirname($docroot);
+    $walk = $docroot;
+    for ($level = 0; $level < 12; $level++) {
+        if (basename($walk) === 'aurenoeva.com' && is_dir($walk . '/public_html')) {
+            $base = $walk;
+            break;
+        }
+        $parent = dirname($walk);
+        if ($parent === $walk) break;
+        $walk = $parent;
+    }
+    // Some installations put releases entirely outside domains/. In that
+    // case, only accept DOCUMENT_ROOT if it actually resolves to this script.
+    if (basename($base) !== 'aurenoeva.com') {
+        $hostDocroot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+        $hostBase = dirname($hostDocroot);
+        if (basename($hostDocroot) === 'public_html'
+            && basename($hostBase) === 'aurenoeva.com'
+            && is_dir($hostBase)
+            && realpath($hostDocroot . '/procurement/private_cases.php') === realpath(__FILE__)) {
+            $base = $hostBase;
+        }
+    }
     $root = $base . '/.aurenoeva-private';
     if (!is_dir($root) && !@mkdir($root, 0700, true)) throw new RuntimeException('private_storage_unavailable');
     $canonical = realpath($root);
