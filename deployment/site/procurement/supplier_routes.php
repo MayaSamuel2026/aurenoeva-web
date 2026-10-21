@@ -41,6 +41,18 @@ function aur_supplier_route_directory(): array {
         'url'=>'https://abform.uz/en/sterilizaczionnoe-oborudovanie/',
         'scope'=>'Sterilization, disinfection, medical diagnostic and rehabilitation equipment; specific models require request.',
       ],
+      'meditech'=>[
+        'name'=>'MediTech Uzbekistan','country'=>'UZ','city'=>'Tashkent',
+        'email'=>'info@meditech.uz','phone'=>'+998 90 925-88-22',
+        'url'=>'https://meditech.uz/product-category/diagnostics-en/?lang=en',
+        'scope'=>'Ophthalmic diagnostic equipment including autorefractors, tonometers and slit lamps; exact Huvitz/Haag-Streit model unverified.',
+      ],
+      'skymed'=>[
+        'name'=>'SkyMed Technologies','country'=>'UZ','city'=>'Tashkent',
+        'email'=>'skymedtechnologiesllc@gmail.com','phone'=>'+998 90 820-55-11',
+        'url'=>'https://en.skymed.uz/ophtalmology',
+        'scope'=>'Published ophthalmology equipment portfolio includes slit lamps, autorefractometers, tonometers and perimeters; exact requested models unverified.',
+      ],
       'medsc'=>[
         'name'=>'Med Service Centre','country'=>'UZ','city'=>'Tashkent',
         'email'=>'info@medsc.uz','phone'=>'+998 94 444 48 85',
@@ -65,6 +77,9 @@ function aur_supplier_contact_routes(string $description): array {
     } elseif (preg_match('/anthos|dental|skema|cattani|vatech|cone.beam|euronda|euroseal|aquadis/ui',$description)) {
         $routes[]=['id'=>'dentaltrading','grade'=>'CATEGORY_ENQUIRY','reason'=>'Uzbekistan dental equipment/sterilization portfolio; exact requested model unconfirmed.'];
         $routes[]=['id'=>'abform','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local medical/dental equipment and sterilization provider; exact make/model unconfirmed.'];
+    } elseif (preg_match('/slit.lamp|ophthalm|huvitz|hrk.1|hnt.1|octopus\\s*600|haag.streit|keratomet|tonomet|perimet|VS.2000/ui',$description)) {
+        $routes[]=['id'=>'meditech','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local ophthalmic diagnostics catalogue: autorefractometers, tonometers and slit lamps; exact requested model unverified.'];
+        $routes[]=['id'=>'skymed','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local ophthalmology equipment supplier with slit lamps, tonometers and perimeter categories.'];
     } elseif (preg_match('/autoclave|steriliz|dry.heat|plasma|CSSD|endoscope washer|drying.*cabinet|SPDS.5/ui',$description)) {
         $routes[]=['id'=>'abform','grade'=>'CATEGORY_ENQUIRY','reason'=>'Uzbekistan sterilization equipment portfolio; for hospital CSSD verify capacity, process and model.'];
     } elseif (preg_match('/drgem|x.ray|radiolog|ultrasound|transducer|1\.5\s*T\s*MRI|\bMRI\b|\bV[68]\b/ui',$description)) {
