@@ -197,8 +197,8 @@ function aur_catalogue_merge_vendor_evidence(string $store,string $body):array {
 if (defined('AUR_CATALOGUE_SYNC_LIBRARY_ONLY')) return;
 
 header('Content-Type: application/json; charset=utf-8');
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    header('Allow: POST');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['POST','GET'], true)) {
+    header('Allow: GET, POST');
     http_response_code(405);
     echo '{"ok":false,"error":"method"}'; exit;
 }
@@ -221,6 +221,42 @@ if (!preg_match('/^[a-f0-9]{64}$/D', $expected)
     || !preg_match('/^[a-f0-9]{64}$/D', $supplied)
     || !hash_equals($expected, hash('sha256', $supplied))) {
     http_response_code(401); echo '{"ok":false,"error":"unauthorized"}'; exit;
+}
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    // Reuse the existing private worldwide vendor master as harvester seeds.
+    // Never expose case details, customers, quotes or supplier contact emails.
+    try {
+        require_once __DIR__ . '/procurement/supplier_worldwide.php';
+        $master=aur_worldwide_master_read($private);
+        $seeds=[];
+        foreach (($master['vendors']??[]) as $v) {
+            if(!is_array($v))continue;
+            $url=(string)($v['evidence_url']??'');
+            if(preg_match('~^https://[a-z0-9.-]+\.[a-z]{2,}/~i',$url)){
+                $seeds[$url]=['url'=>$url,'manufacturer'=>'','sector'=>'','category'=>'',
+                   'source'=>'EXISTING_RFQ_VENDOR_MASTER'];
+            }
+            foreach (($v['catalogue_products']??[]) as $product) {
+                if(!is_array($product))continue;
+                $url=(string)($product['source_url']??'');
+                if(!preg_match('~^https://[a-z0-9.-]+\.[a-z]{2,}/~i',$url))continue;
+                $seeds[$url]=['url'=>$url,
+                   'manufacturer'=>substr((string)($product['manufacturer']??''),0,100),
+                   'sector'=>substr((string)($product['sector']??''),0,30),
+                   'category'=>substr((string)($product['category']??''),0,160),
+                   'source'=>'EXISTING_RFQ_PRODUCT_EVIDENCE'];
+            }
+            if(count($seeds)>=10000)break;
+        }
+        header('Cache-Control: private, no-store');
+        echo json_encode(['ok'=>true,'source'=>'EXISTING_RFQ_VENDOR_MASTER',
+            'seeds'=>array_slice(array_values($seeds),0,10000)],
+            JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    }catch(Throwable $e){
+        error_log('AURENOEVA RFQ seeds unavailable: '.substr($e->getMessage(),0,120));
+        http_response_code(503);echo '{"ok":false,"error":"vendor_seed_unavailable"}';
+    }
+    exit;
 }
 if (!is_dir($private) || !is_writable($private)) {
     http_response_code(503); echo '{"ok":false,"error":"private_storage_unavailable"}'; exit;
