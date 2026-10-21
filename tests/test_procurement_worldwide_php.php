@@ -164,6 +164,57 @@ try{
    'saved global discovery source was hidden');
  echo "AURENOEVA_RESEARCH_PERSISTENCE=PASS\n";
 
+ // International fallback must retain relevant websites without pretending to verify stock.
+ $html='<html><a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fglobalmed.example%2Fproduct">Mindray WATO EX-35 anesthesia equipment supplier</a>'
+   .'<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fcars.example%2Fcar">Car dealership</a></html>';
+ $results=aur_supplier_duckduckgo_parse($html,9,'Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'));
+ verify(count($results)===1 && $results[0]['website']==='globalmed.example',
+   'worldwide fallback failed to parse an international supplier');
+ // Two items, two crawler IDs, one published supplier email: exactly ONE RFQ.
+ $two=$case;
+ $two['payload']['sourcing_lines'][]=['source_row'=>3,'customer_item_number'=>2,
+   'description_original'=>'Mindray WATO EX-35 spare-parts kit','quantity'=>4,'option_type'=>'REQUESTED'];
+ $twoIntel=aur_supplier_preview($two);
+ $twoIntel['worldwide_research']=['rows'=>[
+   '2'=>['vendors'=>[['id'=>'web-aaaaaaaaaaaaaaaa','name'=>'Global Med','country'=>'DE',
+     'website'=>'globalmed.example','email'=>'sales@globalmed.example',
+     'evidence_url'=>'https://globalmed.example/first','status'=>'SOURCE_CHECKED_EMAIL_PUBLISHED']]],
+   '3'=>['vendors'=>[['id'=>'web-bbbbbbbbbbbbbbbb','name'=>'Global Med other product','country'=>'DE',
+     'website'=>'globalmed.example','email'=>'SALES@GLOBALMED.EXAMPLE',
+     'evidence_url'=>'https://globalmed.example/second','status'=>'SOURCE_CHECKED_EMAIL_PUBLISHED']]]
+ ]];
+ $selected=aur_vendor_rfq_expand_vendors($two,$twoIntel,[hash('sha256','sales@globalmed.example')]);
+ verify(count($selected)===2,'supplier selection must cover both items');
+ $combined=aur_vendor_rfq_prepare($store,$two,$twoIntel,$selected);
+ verify(count($combined['messages'])===1 && count($combined['messages'][0]['items'])===2 &&
+   str_contains($combined['messages'][0]['body'],'Quantity: 4') &&
+   str_contains($combined['messages'][0]['body'],'sanctions, embargoes'),
+   'email consolidation or trade restrictions statement missing');
+ $onlyOne=0;
+ $one=aur_vendor_rfq_dispatch($store,$two,$combined['draft_id'],true,
+   static function()use(&$onlyOne):bool{$onlyOne++;return true;});
+ verify($onlyOne===1 && $one['status']==='TRANSPORT_ACCEPTED',
+   'same supplier received duplicate emails');
+ // A large send is chunked but a clicked workflow can resume without duplicates.
+ $bulkIntel=aur_supplier_preview($case);$vendors=[];
+ for($i=1;$i<=5;$i++)$vendors[]=['id'=>'web-'.str_pad((string)$i,16,'a',STR_PAD_LEFT),
+   'name'=>'Vendor '.$i,'country'=>'CA','website'=>'vendor'.$i.'.example',
+   'email'=>'sales'.$i.'@vendor'.$i.'.example',
+   'evidence_url'=>'https://vendor'.$i.'.example/product','status'=>'SOURCE_CHECKED_EMAIL_PUBLISHED'];
+ $bulkIntel['worldwide_research']=['rows'=>['2'=>['vendors'=>$vendors]]];
+ $bulks=array_values(array_filter(array_keys(aur_vendor_rfq_allowed($case,$bulkIntel)),
+   static fn($k)=>str_contains($k,'web-')));
+ $bulkDraft=aur_vendor_rfq_prepare($store,$case,$bulkIntel,$bulks);
+ verify(count($bulkDraft['messages'])===5,'bulk preview must be one email per supplier');
+ $sentCount=0;$mock=static function()use(&$sentCount):bool{$sentCount++;return true;};
+ $first=aur_vendor_rfq_dispatch($store,$case,$bulkDraft['draft_id'],true,$mock);
+ verify($first['status']==='DISPATCHING' && $first['dispatch_progress']['remaining']===2 && $sentCount===3,
+   'first send batch not bounded or not recorded');
+ $second=aur_vendor_rfq_dispatch($store,$case,$bulkDraft['draft_id'],true,$mock);
+ verify($second['status']==='TRANSPORT_ACCEPTED' && $sentCount===5,
+   'resume must send the remaining recipients only');
+ echo "AURENOEVA_GLOBAL_CONSOLIDATED_RFQ=PASS\n";
+
  // Dummy email automation must address only the owner's fixed mailbox,
  // exercise the real RFQ format and never send a duplicate on repeated clicks.
  $testCalls=0;

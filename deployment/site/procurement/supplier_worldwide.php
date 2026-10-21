@@ -308,13 +308,19 @@ function aur_worldwide_scan_batch(string $store,array $case,int $limit=1,?callab
             $foundVendors=[];$providerOk=false;$unverified=[];
             foreach(['Worldwide',$region] as $scope) {
                 $query=$queries[$scope];
+                $results=[];
                 try {
                     $xml=$search ? $search($query) : aur_supplier_public_rss($query);
-                    $results=aur_supplier_feed_parse((string)$xml,10);
-                    $providerOk=true;
+                    $results=aur_supplier_feed_parse((string)$xml,10,$desc,$match);
                 } catch(Throwable $e) {
-                    continue;
+                    // A blocked RSS search must not lose the saved research.
                 }
+                if(!$results && $search===null) {
+                    try{$results=aur_supplier_duckduckgo_search($query,$desc,$match);}
+                    catch(Throwable $e){error_log('AURENOEVA worldwide provider: '.get_class($e));}
+                }
+                if(!$results)continue;
+                $providerOk=true;
                 foreach(array_slice($results,0,9) as $i=>$candidate) {
                     $url=(string)$candidate['source_url'];
                     $domain=(string)parse_url($url,PHP_URL_HOST);

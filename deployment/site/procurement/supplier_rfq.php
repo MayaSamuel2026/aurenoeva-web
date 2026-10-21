@@ -22,6 +22,45 @@ function aur_vendor_rfq_allowed(array $case,array $intel):array {
     }
     return $opts;
 }
+/**
+ * Dashboard selection: a supplier is identified by its normalized published
+ * email, not by transient crawler/vendor IDs or product/source counts.
+ */
+function aur_vendor_rfq_expand_vendors(array $case,array $intel,array $selectedVendors):array {
+    if(count($selectedVendors)>300)throw new InvalidArgumentException('too_many_supplier_selections');
+    $wanted=[];
+    foreach($selectedVendors as $token) {
+        if(!is_string($token)||!preg_match('/^[a-f0-9]{64}$/D',$token))
+            throw new InvalidArgumentException('invalid_supplier_selection');
+        $wanted[$token]=true;
+    }
+    $selected=[];
+    foreach(aur_vendor_rfq_allowed($case,$intel) as $key=>$pair) {
+        $email=strtolower(trim((string)$pair['vendor']['email']));
+        if(isset($wanted[hash('sha256',$email)]))$selected[]=$key;
+    }
+    if($wanted && !$selected)throw new InvalidArgumentException('selected_suppliers_have_no_published_email');
+    return array_values(array_unique($selected));
+}
+function aur_vendor_rfq_list(string $store,array $case):array {
+    $dir=aur_private_directory($store,'supplier-rfqs');
+    $ref=(string)($case['reference']??'');
+    if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref))return [];
+    $drafts=[];
+    foreach(glob($dir.'/'.$ref.'-*.json')?:[] as $path) {
+        if(is_link($path))continue;
+        $id=substr(basename($path),strlen($ref)+1,-5);
+        if(!preg_match('/^[a-f0-9]{24}$/D',$id))continue;
+        try {
+            $draft=aur_vendor_rfq_read($store,$case,$id);
+            $drafts[]=['id'=>$id,'created_at'=>(string)($draft['created_at']??''),
+                'status'=>(string)($draft['status']??'UNKNOWN'),
+                'vendors'=>count($draft['messages']??[])];
+        } catch(Throwable $e) {continue;}
+    }
+    usort($drafts,static fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));
+    return array_slice($drafts,0,100);
+}
 function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     $ref=(string)$case['reference'];
     $name=(string)$vendor['name'];
@@ -41,12 +80,13 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     }
     $body.="Please include in your response:\n";
     $body.="- Manufacturer and exact model/configuration, plus differences if offering an alternative\n";
-    $body.="- Availability and indicative unit price, currency, payment terms and lead time\n";
+    $body.="- Available quantity, itemized UNIT price for EACH numbered equipment item, currency, payment terms and lead time\n";
     $body.="- Shipping/export origin and ability to supply the intended destination (".$country.")\n";
     $body.="- Product registration/certification documentation where applicable\n";
     $body.="- Warranty, installation, commissioning, training and after-sales servicing options\n";
     $body.="- Validity of offer and contact person for technical follow-up\n\n";
-    $body.="This enquiry is non-binding and is not a purchase order. AURENOEVA acts as a disclosed sourcing intermediary; any eventual sale is to be contracted between purchaser and vendor, subject to legal and regulatory checks.\n";
+    $body.="Please confirm the supplier's legal name, registered country, consignee/end-user checks, export origin, and whether any sanctions, embargoes, dual-use controls, licensing or other trade restrictions could affect this request. Do not offer a route that circumvents applicable restrictions.\n\n";
+    $body.="This enquiry is non-binding and is not a purchase order. AURENOEVA acts as a disclosed sourcing intermediary; any eventual sale is to be contracted between purchaser and vendor, subject to applicable sanctions, export-control, product and end-use compliance checks. Acting as intermediary does not remove these obligations.\n";
     $body.="Please quote our reference ".$ref." in your reply.\n\n";
     $body.="Best regards,\nAURENOEVA Procurement\ninfo@aurenoeva.com\nhttps://aurenoeva.com\n";
     return ['vendor_id'=>(string)$vendor['id'],'vendor_name'=>$name,'to'=>(string)$vendor['email'],
@@ -66,14 +106,14 @@ function aur_vendor_rfq_write(string $path,array $data):void {
     if(!rename($tmp,$path))throw new RuntimeException('outbox_commit_failed');
 }
 function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $selected):array {
-    if(count($selected)<1 || count($selected)>44)throw new InvalidArgumentException('select_between_1_and_44_routes');
+    if(count($selected)<1 || count($selected)>1500)throw new InvalidArgumentException('select_between_1_and_1500_routes');
     $allowed=aur_vendor_rfq_allowed($case,$intel);
     $groups=[];$dedup=[];
     foreach($selected as $key) {
         if(!is_string($key) || !isset($allowed[$key]))throw new InvalidArgumentException('unknown_supplier_selection');
         if(isset($dedup[$key]))continue;$dedup[$key]=1;
         $pair=$allowed[$key];$v=$pair['vendor'];
-        $id=$v['id'].'|'.$v['email'];
+        $id=strtolower(trim((string)$v['email']));
         if(!isset($groups[$id]))$groups[$id]=['vendor'=>$v,'rows'=>[]];
         $row=$pair['row'];
         // Source row canonical specification; quantities read from the case, never from POST.
@@ -82,11 +122,13 @@ function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $se
                 $row['quantity']=$source['quantity']??null;break;
             }
         }
-        $groups[$id]['rows'][]=$row;
+        // A supplier selected via two different catalogue URLs gets the
+        // equipment line only once; preserve the source item + quantity.
+        $groups[$id]['rows'][(string)$pair['key']]=$row;
     }
-    if(count($groups)>12)throw new InvalidArgumentException('maximum_12_suppliers_per_batch');
+    if(count($groups)>300)throw new InvalidArgumentException('maximum_300_suppliers_per_batch');
     $messages=[];
-    foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],$g['rows']);
+    foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']));
     $draftId=bin2hex(random_bytes(12));
     $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
         'case_source_sha256'=>$case['source_sha256'],'draft_id'=>$draftId,'created_at'=>gmdate('c'),
@@ -122,22 +164,35 @@ function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):
     ];
     return @mail($to,'=?UTF-8?B?'.base64_encode($subject).'?=', $body,implode("\r\n",$headers),'-f'.$from);
 }
-function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null):array {
+/**
+ * One explicit approval sends the selected, consolidated vendor messages in
+ * short resumable batches. A message is saved IN_FLIGHT before transport, so
+ * a lost HTTP response cannot cause the same recipient to be mailed again.
+ */
+function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
     if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
+    if($batchLimit<1||$batchLimit>5)throw new InvalidArgumentException('invalid_outbox_batch_size');
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     $lock=@fopen($path.'.lock','c');
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
     try{
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
-        if(($draft['status']??'')!=='DRAFT_REVIEW')throw new RuntimeException('draft_already_processed_create_new_draft');
-        // Mark dispatching BEFORE transport, preventing duplicate send after
-        // connection or server failure. Failure gets a traceable uncertain state.
-        $draft['status']='DISPATCHING';
-        $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
-            'statement'=>'I reviewed supplier parties/destination for restrictions and authorize the listed RFQ dispatch.'];
-        aur_vendor_rfq_write($path,$draft);
-        $accepted=0;
+        if(($draft['status']??'')==='DRAFT_REVIEW') {
+            $draft['status']='DISPATCHING';
+            $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
+                'statement'=>'I reviewed supplier identities, destination, intended end use, sanctions/embargoes and export-control requirements before authorizing these non-binding RFQs. No clearance is implied.'];
+            aur_vendor_rfq_write($path,$draft);
+        } elseif(($draft['status']??'')!=='DISPATCHING' || !is_array($draft['approval']??null)) {
+            throw new RuntimeException('draft_already_processed_create_new_draft');
+        }
+        $sentThisRequest=0;
         foreach($draft['messages'] as $i=>$message) {
+            if(($message['status']??'')!=='DRAFT')continue;
+            if($sentThisRequest>=$batchLimit)break;
+            // Persist first. Unknown/failed outcomes never retry automatically.
+            $draft['messages'][$i]['status']='IN_FLIGHT';
+            $draft['messages'][$i]['attempted_at']=gmdate('c');
+            aur_vendor_rfq_write($path,$draft);
             $ok=false;
             try {
                 $ok=$sender ? (bool)$sender($message['to'],$message['subject'],$message['body'])
@@ -145,10 +200,19 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             } catch(Throwable $e) {$ok=false;}
             $draft['messages'][$i]['status']=$ok?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
             $draft['messages'][$i]['sent_at']=$ok?gmdate('c'):null;
-            $accepted+=(int)$ok;
+            $sentThisRequest++;
             aur_vendor_rfq_write($path,$draft);
         }
-        $draft['status']=$accepted===count($draft['messages'])?'TRANSPORT_ACCEPTED':'PARTIAL_OR_FAILED';
+        $remaining=0;$accepted=0;
+        foreach($draft['messages'] as $message) {
+            if(($message['status']??'')==='DRAFT')$remaining++;
+            if(($message['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT')$accepted++;
+        }
+        if($remaining===0) {
+            $draft['status']=$accepted===count($draft['messages'])?'TRANSPORT_ACCEPTED':'PARTIAL_OR_FAILED';
+        }
+        $draft['dispatch_progress']=['accepted'=>$accepted,'remaining'=>$remaining,
+            'total'=>count($draft['messages']),'processed_this_request'=>$sentThisRequest];
         aur_vendor_rfq_write($path,$draft);
         return $draft;
     }finally{flock($lock,LOCK_UN);fclose($lock);}

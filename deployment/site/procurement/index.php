@@ -139,31 +139,55 @@ if ($isAdmin) {
             $supplierDiscoveryMessage='Worldwide research updated: '.(int)$run['processed'].' equipment item.';
         }catch(Throwable $e) {
             error_log('AURENOEVA worldwide discovery: '.get_class($e).' '.substr($e->getMessage(),0,120));
-            aur_denied(503,'worldwide research temporarily unavailable; existing enquiry preserved');
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                http_response_code(503);
+                header('Content-Type: application/json; charset=utf-8');
+                // Error identifiers contain no secrets, pathnames or customer data.
+                echo json_encode(['ok'=>false,'error'=>'scan_unavailable',
+                    'reason'=>preg_match('/^(?:catalogue_lock_unavailable|catalogue_case_unavailable|worldwide_write_failed|worldwide_commit_failed|supplier_research_lock_unavailable|supplier_research_save_failed|supplier_research_commit_failed)$/D',$e->getMessage())?$e->getMessage():'hosting_or_research_error']);
+                exit;
+            }
+            aur_denied(503,'worldwide research temporarily unavailable; original enquiry preserved');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
             $intel=aur_worldwide_attach_master($aurStore,aur_supplier_save($aurStore,$result));
             $selected=$_POST['selected_routes']??[];
-            if(!is_array($selected))throw new InvalidArgumentException('select_published_vendor_contacts');
+            $selectedVendors=$_POST['selected_vendors']??[];
+            if(!is_array($selected)||!is_array($selectedVendors))
+                throw new InvalidArgumentException('select_published_vendor_contacts');
+            $selected=array_values(array_unique(array_merge($selected,
+                aur_vendor_rfq_expand_vendors($result,$intel,$selectedVendors))));
             $draft=aur_vendor_rfq_prepare($aurStore,$result,$intel,$selected);
             header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.$draft['draft_id'],true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ draft: '.get_class($e).' '.substr($e->getMessage(),0,120));
-            aur_denied(422,'RFQ preparation unsuccessful: select suppliers with published email addresses; maximum 12 vendors per batch');
+            aur_denied(422,'RFQ preparation unsuccessful: choose at least one supplier with a published contact email and check that selected records are still valid');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_vendor_rfqs'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
             $draftId=trim((string)($_POST['draft_id']??''));
-            aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
-            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId),true,303);
+            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
+                    'progress'=>$dispatch['dispatch_progress']??null],JSON_THROW_ON_ERROR);
+                exit;
+            }
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#supplier-history',true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ dispatch: '.get_class($e).' '.substr($e->getMessage(),0,120));
-            aur_denied(422,'RFQ dispatch not completed; check previously recorded draft status before trying again');
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                http_response_code(422);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>false,'error'=>'rfq_dispatch_unavailable']);
+                exit;
+            }
+            aur_denied(422,'RFQ dispatch not completed; check saved draft statuses before retrying');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
         try {
@@ -382,5 +406,5 @@ try {
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js"></script>
+<script defer src="/procurement/worldwide.js?v=2"></script>
 <?php endif; ?></body></html>
