@@ -67,7 +67,7 @@ def fetch(url,kind="page"):
     with OPENER.open(Request(url,headers={"User-Agent":AGENT,"Accept":"text/html,application/xhtml+xml,application/xml,text/xml"}),timeout=12) as resp:
         typ=resp.headers.get("Content-Type","")
         if not any(x in typ.lower() for x in ("html","xml","text/")):raise ValueError("nontext_content")
-        limit=5_000_000 if kind in ("sitemap","search") else 1_000_000
+        limit=5_000_000 if kind in ("sitemap","search") else 2_000_000
         raw=resp.read(limit+1)
         if len(raw)>limit:raise ValueError("large_page")
         return raw.decode("utf-8","replace")
@@ -114,6 +114,18 @@ def parse_page(body,url,maker,sector,category):
     for x in p.structured[:20]:
         try:walk(json.loads(x))
         except (ValueError,TypeError,RecursionError):continue
+    # On ERSAAL the seller is not the manufacturer. Extract an exact MPN
+    # only from a product-detail page where the brand and MPN are both
+    # explicitly visible in the title/heading; do not invent ERSAAL as OEM.
+    if (not products and hostof(url) in ("www.ersaal.de","ersaal.de")
+            and urlsplit(url).path.startswith("/en/product/")):
+        mpn=txt(heading,160)
+        m=re.match(r"^(.{2,100}?)\s+(" + re.escape(mpn) + r")(?:\s|$|[|–—])",
+                   title,re.I) if mpn and any(ch.isdigit() for ch in mpn) else None
+        if m:
+            brand=txt(m.group(1).strip(" -|"),100)
+            if brand and brand.casefold() not in GENERIC:
+                products.append((brand,mpn,"SUPPLIER_PART_PAGE"))
     if not products and maker:
         heading=txt(heading or re.split(r"\s+[|–—]\s+|\s+-\s+",title)[0],160)
         if any(c.isdigit() for c in heading):products.append((maker,heading,"ON_PAGE_MODEL"))
@@ -269,6 +281,17 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
     rid=db.execute("INSERT INTO harvest_runs(started) VALUES(?)",(seen,)).lastrowid
     db.commit()
     stats={"processed":0,"new_products":0,"new_urls":0,"vendor_leads":0,"failures":0}
+    # Source-aware traversal lets directories expose their real product/detail
+    # paths; the old hard-coded /product restriction missed /manufacturers
+    # and ERSAAL's /kategorien/ catalogue hierarchy.
+    follow_by_host={}
+    for source in config.get("sources",[]):
+        if not source.get("active",True):continue
+        for seed_url in source.get("seeds",[]):
+            host=hostof(seed_url)
+            follow_by_host.setdefault(host,set()).update(
+                str(p) for p in source.get("follow_paths",[]) if str(p).startswith("/")
+            )
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
@@ -341,13 +364,19 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
                                 continue
                             stats["new_urls"]+=enqueue(db,link,childkind,row["sector"],row["category"],row["maker"],row["depth"]+1)
                     elif kind=="page" and row["depth"]<5:
-                        for link in links[:400]:
+                        prefixes=follow_by_host.get(hostof(url),set())
+                        max_links=1600 if urlsplit(url).path.rstrip("/") in (
+                           "/manufacturers","/en/hersteller","/en/kategorien") else 400
+                        for link in links[:max_links]:
                             dest=urljoin(url,link).split("#")[0]
                             try:public_url(dest)
                             except ValueError:continue
                             if hostof(dest)!=hostof(url):continue
                             path=urlsplit(dest).path.lower()
-                            if not any(s in path for s in ("/product","/item","/catalog","/part","/equipment","/device","/shop","/p/")):continue
+                            default=any(key in path for key in
+                              ("/product","/item","/catalog","/part","/equipment","/device","/shop","/p/"))
+                            if not default and not any(path.startswith(pref.lower()) for pref in prefixes):
+                                continue
                             stats["new_urls"]+=enqueue(db,dest,"page",row["sector"],row["category"],row["maker"],row["depth"]+1)
                     due=stamp(clock()+timedelta(hours=48 if kind in ("search","search_ddg") else 96))
                     db.execute("UPDATE harvest_queue SET due=?,failures=0,last_error='' WHERE url=?",(due,url))
