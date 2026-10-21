@@ -109,7 +109,7 @@
     }
     try {
       for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {
-        const response = await fetch('/procurement/index.php',{
+        const response = await fetch('/procurement/',{
           method:'POST',credentials:'same-origin',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
           body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
