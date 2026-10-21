@@ -169,12 +169,14 @@ function aur_worldwide_case_candidates(array $intel,string $rowKey,string $descr
         // Exact model matching takes priority over approximate category hints.
         $catalogue=is_array($vendor['catalogue_products']??null)?$vendor['catalogue_products']:[];
         $exactProduct=null;
-        $needle=preg_replace('/[^\\p{L}\\p{N}]+/u','',mb_strtolower($description,'UTF-8'))??'';
+        $lower=function_exists('mb_strtolower') ? mb_strtolower($description,'UTF-8') : strtolower($description);
+        $needle=preg_replace('/[^\\p{L}\\p{N}]+/u','',$lower)??'';
         foreach ($catalogue as $record) {
             if (!is_array($record))continue;
             $model=trim((string)($record['model']??''));
             if(strlen($model)<3)continue;
-            $matchModel=preg_replace('/[^\\p{L}\\p{N}]+/u','',mb_strtolower($model,'UTF-8'))??'';
+            $modelLower=function_exists('mb_strtolower') ? mb_strtolower($model,'UTF-8') : strtolower($model);
+            $matchModel=preg_replace('/[^\\p{L}\\p{N}]+/u','',$modelLower)??'';
             if(strlen($matchModel)>=4 && str_contains($needle,$matchModel)) {
                 $exactProduct=$record;break;
             }
@@ -259,6 +261,8 @@ function aur_worldwide_master_merge(string $store,array $observed):int {
                 $old=$master['vendors'][$id];
                 // Do not downgrade a previously published contact.
                 if(empty($vendor['email']) && !empty($old['email']))$vendor['email']=$old['email'];
+                if (($old['status']??'')==='SOURCE_CHECKED_EMAIL_PUBLISHED'
+                    && empty($record['vendor']['email'])) $vendor['status']=$old['status'];
                 if(empty($vendor['phone']) && !empty($old['phone']))$vendor['phone']=$old['phone'];
                 // Search-only evidence cannot downgrade a previously checked site.
                 if (($vendor['status']??'')==='SEARCH_RESULT_NOT_SITE_VERIFIED'
