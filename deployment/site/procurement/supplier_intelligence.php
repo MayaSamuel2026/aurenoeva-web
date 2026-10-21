@@ -74,7 +74,7 @@ function aur_supplier_rules(): array {
        'note'=>'Official model; validate exact SD-9056 configuration.'],
       ['pattern'=>'~\b(euronda|e8\s*24|euroseal|aquadist)\b~iu',
        'name'=>'Euronda','model'=>'E8 / Euroseal equipment set',
-       'quality'=>'OEM_BRAND_ROUTE','url'=>'https://www.euronda.com/',
+       'quality'=>'OEM_BRAND_ROUTE','url'=>'https://prosystem.euronda.com/product/e8/',
        'note'=>'Check separate autoclave, sealing and distilled water components and device generation.'],
       ['pattern'=>'~\b(cattani|three.cylinder|3.cylinder)\b~iu','name'=>'CATTANI',
        'model'=>'3-cylinder 45 L compressor (spec verification)',
@@ -91,7 +91,7 @@ function aur_supplier_rules(): array {
        'note'=>'Product family contact route; check actual device model.'],
       ['pattern'=>'~\b(mediworks|s260s)\b~iu','name'=>'MediWorks',
        'model'=>'S260S slit lamp','quality'=>'OEM_BRAND_ROUTE',
-       'url'=>'https://www.mediworks.biz/',
+       'url'=>'https://www.mediworks.biz/en/product/13',
        'note'=>'Manufacturer named in request; independently confirm current S260S sales/contact.'],
       ['pattern'=>'~\b(erbe|vio\s*3)\b~iu','name'=>'Erbe Elektromedizin',
        'model'=>'VIO 3','quality'=>'OEM_PRODUCT_MODEL',
@@ -104,7 +104,8 @@ function aur_supplier_rules(): array {
 }
 function aur_supplier_search_url(string $description,string $country): string {
     // Human-initiated web research; generating a link does not count as crawl evidence.
-    $text=preg_replace('/[\x00-\x1F\x7F]/u',' ',mb_substr($description,0,160));
+    $part=function_exists('mb_substr')?mb_substr($description,0,160):substr($description,0,160);
+    $text=preg_replace('/[\x00-\x1F\x7F]/u',' ',$part) ?? $part;
     return 'https://www.google.com/search?'.http_build_query(
         ['q'=>trim($text).' manufacturer distributor medical equipment Uzbekistan '.$country],
         '', '&', PHP_QUERY_RFC3986);
