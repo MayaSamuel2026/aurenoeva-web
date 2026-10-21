@@ -27,13 +27,13 @@ try {
     exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($probe).' 2>&1',$probeOutput,$probeExit);
     check($probeExit===0 && trim(implode("\\n",$probeOutput))===$store,'CLI/web private root drift');
     $activationToken='AURENOEVA-TEST-CODE-ONLY-'.str_repeat('x',40);
-    file_put_contents($store.'/activation-token.txt',$activationToken);
+    file_put_contents(dirname($store).'/aurenoeva-activation-token.txt',$activationToken);
     check(aur_setup_apply($store,'invalid-token','VeryStrongTestPassword123!','VeryStrongTestPassword123!')==='invalid_activation_code','activation accepted incorrect token');
     check(!is_file($store.'/admin-password.hash'),'credential unexpectedly written');
     check(aur_setup_apply($store,$activationToken,'VeryStrongTestPassword123!','different')==='password_invalid_or_mismatched','mismatch accepted');
     check(aur_setup_apply($store,$activationToken,'VeryStrongTestPassword123!','VeryStrongTestPassword123!')==='activated','valid activation denied');
     check(password_verify('VeryStrongTestPassword123!',trim((string)file_get_contents($store.'/admin-password.hash'))),'hash verification failed');
-    check(!file_exists($store.'/activation-token.txt'),'one-time secret not consumed');
+    check(!file_exists(dirname($store).'/aurenoeva-activation-token.txt'),'one-time secret not consumed');
     check(aur_setup_apply($store,$activationToken,'AnotherStrongPassword123!','AnotherStrongPassword123!')==='already_activated','re-activation not blocked');
     echo "AURENOEVA_BROWSER_ACTIVATION_PRIVATE=PASS\n";
     $src=csvFile($root,'test.csv');
