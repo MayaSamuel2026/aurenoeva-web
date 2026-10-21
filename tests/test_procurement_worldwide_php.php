@@ -52,6 +52,22 @@ try{
  verify(aur_worldwide_source_candidate('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'),
    ['page_title'=>'Cattle jobs'],'<html><p>Breeding cattle jobs and career</p></html>',
    'https://masterrind.com/jobs')===null,'irrelevant supplier admitted');
+ define('AUR_PROCUREMENT_VIEW',true);
+ $result=$case;
+ $supplierResearch=$research;
+ $rfqPreview=$draft;
+ $csrf='fixture-csrf';
+ $supplierDiscoveryMessage=null;
+ if (!function_exists('aur_escape')) {
+    function aur_escape(string $value):string {return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+ }
+ ob_start();
+ require dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php';
+ $page=(string)ob_get_clean();
+ verify(str_contains($page,'Discover suppliers worldwide for entire case'),'worldwide scan button missing');
+ verify(str_contains($page,'Prepare RFQs for selected suppliers'),'RFQ selection action missing');
+ verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
+ echo "AURENOEVA_WORLDWIDE_UI_RENDER=PASS\n";
  echo "AURENOEVA_WORLDWIDE_RFQ_MOCK=PASS\n";
 } finally{
  $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);
