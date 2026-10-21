@@ -113,7 +113,8 @@ function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?cal
             $key=(string)($row['source_row']??'');
             $prior=$intel['global_discovery']['rows'][$key]??null;
             // Re-enrich every 24h, not on each page reload.
-            if (is_array($prior) && $now-(int)($prior['checked_timestamp']??0)<86400) continue;
+            $cooldown=(is_array($prior) && ($prior['status']??'')==='PROVIDER_UNAVAILABLE')?900:86400;
+            if (is_array($prior) && $now-(int)($prior['checked_timestamp']??0)<$cooldown) continue;
             $desc=(string)($row['description']??'');
             $query=aur_supplier_global_queries($desc,aur_supplier_match($desc))['Worldwide'];
             $leads=[];$status='SEARCHED_NO_MATCH';
