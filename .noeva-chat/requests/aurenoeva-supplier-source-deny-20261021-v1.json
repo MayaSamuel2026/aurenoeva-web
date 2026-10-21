@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-supplier-source-deny-20261021-v1",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "7db774f6eefc1306668f807724216897b65cf2ec",
+  "authorize_release": true
+}
