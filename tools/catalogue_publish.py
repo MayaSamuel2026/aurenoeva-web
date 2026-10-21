@@ -32,13 +32,13 @@ GENERIC = {
 
 
 def normalized_snapshot(path: Path) -> tuple[bytes, int]:
-    if not path.is_file() or path.stat().st_size > 8_000_000:
+    if not path.is_file() or path.stat().st_size > 24_000_000:
         raise ValueError("missing_or_oversized_snapshot")
     raw = json.loads(path.read_text(encoding="utf-8"))
     if raw.get("schema") != SCHEMA or not isinstance(raw.get("items"), list):
         raise ValueError("invalid_snapshot_schema")
     records = {}
-    for value in raw["items"][:40000]:
+    for value in raw["items"][:80000]:
         if not isinstance(value, dict):
             continue
         ident = str(value.get("canonical_id", ""))
