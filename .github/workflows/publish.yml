@@ -215,7 +215,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/source/site/procurement"
-          for name in index.php private_cases.php supplier_intelligence.php supplier_discovery.php supplier-refresh-cli.php setup-cli.php activate.php .htaccess; do
+          for name in index.php private_cases.php supplier_intelligence.php supplier_discovery.php supplier-refresh-cli.php setup-cli.php activate.php discover.js .htaccess; do
             cp "deployment/site/procurement/$name" "$RUNNER_TEMP/source/site/procurement/$name"
           done
           # Preserve the public index.html as default while allowing subdirectory PHP index.
@@ -235,6 +235,8 @@ jobs:
           PY
           grep -q 'href="/procurement/"' "$RUNNER_TEMP/source/site/index.html"
           grep -q 'aur_case_import' "$RUNNER_TEMP/source/site/procurement/index.php"
+          grep -q 'aur-discover-all' "$RUNNER_TEMP/source/site/procurement/index.php"
+          node --check "$RUNNER_TEMP/source/site/procurement/discover.js"
           grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
 
       - name: JavaScript syntax check
