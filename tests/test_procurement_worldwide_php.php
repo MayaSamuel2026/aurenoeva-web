@@ -50,6 +50,46 @@ try{
    && str_contains($dashboardJs,"fetch('/procurement/index.php'"),
    'dashboard must submit compact RFQ drafts and show in-place errors');
  echo "AURENOEVA_COMPACT_RFQ_PREPARATION=PASS\n";
+ // International sources are real published enquiry channels, not invented stock.
+ $intl=aur_supplier_international_contacts('Mindray WATO EX-35 anesthesia workstation');
+ $intlCountries=array_unique(array_column($intl,'country'));
+ verify(count($intl)>=9 && count($intlCountries)>=6
+   && in_array('US',$intlCountries,true) && in_array('DE',$intlCountries,true)
+   && in_array('JP',$intlCountries,true) && in_array('AE',$intlCountries,true),
+   'worldwide source-backed contacts missing or Uzbekistan-only');
+ $expandedSeeds=aur_worldwide_seed_candidates('Mindray WATO EX-35 anesthesia workstation');
+ verify(count(array_filter($expandedSeeds,static fn($v):bool=>
+    ($v['country']??'')!=='UZ' && ($v['status']??'')==='PUBLISHED_CONTACT_RESEARCH_CANDIDATE'))>=9,
+    'international published contacts missing from RFQ-selectable seeds');
+ // Actual 44-item multi-vendor case: prepare a single saved draft with all
+ // selectable contacts, grouping every matching equipment line by recipient.
+ $case44=$case;$case44['payload']['sourcing_lines']=[];
+ for($i=1;$i<=44;$i++){
+    $case44['payload']['sourcing_lines'][]=[
+      'source_row'=>$i+1,'customer_item_number'=>$i,'quantity'=>($i%3)+1,
+      'description_original'=>$i%2?'Mindray WATO EX-35 anesthesia workstation':'Hospital operating-room equipment',
+      'option_type'=>'REQUESTED'];
+ }
+ $fortyFourIntl=aur_supplier_preview($case44);
+ $allAllowed=aur_vendor_rfq_allowed($case44,$fortyFourIntl);
+ $vendorTokens=[];
+ foreach($allAllowed as $route){
+    $email=strtolower(trim((string)($route['vendor']['email']??'')));
+    if(filter_var($email,FILTER_VALIDATE_EMAIL))$vendorTokens[hash('sha256',$email)]=true;
+ }
+ verify(count($vendorTokens)>=10,'global supplier dashboard has insufficient contact coverage');
+ $selections=aur_vendor_rfq_expand_vendors($case44,$fortyFourIntl,array_keys($vendorTokens));
+ verify(count($selections)>44,'multi-item countrywide selection failed to expand to equipment lines');
+ $mixedDraft=aur_vendor_rfq_prepare($store,$case44,$fortyFourIntl,$selections);
+ verify(count($mixedDraft['messages'])===count($vendorTokens),'one email per contactable vendor failed across 44 lines');
+ foreach($mixedDraft['messages'] as $m) {
+    $sourceRows=array_column($m['items'],'source_row');
+    verify(count($sourceRows)===count(array_unique($sourceRows)),
+      'repeat supplier contact produced duplicate equipment rows');
+    verify(str_contains($m['body'],'sanctions, embargoes'),'compliance language missing from vendor RFQ');
+ }
+ echo "AURENOEVA_44_LINE_INTERNATIONAL_RFQ=PASS\n";
+
  $research=aur_supplier_save($store,$case);
  $routes=aur_vendor_rfq_allowed($case,$research);
  verify(isset($routes['2~seed-intermed']),'published WATO contact not selectable');

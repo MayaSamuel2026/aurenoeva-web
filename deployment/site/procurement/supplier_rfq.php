@@ -6,12 +6,34 @@ declare(strict_types=1);
  * No bulk emailing search results, arbitrary addresses, automatic outreach
  * on scan, or claim of legal/stock/authorization clearance.
  */
+
+function aur_vendor_rfq_safe_error(Throwable $e):string {
+    // Return an actionable error code without file paths or customer data.
+    $allowed=[
+      'selected_suppliers_have_no_published_email','unknown_supplier_selection',
+      'invalid_supplier_selection','too_many_supplier_selections',
+      'select_between_1_and_1500_routes','maximum_300_suppliers_per_batch',
+      'outbox_write_failed','outbox_commit_failed',
+      'supplier_research_lock_unavailable','supplier_research_save_failed',
+      'supplier_research_commit_failed','invalid_dashboard_vendor_selection',
+      'private_directory_unavailable','rfq_send_lock_unavailable'
+    ];
+    return in_array($e->getMessage(),$allowed,true)?$e->getMessage() :
+      ($e instanceof InvalidArgumentException?'invalid_supplier_selection':'private_rfq_storage_or_research_error');
+}
 function aur_vendor_rfq_allowed(array $case,array $intel):array {
     $opts=[];
     foreach(($intel['rows']??[]) as $row) {
         $key=(string)($row['source_row']??'');
         $description=(string)($row['description']??'');
-        foreach(aur_worldwide_case_candidates($intel,$key,$description) as $v) {
+        // Mirror the dashboard fallback: a malformed historical crawl record
+        // cannot make a visible, source-backed supplier impossible to select.
+        try{$vendors=aur_worldwide_case_candidates($intel,$key,$description);}
+        catch(Throwable $e){
+            error_log('AURENOEVA vendor selection fallback: '.get_class($e));
+            $vendors=aur_worldwide_seed_candidates($description);
+        }
+        foreach($vendors as $v) {
             if(empty($v['email'])||filter_var($v['email'],FILTER_VALIDATE_EMAIL)===false)continue;
             // Only a published supplier email (known directory or extracted from
             // the fetched source) may be used for an automated send.

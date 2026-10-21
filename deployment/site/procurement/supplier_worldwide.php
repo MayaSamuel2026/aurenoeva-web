@@ -121,6 +121,18 @@ function aur_worldwide_seed_candidates(string $description):array {
             'authorization'=>'NOT_VERIFIED','availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED',
         ];
     }
+    // Independent worldwide OEM/export/trader contacts remain available even
+    // when external search providers fail or the shared crawler queue is down.
+    foreach(aur_supplier_international_contacts($description) as $route) {
+        $out[]=[
+            'id'=>$route['id'],'name'=>$route['name'],'website'=>(string)parse_url($route['url'],PHP_URL_HOST),
+            'country'=>$route['country'],'email'=>$route['email'],'phone'=>$route['phone'],
+            'evidence_url'=>$route['url'],'match_basis'=>$route['grade'],
+            'status'=>'PUBLISHED_CONTACT_RESEARCH_CANDIDATE',
+            'authorization'=>'NOT_VERIFIED','availability'=>'NOT_VERIFIED',
+            'quotation'=>'NOT_RECEIVED',
+        ];
+    }
     return $out;
 }
 function aur_worldwide_candidate_text(mixed $value,string $fallback=''):string {
