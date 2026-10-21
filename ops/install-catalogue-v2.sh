@@ -19,13 +19,13 @@ PY
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/tools" "$WORK/tests" "$WORK/config" "$WORK/ops"
-BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/f24e3eb8404e722d33638f78c407082eb5556306
-for file in tools/catalogue_worker.py tests/test_catalogue_worker.py config/catalogue_sources.json ops/aurenoeva-catalogue.service; do
+BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/1a97b6a06050899e6f35b90c4831b8a9552cd55d
+for file in tools/catalogue_worker.py tools/catalogue_publish.py tests/test_catalogue_worker.py tests/test_catalogue_publish.py config/catalogue_sources.json ops/aurenoeva-catalogue.service; do
   curl -fsSL --retry 2 --connect-timeout 10 --max-time 45 "$BASE/$file" -o "$WORK/$file"
 done
 python3 -m py_compile "$WORK/tools/catalogue_worker.py"
 python3 -m json.tool "$WORK/config/catalogue_sources.json" >/dev/null
-(cd "$WORK" && python3 -m unittest discover -s tests -p test_catalogue_worker.py -v)
+(cd "$WORK" && python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v)
 # Keep original service/database and a rollback copy of each modified file.
 BACKUP=".pre-v3-$(date -u +%Y%m%d%H%M%S)"
 cp -a "$ROOT/tools/catalogue_worker.py" "$ROOT/tools/catalogue_worker.py$BACKUP"
@@ -39,6 +39,7 @@ with sqlite3.connect(sys.argv[2]) as backup:
 source.close()
 PY
 install -m 644 "$WORK/tools/catalogue_worker.py" "$ROOT/tools/catalogue_worker.py"
+install -m 644 "$WORK/tools/catalogue_publish.py" "$ROOT/tools/catalogue_publish.py"
 install -m 644 "$WORK/config/catalogue_sources.json" "$ROOT/config/catalogue_sources.json"
 install -m 644 "$WORK/ops/aurenoeva-catalogue.service" "$UNIT"
 mkdir -p /etc/systemd/system/aurenoeva-catalogue.service.d
