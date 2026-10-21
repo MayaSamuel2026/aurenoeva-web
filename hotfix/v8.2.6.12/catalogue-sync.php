@@ -38,6 +38,8 @@ function aur_catalogue_clean_snapshot(string $body): array {
             'canonical_id' => $id,
             'manufacturer' => $manufacturer,
             'model' => $model,
+            'sector' => in_array((string)($p['sector'] ?? ''), ['laboratory','test','medical','industrial','energy','marine','aviation'], true) ? (string)$p['sector'] : '',
+            'category' => substr(trim((string)($p['category'] ?? '')), 0, 160),
             'description' => substr(trim((string)($p['description'] ?? '')), 0, 240),
             'source_ref' => $source,
             'last_seen' => substr(trim((string)($p['last_seen'] ?? '')), 0, 40),
@@ -54,6 +56,38 @@ function aur_catalogue_clean_snapshot(string $body): array {
 function aur_catalogue_write_snapshot(string $body, string $directory): array {
     [$clean, $count] = aur_catalogue_clean_snapshot($body);
     $target = $directory . '/catalogue-public.json';
+    // Reconcile with the last published snapshot: missing items in a later scan
+    // must not silently erase previously known product identities.
+    if (is_file($target)) {
+        $old = @file_get_contents($target);
+        if (is_string($old) && $old !== '') {
+            try {
+                [$previous] = aur_catalogue_clean_snapshot($old);
+                $currentData = json_decode($clean, true, 512, JSON_THROW_ON_ERROR);
+                $previousData = json_decode($previous, true, 512, JSON_THROW_ON_ERROR);
+                $byId = [];
+                foreach ($previousData['items'] as $item) $byId[$item['canonical_id']] = $item;
+                foreach ($currentData['items'] as $item) {
+                    $id = $item['canonical_id'];
+                    if (isset($byId[$id])) {
+                        foreach (['sector','category'] as $field) {
+                            if ($item[$field] === '' && $byId[$id][$field] !== '') {
+                                $item[$field] = $byId[$id][$field];
+                            }
+                        }
+                    }
+                    $byId[$id] = $item;
+                }
+                $clean = json_encode(['schema'=>'aurenoeva-catalogue/1',
+                    'items'=>array_values($byId),
+                    'availability_notice'=>'Product identity only; no supplier stock or price is implied.'],
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $count = count($byId);
+            } catch (Throwable $ignoreCorruptedPrevious) {
+                // Do not let a corrupt prior snapshot block replacement with validated input.
+            }
+        }
+    }
     $incoming = tempnam($directory, '.catalogue-incoming-');
     if ($incoming === false) throw new RuntimeException('snapshot_temp_unavailable');
     try {
