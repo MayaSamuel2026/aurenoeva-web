@@ -12,14 +12,21 @@
         "https://www.mindray.com/en/products/anesthesia",
         "https://www.mindray.com/en/products/anesthesia/wato-ex-35",
         "https://www.mindray.com/en/products/anesthesia/a9",
-        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19"
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19",
+        "https://www.mindray.com/en/products/ventilators",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n17-n15-n12",
+        "https://www.mindray.com/en/products/patient-monitoring/telemetry-monitoring/benevision-tm80",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n1"
       ],
       "model_hints": {
         "https://www.mindray.com/en/products/anesthesia/wato-ex-35": "WATO EX-35",
         "https://www.mindray.com/en/products/anesthesia/a9": "A9",
-        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19": "BeneVision N22/N19"
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n22-n19": "BeneVision N22/N19",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n17-n15-n12": "BeneVision N17/N15/N12",
+        "https://www.mindray.com/en/products/patient-monitoring/telemetry-monitoring/benevision-tm80": "BeneVision TM80",
+        "https://www.mindray.com/en/products/patient-monitoring/continuous-patient-monitoring/benevision-n1": "BeneVision N1"
       },
-      "follow_regex": "^/en/products/(anesthesia|patient-monitoring)/[a-z0-9/\\-]+/?$",
+      "follow_regex": "^/en/products/(anesthesia|patient-monitoring|ventilators)/[a-z0-9/\\-]+/?$",
       "max_depth": 2,
       "refresh_hours": 24
     },
@@ -106,6 +113,146 @@
       "follow_regex": "^/en_uk/Products/[A-Za-z0-9-]+/?$",
       "max_depth": 1,
       "refresh_hours": 48
+    },
+    {
+      "id": "philips-professional",
+      "active": true,
+      "manufacturer": "Philips",
+      "allowed_hosts": [
+        "www.usa.philips.com"
+      ],
+      "seeds": [
+        "https://www.usa.philips.com/healthcare/product/HC867030/intellivue-x3-patient-monitor",
+        "https://www.usa.philips.com/healthcare/product/HC866062/intellivue-monitors-intellivue-monitors---mx450",
+        "https://www.usa.philips.com/healthcare/product/HC865024/intellivue-mp5-portable-patient-monitor",
+        "https://www.usa.philips.com/healthcare/product/867313/patientmonitor6300867313intellivuepatientmonitor6300",
+        "https://www.usa.philips.com/healthcare/product/867315/patient-monitor-6500-867315-intellivue-patient-monitor-6500"
+      ],
+      "follow_regex": "^/healthcare/product/[^?#]+$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.usa.philips.com/healthcare/sitemaps/products-sitemap.xml"
+      ],
+      "max_sitemap_urls": 2000
+    },
+    {
+      "id": "ifm-sensors",
+      "active": true,
+      "manufacturer": "ifm",
+      "allowed_hosts": [
+        "www.ifm.com"
+      ],
+      "seeds": [
+        "https://www.ifm.com/us/en/product/PN7094",
+        "https://www.ifm.com/us/en/product/TA2435"
+      ],
+      "follow_regex": "^/us/en/product/[a-zA-Z0-9_-]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.ifm.com/us/en/sitemap.xml"
+      ],
+      "max_sitemap_urls": 4000,
+      "model_hints": {
+        "https://www.ifm.com/us/en/product/PN7094": "PN7094",
+        "https://www.ifm.com/us/en/product/TA2435": "TA2435"
+      }
+    },
+    {
+      "id": "siemens-healthineers-mri",
+      "active": true,
+      "manufacturer": "Siemens Healthineers",
+      "allowed_hosts": [
+        "www.siemens-healthineers.com"
+      ],
+      "seeds": [
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/0-35-to-1-5t-mri-scanner/magnetom-sempra",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-cima-x",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-lumina"
+      ],
+      "follow_regex": "^/en-us/magnetic-resonance-imaging/(?:[a-z0-9-]+/)*[a-z0-9-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.siemens-healthineers.com/sitemap-index.xml"
+      ],
+      "sitemap_index_regex": "(?i)(en-us|magnetic|product|us).*sitemap|sitemap.*(us|product|magnetic)",
+      "max_sitemap_urls": 1000,
+      "model_hints": {
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/0-35-to-1-5t-mri-scanner/magnetom-sempra": "MAGNETOM Sempra",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-cima-x": "MAGNETOM Cima.X",
+        "https://www.siemens-healthineers.com/en-us/magnetic-resonance-imaging/3t-mri-scanner/magnetom-lumina": "MAGNETOM Lumina"
+      }
+    },
+    {
+      "id": "festo-components",
+      "active": true,
+      "manufacturer": "Festo",
+      "allowed_hosts": [
+        "www.festo.com"
+      ],
+      "seeds": [
+        "https://www.festo.com/gb/en/a/19217",
+        "https://www.festo.com/gb/en/a/559301",
+        "https://www.festo.com/gb/en/a/5211898",
+        "https://www.festo.com/gb/en/a/196050"
+      ],
+      "follow_regex": "^/gb/en/a/[0-9]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72
+    },
+    {
+      "id": "phoenix-contact-components",
+      "active": true,
+      "manufacturer": "Phoenix Contact",
+      "allowed_hosts": [
+        "www.phoenixcontact.com"
+      ],
+      "seeds": [
+        "https://www.phoenixcontact.com/en-us/products/power-supplies/power-supplies-with-maximum-functionality",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-quint4-ps1ac5dc5pt-2904595",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-quint4-ps1ac48dc10-2908939",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-unit-quint4-ps-3ac-48dc-20-2904627",
+        "https://www.phoenixcontact.com/en-us/products/power-supply-quint4-ps-3ac-24dc-40-co-1783052"
+      ],
+      "follow_regex": "^/en-us/products/[a-z0-9-]+(?:\\?[^#]+)?/?$",
+      "max_depth": 2,
+      "refresh_hours": 72
+    },
+    {
+      "id": "ge-healthcare-ultrasound",
+      "active": true,
+      "manufacturer": "GE HealthCare",
+      "allowed_hosts": [
+        "www.gehealthcare.com",
+        "store.gehealthcare.com"
+      ],
+      "seeds": [
+        "https://www.gehealthcare.com/en/products/ultrasound/logiq",
+        "https://store.gehealthcare.com/en/products/ultrasound/logiq/logiq-e10"
+      ],
+      "follow_regex": "^/en/products/ultrasound/(?:[a-z0-9-]+/)*[a-z0-9-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72
+    },
+    {
+      "id": "schneider-industrial",
+      "active": true,
+      "manufacturer": "Schneider Electric",
+      "allowed_hosts": [
+        "shop.se.com"
+      ],
+      "seeds": [
+        "https://shop.se.com/pro/us/en/product/iec-contactor-tesys-deca-nonreversing-9a-5hp-at-480vac-up-to-100ka-sccr-3-phase-3-no-low-consumption-24vdc-coil/"
+      ],
+      "follow_regex": "^/pro/us/en/product/[a-z0-9-]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "model_hints": {
+        "https://shop.se.com/pro/us/en/product/iec-contactor-tesys-deca-nonreversing-9a-5hp-at-480vac-up-to-100ka-sccr-3-phase-3-no-low-consumption-24vdc-coil/": "LC1D09BL"
+      }
     }
   ]
 }
