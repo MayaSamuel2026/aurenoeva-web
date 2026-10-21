@@ -19,7 +19,7 @@ PY
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/tools" "$WORK/tests" "$WORK/config" "$WORK/ops"
-BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/1a97b6a06050899e6f35b90c4831b8a9552cd55d
+BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/466fe9f1460fb236cc5a856010128287e03c9a88
 for file in tools/catalogue_worker.py tools/catalogue_publish.py tests/test_catalogue_worker.py tests/test_catalogue_publish.py config/catalogue_sources.json ops/aurenoeva-catalogue.service; do
   curl -fsSL --retry 2 --connect-timeout 10 --max-time 45 "$BASE/$file" -o "$WORK/$file"
 done
