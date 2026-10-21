@@ -1,0 +1,9 @@
+{
+  "schema": "noeva-chat-github-gateway/1.0",
+  "request_id": "aurenoeva-supplier-intelligence-oem-uz-20261021-a",
+  "repository": "MayaSamuel2026/aurenoeva-web",
+  "action": "dispatch",
+  "route": "aurenoeva-release",
+  "source_sha": "3f191d797d11921bd8ad1319449385868a079334",
+  "authorize_release": true
+}
