@@ -189,6 +189,7 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 </header>
 <?php if (!$isAdmin): ?>
 <h1>Staff access</h1><p>Private procurement cases and customer source documents.</p>
+<p class="muted">Secure access updated 21 October 2026 · Your existing administrator password remains valid.</p>
 <div class="card" style="max-width:460px"><h2>Sign in</h2>
 <?php if ($error): ?><p role="alert"><?=aur_escape($error)?></p><?php endif; ?>
 <form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><label>Administrator password<input type="password" name="password" autocomplete="current-password" required></label>
