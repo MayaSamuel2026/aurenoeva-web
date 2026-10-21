@@ -101,8 +101,24 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
 }
 
 $result = null;
+$catalogueSyncToken = null;
+$catalogueSnapshotCount = null;
+$catalogueSnapshotFile = $aurStore . '/catalogue-public.json';
+if ($isAdmin && is_file($catalogueSnapshotFile)) {
+    $catalogueSnapshot = json_decode((string)@file_get_contents($catalogueSnapshotFile), true);
+    if (is_array($catalogueSnapshot) && isset($catalogueSnapshot['items']) && is_array($catalogueSnapshot['items'])) {
+        $catalogueSnapshotCount = count($catalogueSnapshot['items']);
+    }
+}
 if ($isAdmin) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['customer_file'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_catalogue_sync'])) {
+        $catalogueSyncToken = bin2hex(random_bytes(32));
+        $credentialFile = $aurStore . '/catalogue-sync-token.sha256';
+        if (file_put_contents($credentialFile, hash('sha256', $catalogueSyncToken) . "\n", LOCK_EX) === false) {
+            aur_denied(503, 'catalogue synchronization credential could not be stored');
+        }
+        @chmod($credentialFile, 0600);
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['customer_file'])) {
         $file = $_FILES['customer_file'];
         $size = (int)($file['size'] ?? 0);
         $country = strtoupper(trim((string)($_POST['country'] ?? '')));
@@ -160,6 +176,18 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <label>Customer sourcing list<input name="customer_file" type="file" accept=".xlsx,.csv" required></label>
 <button type="submit">Create procurement case</button></form>
 <p class="muted">Maximum 20 MB · Customer files and quotations stay private · Duplicate files reuse their existing case.</p></section>
+<section class="card"><h2>Live product catalogue</h2>
+<p>Searchable products in the website's private catalogue: <strong><?= $catalogueSnapshotCount === null ? 'Not synchronized' : (int)$catalogueSnapshotCount ?></strong>.</p>
+<p class="muted">Products are automatically updated by the existing Hostinger crawler after HTTPS synchronization is connected. No supplier prices or inventory claims are published.</p>
+<?php if ($catalogueSyncToken !== null): ?>
+<p><strong>New sync key (shown only once):</strong></p>
+<p><code style="display:block;overflow-wrap:anywhere;background:#eef3f1;padding:12px;border-radius:8px"><?=aur_escape($catalogueSyncToken)?></code></p>
+<p class="muted">Copy this key into the VPS setup terminal. Do not send it in chat, email or GitHub. Generating another key invalidates the previous one.</p>
+<?php else: ?>
+<form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<button type="submit" name="generate_catalogue_sync" value="1">Generate / rotate catalogue sync key</button></form>
+<?php endif; ?>
+</section>
 <?php if (is_array($result) && isset($result['reference'])): ?>
 <section class="card"><span class="pill">Saved · verified database readback</span><h2 style="margin-top:16px">Case <?=aur_escape((string)$result['reference'])?></h2>
 <p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·
