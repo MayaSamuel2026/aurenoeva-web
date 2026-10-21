@@ -41,6 +41,12 @@ function aur_supplier_route_directory(): array {
         'url'=>'https://abform.uz/en/sterilizaczionnoe-oborudovanie/',
         'scope'=>'Sterilization, disinfection, medical diagnostic and rehabilitation equipment; specific models require request.',
       ],
+      'medsc'=>[
+        'name'=>'Med Service Centre','country'=>'UZ','city'=>'Tashkent',
+        'email'=>'info@medsc.uz','phone'=>'+998 94 444 48 85',
+        'url'=>'https://medsc.uz/catalog/manufacturer/pentax-medical',
+        'scope'=>'Uzbekistan medical-equipment integrator with published PENTAX Medical endoscopy listing, operating-room and sterilization portfolios; exact CP-1000/VNL9-CP not confirmed.',
+      ],
       'deltamax'=>[
         'name'=>'DeltaMaxGroup','country'=>'UZ','city'=>'Tashkent',
         'email'=>'info@deltamaxgroup.uz','phone'=>'+998 94 867 60 27',
@@ -65,13 +71,14 @@ function aur_supplier_contact_routes(string $description): array {
         $routes[]=['id'=>'diatech','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local MRI/radiology/ultrasound supplier and installation channel; requested OEM not established.'];
         $routes[]=['id'=>'medsyst','grade'=>'CATEGORY_ENQUIRY','reason'=>'Medical imaging/diagnostics portfolio; requested model requires enquiry.'];
     } elseif (preg_match('/endoscop|cysto|pentax|nasopharyng|heinemann|\bENT\b|\bUORL\b|\bUE.3000\b|ds\.vision/ui',$description)) {
+        $routes[]=['id'=>'medsc','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local PENTAX Medical endoscopy supplier catalogue; specific ENT processor and scope require enquiry.'];
         $routes[]=['id'=>'diatech','grade'=>'CATEGORY_ENQUIRY','reason'=>'Supplier lists flexible endoscopy; verify endoscope/ENT scope and exact model.'];
-        $routes[]=['id'=>'intermed','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local catalogue lists endoscopy and ENT equipment categories; exact model unverified.'];
     } elseif (preg_match('/anesthes|anaesthes|ventilat|savina|defibrillat|umed|monitor.defibrillat/ui',$description)) {
         $routes[]=['id'=>'intermed','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local anesthesia, ventilation and defibrillation equipment portfolio.'];
         $routes[]=['id'=>'deltamax','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local anesthesia/ICU systems; verify requested configuration.'];
     } elseif (preg_match('/coagulat|electrosurg|ligasure|valleylab|rf.magic|surg 150/ui',$description)) {
         $routes[]=['id'=>'intermed','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local coagulator and surgical-equipment category; manufacturer/model not confirmed.'];
+        $routes[]=['id'=>'medsc','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local operating-room equipment catalogue, exact model not confirmed.'];
     } elseif (preg_match('/therapy|magnetic|polyus|spiro|neuron|EEG|EMG/ui',$description)) {
         $routes[]=['id'=>'abform','grade'=>'CATEGORY_ENQUIRY','reason'=>'Local diagnostics/physiotherapy portfolio; verify requested specification.'];
         $routes[]=['id'=>'medsyst','grade'=>'CATEGORY_ENQUIRY','reason'=>'Clinical diagnostic systems sourcing enquiry, exact manufacturer not listed.'];
