@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * One-time Hostinger File Manager activation: no SSH, public token, PHP shell,
  * hardcoded password, or new backend. Requires a private setup secret supplied
- * by the website owner in .aurenoeva-private/activation-token.txt.
+ * by the website owner beside public_html in aurenoeva-activation-token.txt.
  */
 header('Cache-Control: private, no-store, max-age=0');
 header('Pragma: no-cache');
@@ -26,7 +26,7 @@ function aur_setup_apply(string $store, string $suppliedToken, string $password,
     // The file is created via the owner's authenticated Hostinger File Manager,
     // outside the public webroot. No hardcoded or guessable bootstrap secrets.
     $hashFile=$store.'/admin-password.hash';
-    $tokenFile=$store.'/activation-token.txt';
+    $tokenFile=dirname($store).'/aurenoeva-activation-token.txt';
     $lockFile=$store.'/activation.lock';
     if (is_link($hashFile) || is_link($tokenFile) || is_link($lockFile)) {
         throw new RuntimeException('invalid_private_file');
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     $error=$outcome==='password_invalid_or_mismatched'
         ? 'Choose matching administrator passwords of at least 16 characters.'
         : ($outcome==='activation_token_missing'
-           ? 'Create activation-token.txt in the private site folder first.'
+           ? 'Create aurenoeva-activation-token.txt beside public_html in File Manager first.'
            : 'Activation was not completed. Check the activation code and private setup file.');
 }
 header('Content-Type: text/html; charset=utf-8');
@@ -148,7 +148,7 @@ small{display:block;margin:25px 0;color:#64736b;font-size:12px}.error{padding:12
 </style></head><body>
 <main><div class="wordmark">AURENOEVA</div>
 <h1>Activate private procurement</h1>
-<p>One-time administrator setup. First create <code>activation-token.txt</code> in the private AURENOEVA hosting directory using Hostinger File Manager. It must contain a unique, unpredictable code of at least 32 characters.</p>
+<p>One-time administrator setup. First create <code>aurenoeva-activation-token.txt</code> beside <code>public_html</code> in Hostinger File Manager using Hostinger File Manager. It must contain a unique, unpredictable code of at least 32 characters.</p>
 <?php if ($error!==''):?><p class="error"><?=aur_setup_escape($error)?></p><?php endif;?>
 <form method="post" action="/procurement/activate.php" autocomplete="off">
 <input type="hidden" name="csrf" value="<?=aur_setup_escape((string)$_SESSION['csrf'])?>">
