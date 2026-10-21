@@ -29,6 +29,24 @@ try {
     $found = aur_catalogue_snapshot_search('WATO EX-35');
     if (!is_array($found) || count($found) !== 1 || $found[0]['model'] !== 'WATO EX-35')
         throw new RuntimeException('website_search_readback_failed');
+    // A later smaller scan keeps previously published product identities.
+    $next = ['schema'=>'aurenoeva-catalogue/1','items'=>[
+        ['canonical_id'=>'AUR-P-'.str_repeat('C',20), 'manufacturer'=>'Garmin',
+         'model'=>'GPSMAP 9217xsv', 'sector'=>'marine',
+         'category'=>'Navigation / instrumentation',
+         'source_ref'=>'https://www.garmin.com/en-US/p/2001334/']
+    ]];
+    $reconciled = aur_catalogue_write_snapshot(json_encode($next), $private);
+    if (($reconciled['records'] ?? 0) !== 2)
+        throw new RuntimeException('historical_products_not_preserved');
+    $marine = aur_catalogue_snapshot_search('GPSMAP 9217xsv', 8, 'marine', 'Navigation / instrumentation');
+    if (count($marine ?? []) !== 1 || $marine[0]['sector'] !== 'marine')
+        throw new RuntimeException('marine_category_search_failed');
+    if (aur_catalogue_snapshot_search('GPSMAP 9217xsv', 8, 'medical', 'Diagnostic equipment') !== [])
+        throw new RuntimeException('sector_filter_not_applied');
+    if (count(aur_catalogue_snapshot_search('WATO EX-35') ?? []) !== 1)
+        throw new RuntimeException('original_model_lost_during_reconciliation');
+    $saved = file_get_contents($private . '/catalogue-public.json');
     $digest = hash('sha256', $saved);
     try { aur_catalogue_write_snapshot(json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>[]]), $private); }
     catch (RuntimeException $e) { /* Expected: preserve last good */ }
