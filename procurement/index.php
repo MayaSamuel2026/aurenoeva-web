@@ -25,6 +25,8 @@ require_once __DIR__ . '/private_cases.php';
 require_once __DIR__ . '/supplier_intelligence.php';
 require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
+require_once __DIR__ . '/supplier_worldwide.php';
+require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/staff_auth.php';
 try {
     $aurStore = aur_store_root();
@@ -115,6 +117,45 @@ if ($isAdmin) {
             aur_denied(503, 'catalogue synchronization credential could not be stored');
         }
         @chmod($credentialFile, 0600);
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['scan_worldwide'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $run=aur_worldwide_scan_batch($aurStore,$result,1);
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>true,'processed'=>$run['processed'],'new_vendor_pages'=>$run['new_vendor_pages'],
+                    'provider_failures'=>$run['provider_failures'],'stats'=>$run['stats']],JSON_THROW_ON_ERROR);
+                exit;
+            }
+            $supplierDiscoveryMessage='Worldwide research updated: '.(int)$run['processed'].' equipment item.';
+        }catch(Throwable $e) {
+            error_log('AURENOEVA worldwide discovery: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            aur_denied(503,'worldwide research temporarily unavailable; existing enquiry preserved');
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $intel=aur_supplier_save($aurStore,$result);
+            $selected=$_POST['selected_routes']??[];
+            if(!is_array($selected))throw new InvalidArgumentException('select_published_vendor_contacts');
+            $draft=aur_vendor_rfq_prepare($aurStore,$result,$intel,$selected);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.$draft['draft_id'],true,303);
+            exit;
+        }catch(Throwable $e){
+            error_log('AURENOEVA RFQ draft: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            aur_denied(422,'RFQ preparation unsuccessful: select suppliers with published email addresses; maximum 12 vendors per batch');
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_vendor_rfqs'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $draftId=trim((string)($_POST['draft_id']??''));
+            aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId),true,303);
+            exit;
+        }catch(Throwable $e){
+            error_log('AURENOEVA RFQ dispatch: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            aur_denied(422,'RFQ dispatch not completed; check previously recorded draft status before trying again');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
         try {
             $caseRef=trim((string)($_POST['case_ref']??''));
@@ -162,9 +203,13 @@ if ($isAdmin) {
 // Supplier intelligence is a derived, private view of the same authoritative
 // case, automatically refreshed on import and on authenticated case opening.
 $supplierResearch=null;
+$rfqPreview=null;
 if ($isAdmin && is_array($result) && isset($result['reference'])) {
     try {
         $supplierResearch=aur_supplier_save($aurStore,$result);
+        if(isset($_GET['draft']) && is_string($_GET['draft'])) {
+            $rfqPreview=aur_vendor_rfq_read($aurStore,$result,(string)$_GET['draft']);
+        }
     } catch (Throwable $e) {
         error_log('AURENOEVA private supplier research: '.get_class($e));
     }
@@ -225,63 +270,7 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <?php if (is_array($supplierResearch)): ?>
-<div style="border-top:1px solid #e1e7e4;margin-top:24px;padding-top:23px">
-<h2>Supplier intelligence — contactable manufacturers and distributors</h2>
-<p>Practical sourcing channels for the existing private case. This list uses publicly documented company contact pages and equipment portfolios — not generic web-search links. Each route names a company that can be asked about the item. <strong>Category enquiry does not confirm the exact model, stock, supply rights, servicing or price.</strong></p>
-<?php $routeDirectory=aur_supplier_route_directory(); $routeStats=aur_supplier_route_stats($supplierResearch['rows']??[]); ?>
-<p>
-<span class="pill"><b><?= (int)$routeStats['contactable_companies']?></b> Uzbekistan supplier contact channels</span>
-<span class="pill"><b><?= (int)$routeStats['entries_with_contacts']?> / <?= (int)$routeStats['total']?></b> entries with category or product enquiry routes</span>
-<span class="pill"><b><?= (int)$routeStats['exact_product_listings']?></b> exact local product listings</span>
-<span class="pill"><b><?= (int)$supplierResearch['summary']['entries_with_oem_route']?></b> OEM identification routes</span>
-</p>
-<p class="muted">Research sources <?=aur_escape(AUR_SUPPLIER_ROUTE_VERSION)?>. Old Bing search snippets are no longer used as suppliers. We have retained the previously saved customer case, RFQ and research files. No supplier has been contacted automatically.</p>
-<section style="padding:16px 0;border-top:1px solid #dae4e0;border-bottom:1px solid #dae4e0">
-<h2>Uzbekistan supplier directory — real contact details</h2>
-<div class="scroll"><table><thead><tr><th>Company</th><th>Contact</th><th>Evidence and scope</th></tr></thead><tbody>
-<?php foreach ($routeDirectory as $supplier): ?>
-<tr>
-<td><b><?=aur_escape($supplier['name'])?></b><div class="muted"><?=aur_escape($supplier['city'])?>, <?=aur_escape($supplier['country'])?></div></td>
-<td><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a><div><?=aur_escape($supplier['phone'])?></div></td>
-<td><a href="<?=aur_escape($supplier['url'])?>" target="_blank" rel="noopener noreferrer">Published company evidence ↗</a><div class="muted"><?=aur_escape($supplier['scope'])?></div></td>
-</tr>
-<?php endforeach; ?></tbody></table></div>
-</section>
-<h2 style="margin-top:28px">Equipment-by-equipment sourcing shortlist</h2>
-<p class="muted">Contact the listed channel to ask for the exact model, destination-country installation/service, regulatory documentation, lead time and quotation. All proposed suppliers must be screened before any actual RFQ is sent.</p>
-<div class="scroll"><table><thead><tr><th style="width:5%">Item</th><th style="width:30%">Equipment requested</th><th style="width:31%">Contactable Uzbekistan suppliers</th><th style="width:34%">Manufacturer / model evidence</th></tr></thead><tbody>
-<?php foreach (($supplierResearch['rows'] ?? []) as $candidate): ?>
-<?php $routes=aur_supplier_contact_routes((string)$candidate['description']); ?>
-<tr>
-<td><?= (int)$candidate['customer_item_number'] ?><?php if (($candidate['option_type']??'')==='ALTERNATIVE'): ?><div class="muted">Alternative</div><?php endif;?></td>
-<td><?=aur_escape((string)$candidate['description'])?></td>
-<td>
-<?php if (!$routes): ?><span class="muted">No supported local route yet. Manufacturer identification or a specialist distributor is needed.</span><?php endif; ?>
-<?php foreach ($routes as $route): $supplier=$routeDirectory[$route['id']]; ?>
-<div style="margin:0 0 18px;padding-bottom:13px;border-bottom:1px solid #e6ece9">
-<b><?=aur_escape($supplier['name'])?></b>
-<div class="muted"><?= $route['grade']==='EXACT_PRODUCT_LISTED' ? 'Exact model shown on supplier website' : 'Category enquiry — exact item not verified' ?></div>
-<div><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a> · <?=aur_escape($supplier['phone'])?></div>
-<div><a href="<?=aur_escape($route['grade']==='EXACT_PRODUCT_LISTED' ? $supplier['exact_url'] : $supplier['url'])?>" target="_blank" rel="noopener noreferrer">Company source ↗</a></div>
-<div class="muted"><?=aur_escape($route['reason'])?></div>
-</div>
-<?php endforeach; ?>
-</td>
-<td>
-<?php if (empty($candidate['sources'])): ?><span class="muted">No confirmed manufacturer/model evidence yet.</span>
-<?php else: foreach ($candidate['sources'] as $lead): ?>
-<div style="margin-bottom:12px">
-<b><?=aur_escape((string)$lead['company'])?></b>
-<div class="muted"><?=aur_escape((string)($lead['match_quality']??$lead['role']))?></div>
-<a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)$lead['evidence_url'])?>">Product or contact evidence ↗</a>
-<?php if (!empty($lead['note'])): ?><div class="muted"><?=aur_escape((string)$lead['note'])?></div><?php endif; ?>
-</div>
-<?php endforeach; endif; ?>
-</td>
-</tr>
-<?php endforeach; ?></tbody></table></div>
-<p class="muted">Status: research candidates only, 0 confirmed supplier quotations. No quotations sent. Manufacturer/model identity, exact clinical variant, export eligibility, country registration, after-sales service and supplier approval must be checked before a transaction.</p>
-</div>
+<?php define('AUR_PROCUREMENT_VIEW',true); require __DIR__.'/supplier_portal.php'; ?>
 <?php else: ?><div class="card"><h2>Supplier identification pending</h2><p>The original procurement case is saved. Supplier matching will be available after the research source module is verified.</p></div><?php endif; ?>
 
 <p><a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download supplier RFQ draft</a></p>
@@ -302,5 +291,5 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <?php endif; ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-
+<script defer src="/procurement/worldwide.js"></script>
 <?php endif; ?></body></html>
