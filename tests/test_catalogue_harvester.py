@@ -65,6 +65,60 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(cfg["categories"]),7)
         self.assertEqual(sum(map(len,cfg["categories"].values())),49)
         self.assertGreaterEqual(len(cfg["sources"]),19)
+    def test_ersaal_exact_brand_and_mpn_are_distinct_from_vendor(self):
+        url="https://www.ersaal.de/en/product/pepperl-fuchs-071801"
+        sample=("<html><title>Pepperl+Fuchs #071801 | Request a quote | ERSAAL</title>"
+                "<h1>#071801</h1><p>Manufacturer: Pepperl+Fuchs</p></html>")
+        products,links,title=parse_page(sample,url,"","industrial","Sensors / instrumentation")
+        self.assertEqual(len(products),1)
+        self.assertEqual(products[0]["manufacturer"],"Pepperl+Fuchs")
+        self.assertEqual(products[0]["model"],"#071801")
+        self.assertEqual(products[0]["identity_evidence"],"SUPPLIER_PART_PAGE")
+        self.assertNotEqual(products[0]["manufacturer"],"ERSAAL")
+
+    def test_multibrand_directory_recurses_real_paths(self):
+        cfg={"categories":{},"sources":[{"id":"ersaal-test","active":True,
+            "manufacturer":"","sector":"industrial","category":"PLC / control modules",
+            "seeds":["https://www.ersaal.de/en/kategorien/automation"],
+            "follow_paths":["/en/kategorien/","/en/product/"]}]}
+        pages={
+            "https://www.ersaal.de/en/kategorien/automation":
+            '<html><h1>Automation</h1><a href="/en/product/pepperl-fuchs-071801">#071801</a></html>',
+            "https://www.ersaal.de/en/product/pepperl-fuchs-071801":
+            '<html><title>Pepperl+Fuchs #071801 | Request a quote | ERSAAL</title><h1>#071801</h1></html>'}
+        output=run(self.db,cfg,10,30,2,lambda url,kind:pages[url])
+        self.assertEqual(output["new_products"],1)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],1)
+
+    def test_labx_manufacturer_directory_crawl(self):
+        cfg={"categories":{},"sources":[{"id":"labx-test","active":True,
+            "manufacturer":"","sector":"laboratory","category":"General laboratory equipment",
+            "seeds":["https://www.labx.com/manufacturers"],
+            "follow_paths":["/manufacturers","/manufacturers/"]}]}
+        pages={
+          "https://www.labx.com/manufacturers":
+            '<html><h1>Manufacturer Directory</h1><a href="/manufacturers/hettich">Hettich</a></html>',
+          "https://www.labx.com/manufacturers/hettich":
+            "<html><title>Hettich laboratory marketplace listings</title><h1>Hettich</h1></html>"}
+        output=run(self.db,cfg,10,30,2,lambda url,kind:pages[url])
+        self.assertEqual(output["processed"],2)
+        self.assertEqual(output["new_products"],0)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM vendor_leads").fetchone()[0],2)
+
+    def test_all_six_sources_configured_as_reusable_discovery(self):
+        cfg=json.loads((Path(__file__).resolve().parents[1]/
+           "config/catalogue_harvester.json").read_text())
+        sources=cfg["sources"]
+        domains={__import__("urllib.parse",fromlist=["urlsplit"]).urlsplit(seed).hostname
+                 for entry in sources for seed in entry.get("seeds",[])}
+        expected={"www.ersaal.de","www.labx.com","www.agilent.com",
+                  "www.phoenixcontact.com","www.furuno.com","www.wartsila.com"}
+        self.assertTrue(expected.issubset(domains))
+        self.assertTrue(all(any(entry.get("follow_paths") and
+                     any(__import__("urllib.parse",fromlist=["urlsplit"]).urlsplit(u).hostname==h
+                         for u in entry["seeds"])
+                     for entry in sources) for h in ("www.ersaal.de","www.labx.com")))
+
     def test_non_product_page_not_exported(self):
         products,_,_=parse_page("<h1>Our products</h1><title>Our products</title>",
                                 "https://www.mindray.com/en/products","Mindray","medical","Imaging")
