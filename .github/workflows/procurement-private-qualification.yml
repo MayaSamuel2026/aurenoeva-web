@@ -43,6 +43,7 @@ jobs:
           php -l deployment/site/procurement/private_cases.php
           php -l deployment/site/procurement/supplier_intelligence.php
           php -l deployment/site/procurement/supplier_discovery.php
+          php -l deployment/site/procurement/staff_auth.php
           php -l deployment/site/procurement/supplier-refresh-cli.php
           php -l deployment/site/procurement/setup-cli.php
           php -l deployment/site/procurement/activate.php
