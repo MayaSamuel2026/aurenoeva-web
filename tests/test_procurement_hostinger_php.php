@@ -3,6 +3,7 @@ declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/private_cases.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_intelligence.php';
 require dirname(__DIR__).'/deployment/site/procurement/supplier_discovery.php';
+require dirname(__DIR__).'/deployment/site/procurement/supplier_routes.php';
 require dirname(__DIR__).'/deployment/site/procurement/staff_auth.php';
 $root=sys_get_temp_dir().'/aurenoeva-qa-'.bin2hex(random_bytes(6));
 mkdir($root.'/public_html',0700,true);
@@ -97,6 +98,25 @@ try {
     try { aur_supplier_read($store,$one['reference'],'wrong-sha'); } catch (RuntimeException $e) { $rejected=true; }
     check($rejected,'supplier research mismatched case sha was accepted');
     // Global discovery consumes public search-result evidence, not RFQ approval.
+    // Direct contact routes, distinct from Bing snippets.
+    $directory=aur_supplier_route_directory();
+    check(count($directory)===6,'expected source-backed Uzbekistan supplier contacts');
+    foreach($directory as $company) {
+        check(filter_var($company['email'],FILTER_VALIDATE_EMAIL)!==false,'supplier email not usable');
+        check(str_starts_with($company['url'],'https://'),'supplier evidence link not HTTPS');
+    }
+    $watoRoutes=aur_supplier_contact_routes('Mindray WATO EX-35 anesthesia machine');
+    check($watoRoutes[0]['id']==='intermed' && $watoRoutes[0]['grade']==='EXACT_PRODUCT_LISTED',
+      'exact WATO local supplier listing missing');
+    $diamondRoutes=aur_supplier_contact_routes('DRGEM DIAMOND X-ray system');
+    check($diamondRoutes[0]['id']==='diatech' && $diamondRoutes[0]['grade']==='CATEGORY_ENQUIRY',
+      'radiology category route incorrectly treated as exact model');
+    $sterileRoutes=aur_supplier_contact_routes('Dry-heat sterilizer for CSSD');
+    check($sterileRoutes[0]['id']==='abform','sterilization provider missing');
+    $routeStats=aur_supplier_route_stats($intel['rows']);
+    check($routeStats['entries_with_contacts']>=1,'existing case has no actionable channels');
+    check($routeStats['exact_product_listings']===0,'fake exact supplier in sample case');
+    echo "AURENOEVA_SOURCE_BACKED_SUPPLIER_ROUTES=PASS\\n";
     $queries=aur_supplier_global_queries('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'));
     check(count($queries)===5 && !str_contains($queries['Worldwide'],'Uzbekistan'),'geographical restriction was retained');
     $regional=aur_supplier_global_search_links('Mindray WATO EX-35');
