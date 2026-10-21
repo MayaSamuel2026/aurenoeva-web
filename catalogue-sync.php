@@ -104,12 +104,101 @@ function aur_catalogue_write_snapshot(string $body, string $directory): array {
     }
 }
 
+/**
+ * Enrich the SAME private worldwide vendor master used by RFQ searches.
+ * A search result is a lead; a fetched product page is product-identity
+ * evidence. Neither is proof of availability or authority to distribute.
+ */
+function aur_catalogue_merge_vendor_evidence(string $store,string $body):array {
+    if(!function_exists('aur_worldwide_master_merge'))
+        throw new RuntimeException('supplier_master_missing');
+    $raw=json_decode($body,true,512,JSON_THROW_ON_ERROR);
+    $aggregate=[];
+    $normalHost=static function(mixed $url,mixed $host):string {
+        $url=trim((string)$url);
+        $parts=parse_url($url);
+        if(!is_array($parts)||strtolower((string)($parts['scheme']??''))!=='https'
+           ||isset($parts['user'])||isset($parts['pass']))return '';
+        $domain=strtolower((string)($parts['host']??''));
+        if(!preg_match('/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/D',$domain)
+           ||$domain!==strtolower((string)$host))return '';
+        return $domain;
+    };
+    foreach(array_slice($raw['vendor_leads']??[],0,5000) as $r) {
+        if(!is_array($r))continue;
+        $url=(string)($r['evidence_url']??'');
+        $host=$normalHost($url,$r['website']??'');
+        if($host==='')continue;
+        $checked=(string)($r['checked']??'')==='SITE_FETCHED';
+        $email=trim((string)($r['email']??''));
+        $domain=strtolower((string)substr(strrchr($email,'@')?:'',1));
+        $rootHost=preg_replace('/^www\\./','',$host);
+        if(!$checked || filter_var($email,FILTER_VALIDATE_EMAIL)===false ||
+           !($domain===$rootHost || str_ends_with($rootHost,'.'.$domain) ||
+             in_array($domain,['gmail.com','outlook.com'],true)))$email='';
+        $phone=$checked?substr(trim((string)($r['phone']??'')),0,50):'';
+        $status=$email!==''?'SOURCE_CHECKED_EMAIL_PUBLISHED':
+            ($checked?'SOURCE_CHECKED_CONTACT_PENDING':'SEARCH_RESULT_NOT_SITE_VERIFIED');
+        $aggregate[$host]=[
+            'id'=>aur_worldwide_vendor_id($host),'name'=>$host,'website'=>$host,
+            'country'=>'Not established','email'=>$email,'phone'=>$phone,'evidence_url'=>$url,
+            'status'=>$status,'authorization'=>'NOT_VERIFIED',
+            'availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED',
+            'match_basis'=>'CATALOGUE_DISCOVERY_LEAD','equipment_hints'=>[],
+            'catalogue_products'=>[]
+        ];
+        $cat=trim((string)($r['category']??''));
+        if($cat!=='')$aggregate[$host]['equipment_hints'][]=substr($cat,0,160);
+    }
+    foreach(array_slice($raw['vendor_products']??[],0,25000) as $r) {
+        if(!is_array($r))continue;
+        $url=(string)($r['source_url']??'');
+        $host=$normalHost($url,$r['website']??'');
+        $id=(string)($r['product_id']??'');
+        if($host===''||!preg_match('/^AUR-P-[A-F0-9]{20}$/D',$id))continue;
+        if(!isset($aggregate[$host])) {
+            $aggregate[$host]=[
+                'id'=>aur_worldwide_vendor_id($host),'name'=>$host,'website'=>$host,
+                'country'=>'Not established','email'=>'','phone'=>'','evidence_url'=>$url,
+                'status'=>'SOURCE_CHECKED_CONTACT_PENDING','authorization'=>'NOT_VERIFIED',
+                'availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED',
+                'match_basis'=>'CATALOGUE_PRODUCT_PAGE','equipment_hints'=>[],
+                'catalogue_products'=>[]
+            ];
+        }
+        if(($aggregate[$host]['status']??'')!=='SOURCE_CHECKED_EMAIL_PUBLISHED')
+            $aggregate[$host]['status']='SOURCE_CHECKED_CONTACT_PENDING';
+        $aggregate[$host]['match_basis']='CATALOGUE_PRODUCT_PAGE';
+        $aggregate[$host]['evidence_url']=$url;
+        $model=substr(trim((string)($r['model']??'')),0,160);
+        $maker=substr(trim((string)($r['manufacturer']??'')),0,100);
+        $category=substr(trim((string)($r['category']??'')),0,160);
+        if($model==='')continue;
+        $aggregate[$host]['catalogue_products'][$id]=[
+           'product_id'=>$id,'manufacturer'=>$maker,'model'=>$model,
+           'category'=>$category,'sector'=>substr((string)($r['sector']??''),0,30),
+           'source_url'=>$url,'evidence_type'=>substr((string)($r['evidence_type']??''),0,60),
+           'last_seen'=>substr((string)($r['last_seen']??''),0,40)
+        ];
+        $aggregate[$host]['equipment_hints'][]=trim($maker.' '.$model);
+        if($category!=='')$aggregate[$host]['equipment_hints'][]=$category;
+    }
+    $observations=[];
+    foreach($aggregate as $v){
+        $v['equipment_hints']=array_values(array_unique($v['equipment_hints']));
+        $observations[]=['vendor'=>$v,'description'=>''];
+    }
+    $added=aur_worldwide_master_merge($store,$observations);
+    return ['vendors_seen'=>count($observations),'vendors_added'=>$added,
+       'product_links'=>array_sum(array_map(static fn($v):int=>count($v['catalogue_products']),$aggregate))];
+}
+
 // Tests exercise real private writes without an HTTP transport.
 if (defined('AUR_CATALOGUE_SYNC_LIBRARY_ONLY')) return;
 
 header('Content-Type: application/json; charset=utf-8');
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    header('Allow: POST');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['POST','GET'], true)) {
+    header('Allow: GET, POST');
     http_response_code(405);
     echo '{"ok":false,"error":"method"}'; exit;
 }
@@ -133,6 +222,42 @@ if (!preg_match('/^[a-f0-9]{64}$/D', $expected)
     || !hash_equals($expected, hash('sha256', $supplied))) {
     http_response_code(401); echo '{"ok":false,"error":"unauthorized"}'; exit;
 }
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    // Reuse the existing private worldwide vendor master as harvester seeds.
+    // Never expose case details, customers, quotes or supplier contact emails.
+    try {
+        require_once __DIR__ . '/procurement/supplier_worldwide.php';
+        $master=aur_worldwide_master_read($private);
+        $seeds=[];
+        foreach (($master['vendors']??[]) as $v) {
+            if(!is_array($v))continue;
+            $url=(string)($v['evidence_url']??'');
+            if(preg_match('~^https://[a-z0-9.-]+\.[a-z]{2,}/~i',$url)){
+                $seeds[$url]=['url'=>$url,'manufacturer'=>'','sector'=>'','category'=>'',
+                   'source'=>'EXISTING_RFQ_VENDOR_MASTER'];
+            }
+            foreach (($v['catalogue_products']??[]) as $product) {
+                if(!is_array($product))continue;
+                $url=(string)($product['source_url']??'');
+                if(!preg_match('~^https://[a-z0-9.-]+\.[a-z]{2,}/~i',$url))continue;
+                $seeds[$url]=['url'=>$url,
+                   'manufacturer'=>substr((string)($product['manufacturer']??''),0,100),
+                   'sector'=>substr((string)($product['sector']??''),0,30),
+                   'category'=>substr((string)($product['category']??''),0,160),
+                   'source'=>'EXISTING_RFQ_PRODUCT_EVIDENCE'];
+            }
+            if(count($seeds)>=10000)break;
+        }
+        header('Cache-Control: private, no-store');
+        echo json_encode(['ok'=>true,'source'=>'EXISTING_RFQ_VENDOR_MASTER',
+            'seeds'=>array_slice(array_values($seeds),0,10000)],
+            JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    }catch(Throwable $e){
+        error_log('AURENOEVA RFQ seeds unavailable: '.substr($e->getMessage(),0,120));
+        http_response_code(503);echo '{"ok":false,"error":"vendor_seed_unavailable"}';
+    }
+    exit;
+}
 if (!is_dir($private) || !is_writable($private)) {
     http_response_code(503); echo '{"ok":false,"error":"private_storage_unavailable"}'; exit;
 }
@@ -142,6 +267,14 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 24000000) {
 try {
     $body = file_get_contents('php://input', false, null, 0, 24000001);
     $result = aur_catalogue_write_snapshot((string)$body, $private);
+    try {
+        require_once __DIR__ . '/procurement/supplier_worldwide.php';
+        $result['vendor_intelligence']=aur_catalogue_merge_vendor_evidence($private,(string)$body);
+        $result['vendor_sync']='PUBLISHED';
+    }catch(Throwable $vendorFailure){
+        error_log('AURENOEVA vendor sync retry required: '.substr($vendorFailure->getMessage(),0,120));
+        $result['vendor_sync']='RETRY_REQUIRED';
+    }
     echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
     error_log('AURENOEVA catalogue sync failure: ' . substr($e->getMessage(), 0, 100));

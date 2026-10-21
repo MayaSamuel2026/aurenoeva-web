@@ -166,6 +166,27 @@ function aur_worldwide_case_candidates(array $intel,string $rowKey,string $descr
     $match=aur_supplier_match($description);
     if(is_array($master)) foreach($master as $vendor) {
         if(!is_array($vendor))continue;
+        // Exact model matching takes priority over approximate category hints.
+        $catalogue=is_array($vendor['catalogue_products']??null)?$vendor['catalogue_products']:[];
+        $exactProduct=null;
+        $lower=function_exists('mb_strtolower') ? mb_strtolower($description,'UTF-8') : strtolower($description);
+        $needle=preg_replace('/[^\\p{L}\\p{N}]+/u','',$lower)??'';
+        foreach ($catalogue as $record) {
+            if (!is_array($record))continue;
+            $model=trim((string)($record['model']??''));
+            if(strlen($model)<3)continue;
+            $modelLower=function_exists('mb_strtolower') ? mb_strtolower($model,'UTF-8') : strtolower($model);
+            $matchModel=preg_replace('/[^\\p{L}\\p{N}]+/u','',$modelLower)??'';
+            if(strlen($matchModel)>=4 && str_contains($needle,$matchModel)) {
+                $exactProduct=$record;break;
+            }
+        }
+        if($exactProduct!==null) {
+            $vendor['match_basis']='REUSED_CATALOGUE_EXACT_MODEL_REFERENCE';
+            $vendor['evidence_url']=(string)($exactProduct['source_url']??($vendor['evidence_url']??''));
+            $known[]=$vendor;
+            continue;
+        }
         $hints=$vendor['equipment_hints']??[];
         if(!is_array($hints))continue;
         foreach($hints as $hint) {
@@ -231,18 +252,31 @@ function aur_worldwide_master_merge(string $store,array $observed):int {
             if(!preg_match('/^web-[a-f0-9]{16}$/D',$id))continue;
             if(!isset($master['vendors'][$id])) {
                 $master['vendors'][$id]=$vendor;
-                $master['vendors'][$id]['equipment_hints']=[];
+                $master['vendors'][$id]['equipment_hints']=is_array($vendor['equipment_hints']??null)
+                    ?array_values(array_unique($vendor['equipment_hints'])):[];
+                $master['vendors'][$id]['catalogue_products']=is_array($vendor['catalogue_products']??null)
+                    ?$vendor['catalogue_products']:[];
                 $add++;
             } else {
                 $old=$master['vendors'][$id];
                 // Do not downgrade a previously published contact.
                 if(empty($vendor['email']) && !empty($old['email']))$vendor['email']=$old['email'];
+                if (($old['status']??'')==='SOURCE_CHECKED_EMAIL_PUBLISHED'
+                    && empty($record['vendor']['email'])) $vendor['status']=$old['status'];
                 if(empty($vendor['phone']) && !empty($old['phone']))$vendor['phone']=$old['phone'];
                 // Search-only evidence cannot downgrade a previously checked site.
                 if (($vendor['status']??'')==='SEARCH_RESULT_NOT_SITE_VERIFIED'
                     && ($old['status']??'')!=='SEARCH_RESULT_NOT_SITE_VERIFIED') {
                     $vendor=array_merge($vendor,$old);
                 }
+                $vendor['catalogue_products']=array_replace(
+                    is_array($old['catalogue_products']??null)?$old['catalogue_products']:[],
+                    is_array($vendor['catalogue_products']??null)?$vendor['catalogue_products']:[]
+                );
+                $vendor['equipment_hints']=array_values(array_unique(array_merge(
+                    is_array($old['equipment_hints']??null)?$old['equipment_hints']:[],
+                    is_array($vendor['equipment_hints']??null)?$vendor['equipment_hints']:[]
+                )));
                 $master['vendors'][$id]=array_merge($old,$vendor);
             }
             $description=preg_replace('/[\x00-\x1F\x7F]+/u',' ',$description)??$description;

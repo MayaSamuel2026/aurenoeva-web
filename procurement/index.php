@@ -119,6 +119,19 @@ $catalogueSnapshotSectors = [];
 $catalogueSnapshotCategories = [];
 $catalogueSnapshotManufacturers = [];
 $catalogueSnapshotUpdated = null;
+$catalogueVendorTotal = 0;
+$catalogueVendorWithContact = 0;
+$catalogueVendorProductLinks = 0;
+if ($isAdmin) {
+    $supplierMaster = aur_worldwide_master_read($aurStore);
+    $catalogueVendorTotal = count($supplierMaster['vendors'] ?? []);
+    foreach (($supplierMaster['vendors'] ?? []) as $candidate) {
+        if(!is_array($candidate))continue;
+        if(filter_var((string)($candidate['email']??''),FILTER_VALIDATE_EMAIL))
+            $catalogueVendorWithContact++;
+        $catalogueVendorProductLinks += count($candidate['catalogue_products'] ?? []);
+    }
+}
 $catalogueSnapshotFile = $aurStore . '/catalogue-public.json';
 if ($isAdmin && is_file($catalogueSnapshotFile)) {
     $catalogueSnapshot = json_decode((string)@file_get_contents($catalogueSnapshotFile), true);
@@ -541,6 +554,7 @@ try {
 <tr><td style="padding:5px 0"><?=aur_escape($sectorName)?></td><td style="text-align:right"><?= (int)($catalogueSnapshotSectors[$sectorKey] ?? 0) ?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
+<p class="muted">Worldwide supplier master: <strong><?= (int)$catalogueVendorTotal ?></strong> vendor websites · <strong><?= (int)$catalogueVendorWithContact ?></strong> contactable records · <strong><?= (int)$catalogueVendorProductLinks ?></strong> retained vendor–product relationships. Contact status and product evidence remain separate from available stock.</p>
 <p><a href="?export_catalogue=1" style="font-weight:600;text-decoration:underline">Download catalogue CSV — published products, models and source links</a></p>
 <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Products by sector and subcategory</summary>
 <table style="width:100%;border-collapse:collapse;margin-top:10px">
