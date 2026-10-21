@@ -37,6 +37,33 @@ RFQ case files, customer documents and original contact details are unchanged.
   enquiries; stock, permitted exports, supplier authorization and quotations
   are still separate decisions.
 
+## Additional six catalogue channels — 21 October 2026
+
+The canonical config now contains 30 source groups with 110 initial seed URLs.
+The 49 original website categories remain the discovery taxonomy.
+
+- ERSAAL: industrial category, manufacturer-directory and brand-specific
+  detail pages. Extract manufacturer and MPN from the actual product-detail
+  title; ERSAAL remains the potential supplier, not the manufacturer.
+- LabX: laboratory manufacturer directory and supplier/listing leads.
+  Directory entries are not assumed to be verified product identities.
+- Agilent: broader laboratory product family/product-detail pages.
+- Phoenix Contact: both industrial automation/connectors and electrical
+  power-equipment product categories.
+- Furuno: marine navigation, radar, AIS, sensors and actual model-detail pages.
+- Wärtsilä: marine propulsion and generator/engine model-detail pages.
+
+Follow paths for ERSAAL /en/kategorien/, /en/hersteller/ and /en/product/,
+plus LabX /manufacturers/; these were previously blocked by the overly narrow
+generic /product URL traversal rule. Product, vendor, and seller status remain
+separate evidence types. Manufacturer pages and directory totals (e.g. ERSAAL's
+advertised product counts) are not internal imported product counts.
+
+Existing robots policies, HTTPS and non-private address checks remain active.
+A blocked source is retried without bringing down other source processing.
+The source configuration is retrieved from GitHub by the existing V4 installer;
+the VPS is not automatically updated merely because the configuration commits.
+
 ## Activate one existing engine
 In the original Hostinger VPS root shell:
 
