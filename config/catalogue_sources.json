@@ -253,6 +253,61 @@
       "model_hints": {
         "https://shop.se.com/pro/us/en/product/iec-contactor-tesys-deca-nonreversing-9a-5hp-at-480vac-up-to-100ka-sccr-3-phase-3-no-low-consumption-24vdc-coil/": "LC1D09BL"
       }
+    },
+    {
+      "id": "fluke-electrical",
+      "active": true,
+      "manufacturer": "Fluke",
+      "allowed_hosts": [
+        "www.fluke.com"
+      ],
+      "seeds": [
+        "https://www.fluke.com/en-us/product/electrical-testing/digital-multimeters/fluke-87v"
+      ],
+      "follow_regex": "^/en-us/product/[a-z0-9/-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72
+    },
+    {
+      "id": "thermo-laboratory",
+      "active": true,
+      "manufacturer": "Thermo Fisher Scientific",
+      "allowed_hosts": [
+        "www.thermofisher.com"
+      ],
+      "seeds": [
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008622",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008590",
+        "https://www.thermofisher.com/order/catalog/product/de/de/50172636",
+        "https://www.thermofisher.com/order/catalog/product/75016105",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75015838",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75007358"
+      ],
+      "follow_regex": "^/order/catalog/product/(?:[a-z]{2}/[a-z]{2}/)?[0-9]+/?$",
+      "max_depth": 1,
+      "refresh_hours": 72,
+      "model_hints": {
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008622": "75008622",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75008590": "75008590",
+        "https://www.thermofisher.com/order/catalog/product/de/de/50172636": "50172636",
+        "https://www.thermofisher.com/order/catalog/product/75016105": "75016105",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75015838": "75015838",
+        "https://www.thermofisher.com/order/catalog/product/de/en/75007358": "75007358"
+      }
+    },
+    {
+      "id": "abb-industrial-drives",
+      "active": true,
+      "manufacturer": "ABB",
+      "allowed_hosts": [
+        "www.abb.com"
+      ],
+      "seeds": [
+        "https://www.abb.com/global/en/areas/motion/drives/low-voltage-ac-drives/general-purpose-drives/acs580"
+      ],
+      "follow_regex": "^/global/en/areas/motion/drives/[a-z0-9/-]+/?$",
+      "max_depth": 2,
+      "refresh_hours": 72
     }
   ]
 }
