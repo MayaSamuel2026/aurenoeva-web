@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Public official product pages establish potential manufacturer channels only.
  * Zero vendor outreach, zero quote claims, zero sanctions approval.
  */
-const AUR_SUPPLIER_RESEARCH_VERSION = '2026-10-21.1';
+const AUR_SUPPLIER_RESEARCH_VERSION = '2026-10-21.2';
 
 function aur_supplier_rules(): array {
     // Matching is case-insensitive. Specific product names precede family hints.
@@ -62,7 +62,10 @@ function aur_supplier_rules(): array {
        'note'=>'Several Neuron-Spectrum variants exist; original specifications needed for exact selection.'],
       ['pattern'=>'~\bwato\b|\bmindray\b~iu','name'=>'Mindray','model'=>'WATO EX-35',
        'quality'=>'OEM_BRAND_ROUTE','url'=>'https://www.mindray.com/',
-       'note'=>'Confirm human clinical WATO EX-35 model: Uzbekistan Intermed listing found is for WATO EX-35 VET and must NOT be treated as equivalent human-use supply.'],
+       'note'=>'A separate local human-use WATO EX-35 listing exists on Prom.uz; the vendor also advertises WATO EX-35 Vet elsewhere. Verify clinical variant, licence and inventory before RFQ.',
+       'local_company'=>'Intermed Innovation (Uzbekistan)',
+       'local_role'=>'LOCAL_MARKET_PRODUCT_LISTING_UNVERIFIED_STOCK',
+       'local_url'=>'https://www.prom.uz/uz/company/sp-ooo-intermed-innovation/reanimatsionnoe-oborudovanie/'],
       ['pattern'=>'~\bdr[aä]ger\b|\bsavina\b~iu','name'=>'Dräger','model'=>'Savina (legacy)',
        'quality'=>'OEM_END_OF_SALES','url'=>'https://www.draeger.com/en_me/Products/Savina',
        'note'=>'Official Dräger page marks this Savina model END OF SALES. Refurbished unit requires service/parts/history confirmation.'],
@@ -75,7 +78,10 @@ function aur_supplier_rules(): array {
       ['pattern'=>'~\b(euronda|e8\s*24|euroseal|aquadist)\b~iu',
        'name'=>'Euronda','model'=>'E8 / Euroseal equipment set',
        'quality'=>'OEM_BRAND_ROUTE','url'=>'https://prosystem.euronda.com/product/e8/',
-       'note'=>'Check separate autoclave, sealing and distilled water components and device generation.'],
+       'note'=>'Check separate autoclave, sealing and distilled water components and device generation.',
+       'local_company'=>'Dental Trading (Uzbekistan)',
+       'local_role'=>'LOCAL_BRAND_LISTING_NOT_EXACT_E8',
+       'local_url'=>'https://dentaltrading.uz/en/brands/euronda'],
       ['pattern'=>'~\b(cattani|three.cylinder|3.cylinder)\b~iu','name'=>'CATTANI',
        'model'=>'3-cylinder 45 L compressor (spec verification)',
        'quality'=>'OEM_PRODUCT_FAMILY','url'=>'https://www.cattani.de/57_3-Zylinder.php',
@@ -146,9 +152,9 @@ function aur_supplier_preview(array $case): array {
             if ($country==='UZ' && !empty($match['local_url'])) {
                 $local++;
                 $sources[]=[
-                    'company'=>$match['local_company'],'role'=>'HISTORICAL_UZ_DISTRIBUTOR_LEAD',
-                    'evidence_url'=>$match['local_url'],'match_quality'=>'HISTORICAL_THIRD_PARTY_EVIDENCE',
-                    'note'=>'Historical local distributor statement; not reverified as authorized today.',
+                    'company'=>$match['local_company'],'role'=>$match['local_role']??'HISTORICAL_UZ_DISTRIBUTOR_LEAD',
+                    'evidence_url'=>$match['local_url'],'match_quality'=>'THIRD_PARTY_LOCAL_MARKET_LEAD_NOT_AUTH_VERIFIED',
+                    'note'=>'Uzbekistan public lead; its current authorization, exact clinical model, stock and delivery must be verified.',
                     'availability'=>'NOT_CHECKED','authorization'=>'NOT_CHECKED',
                     'quotation'=>'NOT_RECEIVED','outreach'=>'NOT_SENT',
                 ];
@@ -175,7 +181,7 @@ function aur_supplier_preview(array $case): array {
             'equipment_entries'=>count($rows),
             'entries_with_oem_route'=>$found,
             'entries_needing_identity_research'=>count($rows)-$found,
-            'historical_local_leads'=>$local,
+            'local_market_leads'=>$local,
             'supplier_quotes_confirmed'=>0,'supplier_availability_confirmed'=>0,
             'supplier_authorization_confirmed'=>0,
         ],
