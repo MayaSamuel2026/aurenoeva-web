@@ -218,6 +218,29 @@ def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     db.execute("""INSERT OR IGNORE INTO harvest_queue(url,kind,sector,category,maker,depth,due)
       VALUES(?,?,?,?,?,?,?)""",(url,kind,sector,category,maker,depth,stamp()))
     return db.execute("SELECT changes()").fetchone()[0]
+def import_existing_rfq_vendors(db, token_path=Path("/var/lib/aurenoeva/catalogue-sync-token")):
+    """Reuse existing RFQ websites from PHP host, with no additional auth setup."""
+    if not token_path.is_file():return {"status":"NO_EXISTING_SYNC_TOKEN","seeded":0}
+    if token_path.stat().st_mode & 0o077:raise ValueError("insecure_sync_token_permissions")
+    token=token_path.read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"[a-f0-9]{64}",token):raise ValueError("invalid_sync_token")
+    req=Request("https://aurenoeva.com/catalogue-sync.php?seed_vendors=1",
+        headers={"User-Agent":AGENT,"X-Aurenoeva-Sync-Token":token})
+    with urlopen(req,timeout=40) as response:
+        payload=json.loads(response.read(5_000_000))
+    if payload.get("ok") is not True or payload.get("source")!="EXISTING_RFQ_VENDOR_MASTER":
+        raise ValueError("unrecognized_rfq_seed_response")
+    added=0
+    for r in payload.get("seeds",[])[:10000]:
+        if not isinstance(r,dict):continue
+        url=str(r.get("url",""))
+        if not url:continue
+        added+=enqueue(db,url,"page",str(r.get("sector",""))[:30],
+            str(r.get("category",""))[:160],str(r.get("manufacturer",""))[:100])
+    db.commit()
+    return {"status":"IMPORTED","seeded":added,"sources_seen":len(payload.get("seeds",[]))}
+
+
 def seeds(db,config):
     # Every website category receives independent discovery through two providers.
     for sector,categories in config["categories"].items():
@@ -383,7 +406,12 @@ def main():
                     "queued":db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],
                     "vendors":db.execute("SELECT COUNT(DISTINCT website) FROM vendor_leads").fetchone()[0]}))
                 return 0
+            try:
+                prior=import_existing_rfq_vendors(db)
+            except Exception as e:
+                prior={"status":"TEMPORARILY_UNAVAILABLE","detail":type(e).__name__,"seeded":0}
             result=run(db,cfg,a.max_pages,a.max_seconds,a.workers)
+            result["rfq_reuse"]=prior
             result["export"]=export(db,a.export)
             result["total_products"]=db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
             result["total_vendor_websites"]=db.execute("SELECT COUNT(DISTINCT website) FROM vendor_leads").fetchone()[0]
