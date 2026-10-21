@@ -129,10 +129,20 @@ function aur_catalogue_merge_vendor_evidence(string $store,string $body):array {
         $url=(string)($r['evidence_url']??'');
         $host=$normalHost($url,$r['website']??'');
         if($host==='')continue;
+        $checked=(string)($r['checked']??'')==='SITE_FETCHED';
+        $email=trim((string)($r['email']??''));
+        $domain=strtolower((string)substr(strrchr($email,'@')?:'',1));
+        $rootHost=preg_replace('/^www\\./','',$host);
+        if(!$checked || filter_var($email,FILTER_VALIDATE_EMAIL)===false ||
+           !($domain===$rootHost || str_ends_with($rootHost,'.'.$domain) ||
+             in_array($domain,['gmail.com','outlook.com'],true)))$email='';
+        $phone=$checked?substr(trim((string)($r['phone']??'')),0,50):'';
+        $status=$email!==''?'SOURCE_CHECKED_EMAIL_PUBLISHED':
+            ($checked?'SOURCE_CHECKED_CONTACT_PENDING':'SEARCH_RESULT_NOT_SITE_VERIFIED');
         $aggregate[$host]=[
             'id'=>aur_worldwide_vendor_id($host),'name'=>$host,'website'=>$host,
-            'country'=>'Not established','email'=>'','phone'=>'','evidence_url'=>$url,
-            'status'=>'SEARCH_RESULT_NOT_SITE_VERIFIED','authorization'=>'NOT_VERIFIED',
+            'country'=>'Not established','email'=>$email,'phone'=>$phone,'evidence_url'=>$url,
+            'status'=>$status,'authorization'=>'NOT_VERIFIED',
             'availability'=>'NOT_VERIFIED','quotation'=>'NOT_RECEIVED',
             'match_basis'=>'CATALOGUE_DISCOVERY_LEAD','equipment_hints'=>[],
             'catalogue_products'=>[]
@@ -156,7 +166,8 @@ function aur_catalogue_merge_vendor_evidence(string $store,string $body):array {
                 'catalogue_products'=>[]
             ];
         }
-        $aggregate[$host]['status']='SOURCE_CHECKED_CONTACT_PENDING';
+        if(($aggregate[$host]['status']??'')!=='SOURCE_CHECKED_EMAIL_PUBLISHED')
+            $aggregate[$host]['status']='SOURCE_CHECKED_CONTACT_PENDING';
         $aggregate[$host]['match_basis']='CATALOGUE_PRODUCT_PAGE';
         $aggregate[$host]['evidence_url']=$url;
         $model=substr(trim((string)($r['model']??'')),0,160);
