@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from catalogue_publish import normalized_snapshot, publish, credentials
+from catalogue_publish import normalized_snapshot, publish, publish_https, credentials
 
 VALID = {
     "schema": "aurenoeva-catalogue/1",
@@ -98,6 +98,48 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(first["records"], 1)
         self.assertEqual(second["status"], "UNCHANGED")
         self.assertEqual(len(calls), 1)
+
+    def test_https_push_acknowledgement_and_no_repeat(self):
+        key=self.root/'catalogue-sync-token'
+        key.write_text('a'*64, encoding='ascii')
+        key.chmod(0o600)
+        env={'AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE':str(key)}
+        calls=[]
+        class FakeResponse:
+            status=200
+            def __init__(self, result): self.result=result
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, size): return json.dumps(self.result).encode()
+        def fake_open(request, timeout):
+            calls.append(request)
+            self.assertEqual(request.get_header("X-aurenoeva-sync-token"), 'a'*64)
+            payload=request.data
+            count=len(json.loads(payload)['items'])
+            return FakeResponse({'ok':True,'status':'PUBLISHED','records':count,
+              'source_sha256':hashlib.sha256(payload).hexdigest(),
+              'sha256':'b'*64})
+        with patch('catalogue_publish.urlopen', fake_open):
+            first=publish_https(self.source, self.root, env)
+            again=publish_https(self.source, self.root, env)
+        self.assertEqual(first['status'],'PUBLISHED')
+        self.assertEqual(again['status'],'UNCHANGED')
+        self.assertEqual(len(calls),1)
+
+    def test_https_push_rejects_unconfirmed_data(self):
+        key=self.root/'catalogue-sync-token'
+        key.write_text('a'*64, encoding='ascii')
+        key.chmod(0o600)
+        class BadResponse:
+            status=200
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self,size): return b'{"ok":true,"status":"PUBLISHED","records":0,"sha256":"fake"}'
+        with patch('catalogue_publish.urlopen', return_value=BadResponse()):
+            with self.assertRaises(RuntimeError):
+                publish_https(self.source,self.root,
+                    {'AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE':str(key)})
+        self.assertFalse((self.root/'catalogue-pushed.sha256').exists())
 
     def test_failed_upload_never_records_success_receipt(self):
         env = self.configured()
