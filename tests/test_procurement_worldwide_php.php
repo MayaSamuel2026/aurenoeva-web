@@ -76,6 +76,29 @@ try{
  verify(str_contains($page,'Discover suppliers worldwide for entire case'),'worldwide scan button missing');
  verify(str_contains($page,'Prepare RFQs for selected suppliers'),'RFQ selection action missing');
  verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
+
+ // Regression: original 44-line case always takes priority over utility cards.
+ $entry=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
+ $caseAt=strpos($entry,'<section class="card"><span class="pill">Saved');
+ $testAt=strpos($entry,'<h2>Email automation — dummy RFQ test</h2>');
+ verify($caseAt!==false && $testAt!==false && $caseAt<$testAt,
+   'procurement case/RFQ has regressed below the dummy email utility');
+ verify(str_contains($entry,'$supplierResearch=aur_supplier_preview($result);'),
+   'supplier portal can disappear when saved research is temporarily unavailable');
+ verify(str_contains($page,'supplier-workspace'),'direct supplier workspace anchor missing');
+ $many=$case;
+ $many['payload']['sourcing_lines']=[];
+ for($i=1;$i<=44;$i++){
+   $many['payload']['sourcing_lines'][]=[
+     'source_row'=>$i+1,'customer_item_number'=>$i,
+     'description_original'=>$i%2 ? 'Mindray WATO EX-35 anesthesia workstation' : 'DRGEM DIAMOND X-ray system',
+     'quantity'=>1,'option_type'=>'REQUESTED'
+   ];
+ }
+ $fortyFour=aur_supplier_preview($many);
+ verify(count($fortyFour['rows'])===44,'44-equipment case could not be reconstructed');
+ verify(aur_worldwide_stats($fortyFour)['total']===44,'44-equipment case failed supplier statistics');
+
  // Dummy email automation must address only the owner's fixed mailbox,
  // exercise the real RFQ format and never send a duplicate on repeated clicks.
  $testCalls=0;
