@@ -63,7 +63,7 @@ if [[ -s "$STATE/catalogue-sync-token" ]];then
 fi
 # Old v3 timeouts must not kill this 45-minute batch at 5 or 35 minutes.
 mkdir -p "/etc/systemd/system/$SERVICE.d"
-printf '[Service]\nTimeoutStartSec=3300s\nRuntimeMaxSec=3300s\n' \
+printf '[Service]\nTimeoutStartSec=3300s\n' \
   > "/etc/systemd/system/$SERVICE.d/zz-harvester-v4.conf"
 systemctl daemon-reload
 systemctl enable --now "$TIMER"
