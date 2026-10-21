@@ -201,8 +201,11 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
+          php hotfix/v8.2.6.12/tests/catalogue_sync_test.php
           cp hotfix/v8.2.6.10/catalogue_local.php "$RUNNER_TEMP/source/site/catalogue_local.php"
           cp hotfix/v8.2.6.11/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
+          cp hotfix/v8.2.6.12/catalogue-sync.php "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q 'aur_catalogue_write_snapshot' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'RECOMMENDATION_SHOWN' "$RUNNER_TEMP/source/site/catalogue-search.php"
           grep -q 'aur_catalogue_snapshot_search' "$RUNNER_TEMP/source/site/catalogue-search.php"
           # Requirement intake, email and operations-case endpoints stay unchanged.
