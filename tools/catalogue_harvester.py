@@ -127,8 +127,16 @@ def parse_page(body,url,maker,sector,category):
             if brand and brand.casefold() not in GENERIC:
                 products.append((brand,mpn,"SUPPLIER_PART_PAGE"))
     if not products and maker:
-        heading=txt(heading or re.split(r"\s+[|–—]\s+|\s+-\s+",title)[0],160)
-        if any(c.isdigit() for c in heading):products.append((maker,heading,"ON_PAGE_MODEL"))
+        headline=txt(heading,160)
+        title_model=txt(re.split(r"\s+[|–—]\s+|\s+-\s+",title,maxsplit=1)[0],160)
+        model=headline if any(ch.isdigit() for ch in headline) else title_model
+        # A title fallback is appropriate only for a product-specific URL.
+        path=urlsplit(url).path.lower()
+        is_detail=bool(re.search(r"(?:/|[-_])\d{2,}(?:[a-z]|/|[-_.]|$)",path)) or (
+            "/product/" in path and path.count("/")>3)
+        if any(ch.isdigit() for ch in model) and (
+            model==headline or is_detail) and len(model.split())<=12:
+            products.append((maker,model,"ON_PAGE_MODEL"))
     result=[]
     for brand,model,proof in products:
         model=txt(model,160)
