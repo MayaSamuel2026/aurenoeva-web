@@ -110,6 +110,32 @@ try{
  $fortyFour=aur_supplier_preview($many);
  verify(count($fortyFour['rows'])===44,'44-equipment case could not be reconstructed');
  verify(aur_worldwide_stats($fortyFour)['total']===44,'44-equipment case failed supplier statistics');
+ // Bad historical vendor data may not make the panel crash or return HTTP 503.
+ $malformed=$research;
+ $malformed['worldwide_vendor_master']=[
+   'legacy'=>['id'=>['old-id'],'name'=>['old name'],'website'=>'old.example',
+       'email'=>'info@old.example','equipment_hints'=>[['bad-hint'],'Mindray WATO EX-35']]
+ ];
+ $malformed['worldwide_research']=['rows'=>['2'=>[
+     'checked_at'=>'2026-10-20T00:00:00Z','version'=>'legacy',
+     'vendors'=>[['id'=>['legacy-id'],'name'=>'Old Supplier',
+         'website'=>'old.example','evidence_url'=>'https://old.example/lead',
+         'email'=>'info@old.example','country'=>'Old country']]
+ ]]];
+ $badStats=aur_worldwide_stats($malformed);
+ verify($badStats['total']===1 && $badStats['scanned']===1,
+   'historical catalogue data broke scan statistics');
+ $badVendors=aur_worldwide_case_candidates($malformed,'2','Mindray WATO EX-35 anesthesia workstation');
+ verify(count($badVendors)>0 && is_string($badVendors[0]['id']),
+   'malformed source record breaks supplier display');
+ $supplierResearch=$malformed;
+ ob_start();
+ require dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php';
+ $renderedAfterUpgrade=(string)ob_get_clean();
+ verify(str_contains($renderedAfterUpgrade,'Old Supplier') &&
+   str_contains($renderedAfterUpgrade,'https://old.example/lead'),
+   'legacy source must remain visible even with malformed master data');
+ echo "AURENOEVA_LIVE_DATA_COMPATIBILITY=PASS\n";
  // An OEM rule revision and a crawler version revision must not erase prior sources.
  $record=aur_supplier_read($store,$case['reference'],$case['source_sha256']);
  $record['rule_version']='legacy-rule-version';

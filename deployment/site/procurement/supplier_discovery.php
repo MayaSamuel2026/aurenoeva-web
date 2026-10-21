@@ -150,7 +150,7 @@ function aur_supplier_public_rss(string $query): string {
     $body='';
     curl_setopt_array($c,[
         CURLOPT_RETURNTRANSFER=>false,CURLOPT_FOLLOWLOCATION=>false,
-        CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>9,
+        CURLOPT_CONNECTTIMEOUT=>2,CURLOPT_TIMEOUT=>4,
         CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
         CURLOPT_USERAGENT=>'AURENOEVA-Supplier-Research/1.0 (+https://aurenoeva.com)',
         CURLOPT_HTTPHEADER=>['Accept: application/rss+xml, application/xml;q=0.9'],
