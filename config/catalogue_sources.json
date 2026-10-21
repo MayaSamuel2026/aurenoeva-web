@@ -2,7 +2,7 @@
   "schema": "aurenoeva-catalogue-sources/1",
   "sources": [
     {
-      "id": "mindray-anesthesia",
+      "id": "mindray-wato-ex35",
       "active": true,
       "manufacturer": "Mindray",
       "allowed_hosts": [
