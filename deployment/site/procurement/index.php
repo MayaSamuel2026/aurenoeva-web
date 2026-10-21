@@ -9,7 +9,7 @@ header('Cache-Control: private, no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 header('X-Frame-Options: DENY');
 
 function aur_escape(string $s): string {
@@ -126,6 +126,14 @@ if ($isAdmin) {
             $caseRef=trim((string)($_POST['case_ref']??''));
             $result=aur_case_read($aurStore,$caseRef);
             $run=aur_supplier_discover_batch($aurStore,$result,2);
+            if (str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>true,'processed'=>(int)$run['processed'],
+                    'new_unverified_links'=>(int)$run['new_unverified_links'],
+                    'provider_failures'=>(int)$run['provider_failures']],
+                    JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+                exit;
+            }
             $supplierDiscoveryMessage='Searched '.(int)$run['processed'].' equipment entries; found '
                 .(int)$run['new_unverified_links'].' public links. Provider failures: '
                 .(int)$run['provider_failures'].'. No supplier contacted or commercially verified.';
@@ -234,10 +242,12 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <form method="post" style="margin:15px 0">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
-<button type="submit" name="discover_suppliers" value="1">Search next 2 equipment entries worldwide</button>
+<button type="submit" name="discover_suppliers" value="1">Search next 2 entries</button>
+<button type="button" id="aur-discover-all" data-total="<?= (int)$discoveryStats['total'] ?>">Search entire case worldwide</button>
+<span class="muted" id="aur-discovery-progress" role="status" aria-live="polite"></span>
 </form>
 <?php if ($supplierDiscoveryMessage): ?><p class="muted" role="status"><?=aur_escape($supplierDiscoveryMessage)?></p><?php endif; ?>
-<p class="muted">Each click checks two unsearched or stale entries, keeping the website responsive. The result is saved with this case and refreshed after 24 hours. Automated search may be unavailable if the public search provider blocks access. Regional research links are always available.</p>
+<p class="muted">Discovery runs in small batches, keeping the website responsive. Completed results refresh after 24 hours; provider failures may retry after 15 minutes. Automated search may be unavailable if the public search provider blocks access. Regional research links are always available.</p>
 <p class="muted">Product evidence source set: <?=aur_escape((string)$supplierResearch['rule_version'])?>. Source verification and current country representation remain open. Alternatives stay distinct; sanctions, destination-use, registration and licensing checks remain mandatory before supplier outreach.</p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment</th><th>Potential supply route / evidence</th><th>Next research action</th></tr></thead><tbody>
 <?php foreach (($supplierResearch['rows'] ?? []) as $candidate): ?>
@@ -293,4 +303,6 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <?php endif; ?>
 <?php endif; ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
-</div></body></html>
+</div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
+<script defer src="/procurement/discover.js"></script>
+<?php endif; ?></body></html>
