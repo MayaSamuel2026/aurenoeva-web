@@ -99,7 +99,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <?php else: ?><div class="scroll"><table><thead><tr><th>Created (UTC)</th><th>Suppliers</th><th>Status</th><th>Review</th></tr></thead><tbody>
 <?php foreach($approvedDrafts as $priorDraft):?>
 <tr><td><?=aur_escape($priorDraft['created_at'])?></td><td><?=(int)$priorDraft['vendors']?></td>
-<td><?=aur_escape($priorDraft['status'])?></td>
+<td><?=aur_escape(aur_supplier_status_label((string)$priorDraft['status']))?></td>
 <td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#supplier-history">Open RFQ ↗</a></td></tr>
 <?php endforeach;?></tbody></table></div><?php endif;?>
 </section>
@@ -207,7 +207,7 @@ if(!is_array($contact))continue;
 </section>
 <?php if(is_array($rfqPreview)): ?>
 <section style="padding:25px 0;border-top:1px solid #dae4e0">
-<h2>RFQ send dashboard — <?=aur_escape((string)$rfqPreview['status'])?></h2>
+<h2>RFQ send dashboard — <?=aur_escape(aur_supplier_status_label((string)$rfqPreview['status']))?></h2>
 <p>Draft <?=aur_escape((string)$rfqPreview['draft_id'])?>. One consolidated email per vendor. Please review recipient, equipment and terms before dispatch.</p>
 <?php if(isset($_GET['send_error'])):?><p role="alert">Sending was interrupted. Review the recorded status of each supplier below before trying again. Previous accepted emails will not be resent.</p><?php endif;?>
 <p class="muted">From: <strong>info@aurenoeva.com</strong>. Each distinct email address receives one tailored message with its equipment item numbers, original specifications and quantities. Sending never occurs before the Deploy / Send action.</p>
