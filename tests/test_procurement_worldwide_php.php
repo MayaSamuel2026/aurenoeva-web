@@ -49,6 +49,15 @@ try{
  $lead=aur_worldwide_source_candidate('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'),
    ['page_title'=>'Mindray WATO EX-35 anesthesia'], $html,'https://vendor-health.fr/product');
  verify(is_array($lead)&&$lead['email']==='research@vendor-health.fr','website contact extraction broken');
+ verify(aur_worldwide_master_merge($store,[['vendor'=>$lead,
+     'description'=>'Mindray WATO EX-35 anesthesia workstation']])===1,'new supplier not saved globally');
+ $shared=aur_worldwide_attach_master($store,$research);
+ verify(count($shared['worldwide_vendor_master'])===1,'global vendor catalogue not readable');
+ $reused=aur_worldwide_case_candidates($shared,'2','Mindray WATO EX-35 anesthesia workstation');
+ verify(count($reused)>=2,'global manufacturer/supplier research not reusable across cases');
+ verify(aur_worldwide_master_merge($store,[['vendor'=>$lead,
+     'description'=>'Mindray WATO EX-35 anesthesia workstation']])===0,'global duplicate vendor inserted');
+
  verify(aur_worldwide_source_candidate('Mindray WATO EX-35',aur_supplier_match('Mindray WATO EX-35'),
    ['page_title'=>'Cattle jobs'],'<html><p>Breeding cattle jobs and career</p></html>',
    'https://masterrind.com/jobs')===null,'irrelevant supplier admitted');
