@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/publish.yml'
+      - 'deployment/site/procurement/**'
       - 'hotfix/v8.2.6.12/catalogue-sync.php'
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
       - 'hotfix/v8.2.6.11/catalogue-search.php'
@@ -19,7 +20,7 @@ permissions:
 
 concurrency:
   group: aurenoeva-production-final
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   qualify-publish:

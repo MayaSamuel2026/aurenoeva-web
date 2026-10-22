@@ -53,10 +53,12 @@
   const checks = Array.from(document.querySelectorAll('.aur-vendor-check'));
   const label = document.getElementById('aur-vendor-selection-count');
   const render = () => {
-    if (label) label.textContent = checks.filter(c => c.checked).length + ' suppliers selected';
+    if (label) label.textContent = checks.filter(c => c.checked).length + ' of ' + checks.length + ' contactable suppliers selected';
   };
   document.getElementById('aur-select-all-vendors')?.addEventListener('click', () => {
-    checks.forEach(c => { c.checked = true; }); render();
+    checks.forEach((c, i) => { c.checked = i < 300; }); render();
+    if (checks.length > 300 && label)
+      label.textContent = 'First 300 selected; remaining contacts can be prepared in another draft.';
   });
   document.getElementById('aur-clear-vendors')?.addEventListener('click', () => {
     checks.forEach(c => { c.checked = false; }); render();
