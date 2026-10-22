@@ -169,8 +169,11 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
 <h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p><b>Step 2 of 2 · Review stored dispatch outcome.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Statuses below are calculated from the saved per-recipient outbox, not browser progress. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Reload actual RFQ status ↻</a></p>
+<?php if(aur_vendor_rfq_smtp_ready()&&!aur_vendor_rfq_mail_verified($aurStore)):?>
+<p role="alert"><b>Internal mail test required.</b> The website has mailbox credentials but must prove a real authenticated SMTP send to the AURENOEVA inbox before supplier sending unlocks. <a href="#aur-mail-settings">Go to mail settings</a>.</p>
+<?php endif;?>
 <?php if(!aur_vendor_rfq_smtp_ready()):?>
-<p role="alert"><b>Supplier sending paused:</b> the website has no verified authenticated SMTP configuration for info@aurenoeva.com. No RFQs will be sent through PHP mail(). Set the mailbox SMTP credentials on the Hostinger website host, then run the internal test before approving any supplier outreach.</p>
+<p role="alert"><b>Supplier sending paused:</b> the website has no verified authenticated SMTP configuration for info@aurenoeva.com. No RFQs will be sent through PHP mail(). <a href="#aur-mail-settings">Connect the mailbox in the staff workspace</a>, then run the internal test before approving supplier outreach.</p>
 <?php endif;?>
 <p id="aur-dispatch-ledger" style="display:flex;gap:9px;flex-wrap:wrap">
 <span class="pill"><b><?=(int)$mailLedger['accepted']?></b> accepted by sending server</span>
@@ -195,7 +198,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
-<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=(!aur_vendor_rfq_smtp_ready()||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
+<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=(!aur_vendor_rfq_mail_verified($aurStore)||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
 <?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
 <p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.</p>
 <p><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Refresh the saved recipient ledger</a> if progress stops or the page appears stale.</p>
