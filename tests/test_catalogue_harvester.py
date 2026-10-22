@@ -138,6 +138,40 @@ class Tests(unittest.TestCase):
                          for u in entry["seeds"])
                      for entry in sources) for h in ("www.ersaal.de","www.labx.com")))
 
+    def test_oem_follow_regex_discovers_non_generic_product_route(self):
+        cfg={"categories":{},"sources":[{"id":"factory","manufacturer":"Example OEM",
+            "sector":"industrial","category":"Motors / gearboxes",
+            "seeds":["https://www.example.com/portfolio"],
+            "follow_regex":r"^/gb/en/a/[0-9]+/?$"}]}
+        pages={
+            "https://www.example.com/portfolio":
+                '<html><h1>Portfolio</h1><a href="/gb/en/a/4405">Part 4405</a></html>',
+            "https://www.example.com/gb/en/a/4405":
+                '<html><title>Example OEM 4405</title><h1>Example 4405</h1>'
+                '<script type="application/ld+json">'
+                '{"@type":"Product","brand":"Example OEM","sku":"4405"}'
+                '</script></html>'}
+        result=run(self.db,cfg,10,30,2,lambda url,kind:pages[url])
+        self.assertEqual(result["new_products"],1)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],1)
+
+    def test_sitemap_expansion_uses_oem_follow_regex(self):
+        cfg={"categories":{},"sources":[{"id":"oem-sitemap","manufacturer":"Example OEM",
+            "sector":"energy","category":"Switchgear & protection",
+            "seeds":[],"sitemap_seeds":["https://www.example.com/sitemap.xml"],
+            "follow_regex":r"^/en/item-[0-9]+/?$"}]}
+        pages={
+          "https://www.example.com/sitemap.xml":
+              '<urlset><url><loc>https://www.example.com/en/item-7421</loc></url></urlset>',
+          "https://www.example.com/en/item-7421":
+              '<html><h1>Item 7421</h1><title>Item 7421</title>'
+              '<script type="application/ld+json">'
+              '{"@type":"Product","manufacturer":"Example OEM","mpn":"7421"}'
+              '</script></html>'}
+        result=run(self.db,cfg,10,30,2,lambda url,kind:pages[url])
+        self.assertEqual(result["new_products"],1)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],1)
+
     def test_non_product_page_not_exported(self):
         products,_,_=parse_page("<h1>Our products</h1><title>Our products</title>",
                                 "https://www.mindray.com/en/products","Mindray","medical","Imaging")
