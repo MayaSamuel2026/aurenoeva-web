@@ -3,7 +3,8 @@ name: Qualify and publish Aurenoeva
 on:
   workflow_dispatch:
   # Catalogue integration release: reuse full qualification before Hostinger publication.
-  # Only edits to this release workflow trigger an automatic production candidate.
+  # This commit triggers the established full qualification-and-publication
+  # workflow for the 22 October large-catalogue and vendor-batch repair.
   push:
     branches: [main]
     paths:
@@ -214,6 +215,11 @@ jobs:
           cp hotfix/v8.2.6.11/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
           cp hotfix/v8.2.6.12/catalogue-sync.php "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'aur_catalogue_write_snapshot' "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q 'accepted_input_records' "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q 'aurenoeva-vendor-evidence/1' "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q '256_000_000' "$RUNNER_TEMP/source/site/catalogue_local.php"
+          php -l "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          php -l "$RUNNER_TEMP/source/site/catalogue_local.php"
           grep -q 'RECOMMENDATION_SHOWN' "$RUNNER_TEMP/source/site/catalogue-search.php"
           grep -q 'aur_catalogue_snapshot_search' "$RUNNER_TEMP/source/site/catalogue-search.php"
           # Requirement intake, email and operations-case endpoints stay unchanged.
