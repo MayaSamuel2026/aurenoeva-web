@@ -356,6 +356,34 @@ function aur_vendor_rfq_status_summary(array $draft):array {
         $summary['in_flight']>0 || $summary['other']>0;
     return $summary;
 }
+/**
+ * Read-only, source-of-truth delivery breakdown. Historical accepted sends
+ * remain separate from follow-ups; SMTP acceptance does not prove delivery.
+ */
+function aur_vendor_rfq_delivery_breakdown(array $draft):array {
+    $result=['original_accepted'=>0,'followup_accepted'=>0,
+        'followup_failed_or_unconfirmed'=>0,'followup_in_flight'=>0,
+        'followup_attempted'=>0];
+    foreach(($draft['messages']??[]) as $message) {
+        if(!is_array($message))continue;
+        $recovery=$message['recovery']??null;
+        if(!is_array($recovery)) {
+            if(($message['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT')
+                $result['original_accepted']++;
+            continue;
+        }
+        $result['followup_attempted']++;
+        switch((string)($recovery['status']??'')) {
+            case 'ACCEPTED_BY_MAIL_TRANSPORT':
+                $result['followup_accepted']++;break;
+            case 'IN_FLIGHT':
+                $result['followup_in_flight']++;break;
+            default:
+                $result['followup_failed_or_unconfirmed']++;break;
+        }
+    }
+    return $result;
+}
 function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
     aur_embargo_assert_dispatch_ready($case);
     if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
