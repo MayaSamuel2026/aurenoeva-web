@@ -10,20 +10,28 @@ import catalogue_auto_update as updater
 SHA="a"*40
 
 class AutomaticCatalogueUpdateTests(unittest.TestCase):
-    def test_qualification_requires_completed_matching_main_commit(self):
+    def test_qualification_chooses_latest_successful_main_revision(self):
+        sha_new = SHA
+        sha_old = "b" * 40
         def good(url):
-            if url.endswith("/commits/main"):return {"sha":SHA}
-            return {"workflow_runs":[{"name":"AURENOEVA private procurement qualification",
-                "head_sha":SHA,"head_branch":"main","event":"push",
-                "status":"completed","conclusion":"success"}]}
+            self.assertIn("/actions/runs?per_page=100", url)
+            return {"workflow_runs": [
+                {"name":"AURENOEVA private procurement qualification",
+                 "head_sha":"c"*40,"head_branch":"main","event":"push",
+                 "status":"completed","conclusion":"failure"},
+                {"name":"AURENOEVA private procurement qualification",
+                 "head_sha":sha_new,"head_branch":"main","event":"push",
+                 "status":"completed","conclusion":"success"},
+                {"name":"AURENOEVA private procurement qualification",
+                 "head_sha":sha_old,"head_branch":"main","event":"push",
+                 "status":"completed","conclusion":"success"}
+            ]}
         with patch.object(updater,"get_json",side_effect=good):
-            self.assertEqual(updater.qualified_sha(),SHA)
-        def stale(url):
-            if url.endswith("/commits/main"):return {"sha":SHA}
-            return {"workflow_runs":[{"name":"AURENOEVA private procurement qualification",
-                "head_sha":"b"*40,"head_branch":"main","event":"push",
-                "status":"completed","conclusion":"success"}]}
-        with patch.object(updater,"get_json",side_effect=stale):
+            self.assertEqual(updater.qualified_sha(),sha_new)
+        with patch.object(updater,"get_json",return_value={
+            "workflow_runs":[{"name":"AURENOEVA private procurement qualification",
+                "head_sha":SHA,"head_branch":"other","event":"push",
+                "status":"completed","conclusion":"success"}]}):
             self.assertIsNone(updater.qualified_sha())
 
     def test_install_preserves_database_and_previous_files(self):
