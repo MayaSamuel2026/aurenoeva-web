@@ -54,7 +54,10 @@ except HTTPError as exc:
     detail=json.loads(exc.read(2048))
     if exc.code!=422 or detail.get("reason_code")!="snapshot_no_products":
         raise SystemExit("WEBSITE_NEW_DIAGNOSTICS_NOT_READY: "+str(detail))
+    if exc.headers.get("X-Aurenoeva-Catalogue-UTF8")!="safe-cut-v1":
+        raise SystemExit("WEBSITE_UTF8_FIX_NOT_LIVE: Hostinger receiver still serves old version")
 print("WEBSITE_422_DIAGNOSTICS=PASS")
+print("WEBSITE_UTF8_FIX_LIVE=PASS")
 PY
 NOW=$(date -u +%Y%m%dT%H%M%SZ)
 echo "=== INSTALL UPDATED PUBLISHER WITHOUT RESTARTING CRAWLER ==="
