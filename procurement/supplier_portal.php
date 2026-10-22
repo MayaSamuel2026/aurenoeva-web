@@ -70,7 +70,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 ?>
 <section id="supplier-workspace" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
 <h2>Worldwide supplier quotations and availability</h2>
-<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding request for prices and availability. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
+<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding request for prices and availability. Every future supplier RFQ also sends one private archival copy to info@aurenoeva.com in the same SMTP transaction; suppliers cannot see the copy address. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
 <p>
 <span class="pill"><b><?=count($researchRows)?></b> requested lines</span>
 <span class="pill"><b><?=count($dashboard)?></b> supplier/manufacturer leads</span>
@@ -258,6 +258,9 @@ $acceptedWithoutProof=(!$isSmtpConfirmed&&($msg['status']??'')==='ACCEPTED_BY_MA
 <?php if($isSmtpConfirmed):?>
 <div class="muted"><?=aur_escape((string)($proof['response']??''))?></div>
 <div class="muted">Message-ID: <?=aur_escape((string)($proof['message_id']??$followup['message_id']??$msg['smtp_message_id']??''))?></div>
+<?php if(($proof['archive_copy_submitted']??false)===true):?>
+<div class="muted">Archive: one copy submitted to info@aurenoeva.com with the same email (check inbox to confirm arrival)</div>
+<?php else:?><div class="muted">No archived copy recorded for this earlier send</div><?php endif;?>
 <div class="muted">Recorded <?=aur_escape((string)($followup['finished_at']??$msg['sent_at']??''))?></div>
 <?php elseif($acceptedWithoutProof):?>
 <div class="muted">Legacy send record; SMTP server transcript was not retained.</div>
