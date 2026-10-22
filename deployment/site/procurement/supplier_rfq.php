@@ -19,7 +19,7 @@ function aur_vendor_rfq_safe_error(Throwable $e):string {
       'supplier_research_commit_failed','invalid_dashboard_vendor_selection',
       'private_directory_unavailable','rfq_send_lock_unavailable',
       'destination_requires_sanctions_review','destination_changed_redraft_required',
-      'commercial_draft_redraft_required'
+      'commercial_draft_redraft_required','rfq_template_outdated_redraft_required'
     ];
     return in_array($e->getMessage(),$allowed,true)?$e->getMessage() :
       ($e instanceof InvalidArgumentException?'invalid_supplier_selection':'private_rfq_storage_or_research_error');
@@ -90,29 +90,40 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     $ref=(string)$case['reference'];
     $name=(string)$vendor['name'];
     $country=(string)($case['country']??'');
-    $subject='AURENOEVA product availability enquiry '.$ref.' — '.count($lines).' item(s)';
+    $destination=aur_embargo_countries()[$country]??$country;
+    $subject='AURENOEVA Purchasing | Request for Quotation | '.$ref.' | '.count($lines).' item(s)';
     $body="Dear Supplier Team,\n\n";
-    $body.="AURENOEVA researches products, potential availability and seller contact information for customers whose equipment destination is ".$country.".\n";
-    $body.="Please indicate whether you list or currently have the equipment below, or a clearly identified alternative. This is a non-binding information request, not an order, negotiated quote or purchasing instruction.\n\n";
+    $body.="AURENOEVA Purchasing, operated by NOEVA Systems e.K. in Germany, invites your company to provide a non-binding quotation for the equipment listed below. The proposed final destination is ".$destination." (".$country.").\n\n";
+    $body.="We would appreciate your best indicative pricing, confirmation of actual product availability and expected delivery times. You are welcome to quote only the items you can supply. Please identify any equivalent or alternative model separately, including the differences from the requested specification.\n\n";
+    $body.="EQUIPMENT REQUESTED — RFQ ".$ref."\n";
+    $body.=str_repeat('-',52)."\n";
     foreach($lines as $n=>$row) {
         $desc=trim(preg_replace('/\s+/u',' ',(string)$row['description'])??(string)$row['description']);
         $number=(int)($row['customer_item_number']??0);
         $type=(string)($row['option_type']??'REQUESTED');
         $qty=$row['quantity']??null;
-        $body.=($n+1).". Buyer item ".$number.($type==='ALTERNATIVE'?' (alternative)':'')."\n";
-        $body.="   Description: ".$desc."\n";
-        $body.="   Quantity: ".($qty===null?'Not specified':(string)$qty)."\n\n";
+        $body.=($n+1).". Buyer item ".$number.($type==='ALTERNATIVE'?' (alternative option)':'')."\n";
+        $body.="   Specification: ".$desc."\n";
+        $body.="   Requested quantity: ".($qty===null?'Not specified':(string)$qty)."\n\n";
     }
-    $body.="Please provide factual supplier information only:\n";
-    $body.="- Registered seller name, location, website and contact details\n";
-    $body.="- Manufacturer, model/part number and relevant product page\n";
-    $body.="- Whether available stock is actually verified, merely catalogued, or unknown\n";
-    $body.="- Quantity available and evidence/date, if known\n";
-    $body.="- Shipping/export origin and any known restrictions on supplying destination ".$country."\n\n";
-    $body.="Please indicate whether sanctions, embargoes, dual-use controls, licensing or other trade restrictions could affect this enquiry, and identify the relevant end-user due diligence requirements. Do not suggest routes to circumvent applicable restrictions.\n\n";
-    $body.="AURENOEVA provides product, seller and reported-availability information only. We do not purchase or sell goods, negotiate sales, take buyer payments or arrange shipping. Any potential transaction remains exclusively between independent buyer and seller; our information service is still subject to any applicable legal controls.\n";
-    $body.="Please reference ".$ref." when responding.\n\n";
-    $body.="Best regards,\nAURENOEVA Research\ninfo@aurenoeva.com\nhttps://aurenoeva.com\n";
+    $body.="PLEASE INCLUDE IN YOUR QUOTATION\n";
+    $body.="1. Manufacturer, exact model/configuration and technical datasheet or product link; clearly describe any proposed substitute.\n";
+    $body.="2. Unit price, currency, total price for the requested quantity, applicable VAT/taxes, and any minimum order quantity.\n";
+    $body.="3. Confirmed stock/available quantity, equipment condition (new/refurbished/used), estimated dispatch date and delivery lead time.\n";
+    $body.="4. Delivery terms (Incoterms, where applicable), dispatch location and separately itemised freight, insurance or handling costs, if available.\n";
+    $body.="5. Quotation validity and proposed payment terms, for comparison purposes only.\n";
+    $body.="6. Warranty, certifications, and installation, training or local service support where relevant.\n";
+    $body.="7. Registered selling entity, business address, website and a contact person or sales email; please identify whether you are manufacturer or distributor.\n";
+    $body.="8. Country of origin, export origin, applicable export classification if known and any sanctions, embargo, licence, end-user or import restrictions affecting delivery to ".$destination.".\n\n";
+    $body.="Please return your quotation within five working days, if possible, and cite RFQ ".$ref." and the buyer item numbers in your reply. If information is not available, please indicate this rather than assuming stock or regulatory clearance.\n\n";
+    $body.="This is a request for price and availability information only. It is not a purchase order, acceptance of an offer, commitment to buy or instruction to ship. AURENOEVA does not purchase or resell the goods, negotiate a sale, collect buyer payments or arrange transport. Any subsequent purchase, if pursued, will be contracted directly between the independent buyer and seller and remains subject to all applicable sanctions, export-control, medical-device and import requirements. No restricted transaction or circumvention is authorised by this enquiry.\n\n";
+    $body.="Thank you for your consideration. We look forward to your reply.\n\n";
+    $body.="Kind regards,\nAURENOEVA Purchasing\n";
+    $body.="Operated by NOEVA Systems e.K.\n";
+    $body.="Proprietor: Frederick Ambrose Samuel\n";
+    $body.="Marienburger Straße 16 | 56112 Lahnstein | Germany\n";
+    $body.="Email: info@aurenoeva.com | https://aurenoeva.com\n";
+    $body.="Registered with Amtsgericht Koblenz | HRA 23554\n";
     return ['vendor_id'=>(string)$vendor['id'],'vendor_name'=>$name,'to'=>(string)$vendor['email'],
         'source_url'=>(string)($vendor['evidence_url']??''),'subject'=>$subject,'body'=>$body,
         'items'=>array_map(static fn($r)=>['source_row'=>(int)($r['source_row']??0),'description'=>(string)$r['description']],$lines),
@@ -155,7 +166,7 @@ function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $se
     foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']));
     $draftId=bin2hex(random_bytes(12));
     $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
-        'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'information_only'=>true,'draft_id'=>$draftId,'created_at'=>gmdate('c'),
+        'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'information_only'=>true,'template_version'=>'pricing-rfq-v2','draft_id'=>$draftId,'created_at'=>gmdate('c'),
         'approval'=>null,'status'=>'DRAFT_REVIEW','messages'=>$messages];
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     aur_vendor_rfq_write($path,$draft);
@@ -202,10 +213,16 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
     try{
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
-        // Drafts composed before the information-only policy may still ask for
-        // prices or commercial terms. Keep their history but never send them.
+        // Preserve old commercial workflow drafts but never revive them by mistake.
+        // Pricing requests under the new non-binding template remain informational.
         if(($draft['information_only']??false)!==true)
             throw new InvalidArgumentException('commercial_draft_redraft_required');
+        // A historical, unapproved availability-only draft does not contain
+        // the owner's requested prices and registered business signature.
+        // Keep the draft for the audit trail; require a fresh draft instead.
+        if(($draft['status']??'')==='DRAFT_REVIEW'
+           && ($draft['template_version']??'')!=='pricing-rfq-v2')
+            throw new InvalidArgumentException('rfq_template_outdated_redraft_required');
         // Historic drafts imply the original destination in their case reference.
         $parts=explode('-', (string)$case['reference']);
         $draftCountry=(string)($draft['destination_country']??($parts[1]??''));
