@@ -40,6 +40,21 @@ except Exception as e:
 if result.get("status")!="MERGED" or result.get("ok") is not True:
     raise SystemExit("WEBSITE_NEW_RECEIVER_NOT_READY: "+str(result))
 print("WEBSITE_BATCH_RECEIVER=PASS")
+# Harmless negative test: no valid product may be published, and the
+# receiver must expose a token-scoped diagnostic code (new website release).
+from urllib.error import HTTPError
+invalid=json.dumps({"schema":"aurenoeva-catalogue/1","items":[]}).encode()
+probe=urllib.request.Request("https://aurenoeva.com/catalogue-sync.php",
+    method="POST",data=invalid,
+    headers={"Content-Type":"application/json","X-Aurenoeva-Sync-Token":token})
+try:
+    with urllib.request.urlopen(probe,timeout=30) as rsp:
+        raise SystemExit("WEBSITE_NEW_DIAGNOSTICS_NOT_READY: accepted empty product batch")
+except HTTPError as exc:
+    detail=json.loads(exc.read(2048))
+    if exc.code!=422 or detail.get("reason_code")!="snapshot_no_products":
+        raise SystemExit("WEBSITE_NEW_DIAGNOSTICS_NOT_READY: "+str(detail))
+print("WEBSITE_422_DIAGNOSTICS=PASS")
 PY
 NOW=$(date -u +%Y%m%dT%H%M%SZ)
 echo "=== INSTALL UPDATED PUBLISHER WITHOUT RESTARTING CRAWLER ==="
