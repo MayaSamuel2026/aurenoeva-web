@@ -558,3 +558,21 @@ jobs:
             git commit -qm "Aurenoeva production deploy ${GITHUB_SHA}"
             git push origin production
           fi
+
+      - name: Verify updated receiver is serving on Hostinger
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..18}; do
+            HEADERS=$(curl --silent --show-error --max-time 12 -D - -o /dev/null \
+              -H 'Cache-Control: no-cache' \
+              "https://aurenoeva.com/catalogue-sync.php?release=${GITHUB_SHA}" || true)
+            if printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-utf8: safe-cut-v1$'; then
+              echo "AURENOEVA_LIVE_UTF8_RECEIVER=PASS"
+              exit 0
+            fi
+            echo "Hostinger receiver not yet updated (check $attempt/18)"
+            sleep 5
+          done
+          echo "::error::Hostinger has not served the qualified production receiver. GitHub publication alone is not live deployment."
+          exit 1
