@@ -163,9 +163,10 @@ into the root-owned `/opt/aurenoeva` code directory and systemd unit.
 Run the existing `ops/activate-harvester-v4.sh` installer once after its
 GitHub qualification passes; it now installs and asserts the pre-run hook.
 Subsequently, ordinary GitHub crawler, publisher and source-configuration
-changes update unattended. They must be part of a complete successful
-`AURENOEVA private procurement qualification` workflow on the exact
-`main` commit. The VPS downloads source and offline tests pinned to that
+changes update unattended. The updater chooses the newest completed,
+successful `AURENOEVA private procurement qualification` workflow from
+`main` and downloads only that workflow's immutable commit SHA. Later
+unqualified or unrelated commits cannot be installed. The VPS downloads source and offline tests pinned to that
 immutable SHA, reruns tests as the restricted `aurenoeva` user, backs up
 previous files and atomically replaces ONLY the three crawler/publisher/
 self-updater Python files and the catalogue source configuration.
