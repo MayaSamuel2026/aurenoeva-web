@@ -68,8 +68,8 @@ try{$approvedDrafts=aur_vendor_rfq_list($aurStore,$result);}
 catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 ?>
 <section id="supplier-workspace" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
-<h2>Worldwide product and seller availability</h2>
-<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding availability enquiry. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
+<h2>Worldwide supplier quotations and availability</h2>
+<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding request for prices and availability. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
 <p>
 <span class="pill"><b><?=count($researchRows)?></b> requested lines</span>
 <span class="pill"><b><?=count($dashboard)?></b> supplier/manufacturer leads</span>
@@ -98,7 +98,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <h3>Consolidated supplier selection</h3>
 <p class="aur-workflow-note"><b>Step 1 of 2 · Prepare enquiries.</b> Eligible suppliers with a published email address are selected automatically when there are 300 or fewer. You can change the selection below. Preparing a draft does not send any email.</p>
 <?php if($contactableCount>300):?><p role="status"><b>Large supplier list:</b> Choose up to 300 contacts in each draft. Use the remaining contacts in a subsequent batch; no automatic outreach is triggered.</p><?php endif;?>
-<p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. AURENOEVA requests availability and seller information only; no prices, payment terms or sales negotiations are requested.</p>
+<p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. AURENOEVA requests indicative unit prices, currency, availability, delivery, freight and warranty details. This is not an order, contract or sales negotiation.</p>
 <form method="post" action="/procurement/" id="aur-vendor-selection-form">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -165,16 +165,21 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </section>
 <?php if(is_array($rfqPreview)): ?>
 <section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
-<h2>Review supplier availability enquiries — <?=aur_escape((string)$rfqPreview['status'])?></h2>
+<h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p><b>Step 2 of 2 · Approve dispatch.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Confirm the legal review, then the existing outbox will send in resumable batches. Each draft remains saved under the case reference <?=aur_escape((string)$result['reference'])?>.</p>
 
+<?php $pricingTemplateOutdated=(($rfqPreview['status']??'')==='DRAFT_REVIEW' &&
+    ($rfqPreview['template_version']??'')!=='pricing-rfq-v2'); ?>
+<?php if($pricingTemplateOutdated):?>
+<p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the requested pricing and NOEVA legal signature. Please prepare a fresh consolidated RFQ above before sending.</p>
+<?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
 <form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
-<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=!empty($result['country_preflight']['enhanced_review'])?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
+<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=(!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
 <?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
 <p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each email is recorded in the case outbox; duplicates are not resent automatically.</p>
 </form>
