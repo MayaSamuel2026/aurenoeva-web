@@ -49,6 +49,10 @@ try {
         throw new RuntimeException('sector_filter_not_applied');
     if (count(aur_catalogue_snapshot_search('WATO EX-35') ?? []) !== 1)
         throw new RuntimeException('original_model_lost_during_reconciliation');
+    if (!is_file($private . '/.catalogue-merge.lock'))
+        throw new RuntimeException('catalogue_lock_not_created');
+    // A corrupted existing site file must not be silently replaced and
+    // cause the historical catalogue to disappear.
     // Later batches must append instead of replacing the first two products.
     $third=['schema'=>'aurenoeva-catalogue/1','items'=>[[
         'canonical_id'=>'AUR-P-'.str_repeat('D',20), 'manufacturer'=>'Agilent',
@@ -103,6 +107,7 @@ try {
     echo "AURENOEVA_CATALOGUE_HTTPS_SYNC_AND_SEARCH=PASS\n";
 } finally {
     @unlink($private . '/catalogue-public.json');
+    @unlink($private . '/.catalogue-merge.lock');
     @unlink($root . '/existing-private/supplier-intelligence/worldwide-vendors.json');
     @unlink($root . '/existing-private/supplier-intelligence/.worldwide-vendors.lock');
     @rmdir($root . '/existing-private/supplier-intelligence');
