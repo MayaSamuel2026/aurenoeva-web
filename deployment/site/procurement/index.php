@@ -97,6 +97,38 @@ if (!$isAdmin && $_SERVER['REQUEST_METHOD']==='POST' && !isset($_POST['password'
     aur_denied(401,'authentication required');
 }
 
+/* Live readback: private, authenticated, read-only persisted RFQ ledger.
+ * The browser must use this to verify completion; AJAX response counters do
+ * not replace the original case ledger or supplier evidence.
+ */
+if ($_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['rfq_status'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: private, no-store, max-age=0');
+    if(!$isAdmin) {
+        http_response_code(401);
+        echo json_encode(['ok'=>false,'error'=>'authentication_required']);
+        exit;
+    }
+    try {
+        $caseRef=trim((string)($_GET['case_ref']??''));
+        $draftId=trim((string)($_GET['draft']??''));
+        $case=aur_case_read($aurStore,$caseRef);
+        $draft=aur_vendor_rfq_read($aurStore,$case,$draftId);
+        $progress=aur_vendor_rfq_status_summary($draft);
+        $progress['recovery_remaining']=aur_vendor_rfq_recoverable_count($draft);
+        $progress=array_merge($progress,aur_vendor_rfq_delivery_breakdown($draft));
+        echo json_encode(['ok'=>true,'case_reference'=>$case['reference'],
+            'draft_id'=>$draft['draft_id'],'status'=>$draft['status'],
+            'progress'=>$progress],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+        exit;
+    } catch(Throwable $e) {
+        error_log('AURENOEVA RFQ readback: '.get_class($e));
+        http_response_code(404);
+        echo json_encode(['ok'=>false,'error'=>'rfq_readback_unavailable']);
+        exit;
+    }
+}
+
 /* RFQ exports are generated only after staff authentication, never public URLs. */
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
     try {
