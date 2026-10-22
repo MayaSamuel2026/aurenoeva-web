@@ -109,7 +109,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <button type="button" id="aur-clear-vendors" class="ghost">Clear selection</button>
 <span class="muted" id="aur-vendor-selection-count"><?=$contactableCount<=300?$contactableCount:0?> suppliers selected</span>
 </p>
-<p><button name="prepare_vendor_rfqs" id="aur-prepare-rfqs" value="1" type="submit" <?=$contactableCount<1?'disabled':''?>>Prepare <?=$contactableCount<=300?$contactableCount:'selected'?> consolidated supplier enquiries →</button></p>
+<p><button name="prepare_vendor_rfqs" id="aur-prepare-rfqs" value="1" type="submit" <?=$contactableCount<1?'disabled':''?>>Prepare consolidated availability enquiries (<?=$contactableCount<=300?$contactableCount:'selected'?> suppliers) →</button></p>
 <details id="aur-supplier-detail" class="aux-disclosure">
 <summary>Review supplier contacts and change selection · <?=count($dashboard)?> leads</summary>
 <div class="scroll"><table><thead><tr><th>Select</th><th>Supplier / country</th><th>Requested items</th><th>Contact / source</th><th>Availability</th></tr></thead><tbody>
