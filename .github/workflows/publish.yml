@@ -207,7 +207,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile tools/catalogue_harvester.py tools/catalogue_publish.py
-          bash -n ops/activate-harvester-v4.sh
+          bash -n ops/activate-harvester-v4.sh ops/repair-large-catalogue-publish.sh
           python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
           php hotfix/v8.2.6.12/tests/catalogue_sync_test.php
