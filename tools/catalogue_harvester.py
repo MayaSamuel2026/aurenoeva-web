@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-import fcntl, hashlib, html, ipaddress, json, os, re, socket, sqlite3, time
+import fcntl, gzip, hashlib, html, io, ipaddress, json, os, re, socket, sqlite3, time
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, urljoin, parse_qs, unquote
@@ -66,10 +66,14 @@ def fetch(url,kind="page"):
         if not ROBOTS[host].can_fetch(AGENT,url):raise PermissionError("robots_disallowed")
     with OPENER.open(Request(url,headers={"User-Agent":AGENT,"Accept":"text/html,application/xhtml+xml,application/xml,text/xml"}),timeout=12) as resp:
         typ=resp.headers.get("Content-Type","")
-        if not any(x in typ.lower() for x in ("html","xml","text/")):raise ValueError("nontext_content")
-        limit=5_000_000 if kind in ("sitemap","search") else 2_000_000
+        if not any(x in typ.lower() for x in ("html","xml","text/")) and not (kind=="sitemap" and urlsplit(url).path.lower().endswith(".xml.gz")):raise ValueError("nontext_content")
+        limit=8_000_000 if kind in ("sitemap","search") else 2_000_000
         raw=resp.read(limit+1)
         if len(raw)>limit:raise ValueError("large_page")
+        if kind=="sitemap" and raw[:2]==b"\x1f\x8b":
+            with gzip.GzipFile(fileobj=io.BytesIO(raw)) as compressed:
+                raw=compressed.read(limit+1)
+            if len(raw)>limit:raise ValueError("large_sitemap_uncompressed")
         return raw.decode("utf-8","replace")
 class Page(HTMLParser):
     def __init__(self):
@@ -267,7 +271,9 @@ def seeds(db,config):
         if sector not in SECTORS:continue
         for category in categories:
             for q in (f'{category} {sector} manufacturer model product catalogue',
-                      f'{category} {sector} distributor equipment parts catalogue'):
+                      f'{category} {sector} distributor equipment parts catalogue',
+                      f'{category} {sector} OEM MPN part number datasheet',
+                      f'{category} {sector} used refurbished manufacturer model suppliers'):
                 enqueue(db,"https://www.bing.com/search?"+urlencode({"q":q,"format":"rss"}),
                         "search",sector,category)
                 enqueue(db,"https://lite.duckduckgo.com/lite/?"+urlencode({"q":q}),
@@ -293,13 +299,20 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
     # paths; the old hard-coded /product restriction missed /manufacturers
     # and ERSAAL's /kategorien/ catalogue hierarchy.
     follow_by_host={}
+    patterns_by_host={}
     for source in config.get("sources",[]):
         if not source.get("active",True):continue
-        for seed_url in source.get("seeds",[]):
+        for seed_url in source.get("seeds",[])+source.get("sitemap_seeds",[]):
             host=hostof(seed_url)
             follow_by_host.setdefault(host,set()).update(
                 str(p) for p in source.get("follow_paths",[]) if str(p).startswith("/")
             )
+            pattern=source.get("follow_regex","")
+            if pattern:
+                patterns_by_host.setdefault(host,set()).add(pattern)
+    # A configured manufacturer pattern is a discovery route, not a product claim.
+    patterns_by_host={host:[re.compile(p,re.I) for p in patterns]
+                      for host,patterns in patterns_by_host.items()}
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
@@ -367,14 +380,18 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
                             except ValueError:continue
                             if hostof(link)!=hostof(url):continue
                             childkind="sitemap" if urlsplit(link).path.lower().endswith((".xml",".xml.gz")) else "page"
-                            if childkind=="page" and not any(s in urlsplit(link).path.lower() for s in
-                                    ("/product","/item","/catalog","/part","/equipment","/device","/shop","/p/")):
-                                continue
+                            if childkind=="page":
+                                path=urlsplit(link).path.lower()
+                                ordinary=any(s in path for s in
+                                    ("/product","/item","/catalog","/part","/equipment","/device","/shop","/p/"))
+                                explicit=any(path.startswith(p.lower()) for p in follow_by_host.get(hostof(link),()))
+                                patterned=any(p.match(urlsplit(link).path) for p in patterns_by_host.get(hostof(link),()))
+                                if not (ordinary or explicit or patterned):continue
                             stats["new_urls"]+=enqueue(db,link,childkind,row["sector"],row["category"],row["maker"],row["depth"]+1)
                     elif kind=="page" and row["depth"]<5:
                         prefixes=follow_by_host.get(hostof(url),set())
-                        max_links=1600 if urlsplit(url).path.rstrip("/") in (
-                           "/manufacturers","/en/hersteller","/en/kategorien") else 400
+                        max_links=2500 if urlsplit(url).path.rstrip("/") in (
+                           "/manufacturers","/en/hersteller","/en/kategorien") else 1000
                         for link in links[:max_links]:
                             dest=urljoin(url,link).split("#")[0]
                             try:public_url(dest)
@@ -383,7 +400,8 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
                             path=urlsplit(dest).path.lower()
                             default=any(key in path for key in
                               ("/product","/item","/catalog","/part","/equipment","/device","/shop","/p/"))
-                            if not default and not any(path.startswith(pref.lower()) for pref in prefixes):
+                            patterned=any(p.match(urlsplit(dest).path) for p in patterns_by_host.get(hostof(dest),()))
+                            if not (default or any(path.startswith(pref.lower()) for pref in prefixes) or patterned):
                                 continue
                             stats["new_urls"]+=enqueue(db,dest,"page",row["sector"],row["category"],row["maker"],row["depth"]+1)
                     due=stamp(clock()+timedelta(hours=48 if kind in ("search","search_ddg") else 96))
