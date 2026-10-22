@@ -51,23 +51,22 @@ def get_json(url: str) -> dict:
 
 
 def qualified_sha() -> str | None:
-    latest = str(get_json(f"{API}/commits/main").get("sha", ""))
-    if not SHA_PATTERN.fullmatch(latest):
-        raise ValueError("invalid_candidate_commit_sha")
-    runs = get_json(f"{API}/actions/runs?head_sha={latest}&per_page=50")
+    # Use the most recent successfully tested revision. Documentation/UI
+    # commits may not trigger catalogue CI; never stall on untested HEAD.
+    runs = get_json(f"{API}/actions/runs?per_page=100")
     for run in runs.get("workflow_runs", []):
         if (isinstance(run, dict)
             and run.get("name") == "AURENOEVA private procurement qualification"
-            and run.get("head_sha") == latest
             and run.get("head_branch") == "main"
             and run.get("event") == "push"
             and run.get("status") == "completed"
             and run.get("conclusion") == "success"):
-            return latest
-    print("CATALOGUE_UPDATE_DEFERRED=GITHUB_QUALIFICATION_PENDING_OR_FAILED",
+            sha = str(run.get("head_sha", ""))
+            if SHA_PATTERN.fullmatch(sha):
+                return sha
+    print("CATALOGUE_UPDATE_DEFERRED=NO_SUCCESSFUL_GITHUB_QUALIFICATION",
           flush=True)
     return None
-
 
 def stage_revision(sha: str, work: Path) -> None:
     if not SHA_PATTERN.fullmatch(sha):
