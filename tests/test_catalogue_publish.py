@@ -231,6 +231,90 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(len(requests),2)
         self.assertTrue(requests[1].endswith("?mode=vendors"))
 
+
+    def test_products_first_and_rfqs_after_preserve_status_accuracy(self):
+        doc=json.loads(self.source.read_text())
+        doc["vendor_products"]=[{
+            "website":"www.mindray.com","product_id":"AUR-P-"+"A"*20,
+            "source_url":"https://www.mindray.com/en/products/anesthesia/wato-ex-35",
+            "manufacturer":"Mindray","model":"WATO EX-35",
+            "sector":"medical","category":"Anesthesia",
+            "evidence_type":"STRUCTURED_PRODUCT","last_seen":"2026-10-22T04:33:00Z"}]
+        self.source.write_text(json.dumps(doc))
+        key=self.root/"catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        env={"AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)}
+        calls=[]
+        class Response:
+            status=200
+            def __init__(self,result):self.result=result
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,n):return json.dumps(self.result).encode()
+        def fake_open(request,timeout):
+            parsed=json.loads(request.data)
+            calls.append(request.full_url)
+            digest=hashlib.sha256(request.data).hexdigest()
+            if "mode=vendors" in request.full_url:
+                return Response({"ok":True,"status":"MERGED",
+                                 "source_sha256":digest})
+            count=len(parsed["items"])
+            return Response({"ok":True,"status":"PUBLISHED",
+                             "accepted_input_records":count,
+                             "records":count,"source_sha256":digest,
+                             "sha256":"a"*64})
+        with patch("catalogue_publish.urlopen",fake_open):
+            with self.assertRaises(RuntimeError):
+                publish_https(self.source,self.root,env,mode="vendors")
+            first=publish_https(self.source,self.root,env,mode="products")
+            self.assertEqual(first["status"],"PRODUCTS_PUBLISHED")
+            self.assertTrue(first["vendor_pending"])
+            self.assertFalse((self.root/"catalogue-pushed.sha256").exists())
+            self.assertTrue((self.root/"catalogue-products-pushed.sha256").exists())
+            second=publish_https(self.source,self.root,env,mode="vendors")
+        self.assertEqual(second["status"],"VENDORS_PUBLISHED")
+        self.assertEqual(len(calls),2)
+        self.assertTrue((self.root/"catalogue-pushed.sha256").exists())
+
+    def test_oversized_proxy_disconnections_split_until_acked(self):
+        from http.client import RemoteDisconnected
+        doc=json.loads(self.source.read_text())
+        doc["items"]=[{
+            **VALID["items"][0],"canonical_id":"AUR-P-"+format(i,"020X"),
+            "model":"EX-"+str(i)} for i in range(32)]
+        self.source.write_text(json.dumps(doc))
+        key=self.root/"catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        live=set();attempts=[]
+        class Response:
+            status=200
+            def __init__(self,result):self.result=result
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,n):return json.dumps(self.result).encode()
+        def fake_open(request,timeout):
+            data=json.loads(request.data)
+            items=data["items"]
+            attempts.append(len(items))
+            if len(items)>25:
+                raise RemoteDisconnected("simulated Hostinger reverse proxy close")
+            for item in items:live.add(item["canonical_id"])
+            return Response({"ok":True,"status":"PUBLISHED",
+                "accepted_input_records":len(items),"records":len(live),
+                "sha256":"b"*64,
+                "source_sha256":hashlib.sha256(request.data).hexdigest()})
+        with patch("catalogue_publish.urlopen",fake_open),\
+             patch("catalogue_publish.time.sleep",return_value=None):
+            result=publish_https(self.source,self.root,{
+               "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)},mode="products")
+        self.assertEqual(result["records"],32)
+        self.assertEqual(result["submitted_products"],32)
+        self.assertEqual(len(live),32)
+        self.assertIn(32,attempts)
+        self.assertIn(16,attempts)
+        self.assertEqual(attempts.count(32),3)
+        self.assertTrue((self.root/"catalogue-products-pushed.sha256").exists())
+
     def test_failed_upload_never_records_success_receipt(self):
         env = self.configured()
         with patch("catalogue_publish.subprocess.run",
