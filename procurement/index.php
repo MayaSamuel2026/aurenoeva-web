@@ -134,6 +134,26 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['customer_repo
     header('Content-Length: '.strlen($pdf));
     echo $pdf; exit;
 }
+// Historical customer reports are private, permanent enquiry attachments.
+if ($isAdmin && $_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['customer_report_saved'])) {
+    try {
+        $ref=trim((string)$_GET['customer_report_saved']);
+        $version=trim((string)($_GET['version']??''));
+        // A report may only be opened for an existing authorized case.
+        $case=aur_case_read($aurStore,$ref);
+        $file=aur_customer_report_version_path($aurStore,(string)$case['reference'],$version);
+        $pdf=@file_get_contents($file);
+        if(!is_string($pdf)||!str_starts_with($pdf,'%PDF-'))
+            throw new RuntimeException('saved_report_unreadable');
+    } catch(Throwable $e) {
+        error_log('AURENOEVA archived report: '.get_class($e));
+        aur_denied(404,'saved customer report unavailable');
+    }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="'.$ref.'-CUSTOMER-SUPPLIER-REPORT-'.$version.'.pdf"');
+    header('Content-Length: '.strlen($pdf));
+    echo $pdf; exit;
+}
 
 $result = null;
 $supplierDiscoveryMessage = null;
@@ -496,9 +516,29 @@ catch(Throwable $e) {
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original case RFQ draft</a>
-<a class="button" href="?customer_report=<?=rawurlencode((string)$result['reference'])?>">Download customer supplier report (PDF)</a>
+<a class="button" href="?customer_report=<?=rawurlencode((string)$result['reference'])?>">Generate / Download customer report (PDF)</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
+<section id="customer-report-history" style="margin:17px 0 23px;padding:15px 17px;border:1px solid #dce6e1;border-radius:10px;background:#f7faf8">
+<h3 style="font-size:17px;margin:0 0 7px">Customer PDF reports saved with this enquiry</h3>
+<p class="muted" style="margin:0 0 10px">Generate / Download above saves an immutable PDF under case <?=aur_escape((string)$result['reference'])?>. New supplier research creates a new version; previous customer reports remain available here. Reload the case after a new download to update this list.</p>
+<?php
+try{$customerSavedReports=aur_customer_report_history($aurStore,(string)$result['reference']);}
+catch(Throwable $e){error_log('AURENOEVA report history: '.get_class($e));$customerSavedReports=[];}
+?>
+<?php if($customerSavedReports):?>
+<div class="scroll"><table style="font-size:13px">
+<thead><tr><th>Saved (UTC)</th><th>Version</th><th>Customer PDF</th></tr></thead><tbody>
+<?php foreach($customerSavedReports as $reportEntry):?>
+<tr>
+<td><?=aur_escape(gmdate('d M Y, H:i',(int)$reportEntry['timestamp']))?></td>
+<td><?=aur_escape(substr((string)$reportEntry['version'],0,8))?></td>
+<td><a href="?customer_report_saved=<?=rawurlencode((string)$result['reference'])?>&amp;version=<?=rawurlencode((string)$reportEntry['version'])?>">Download saved version ↗</a></td>
+</tr>
+<?php endforeach;?>
+</tbody></table></div>
+<?php else:?><p class="muted" style="margin:0">No archived customer reports yet. Use Generate / Download customer report to create the first saved version.</p><?php endif;?>
+</section>
 <section aria-labelledby="original-equipment-heading" id="original-rfq-equipment">
 <h3 id="original-equipment-heading" style="margin-top:30px;font-size:21px">Original requested equipment — <?= (int)($result['line_count']??0) ?> saved entries</h3>
 <p class="muted">This is your original uploaded customer enquiry, stored in the case record. It is always displayed, independently of worldwide supplier discovery, and is not overwritten by new research.</p>
