@@ -22,6 +22,7 @@ function aur_denied(int $status, string $message): never {
     exit;
 }
 require_once __DIR__ . '/private_cases.php';
+require_once __DIR__ . '/embargo_screen.php';
 require_once __DIR__ . '/supplier_intelligence.php';
 require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
@@ -113,6 +114,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
 
 $result = null;
 $supplierDiscoveryMessage = null;
+$countryScreenError = null;
 $catalogueSyncToken = null;
 $catalogueSnapshotCount = null;
 $catalogueSnapshotSectors = [];
@@ -288,9 +290,22 @@ if ($isAdmin) {
             // never replace the whole workspace with a plaintext 422 page.
             $supplierDiscoveryMessage='RFQ draft not created ('.aur_vendor_rfq_safe_error($e).'). Your original equipment and all supplier leads remain saved. Re-select the intended suppliers or retry after correcting the error.';
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_destination_country'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            aur_embargo_record($aurStore,$case,(string)($_POST['destination_country']??''));
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference']).'#destination-screen',true,303);
+            exit;
+        } catch (Throwable $e) {
+            error_log('AURENOEVA country screen update: '.get_class($e));
+            $supplierDiscoveryMessage='The selected destination could not be saved; original case data remain unchanged.';
+            try { $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??''))); } catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_vendor_rfqs'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+            aur_embargo_assert_dispatch_ready($result);
             $draftId=trim((string)($_POST['draft_id']??''));
             $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
@@ -361,6 +376,12 @@ $supplierResearch=null;
 $rfqPreview=null;
 $supplierResearchMode='';
 if ($isAdmin && is_array($result) && isset($result['reference'])) {
+    try {
+        $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+    } catch (Throwable $e) {
+        error_log('AURENOEVA country screening: '.get_class($e));
+        $countryScreenError='Country screening could not be recorded. Supplier requests must not be dispatched until the case can be screened.';
+    }
     try {
         $supplierResearch=aur_supplier_save($aurStore,$result);
     } catch (Throwable $e) {
@@ -468,6 +489,32 @@ catch(Throwable $e) {
 <b><?= (int)($result['line_count'] ?? 0) ?></b> entries ·
 <b><?= (int)($result['alternatives'] ?? 0) ?></b> alternative options ·
 <b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
+<section id="destination-screen" style="border:1px solid #cad7d1;background:#f1f5f2;border-radius:10px;padding:18px;margin:18px 0">
+<h3 style="margin:0 0 8px">Automatic destination / embargo preflight</h3>
+<form method="post" action="/procurement/" class="inline">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<label>Actual destination country
+<select name="destination_country" required style="padding:12px;border:1px solid #c5d2cd;border-radius:8px;max-width:360px">
+<?php foreach(aur_embargo_countries() as $code=>$name):?>
+<option value="<?=aur_escape($code)?>" <?=$code===($result['country']??'')?'selected':''?>><?=aur_escape($name)?> (<?=aur_escape($code)?>)</option>
+<?php endforeach;?>
+</select></label>
+<button class="ghost" type="submit" name="update_destination_country" value="1">Save and recheck destination</button>
+</form>
+<?php $countryScreen=$result['country_preflight']??null; ?>
+<?php if($countryScreenError!==null || !is_array($countryScreen)):?>
+<p role="alert"><strong>Screening unavailable — supplier dispatch blocked.</strong> <?=aur_escape((string)$countryScreenError)?></p>
+<?php else:?>
+<p role="status"><strong><?=!empty($countryScreen['enhanced_review'])?'Enhanced review required':'Preliminary country check recorded'?></strong> · <?=aur_escape((string)$countryScreen['country_name'])?> (<?=aur_escape((string)$countryScreen['destination_country'])?>) · <?=aur_escape((string)$countryScreen['checked_at'])?></p>
+<p><?=aur_escape((string)$countryScreen['note'])?></p>
+<?php if(!empty($countryScreen['enhanced_review'])):?><p><strong>Supplier enquiry sending is on hold for this destination pending a documented sanctions assessment.</strong> Worldwide product and supplier research remains available.</p><?php endif;?>
+<?php endif;?>
+<p class="muted">This is a country-level warning, not a live official-list check or legal clearance. Seller/buyer identities, ownership, goods classification, final end user and end use still require review. Official references:
+<a href="https://sanctionsmap.eu/" target="_blank" rel="noopener noreferrer">EU Sanctions Map</a> ·
+<a href="https://finance.ec.europa.eu/eu-and-world/sanctions-restrictive-measures/overview-sanctions-and-related-resources_en" target="_blank" rel="noopener noreferrer">European Commission</a>.
+Original case reference and equipment remain unchanged if the destination is corrected.</p>
+</section>
 <p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
@@ -539,7 +586,11 @@ try {
 </section>
 <section class="card"><h2>Import Excel or CSV</h2><form method="post" enctype="multipart/form-data" class="inline">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
-<label>Destination country<input name="country" value="UZ" pattern="[A-Za-z]{2}" maxlength="2" required style="width:110px"></label>
+<label>Initial destination country
+<select name="country" required style="padding:12px;border:1px solid #c5d2cd;border-radius:8px;max-width:250px">
+<?php foreach(aur_embargo_countries() as $code=>$name):?>
+<option value="<?=aur_escape($code)?>" <?=$code==='UZ'?'selected':''?>><?=aur_escape($name)?> (<?=aur_escape($code)?>)</option>
+<?php endforeach;?></select></label>
 <label>Customer sourcing list<input name="customer_file" type="file" accept=".xlsx,.csv" required></label>
 <button type="submit">Create procurement case</button></form>
 <p class="muted">Maximum 20 MB · Customer files and quotations stay private · Duplicate files reuse their existing case.</p></section>
