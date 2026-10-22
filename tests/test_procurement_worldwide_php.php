@@ -16,6 +16,7 @@ try{
    'reference'=>'AUR-UZ-1234567890ABCDEF',
    'source_sha256'=>hash('sha256','sample-source'),
    'country'=>'UZ',
+   'country_preflight'=>aur_embargo_screen_country('UZ'),
    'payload'=>['sourcing_lines'=>[
      ['source_row'=>2,'description_original'=>'Mindray WATO EX-35 anesthesia workstation',
        'customer_item_number'=>1,'quantity'=>2,'option_type'=>'REQUESTED']
