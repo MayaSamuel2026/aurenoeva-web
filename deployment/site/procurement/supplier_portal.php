@@ -105,7 +105,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <input type="hidden" name="vendor_tokens" id="aur-compact-vendor-tokens" value="">
 <input type="hidden" name="prepare_vendor_rfqs" value="1">
 <p style="display:flex;gap:10px;flex-wrap:wrap">
-<button type="button" id="aur-select-all-vendors" class="ghost">Select all contactable suppliers</button>
+<button type="button" id="aur-select-all-vendors" class="ghost"><?=$contactableCount<=300?'Select all contactable suppliers':'Select first 300 contactable suppliers'?></button>
 <button type="button" id="aur-clear-vendors" class="ghost">Clear selection</button>
 <span class="muted" id="aur-vendor-selection-count"><?=$contactableCount<=300?$contactableCount:0?> suppliers selected</span>
 </p>
@@ -164,7 +164,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </details>
 </section>
 <?php if(is_array($rfqPreview)): ?>
-<section style="padding:25px 0;border-top:1px solid #dae4e0">
+<section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
 <h2>Review supplier availability enquiries — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p><b>Step 2 of 2 · Approve dispatch.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Confirm the legal review, then the existing outbox will send in resumable batches. Each draft remains saved under the case reference <?=aur_escape((string)$result['reference'])?>.</p>
 
