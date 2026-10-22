@@ -356,15 +356,19 @@ function aur_supplier_report_save(string $store,array $case,array $intel):array 
                 $previousPath=$folder.'/'.substr($priorHash,0,16).'.pdf';
                 aur_customer_report_archive_copy($path,$previousPath);
             }
-            $pdf=aur_supplier_report_pdf($report);
-            if(!str_starts_with($pdf,'%PDF-')||strlen($pdf)<1000)
-                throw new RuntimeException('invalid_customer_pdf');
-            // Save an immutable case snapshot and update the latest copy.
-            $temp=$folder.'/.new-'.bin2hex(random_bytes(8));
-            if(file_put_contents($temp,$pdf,LOCK_EX)!==strlen($pdf))
-                throw new RuntimeException('report_archive_write_failed');
-            @chmod($temp,0600);
-            if(!rename($temp,$archive))throw new RuntimeException('report_archive_commit_failed');
+            // Reuse a previously archived revision if research returns to
+            // the same state. Never overwrite an immutable case attachment.
+            if(!is_file($archive)) {
+                $pdf=aur_supplier_report_pdf($report);
+                if(!str_starts_with($pdf,'%PDF-')||strlen($pdf)<1000)
+                    throw new RuntimeException('invalid_customer_pdf');
+                $temp=$folder.'/.new-'.bin2hex(random_bytes(8));
+                if(file_put_contents($temp,$pdf,LOCK_EX)!==strlen($pdf))
+                    throw new RuntimeException('report_archive_write_failed');
+                @chmod($temp,0600);
+                if(!rename($temp,$archive))throw new RuntimeException('report_archive_commit_failed');
+            }
+            if(is_link($archive))throw new RuntimeException('report_archive_invalid');
             $currentTemp=$dir.'/.current-'.bin2hex(random_bytes(8));
             if(!@copy($archive,$currentTemp)||!@rename($currentTemp,$path))
                 throw new RuntimeException('report_latest_commit_failed');
