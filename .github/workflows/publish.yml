@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: aurenoeva-production-final
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   qualify-publish:
