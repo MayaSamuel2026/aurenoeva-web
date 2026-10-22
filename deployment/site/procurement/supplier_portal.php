@@ -195,3 +195,75 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </details>
 </section>
 <?php endif;?>
+
+
+<?php
+// Source-of-truth quotations live in the private case, not in crawler data.
+try {$savedReplies=aur_reply_read($aurStore,$result);}
+catch(Throwable $e){error_log('AURENOEVA reply register: '.get_class($e));$savedReplies=[];}
+$replyChoices=is_array($rfqPreview)?aur_reply_choices($rfqPreview):[];
+$replyByRow=[];
+foreach($savedReplies as $reply)if(is_array($reply))$replyByRow[(int)($reply['source_row']??0)][]=$reply;
+$quotedItemCount=count($replyByRow);
+?>
+<section id="supplier-replies" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
+<h3>Supplier quotation dashboard</h3>
+<p class="muted">Supplier prices are matched to the original customer equipment item number, not guessed from a product description. New replies are recorded manually until the AURENOEVA incoming mailbox is connected. Different currencies are not automatically converted.</p>
+<p>
+<span class="pill"><b><?=count($savedReplies)?></b> supplier-item responses recorded</span>
+<span class="pill"><b><?=$quotedItemCount?></b> equipment items with replies</span>
+<span class="pill"><b><?=count($result['payload']['sourcing_lines']??[])-$quotedItemCount?></b> awaiting responses</span>
+</p>
+<?php if(isset($_GET['response_saved'])):?><p role="status"><b>Supplier reply saved against the original equipment item.</b></p><?php endif;?>
+<?php if($replyChoices):?>
+<details class="aux-disclosure">
+<summary>Record a supplier quotation or availability reply</summary>
+<form method="post" action="/procurement/" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;align-items:end">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
+<label style="grid-column:1/-1">Supplier and original equipment item
+<select name="supplier_item" required style="padding:12px;max-width:100%">
+<option value="">Choose supplier and item</option>
+<?php foreach($replyChoices as $token=>$candidate):?>
+<option value="<?=aur_escape((string)$token)?>"><?=aur_escape((string)$candidate['supplier'])?> — item <?= (int)(array_values(array_filter($result['payload']['sourcing_lines']??[],static fn($v)=>(int)($v['source_row']??0)===(int)$candidate['source_row']))[0]['customer_item_number']??$candidate['source_row']) ?> — <?=aur_escape(substr((string)$candidate['description'],0,75))?></option>
+<?php endforeach;?>
+</select></label>
+<label>Supplier response
+<select name="availability" required style="padding:12px">
+<option value="QUOTED">Price / quotation received</option>
+<option value="ALTERNATIVE_OFFERED">Alternative offered</option>
+<option value="NOT_AVAILABLE">Not available</option>
+<option value="DETAILS_PENDING">Further details requested</option>
+</select></label>
+<label>Unit price (optional)<input name="unit_price" placeholder="1250.00" inputmode="decimal"></label>
+<label>Currency (ISO)<input name="currency" placeholder="EUR" maxlength="3"></label>
+<label>Lead time<input name="lead_time" maxlength="100" placeholder="e.g. 3–4 weeks"></label>
+<label style="grid-column:1/-1">Reply reference / email subject<input name="reply_reference" maxlength="180" placeholder="Email date or supplier quotation number"></label>
+<label style="grid-column:1/-1">Other quotation details<textarea name="notes" rows="2" maxlength="900" placeholder="Quantity available, delivery terms, alternative model, warranty ..."></textarea></label>
+<p><button type="submit" name="record_supplier_reply" value="1">Save quotation against equipment item</button></p>
+</form>
+</details>
+<?php else:?>
+<p class="muted">To record a response, open a sent RFQ under “Previous supplier enquiries” above. Only previously contacted supplier/item combinations can be entered.</p>
+<?php endif;?>
+<details class="aux-disclosure" <?=$savedReplies?'open':''?>>
+<summary>Compare suppliers across original equipment items · <?=count($result['payload']['sourcing_lines']??[])?> entries</summary>
+<div class="scroll"><table>
+<thead><tr><th>Customer item</th><th>Original equipment</th><th>Supplier / offer</th><th>Unit price</th><th>Lead time / source</th></tr></thead><tbody>
+<?php foreach(($result['payload']['sourcing_lines']??[]) as $line):
+  $rowNumber=(int)($line['source_row']??0);$offers=$replyByRow[$rowNumber]??[];
+?>
+<tr><td><b>#<?=(int)($line['customer_item_number']??0)?></b></td>
+<td><?=aur_escape((string)($line['description_original']??''))?></td>
+<td><?php if(!$offers):?><span class="muted">Awaiting quotation</span><?php else:?>
+<?php foreach($offers as $offer):?>
+<div><b><?=aur_escape((string)$offer['supplier'])?></b> · <?=aur_escape((string)$offer['availability'])?></div>
+<?php endforeach;?><?php endif;?></td>
+<td><?php foreach($offers as $offer):?><div><?=aur_escape((string)($offer['unit_price']??''))?> <?=aur_escape((string)($offer['currency']??''))?></div><?php endforeach;?></td>
+<td><?php foreach($offers as $offer):?><div><?=aur_escape((string)($offer['lead_time']??''))?> · <?=aur_escape((string)($offer['reply_reference']??''))?></div><?php endforeach;?></td>
+</tr>
+<?php endforeach;?>
+</tbody></table></div>
+</details>
+</section>
