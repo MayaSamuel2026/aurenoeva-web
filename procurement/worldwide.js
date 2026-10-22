@@ -108,52 +108,32 @@
       sendButton.disabled = false; return;
     }
     try {
-      let authorized = sendForm.dataset.approved === '1';
-      for (let i = 0; i < Math.ceil(total / 10) + 3; i++) {
+      for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {
         const response = await fetch('/procurement/',{
           method:'POST',credentials:'same-origin',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({task:authorized?'continue':'send',csrf,case_ref:caseRef,
-            draft_id:draftId,manual_review:!authorized})
+          body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
+            draft_id:draftId,manual_review:true})
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result.ok !== true)
           throw new Error('Mail batch response ' + response.status + '. Review the saved draft before resuming.');
-        authorized = true;
         const p = result.progress || {};
         sendProgress.textContent = (p.accepted || 0) + ' of ' + (p.total || total) +
           ' vendor emails accepted by mail transport; ' + (p.remaining || 0) + ' pending.';
         if (result.status !== 'DISPATCHING') {
           window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
-            '&draft=' + encodeURIComponent(draftId) + '#rfq-step-review');
+            '&draft=' + encodeURIComponent(draftId) + '#supplier-history');
           return;
         }
         if (Number(p.processed_this_request || 0) === 0)
           throw new Error('No further send progress; review saved outbox.');
       }
-      throw new Error('Maximum approved batches reached; reopening will continue the saved queue without repeat approval.');
+      throw new Error('Maximum batch count reached; reopen the draft to continue.');
     } catch (error) {
       sendProgress.textContent = 'Mail dispatch paused: ' + (error.message || 'Unknown error') +
-        ' — accepted messages remain recorded. Reopen this draft to continue the approved queue.';
+        ' — sent messages stay recorded and will not be resent. Reopen the saved draft.';
       sendButton.disabled = false;
     }
   });
-})();
-
-/* aur-reveal-workflow-anchor: simple native disclosure navigation. */
-(() => {
-  'use strict';
-  const reveal = hash => {
-    if (!hash || hash[0] !== '#') return;
-    const el = document.getElementById(decodeURIComponent(hash.slice(1)));
-    if (!el) return;
-    let d = el.matches('details') ? el : el.closest('details');
-    while (d) { d.open = true; d = d.parentElement?.closest('details') || null; }
-  };
-  document.addEventListener('click', event => {
-    const link = event.target.closest?.('a[href^="#"]');
-    if (link) reveal(link.getAttribute('href'));
-  });
-  window.addEventListener('hashchange', () => reveal(window.location.hash));
-  reveal(window.location.hash);
 })();

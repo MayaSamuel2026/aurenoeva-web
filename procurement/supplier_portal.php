@@ -68,208 +68,79 @@ try{$approvedDrafts=aur_vendor_rfq_list($aurStore,$result);}
 catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 ?>
 <section id="supplier-workspace" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
-<h2><?=is_array($rfqPreview)?'RFQ prepared for approval':'Select suppliers for this RFQ'?></h2>
-<p class="muted">Select published supplier contacts, prepare one consolidated enquiry per email address, review and approve once. Research records and sources remain available in the advanced section.</p>
-<p class="aur-quick-stats">
-<span class="pill"><b><?=count($researchRows)?></b> equipment lines</span>
-<span class="pill"><b><?=$contactableCount?></b> suppliers with email</span>
-<span class="pill"><b><?=count($dashboard)-$contactableCount?></b> research-only leads</span>
+<h2>Worldwide product and seller availability</h2>
+<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding availability enquiry. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
+<p>
+<span class="pill"><b><?=count($researchRows)?></b> requested lines</span>
+<span class="pill"><b><?=count($dashboard)?></b> supplier/manufacturer leads</span>
+<span class="pill"><b><?=$contactableCount?></b> published email contacts</span>
+<span class="pill"><b><?=(int)$worldStats['scanned']?> / <?=(int)$worldStats['total']?></b> lines scanned</span>
+<span class="pill"><b><?=(int)$worldStats['new_source_pages']?></b> saved online source links</span>
 </p>
 <?php if(!empty($supplierResearchMode)):?><p class="muted" role="status"><?=aur_escape((string)$supplierResearchMode)?></p><?php endif;?>
 <?php if(!empty($supplierDiscoveryMessage)):?><p role="status"><?=aur_escape((string)$supplierDiscoveryMessage)?></p><?php endif;?>
-<p class="aur-small-links"><a href="#supplier-search-controls">Worldwide discovery</a> · <a href="#supplier-history">Past RFQs</a> · <a href="#item-sources">Detailed research</a></p>
-<?php
-try {
-    $tradeState=aur_trade_review_state($aurStore,$result);
-    $tradeRecord=aur_trade_review_read($aurStore,$result);
-} catch(Throwable $e) {
-    error_log('AURENOEVA trade review read: '.get_class($e));
-    $tradeState=['ready'=>false,'code'=>'STORAGE_UNAVAILABLE','label'=>'Trade review unavailable'];
-    $tradeRecord=null;
-}
-$countryCheck=aur_trade_country_assessment($result);
-?>
-<details id="trade-review" class="aur-disclosure aur-trade-review"
-    <?=(!$tradeState['ready']&&is_array($rfqPreview))?'open':''?>>
-<summary>Pre-RFQ embargo screening — <?=aur_escape($tradeState['label'])?></summary>
-<div class="aur-trade-content">
-<p class="muted">This is a mandatory <strong>pre-enquiry</strong> review. It records a country-level assessment and the administrator's checks, but does not constitute sanctions clearance, a licence, or permission to export.</p>
-<h3>Delivery destination: <?=aur_escape($countryCheck['name'])?> (<?=aur_escape($countryCheck['code'])?>)</h3>
-<p><strong>Official-source indication:</strong> <?=aur_escape($countryCheck['finding'])?></p>
-<p><strong>Enhanced-diligence point:</strong> <?=aur_escape($countryCheck['risk'])?></p>
-<p class="muted">Reference country check: <?=aur_escape($countryCheck['source_reviewed_on']??'not yet established')?>. Verify the current information before signing off. Counterparty-name and exact equipment classifications are not automatically screened.</p>
-<div class="aur-source-links">
-<a href="<?=aur_escape(AUR_TRADE_SOURCE_EU)?>" target="_blank" rel="noopener noreferrer">EU sanctions overview ↗</a>
-<a href="<?=aur_escape(AUR_TRADE_SOURCE_BAFA)?>" target="_blank" rel="noopener noreferrer">BAFA country embargo overview ↗</a>
-<a href="<?=aur_escape(AUR_TRADE_SOURCE_ENTITIES)?>" target="_blank" rel="noopener noreferrer">EU listed persons and entities ↗</a>
-<a href="<?=aur_escape(AUR_TRADE_SOURCE_DILIGENCE)?>" target="_blank" rel="noopener noreferrer">Anti-circumvention guidance ↗</a>
-<a href="<?=aur_escape(AUR_TRADE_SOURCE_GOODS)?>" target="_blank" rel="noopener noreferrer">EU dual-use export controls ↗</a>
-</div>
-<?php if($tradeState['ready']):?>
-<p class="aur-trade-reviewed"><b>Pre-RFQ review recorded:</b>
-<?=aur_escape((string)($tradeRecord['reviewed_at']??''))?> UTC.
-The review is valid for up to seven days provided the case has not changed.
-This is not a clearance for purchase or shipment.</p>
-<?php elseif(($tradeState['code']??'')==='HOLD'):?>
-<p class="aur-trade-hold">This enquiry is ON HOLD. Pending emails will not be dispatched until a subsequent authorized review permits enquiry-only outreach.</p>
-<?php else:?>
-<p class="aur-trade-hold">Supplier sending is paused until the checks below are recorded.</p>
-<?php endif;?>
-<?php if(!empty($tradeReviewMessage)):?><p role="alert" class="aur-trade-hold"><?=aur_escape($tradeReviewMessage)?></p><?php endif;?>
-<?php if(isset($_GET['trade_required'])):?><p role="alert" class="aur-trade-hold">Dispatch was blocked because a current trade review is required. No pending supplier message was released by that request.</p><?php endif;?>
-<form method="post" action="/procurement/" class="aur-trade-form">
-<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
-<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
-<?php if(is_array($rfqPreview)):?><input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>"><?php endif;?>
-<label><input type="checkbox" name="trade_country_checked" value="1" <?=!empty($tradeRecord['checks']['country'])?'checked':''?>>
-I reviewed current EU and BAFA destination-related embargo sources.</label>
-<label><input type="checkbox" name="trade_diversion_checked" value="1" <?=!empty($tradeRecord['checks']['diversion'])?'checked':''?>>
-I considered onward shipment or diversion risks, particularly involving Russia or Belarus.</label>
-<label><input type="checkbox" name="trade_parties_checked" value="1" <?=!empty($tradeRecord['checks']['parties'])?'checked':''?>>
-I reviewed the known counterparties against applicable sanctions lists and documented any unknown parties for checking before a transaction.</label>
-<label><input type="checkbox" name="trade_items_checked" value="1" <?=!empty($tradeRecord['checks']['items'])?'checked':''?>>
-I considered whether any requested equipment might require goods classification, export licensing, import authorisation or additional investigation.</label>
-<label><input type="checkbox" name="trade_scope_acknowledged" value="1" <?=!empty($tradeRecord['checks']['scope'])?'checked':''?>>
-I understand this permits only non-binding supplier enquiries. Individual suppliers, customers and equipment require further checks before any order or shipment.</label>
-<label class="aur-trade-field">Screening notes / unresolved information
-<textarea name="trade_notes" rows="3" maxlength="3000" required placeholder="Example: Uzbekistan checked against EU/BAFA references; end-user name still to be confirmed; any product licences to be assessed before an order."><?=aur_escape((string)($tradeRecord['notes']??''))?></textarea></label>
-<label class="aur-trade-field">Decision for supplier enquiries
-<select name="trade_decision" required>
-<option value="">Choose a decision</option>
-<option value="RFQ_REVIEWED" <?=(($tradeRecord['decision']??'')==='RFQ_REVIEWED'?'selected':'')?>>Permit non-binding RFQs only — subject to later transaction screening</option>
-<option value="HOLD" <?=(($tradeRecord['decision']??'')==='HOLD'?'selected':'')?>>Hold the case — do not send</option>
-</select></label>
-<button type="submit" name="save_trade_review" value="1">Save pre-RFQ screening</button>
-<p class="muted">Any change to the original enquiry or a review older than seven days blocks future pending dispatch until reviewed again. Earlier reviews are retained in the private record.</p>
-</form>
-</div>
-</details>
-<?php if(is_array($rfqPreview)): ?>
-<section id="rfq-step-review" class="aur-rfq-review">
-<div class="aur-stage-label">Step 2 / 3 — Review and authorize</div>
-<h2>Ready to review: <?=count($rfqPreview['messages']??[])?> supplier emails</h2>
-<p><strong>From:</strong> info@aurenoeva.com · <strong>Reply requested:</strong> within five working days · <strong>Status:</strong> <?=aur_escape(aur_supplier_status_label((string)$rfqPreview['status']))?></p>
-<p class="muted">Scan the recipients and equipment counts below. Open any row to check its complete customized English RFQ. Approval below is given only once for the entire case.</p>
-<div class="aur-mail-scroller">
-<table class="aur-compact-table">
-<thead><tr><th>Supplier</th><th>Email recipient</th><th>Requested items</th><th>Status / draft</th></tr></thead>
-<tbody>
-<?php foreach($rfqPreview['messages'] as $msg):
-  $msgLines=$msg['items']??[];
-  $numbers=[];
-  foreach($msgLines as $mi){
-      $n=(int)($mi['customer_item_number']??0);
-      $row=(int)($mi['source_row']??0);
-      $numbers[]=$n>0?'#'.$n:($row>0?'L'.$row:'—');
-  }
-  $numbers=array_values(array_unique($numbers));
-?>
-<tr><td><b><?=aur_escape((string)$msg['vendor_name'])?></b></td>
-<td><?=aur_escape((string)$msg['to'])?></td>
-<td><strong><?=count($msgLines)?> item(s)</strong>
-<div class="muted"><?=aur_escape(implode(', ',array_slice($numbers,0,6)))?><?=count($numbers)>6?' +'.(count($numbers)-6).' more':''?></div></td>
-<td><span class="pill"><?=aur_escape(aur_supplier_status_label((string)$msg['status']))?></span>
-<details class="aur-email-details">
-<summary>Review email</summary>
-<p><b>RFQ:</b> <?=aur_escape((string)($msg['rfq_reference']??'Earlier draft'))?></p>
-<p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
-<?php if(!empty($msg['response_due_on'])):?>
-<p><b>Response due:</b> <?=aur_escape((string)$msg['response_due_on'])?></p>
-<?php endif;?>
-<pre class="aur-email-preview"><?=aur_escape((string)$msg['body'])?></pre>
-</details></td></tr>
-<?php endforeach;?>
-</tbody></table>
-</div>
-<?php $legacyRfqTemplate=($rfqPreview['status']??'')==='DRAFT_REVIEW'
-    && empty($rfqPreview['messages'][0]['rfq_reference']); ?>
-<?php if($legacyRfqTemplate):?>
-<p role="alert" class="aur-safety-notes">This is an earlier email format. Open <a href="#supplier-dashboard">supplier selection</a> and prepare a fresh five-working-day RFQ draft before authorizing.</p>
-<?php endif;?>
-<?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true) && !$legacyRfqTemplate): ?>
-<?php if(!$tradeState['ready']):?>
-<p class="aur-trade-hold"><strong>Sending is locked.</strong> Complete <a href="#trade-review">Pre-RFQ embargo screening</a> above before releasing this draft.</p>
-<?php endif;?>
-<form method="post" action="/procurement/" id="aur-vendor-send-form"
-  class="aur-primary-action"
-  data-total="<?=count($rfqPreview['messages']??[])?>"
-  data-approved="<?=($rfqPreview['status']??'')==='DISPATCHING'?'1':'0'?>">
-<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
-<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
-<input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
-<?php if(($rfqPreview['status']??'')==='DRAFT_REVIEW'):?>
-<label class="aur-approval-label"><input type="checkbox" name="manual_review" value="1" required>
-<span>I have checked the recipient list, equipment and applicable sanctions, export and end-use requirements. I authorize one non-binding RFQ per supplier, sent from info@aurenoeva.com. This single approval covers the full selected queue.</span></label>
-<?php endif;?>
-<button name="<?=($rfqPreview['status']??'')==='DISPATCHING'?'continue_vendor_rfqs':'send_vendor_rfqs'?>" value="1" type="submit" id="aur-send-all-rfqs" <?=$tradeState['ready']?'':'disabled'?>><?=($rfqPreview['status']??'')==='DISPATCHING'?'Continue approved dispatch':'Approve once & send all RFQs'?></button>
-<p role="status" id="aur-send-progress" class="muted">Only an explicit approval sends email. The authorized queue is processed in controlled batches, recorded against this case; accepted emails are not resent automatically.</p>
-</form>
-<?php else:?><p class="aur-safety-notes">Dispatch is recorded in this case. Transport acceptance does not confirm delivery or a supplier response.</p><?php endif;?>
+<p><a href="#supplier-search-controls">↑ Run worldwide discovery</a> · <a href="#supplier-history">Previous RFQ drafts</a> · <a href="#item-sources">Research by equipment item</a></p>
+<section style="background:#f1f5f2;padding:14px 18px;border-radius:8px;margin:16px 0">
+<h3 style="margin:0 0 8px">Export control, sanctions and embargo review</h3>
+<p style="margin:0">Preliminary destination status: <b><?=aur_escape((string)($result['country_preflight']['status']??'NOT_SCREENED'))?></b>. The country warning above is automatic; it is not live sanctions-list screening. Counterparties, beneficial owners, goods, end users, end use and applicable export laws still require a separate review. Supplier search remains worldwide, regardless of destination. An information-only service does not bypass sanctions rules.</p>
 </section>
-<?php endif;?>
-
-<details class="aur-disclosure">
-<summary>Export control, sanctions and embargo review requirements</summary>
-<h3 style="margin:13px 0 8px">Compliance review</h3>
-<p style="margin:0">Case legal status: <b><?=aur_escape((string)($result['legal_review']['compliance']['status']??'REVIEW_REQUIRED'))?></b>. Before sending RFQs, assess counterparties and beneficial owners, destination, end users/end use, product controls, applicable EU/UN/UK/US and other relevant sanctions, embargoes, export licences and supplier-country requirements. Uzbekistan is a destination, not a restriction on which countries may be searched. Being an intermediary does not bypass applicable controls. No sanctions clearance or lawful shipment is implied by this dashboard.</p>
-</details>
-<details id="supplier-history" class="aur-disclosure">
-<summary>Previously prepared RFQs (<?=count($approvedDrafts)?>)</summary>
-<h3>Saved consolidated RFQs</h3>
+<section id="supplier-history">
+<h3>Saved supplier availability enquiries</h3>
 <?php if(!$approvedDrafts):?><p class="muted">No drafts yet. Prepared and sent RFQs will remain selectable here.</p>
 <?php else: ?><div class="scroll"><table><thead><tr><th>Created (UTC)</th><th>Suppliers</th><th>Status</th><th>Review</th></tr></thead><tbody>
 <?php foreach($approvedDrafts as $priorDraft):?>
 <tr><td><?=aur_escape($priorDraft['created_at'])?></td><td><?=(int)$priorDraft['vendors']?></td>
 <td><?=aur_escape($priorDraft['status'])?></td>
-<td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#rfq-step-review">Open RFQ ↗</a></td></tr>
+<td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#supplier-history">Open RFQ ↗</a></td></tr>
 <?php endforeach;?></tbody></table></div><?php endif;?>
-</details>
-<details id="supplier-dashboard" class="aur-disclosure aur-supplier-selection" <?=is_array($rfqPreview)?'':'open'?>>
-<summary>Step 1 — Choose suppliers (<?=$contactableCount?> contactable)</summary>
-<h3>Suppliers available for RFQ</h3>
-<p class="muted">Tick the suppliers to contact. Multiple items are consolidated into one email per recipient. Research-only companies without published email contacts are listed under detailed research.</p>
+</section>
+<section id="supplier-dashboard">
+<h3>Consolidated supplier selection</h3>
+<p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. AURENOEVA requests availability and seller information only; no prices, payment terms or sales negotiations are requested.</p>
 <form method="post" action="/procurement/" id="aur-vendor-selection-form">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="vendor_tokens" id="aur-compact-vendor-tokens" value="">
 <input type="hidden" name="prepare_vendor_rfqs" value="1">
 <p style="display:flex;gap:10px;flex-wrap:wrap">
-<button type="button" id="aur-select-all-vendors" class="ghost">Select all suppliers</button>
+<button type="button" id="aur-select-all-vendors" class="ghost">Select all contactable suppliers</button>
 <button type="button" id="aur-clear-vendors" class="ghost">Clear selection</button>
 <span class="muted" id="aur-vendor-selection-count">0 suppliers selected</span>
 </p>
-<div class="scroll aur-supplier-scroll"><table class="aur-compact-table"><thead><tr><th>Select</th><th>Supplier</th><th>Items</th><th>Email</th></tr></thead><tbody>
+<div class="scroll"><table><thead><tr><th>Select</th><th>Supplier / country</th><th>Requested items</th><th>Contact / source</th><th>Availability</th></tr></thead><tbody>
 <?php foreach($dashboard as $supplier):
- if(!$supplier['contactable'])continue;
- $numbers=array_values(array_unique(array_map(static fn($v)=>(string)$v['number'],$supplier['items'])));
+ $numbers=array_map(static fn($v)=>(string)$v['number'],$supplier['items']);
+ $itemDescriptions=array_map(static fn($v)=>(string)$v['description'],$supplier['items']);
 ?>
 <tr>
-<td><label><input type="checkbox" class="aur-vendor-check" name="selected_vendors[]" value="<?=hash('sha256',$supplier['email'])?>" aria-label="Select <?=aur_escape($supplier['name'])?>"></label></td>
+<td><?php if($supplier['contactable']):?>
+<label><input type="checkbox" class="aur-vendor-check" name="selected_vendors[]" value="<?=hash('sha256',$supplier['email'])?>" aria-label="Select <?=aur_escape($supplier['name'])?>"></label>
+<?php else:?><span class="muted">Research</span><?php endif;?></td>
 <td><strong><?=aur_escape($supplier['name'])?></strong>
-<div class="muted"><?=aur_escape($supplier['country'])?></div></td>
-<td><b><?=count($supplier['items'])?> items</b>
-<div class="muted">#<?=aur_escape(implode(', #',array_slice($numbers,0,5)))?><?=count($numbers)>5?' +'.(count($numbers)-5).' more':''?></div>
-<details class="aur-email-details"><summary>See equipment</summary><div class="aur-item-scroll">
+<div class="muted"><?=aur_escape($supplier['country'])?></div>
+<?php if($supplier['website']!==''):?><div class="muted"><?=aur_escape($supplier['website'])?></div><?php endif;?>
+<div class="muted"><?=aur_escape(implode(', ',array_slice(array_keys($supplier['roles']),0,2)))?></div></td>
+<td><b><?=count($supplier['items'])?> lines</b> — items <?=aur_escape(implode(', ',$numbers))?>
+<details><summary>View equipment</summary><div style="max-width:390px">
 <?php foreach($supplier['items'] as $equipment):?>
-<div style="margin:7px 0"><b>#<?=(int)$equipment['number']?></b> <?=aur_escape($equipment['description'])?></div>
+<p style="margin:7px 0">#<?=(int)$equipment['number']?> <?=aur_escape($equipment['description'])?></p>
 <?php endforeach;?></div></details></td>
-<td><span class="aur-email-cell"><?=aur_escape($supplier['email'])?></span>
-<details class="aur-email-details"><summary>Contact & evidence</summary>
+<td><?php if($supplier['contactable']):?><a href="mailto:<?=aur_escape($supplier['email'])?>"><?=aur_escape($supplier['email'])?></a>
+<?php else:?><span class="muted">Email not confirmed</span><?php endif;?>
 <?php if($supplier['phone']!==''):?><div><?=aur_escape($supplier['phone'])?></div><?php endif;?>
-<?php if($supplier['website']!==''):?><div><?=aur_escape($supplier['website'])?></div><?php endif;?>
 <?php foreach(array_slice(array_keys($supplier['sources']),0,4) as $url):?>
-<div><a href="<?=aur_escape($url)?>" target="_blank" rel="noopener noreferrer">Source ↗</a></div>
-<?php endforeach;?></details></td>
+<div><a href="<?=aur_escape($url)?>" target="_blank" rel="noopener noreferrer">Supplier evidence ↗</a></div>
+<?php endforeach;?></td>
+<td class="muted">Not verified</td>
 </tr>
 <?php endforeach;?>
 </tbody></table></div>
 <?php if(!$dashboard):?><p>No supplier research saved yet. Run worldwide discovery above to populate leads.</p><?php endif;?>
-<p class="aur-prepare-action"><button name="prepare_vendor_rfqs" id="aur-prepare-rfqs" value="1" type="submit" <?=$contactableCount<1?'disabled':''?>>Prepare consolidated RFQs for selected suppliers</button></p>
+<p><button name="prepare_vendor_rfqs" id="aur-prepare-rfqs" value="1" type="submit" <?=$contactableCount<1?'disabled':''?>>Prepare consolidated availability enquiries</button></p>
 <p id="aur-draft-progress" role="status" class="muted">Selecting suppliers does not send emails. The next step creates a saved draft for your review.</p>
 </form>
-</details>
-<details id="item-sources" class="aur-disclosure">
-<summary>Advanced research — original sources and worldwide searches</summary>
+</section>
+<section id="item-sources">
 <h3>Equipment-by-equipment source research</h3>
 <p class="muted">Every uploaded equipment specification remains available in the original RFQ above. Use these worldwide searches for additional suppliers that have not yet published an address.</p>
 <?php foreach($researchRows as $row):
@@ -287,5 +158,29 @@ I understand this permits only non-binding supplier enquiries. Individual suppli
 <?php endforeach;?>
 </details>
 <?php endforeach;?>
-</details>
 </section>
+</section>
+<?php if(is_array($rfqPreview)): ?>
+<section style="padding:25px 0;border-top:1px solid #dae4e0">
+<h2>Review supplier availability enquiries — <?=aur_escape((string)$rfqPreview['status'])?></h2>
+<p>Draft <?=aur_escape((string)$rfqPreview['draft_id'])?>. One consolidated email per vendor. Please review the recipient, requested products and destination before sending. No sale or purchase is arranged.</p>
+<?php foreach($rfqPreview['messages'] as $msg):?>
+<article style="border-bottom:1px solid #dae4e0;padding:16px 0">
+<h3><?=aur_escape((string)$msg['vendor_name'])?> — <?=aur_escape((string)$msg['status'])?></h3>
+<p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p><p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:440px;overflow:auto;padding:16px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre>
+</article>
+<?php endforeach;?>
+<?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
+<form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
+<label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
+<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs">Send approved availability enquiries</button>
+<?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
+<p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each email is recorded in the case outbox; duplicates are not resent automatically.</p>
+</form>
+<?php else: ?><p>Mail transport acceptance is recorded separately from confirmed delivery or a supplier reply. If a send failed, prepare a new draft after examining the recipient.</p><?php endif;?>
+</section>
+<?php endif;?>
