@@ -332,11 +332,15 @@ if ($isAdmin) {
             // never replace the whole workspace with a plaintext 422 page.
             $supplierDiscoveryMessage='RFQ draft not created ('.aur_vendor_rfq_safe_error($e).'). Your original equipment and all supplier leads remain saved. Re-select the intended suppliers or retry after correcting the error.';
         }
-    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_vendor_rfqs'])) {
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' &&
+        (isset($_POST['send_vendor_rfqs'])||isset($_POST['continue_vendor_rfqs']))) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
             $draftId=trim((string)($_POST['draft_id']??''));
-            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
+            $firstApproval=isset($_POST['send_vendor_rfqs']) && ($_POST['manual_review']??'')==='1';
+            // A resumed, previously approved queue is allowed to continue
+            // without repeating the legal-review checkbox.
+            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,$firstApproval,null,10);
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
