@@ -483,6 +483,26 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-primary-action{margin:18px 0;padding:16px;border:1px solid #cfddd5;border-radius:12px;background:#f5f9f6}
 @media(max-width:700px){.aur-stepnav{gap:3px}.aur-stepnav a{font-size:12px}.aur-mail-scroller{max-height:390px}}
 
+
+.aur-rfq-review{border:1px solid #c7ddd3;padding:17px;margin:17px 0 12px;background:#fcfefd;border-radius:12px}
+.aur-rfq-review>h2{margin:3px 0 8px;font-size:21px}
+.aur-stage-label{font-size:12px;font-weight:750;color:#245548;text-transform:uppercase;letter-spacing:.065em;margin-bottom:9px}
+.aur-quick-stats{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.aur-small-links{font-size:12px;margin:9px 0}
+.aur-supplier-scroll{max-height:430px;border:1px solid #e2ebe6;border-radius:9px}
+.aur-supplier-scroll th{position:sticky;top:0;background:#eef4f1;z-index:1}
+.aur-email-cell{overflow-wrap:anywhere;font-size:13px}
+.aur-email-details{font-size:12px;margin-top:7px;max-width:560px}
+.aur-email-details summary{color:#176455;cursor:pointer}
+.aur-email-details p{margin:6px 0}
+.aur-item-scroll{max-height:220px;overflow:auto;font-size:12px}
+.aur-approval-label{display:flex;align-items:flex-start;gap:12px;font-size:13px;font-weight:500;line-height:1.5;margin:0 0 16px}
+.aur-approval-label input{margin:2px 0 0;flex-shrink:0;width:17px;height:17px}
+.aur-admin-tools{margin-top:18px}
+.aur-admin-tools>summary{font-size:15px}
+.aur-admin-tools>section.card{margin-top:13px}
+.aur-prepare-action{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid #e0e9e3}
+
 @media(max-width:700px){.card{padding:18px}.top{align-items:flex-start}input[type=file]{width:100%}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
@@ -637,6 +657,8 @@ try {
 </tbody></table></div></section>
 <?php endif; ?>
 
+<details class="aur-disclosure aur-admin-tools" <?=$aurCaseOpen||$catalogueSyncToken!==null?'':'open'?>>
+<summary>Administration: test email, import files, product catalogue</summary>
 <section class="card">
 <h2>Email automation — dummy RFQ test</h2>
 <p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to <b>fredericksamuel1965@gmail.com</b>, using the website's real outbound email transport. This does not contact any supplier or alter existing enquiries.</p>
@@ -693,8 +715,9 @@ try {
 <button type="submit" name="generate_catalogue_sync" value="1">Generate / rotate catalogue sync key</button></form>
 <?php endif; ?>
 </section>
+</details>
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=7-one-approval-rfq"></script>
+<script defer src="/procurement/worldwide.js?v=8-guided-rfq"></script>
 <?php endif; ?></body></html>
