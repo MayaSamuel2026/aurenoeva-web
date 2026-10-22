@@ -14,7 +14,7 @@ function aur_catalogue_count_file(string $path): ?int {
     try {
         $head = fread($fp, 256);
         if (!is_string($head) ||
-            !preg_match('/^\s*\{\s*"schema"\s*:\s*"aurenoeva-catalogue\/1"\s*,\s*"items"\s*:\s*\[/D', $head)) return null;
+            !preg_match('/^\s*\{\s*"schema"\s*:\s*"aurenoeva-catalogue\/1"\s*,\s*"items"\s*:\s*\[/', $head)) return null;
         $cacheFile = dirname($real) . '/catalogue-count-cache.json';
         $cached = @file_get_contents($cacheFile);
         if (is_string($cached) && strlen($cached) < 1000) {
