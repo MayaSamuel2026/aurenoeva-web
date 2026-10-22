@@ -32,13 +32,13 @@ GENERIC = {
 
 
 def normalized_snapshot(path: Path) -> tuple[bytes, int]:
-    if not path.is_file() or path.stat().st_size > 24_000_000:
+    if not path.is_file() or path.stat().st_size > 512_000_000:
         raise ValueError("missing_or_oversized_snapshot")
     raw = json.loads(path.read_text(encoding="utf-8"))
     if raw.get("schema") != SCHEMA or not isinstance(raw.get("items"), list):
         raise ValueError("invalid_snapshot_schema")
     records = {}
-    for value in raw["items"][:80000]:
+    for value in raw["items"]:
         if not isinstance(value, dict):
             continue
         ident = str(value.get("canonical_id", ""))
@@ -63,39 +63,80 @@ def normalized_snapshot(path: Path) -> tuple[bytes, int]:
         }
     if not records:
         raise ValueError("no_qualifying_catalogue_identities")
-    def safe_vendor_url(url):
-        try:
-            p = urlsplit(str(url))
-            return p.scheme == "https" and bool(p.hostname) and not p.username and not p.password
-        except ValueError:
-            return False
-    # Private evidence is transferred with the authenticated HTTPS sync, but is
-    # NEVER copied to the public searchable product snapshot.
-    links=[]
-    for v in raw.get("vendor_products", [])[:25000]:
-        if (not isinstance(v,dict) or not IDENTITY.fullmatch(str(v.get("product_id",""))) or
-            not safe_vendor_url(v.get("source_url",""))): continue
-        host=str(v.get("website","")).lower()[:250]
-        if host != urlsplit(str(v["source_url"])).hostname: continue
-        links.append({k:str(v.get(k,""))[:(600 if k=="source_url" else 160)]
-                      for k in ("website","product_id","source_url","manufacturer",
-                                "model","sector","category","evidence_type","last_seen")})
-    leads=[]
-    for v in raw.get("vendor_leads", [])[:5000]:
-        if not isinstance(v,dict) or not safe_vendor_url(v.get("evidence_url","")):continue
-        host=str(v.get("website","")).lower()[:250]
-        if host != urlsplit(str(v["evidence_url"])).hostname:continue
-        leads.append({k:str(v.get(k,""))[:(600 if k=="evidence_url" else 160)]
-                      for k in ("website","evidence_url","sector","category","last_seen","checked","email","phone")})
+    # Product identities travel separately from private vendor evidence.
+    # A single combined JSON upload hit its 24 MB cap at ~27,000 products.
     payload = {
         "schema": SCHEMA,
         "items": [records[key] for key in sorted(records)],
-        "vendor_products": links,
-        "vendor_leads": leads,
         "availability_notice": "Product identity only; no supplier stock or price is implied.",
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
 
+
+
+def product_batches(payload: bytes, max_records: int = 6500,
+                    max_bytes: int = 5_000_000):
+    """Bound each POST while keeping all historical products in the receiver."""
+    doc = json.loads(payload)
+    batch = []
+    for item in doc["items"]:
+        batch.append(item)
+        # Preemptively flush to avoid web-host ingress/php memory limits.
+        candidate = json.dumps({"schema":SCHEMA,"items":batch},
+                               ensure_ascii=False,separators=(",",":")).encode("utf-8")
+        if len(batch) >= max_records or len(candidate) >= max_bytes:
+            if len(candidate)>15_000_000:
+                raise ValueError("single_product_batch_oversized")
+            yield candidate,len(batch)
+            batch=[]
+    if batch:
+        yield json.dumps({"schema":SCHEMA,"items":batch},
+                         ensure_ascii=False,separators=(",",":")).encode("utf-8"),len(batch)
+
+
+def vendor_evidence_batches(path: Path, max_records: int = 1500):
+    """Keep all private vendor evidence, streaming it as small replayable batches.
+
+    Output never contains buyer, case, price, inventory or quote details.
+    """
+    data=json.loads(path.read_text(encoding="utf-8"))
+    if data.get("schema") != SCHEMA:
+        raise ValueError("invalid_snapshot_schema")
+    records=[]
+    def flush():
+        payload=json.dumps({"schema":"aurenoeva-vendor-evidence/1",
+                            "vendor_products":[v for kind,v in records if kind=="product"],
+                            "vendor_leads":[v for kind,v in records if kind=="lead"]},
+                           ensure_ascii=False,separators=(",",":")).encode("utf-8")
+        if len(payload)>15_000_000:
+            raise ValueError("vendor_batch_oversized")
+        return payload,len(records)
+    for kind,key,fields,urlfield in (
+         ("lead","vendor_leads",
+          ("website","evidence_url","sector","category","last_seen","checked","email","phone"),
+          "evidence_url"),
+         ("product","vendor_products",
+          ("website","product_id","source_url","manufacturer","model","sector",
+           "category","evidence_type","last_seen"),"source_url")):
+        for v in data.get(key,[]):
+            if not isinstance(v,dict): continue
+            url=str(v.get(urlfield,""))
+            try:
+                parsed=urlsplit(url)
+                if(parsed.scheme!="https" or not parsed.hostname or parsed.username or
+                   parsed.password or str(v.get("website","")).lower()!=parsed.hostname):
+                    continue
+            except ValueError:
+                continue
+            if kind=="product" and not IDENTITY.fullmatch(str(v.get("product_id",""))):
+                continue
+            entry={k:str(v.get(k,""))[:(600 if k==urlfield else 160)] for k in fields}
+            records.append((kind,entry))
+            if len(records)>=max_records:
+                yield flush()
+                records=[]
+    if records:
+        yield flush()
 
 def credentials(env: dict[str, str]) -> tuple[str, str, str, Path, Path]:
     host = env.get("AURENOEVA_SFTP_HOST", "").strip()
@@ -159,52 +200,74 @@ def publish(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
 
 
 def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
-    """Deliver a sanitized identity-only snapshot to the existing PHP website.
+    """Publish all products, then all vendor evidence in bounded HTTPS batches.
 
-    Pairing requires only one private token created through the website staff
-    administration. No new daemon, SFTP user, database, or paid service.
+    Each batch is authenticated and acknowledged. Any failure leaves previous
+    records intact; the next run safely repeats unfinished batches.
     """
-    token_path = Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
-                              "/var/lib/aurenoeva/catalogue-sync-token"))
+    token_path=Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
+                            "/var/lib/aurenoeva/catalogue-sync-token"))
     if not token_path.is_file():
-        return {"status": "SKIPPED_UNCONFIGURED", "reason": "Catalogue push key not installed"}
+        return {"status":"SKIPPED_UNCONFIGURED","reason":"Catalogue push key not installed"}
     if token_path.stat().st_mode & 0o077:
         raise ValueError("catalogue_push_key_permissions")
-    token = token_path.read_text(encoding="ascii").strip()
-    if not re.fullmatch(r"[a-f0-9]{64}", token):
+    token=token_path.read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"[a-f0-9]{64}",token):
         raise ValueError("catalogue_push_key_invalid")
-    # Pin the owner-controlled endpoint rather than accepting an arbitrary URL.
-    url = "https://aurenoeva.com/catalogue-sync.php"
-    payload, count = normalized_snapshot(snapshot)
-    digest = hashlib.sha256(payload).hexdigest()
-    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    receipt = state_dir / "catalogue-pushed.sha256"
-    # Always deliver on hourly execution: recovery must not depend on a changed
-    # digest if the website restored a backup or the sync key was rotated.
-    request = Request(url, data=payload, method="POST", headers={
-        "Content-Type": "application/json",
-        "User-Agent": "AurenoevaCataloguePublisher/1.0",
-        "X-Aurenoeva-Sync-Token": token,
-    })
-    try:
-        with urlopen(request, timeout=70) as response:
-            if response.status != 200:
-                raise RuntimeError("site_rejected_snapshot")
-            result = json.loads(response.read(16384).decode("utf-8"))
-    except (HTTPError, URLError) as exc:
-        raise RuntimeError("site_catalogue_https_unavailable") from exc
-    if result.get("vendor_sync") == "RETRY_REQUIRED":
-        raise RuntimeError("vendor_intelligence_sync_retry_required")
-    if (result.get("ok") is not True
-        or result.get("status") != "PUBLISHED"
-        or result.get("records", 0) < count
-        or result.get("source_sha256") != digest
-        or not re.fullmatch(r"[a-f0-9]{64}", str(result.get("sha256", "")))):
-        raise RuntimeError("site_catalogue_snapshot_readback_failed")
-    temp = receipt.with_suffix(".new")
-    temp.write_text(digest + "\n", encoding="ascii")
-    os.replace(temp, receipt)
-    return {"status": "PUBLISHED", "records": count, "sha256": result["sha256"]}
+    payload,count=normalized_snapshot(snapshot)
+    digest=hashlib.sha256(payload).hexdigest()
+    state_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
+    receipt=state_dir/"catalogue-pushed.sha256"
+    def send(body,mode):
+        uri="https://aurenoeva.com/catalogue-sync.php"
+        if mode=="vendors":uri+="?mode=vendors"
+        request=Request(uri,data=body,method="POST",headers={
+            "Content-Type":"application/json",
+            "User-Agent":"AurenoevaCataloguePublisher/2.0",
+            "X-Aurenoeva-Sync-Token":token,
+        })
+        try:
+            with urlopen(request,timeout=90) as response:
+                if response.status!=200:raise RuntimeError("site_rejected_batch")
+                result=json.loads(response.read(16384).decode("utf-8"))
+        except (HTTPError,URLError) as exc:
+            raise RuntimeError("site_catalogue_https_unavailable") from exc
+        if (result.get("ok") is not True or
+                result.get("source_sha256")!=hashlib.sha256(body).hexdigest()):
+            raise RuntimeError("site_catalogue_batch_readback_failed")
+        return result
+    accepted=0
+    batches=0
+    published_total=0
+    for batch,number in product_batches(payload):
+        result=send(batch,"products")
+        if(result.get("status")!="PUBLISHED" or
+           result.get("accepted_input_records")!=number or
+           result.get("records",0)<number or
+           not re.fullmatch(r"[a-f0-9]{64}",str(result.get("sha256","")))):
+            raise RuntimeError("site_catalogue_product_batch_not_acknowledged")
+        accepted+=number
+        batches+=1
+        published_total=result["records"]
+    if accepted!=count:
+        raise RuntimeError("site_catalogue_incomplete_product_batches")
+    vendor_batches=0
+    evidence=0
+    for body,number in vendor_evidence_batches(snapshot):
+        result=send(body,"vendors")
+        if result.get("status")!="MERGED":
+            raise RuntimeError("site_vendor_evidence_batch_not_acknowledged")
+        vendor_batches+=1
+        evidence+=number
+    # This receipt means both product and vendor batches finished, not merely
+    # that the website acknowledged one small initial fragment.
+    temp=receipt.with_suffix(".new")
+    temp.write_text(digest+"\n",encoding="ascii")
+    os.replace(temp,receipt)
+    return {"status":"PUBLISHED","records":published_total,
+            "submitted_products":accepted,"product_batches":batches,
+            "vendor_evidence_records":evidence,"vendor_batches":vendor_batches,
+            "sha256":digest}
 
 
 def main() -> int:
