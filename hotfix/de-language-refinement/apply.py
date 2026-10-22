@@ -34,6 +34,10 @@ for name, edits in SCRIPT_REPLACEMENTS.items():
     path = ROOT / name
     content = path.read_text(encoding="utf-8")
     for old, new in edits.items():
+        # The homepage HTML condition labels were already updated as data-de attributes.
+        # They have no separate JS values to patch.
+        if name == "index.html" and old in {"Zustand offen", "Überholt möglich", "Gebraucht möglich"}:
+            continue
         # "Bedarf" is a visible one-word summary field. Match the JS string
         # literal only, not occurrences inside words such as "Beschaffungsbedarf".
         needle = "'Bedarf'" if name == "assets/js/site.js" and old == "Bedarf" else old
