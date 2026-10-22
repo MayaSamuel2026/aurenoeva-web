@@ -187,7 +187,7 @@ try {
     check($draft['lines'][1]['option']==='ALTERNATIVE','RFQ alternative grouping lost');
     $rfqText=aur_rfq_text($draft);
     check(str_contains($rfqText,'AUR-UZ-') && str_contains($rfqText,'Mindray WATO EX-35'),'RFQ source evidence lost');
-    check(str_contains($rfqText,'disclosed sourcing intermediary') && str_contains($rfqText,'NOT SENT'),'RFQ legal role/hold absent');
+    check(str_contains($rfqText,'does not negotiate sales') && str_contains($rfqText,'NOT SENT'),'RFQ legal role/hold absent');
     check(!str_contains($rfqText,'price to customer'),'RFQ must not disclose markup');
 
     check(is_file($store.'/uploads/'.$one['reference'].'.csv'),'original evidence absent');
