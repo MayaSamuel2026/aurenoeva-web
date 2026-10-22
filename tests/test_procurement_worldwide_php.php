@@ -126,6 +126,29 @@ try{
  verify($interruptedCounts['accepted']===1 && $interruptedCounts['in_flight']===1
     && $interruptedCounts['remaining']===1,'interrupted transport attempt was counted as unsent');
  echo "AURENOEVA_RECIPIENT_LEDGER_RECONCILIATION=PASS\n";
+
+ // SMTP '250 after DATA' is the ONLY verified acceptance proof.
+ // Legacy accepted records must remain separately disclosed.
+ $proofFake=['messages'=>array_merge(
+     array_fill(0,10,['status'=>'ACCEPTED_BY_MAIL_TRANSPORT']),
+     array_fill(0,17,['status'=>'ACCEPTED_BY_MAIL_TRANSPORT',
+       'recovery'=>['status'=>'ACCEPTED_BY_MAIL_TRANSPORT',
+         'transport_result'=>['transport'=>'AUTHENTICATED_SMTP',
+            'stage'=>'DATA_ACCEPTANCE','code'=>250,
+            'outcome'=>'SMTP_ACCEPTED']]])
+ )];
+ $proofCounts=aur_vendor_rfq_delivery_breakdown($proofFake);
+ verify($proofCounts['smtp_250_confirmed']===17 &&
+        $proofCounts['accepted_without_smtp_250_proof']===10 &&
+        $proofCounts['followup_accepted']===17,
+        '27 accepted messages must distinguish 17 documented SMTP 250 from 10 legacy unverified');
+ $proofFake['messages'][10]['recovery']['transport_result']['code']=550;
+ $proofCounts=aur_vendor_rfq_delivery_breakdown($proofFake);
+ verify($proofCounts['smtp_250_confirmed']===16 &&
+        $proofCounts['accepted_without_smtp_250_proof']===11,
+        'SMTP 550 or missing 250 must never be counted as verified send');
+ echo "AURENOEVA_SMTP_250_PROOF=PASS\n";
+
  verify(str_contains($draft['messages'][0]['body'],'Unit price, currency')
     && str_contains($draft['messages'][0]['body'],'within five working days')
     && str_contains($draft['messages'][0]['body'],'AURENOEVA Purchasing')
@@ -193,9 +216,14 @@ try{
  verify(str_contains($page,'Run worldwide discovery'),'supplier workspace must link to permanent search');
  verify(str_contains($page,'Prepare consolidated availability enquiries'),'RFQ selection action missing');
  verify(str_contains($page,'Reload actual RFQ status')
-    && str_contains($page,'failed / unconfirmed')
+    && str_contains($page,'confirmed SMTP 250 acceptances')
     && str_contains($page,'individual recipient statuses'),
-    'RFQ review must reveal stored recipient ledger including failed sends');
+    'RFQ review must reveal accepted server proof and individual recipients');
+ verify(str_contains($dashboardJs,'readSavedLedger') &&
+    str_contains($dashboardJs,"rfq_status:'1'") &&
+    str_contains($dashboardJs,'smtp_250_confirmed') &&
+    str_contains($dashboardJs,'ledger_refreshed'),
+    'Browser never independently reads the persisted SMTP ledger');
  verify(str_contains($dashboardJs,'p.failed_or_unconfirmed')
     && str_contains($dashboardJs,'Do not click send again'),
     'client feedback suppresses failed send statuses or permits blind retries');
