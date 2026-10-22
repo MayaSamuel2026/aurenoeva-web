@@ -70,6 +70,7 @@ jobs:
           php -l deployment/site/procurement/supplier_routes.php
           php -l deployment/site/procurement/supplier_worldwide.php
           php -l deployment/site/procurement/supplier_rfq.php
+          php -l deployment/site/procurement/supplier_replies.php
           php -l deployment/site/procurement/supplier_portal.php
           php -l deployment/site/procurement/staff_auth.php
           php -l deployment/site/procurement/supplier-refresh-cli.php
@@ -78,6 +79,7 @@ jobs:
           php tests/test_procurement_hostinger_php.php
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
+          php tests/test_procurement_supplier_replies.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
           php -l hotfix/v8.2.6.11/catalogue-search.php
           php -l hotfix/v8.2.6.12/catalogue-sync.php

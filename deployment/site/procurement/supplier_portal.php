@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 if(!defined('AUR_PROCUREMENT_VIEW')){http_response_code(403);exit;}
+require_once __DIR__.'/supplier_replies.php';
 $researchRows=is_array($supplierResearch['rows']??null)?$supplierResearch['rows']:[];
 try{$worldStats=aur_worldwide_stats($supplierResearch);}
 catch(Throwable $e){error_log('AURENOEVA vendor stats: '.get_class($e));$worldStats=['scanned'=>0,'total'=>count($researchRows),'unique_vendors'=>0,'new_source_pages'=>0];}
@@ -68,8 +69,8 @@ try{$approvedDrafts=aur_vendor_rfq_list($aurStore,$result);}
 catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 ?>
 <section id="supplier-workspace" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
-<h2>Worldwide product and seller availability</h2>
-<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding availability enquiry. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
+<h2>Worldwide supplier quotations and availability</h2>
+<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding request for prices and availability. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
 <p>
 <span class="pill"><b><?=count($researchRows)?></b> requested lines</span>
 <span class="pill"><b><?=count($dashboard)?></b> supplier/manufacturer leads</span>
@@ -98,7 +99,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <h3>Consolidated supplier selection</h3>
 <p class="aur-workflow-note"><b>Step 1 of 2 · Prepare enquiries.</b> Eligible suppliers with a published email address are selected automatically when there are 300 or fewer. You can change the selection below. Preparing a draft does not send any email.</p>
 <?php if($contactableCount>300):?><p role="status"><b>Large supplier list:</b> Choose up to 300 contacts in each draft. Use the remaining contacts in a subsequent batch; no automatic outreach is triggered.</p><?php endif;?>
-<p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. AURENOEVA requests availability and seller information only; no prices, payment terms or sales negotiations are requested.</p>
+<p class="muted">Select the suppliers you want to approach; each receives only one email listing all matching equipment and original quantities. Published email contacts are eligible for RFQ. Other international leads stay visible for follow-up research. AURENOEVA requests indicative unit prices, currency, availability, delivery, freight and warranty details. This is not an order, contract or sales negotiation.</p>
 <form method="post" action="/procurement/" id="aur-vendor-selection-form">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -165,16 +166,21 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </section>
 <?php if(is_array($rfqPreview)): ?>
 <section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
-<h2>Review supplier availability enquiries — <?=aur_escape((string)$rfqPreview['status'])?></h2>
+<h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p><b>Step 2 of 2 · Approve dispatch.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Confirm the legal review, then the existing outbox will send in resumable batches. Each draft remains saved under the case reference <?=aur_escape((string)$result['reference'])?>.</p>
 
+<?php $pricingTemplateOutdated=(($rfqPreview['status']??'')==='DRAFT_REVIEW' &&
+    ($rfqPreview['template_version']??'')!=='pricing-rfq-v3'); ?>
+<?php if($pricingTemplateOutdated):?>
+<p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
+<?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
 <form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
-<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=!empty($result['country_preflight']['enhanced_review'])?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
+<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=(!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
 <?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
 <p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each email is recorded in the case outbox; duplicates are not resent automatically.</p>
 </form>
@@ -190,3 +196,75 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </details>
 </section>
 <?php endif;?>
+
+
+<?php
+// Source-of-truth quotations live in the private case, not in crawler data.
+try {$savedReplies=aur_reply_read($aurStore,$result);}
+catch(Throwable $e){error_log('AURENOEVA reply register: '.get_class($e));$savedReplies=[];}
+$replyChoices=is_array($rfqPreview)?aur_reply_choices($rfqPreview):[];
+$replyByRow=[];
+foreach($savedReplies as $reply)if(is_array($reply))$replyByRow[(int)($reply['source_row']??0)][]=$reply;
+$quotedItemCount=count($replyByRow);
+?>
+<section id="supplier-replies" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
+<h3>Supplier quotation dashboard</h3>
+<p class="muted">Supplier prices are matched to the original customer equipment item number, not guessed from a product description. New replies are recorded manually until the AURENOEVA incoming mailbox is connected. Different currencies are not automatically converted.</p>
+<p>
+<span class="pill"><b><?=count($savedReplies)?></b> supplier-item responses recorded</span>
+<span class="pill"><b><?=$quotedItemCount?></b> equipment items with replies</span>
+<span class="pill"><b><?=count($result['payload']['sourcing_lines']??[])-$quotedItemCount?></b> awaiting responses</span>
+</p>
+<?php if(isset($_GET['response_saved'])):?><p role="status"><b>Supplier reply saved against the original equipment item.</b></p><?php endif;?>
+<?php if($replyChoices):?>
+<details class="aux-disclosure">
+<summary>Record a supplier quotation or availability reply</summary>
+<form method="post" action="/procurement/" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;align-items:end">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
+<label style="grid-column:1/-1">Supplier and original equipment item
+<select name="supplier_item" required style="padding:12px;max-width:100%">
+<option value="">Choose supplier and item</option>
+<?php foreach($replyChoices as $token=>$candidate):?>
+<option value="<?=aur_escape((string)$token)?>"><?=aur_escape((string)$candidate['supplier'])?> — item <?= (int)(array_values(array_filter($result['payload']['sourcing_lines']??[],static fn($v)=>(int)($v['source_row']??0)===(int)$candidate['source_row']))[0]['customer_item_number']??$candidate['source_row']) ?> — <?=aur_escape(substr((string)$candidate['description'],0,75))?></option>
+<?php endforeach;?>
+</select></label>
+<label>Supplier response
+<select name="availability" required style="padding:12px">
+<option value="QUOTED">Price / quotation received</option>
+<option value="ALTERNATIVE_OFFERED">Alternative offered</option>
+<option value="NOT_AVAILABLE">Not available</option>
+<option value="DETAILS_PENDING">Further details requested</option>
+</select></label>
+<label>Unit price (optional)<input name="unit_price" placeholder="1250.00" inputmode="decimal"></label>
+<label>Currency (ISO)<input name="currency" placeholder="EUR" maxlength="3"></label>
+<label>Lead time<input name="lead_time" maxlength="100" placeholder="e.g. 3–4 weeks"></label>
+<label style="grid-column:1/-1">Reply reference / email subject<input name="reply_reference" maxlength="180" placeholder="Email date or supplier quotation number"></label>
+<label style="grid-column:1/-1">Other quotation details<textarea name="notes" rows="2" maxlength="900" placeholder="Quantity available, delivery terms, alternative model, warranty ..."></textarea></label>
+<p><button type="submit" name="record_supplier_reply" value="1">Save quotation against equipment item</button></p>
+</form>
+</details>
+<?php else:?>
+<p class="muted">To record a response, open a sent RFQ under “Previous supplier enquiries” above. Only previously contacted supplier/item combinations can be entered.</p>
+<?php endif;?>
+<details class="aux-disclosure" <?=$savedReplies?'open':''?>>
+<summary>Compare suppliers across original equipment items · <?=count($result['payload']['sourcing_lines']??[])?> entries</summary>
+<div class="scroll"><table>
+<thead><tr><th>Customer item</th><th>Original equipment</th><th>Supplier / offer</th><th>Unit price</th><th>Lead time / source</th></tr></thead><tbody>
+<?php foreach(($result['payload']['sourcing_lines']??[]) as $line):
+  $rowNumber=(int)($line['source_row']??0);$offers=$replyByRow[$rowNumber]??[];
+?>
+<tr><td><b>#<?=(int)($line['customer_item_number']??0)?></b></td>
+<td><?=aur_escape((string)($line['description_original']??''))?></td>
+<td><?php if(!$offers):?><span class="muted">Awaiting quotation</span><?php else:?>
+<?php foreach($offers as $offer):?>
+<div><b><?=aur_escape((string)$offer['supplier'])?></b> · <?=aur_escape((string)$offer['availability'])?></div>
+<?php endforeach;?><?php endif;?></td>
+<td><?php foreach($offers as $offer):?><div><?=aur_escape((string)($offer['unit_price']??''))?> <?=aur_escape((string)($offer['currency']??''))?></div><?php endforeach;?></td>
+<td><?php foreach($offers as $offer):?><div><?=aur_escape((string)($offer['lead_time']??''))?> · <?=aur_escape((string)($offer['reply_reference']??''))?></div><?php endforeach;?></td>
+</tr>
+<?php endforeach;?>
+</tbody></table></div>
+</details>
+</section>
