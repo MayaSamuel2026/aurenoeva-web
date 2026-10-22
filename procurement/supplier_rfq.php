@@ -260,6 +260,9 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         foreach($draft['messages'] as $i=>$message) {
             if(($message['status']??'')!=='DRAFT')continue;
             if($sentThisRequest>=$batchLimit)break;
+            // Recheck before EVERY outbound message. A newly saved HOLD,
+            // expired review or changed case stops even an approved cron run.
+            aur_trade_review_require($store,$case);
             // Persist first. Unknown/failed outcomes never retry automatically.
             $draft['messages'][$i]['status']='IN_FLIGHT';
             $sentAt=gmdate('c');
