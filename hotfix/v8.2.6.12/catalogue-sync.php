@@ -55,6 +55,7 @@ function aur_catalogue_clean_snapshot(string $body): array {
 
 function aur_catalogue_write_snapshot(string $body, string $directory): array {
     [$clean, $count] = aur_catalogue_clean_snapshot($body);
+    $acceptedInput=$count;
     $target = $directory . '/catalogue-public.json';
     // Reconcile with the last published snapshot: missing items in a later scan
     // must not silently erase previously known product identities.
@@ -98,7 +99,7 @@ function aur_catalogue_write_snapshot(string $body, string $directory): array {
         $incoming = '';
         $digest = hash('sha256', $clean);
         if (hash_file('sha256', $target) !== $digest) throw new RuntimeException('snapshot_readback');
-        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$digest,'source_sha256'=>hash('sha256', $body)];
+        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'accepted_input_records'=>$acceptedInput,'sha256'=>$digest,'source_sha256'=>hash('sha256', $body)];
     } finally {
         if ($incoming !== '' && is_file($incoming)) @unlink($incoming);
     }
