@@ -3,8 +3,8 @@ name: Qualify and publish Aurenoeva
 on:
   workflow_dispatch:
   # Catalogue integration release: reuse full qualification before Hostinger publication.
-  # Catalogue 22 October: publish authenticated 422 reason codes and 29-test
-  # batch-isolation publisher repair through the qualified production branch.
+  # Catalogue 22 October: publish UTF-8 safe length handling and regression
+  # coverage after isolating a malformed-UTF-8 JsonException in live batches.
   push:
     branches: [main]
     paths:
