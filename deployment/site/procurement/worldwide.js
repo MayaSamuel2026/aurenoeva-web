@@ -121,8 +121,14 @@
         if (!response.ok || result.ok !== true)
           throw new Error('Mail batch response ' + response.status + '. Review the saved draft before resuming.');
         const p = result.progress || {};
-        sendProgress.textContent = (p.accepted || 0) + ' of ' + (p.total || total) +
-          ' vendor emails accepted by mail transport; ' + (p.remaining || 0) + ' pending.';
+        const accepted = Number(p.accepted || 0);
+        const unsent = Number(p.remaining || 0);
+        const failed = Number(p.failed_or_unconfirmed || 0);
+        const uncertain = Number(p.in_flight || 0) + Number(p.other || 0);
+        sendProgress.textContent = accepted + ' of ' + (p.total || total) +
+          ' accepted by sending server; ' + unsent + ' not attempted; ' +
+          failed + ' failed/unconfirmed; ' + uncertain + ' interrupted/uncertain. ' +
+          'Consult the saved recipient ledger before any further action.';
         if (result.status !== 'DISPATCHING') {
           window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
             '&draft=' + encodeURIComponent(draftId) + '#supplier-history');
@@ -133,9 +139,12 @@
       }
       throw new Error('Maximum batch count reached; reopen the draft to continue.');
     } catch (error) {
-      sendProgress.textContent = 'Mail dispatch paused: ' + (error.message || 'Unknown error') +
-        ' — sent messages stay recorded and will not be resent. Reopen the saved draft.';
-      sendButton.disabled = false;
+      sendProgress.textContent = 'Mail dispatch interrupted: ' + (error.message || 'Unknown error') +
+        '. Do not click send again. Reload this saved RFQ to check accepted, unattempted and ' +
+        'failed/unconfirmed recipients in the private outbox before taking further action.';
+      // Keep disabled: the HTTP response can fail after a message was accepted.
+      // A reload shows authoritative persisted status and prevents blind repeats.
+      sendButton.disabled = true;
     }
   });
 })();
