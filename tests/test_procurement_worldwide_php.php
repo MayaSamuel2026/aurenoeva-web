@@ -111,6 +111,21 @@ try{
  verify($draft['status']==='DRAFT_REVIEW','draft state invalid');
  verify(($draft['information_only']??false)===true,'new supplier draft still follows old sales workflow');
  verify(($draft['template_version']??'')==='pricing-rfq-v3','pricing template version missing');
+ // A partially accepted 27-recipient outbox must account explicitly for ALL recipients.
+ $mixedTransport=['messages'=>array_merge(
+   array_fill(0,10,['status'=>'ACCEPTED_BY_MAIL_TRANSPORT']),
+   array_fill(0,17,['status'=>'TRANSPORT_FAILED_OR_UNCONFIRMED']))];
+ $transportCounts=aur_vendor_rfq_status_summary($mixedTransport);
+ verify($transportCounts['total']===27 && $transportCounts['accepted']===10
+    && $transportCounts['remaining']===0 && $transportCounts['failed_or_unconfirmed']===17
+    && $transportCounts['needs_reconciliation']===true,
+    'partial 10/27 dispatch incorrectly reported as zero pending without failures');
+ $interrupted=['messages'=>[['status'=>'ACCEPTED_BY_MAIL_TRANSPORT'],
+     ['status'=>'IN_FLIGHT'],['status'=>'DRAFT']]];
+ $interruptedCounts=aur_vendor_rfq_status_summary($interrupted);
+ verify($interruptedCounts['accepted']===1 && $interruptedCounts['in_flight']===1
+    && $interruptedCounts['remaining']===1,'interrupted transport attempt was counted as unsent');
+ echo "AURENOEVA_RECIPIENT_LEDGER_RECONCILIATION=PASS\n";
  verify(str_contains($draft['messages'][0]['body'],'Unit price, currency')
     && str_contains($draft['messages'][0]['body'],'within five working days')
     && str_contains($draft['messages'][0]['body'],'AURENOEVA Purchasing')
@@ -177,6 +192,13 @@ try{
  $page=(string)ob_get_clean();
  verify(str_contains($page,'Run worldwide discovery'),'supplier workspace must link to permanent search');
  verify(str_contains($page,'Prepare consolidated availability enquiries'),'RFQ selection action missing');
+ verify(str_contains($page,'Reload actual RFQ status')
+    && str_contains($page,'failed / unconfirmed')
+    && str_contains($page,'individual recipient statuses'),
+    'RFQ review must reveal stored recipient ledger including failed sends');
+ verify(str_contains($dashboardJs,'p.failed_or_unconfirmed')
+    && str_contains($dashboardJs,'Do not click send again'),
+    'client feedback suppresses failed send statuses or permits blind retries');
  verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
 
  // Regression: original 44-line case always takes priority over utility cards.
