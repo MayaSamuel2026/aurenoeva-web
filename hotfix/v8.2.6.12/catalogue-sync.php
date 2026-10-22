@@ -307,7 +307,27 @@ try {
     }else throw new RuntimeException('unsupported_sync_mode');
     echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
-    error_log('AURENOEVA catalogue sync failure: ' . substr($e->getMessage(), 0, 100));
-    http_response_code(422);
-    echo '{"ok":false,"error":"snapshot_rejected"}';
+    // This endpoint is sync-token authenticated. Report only a bounded,
+    // predefined diagnostic code; never expose filesystem paths or record data.
+    $knownReasons = [
+        'snapshot_size', 'snapshot_schema', 'snapshot_record_count',
+        'snapshot_no_products', 'catalogue_snapshot_write_lock_unavailable',
+        'existing_catalogue_snapshot_unreadable', 'existing_catalogue_schema_invalid',
+        'catalogue_merge_lost_input', 'snapshot_temp_unavailable',
+        'snapshot_write_failed', 'snapshot_replace_failed',
+        'snapshot_readback', 'invalid_vendor_evidence_batch',
+        'unsupported_sync_mode'
+    ];
+    $reason = $e->getMessage();
+    $code = in_array($reason, $knownReasons, true)
+        ? $reason : 'unexpected_'.get_class($e);
+    $temporary = in_array($code, [
+        'catalogue_snapshot_write_lock_unavailable',
+        'snapshot_temp_unavailable', 'snapshot_write_failed',
+        'snapshot_replace_failed', 'snapshot_readback'
+    ], true);
+    error_log('AURENOEVA catalogue sync failure: '.substr($e->getMessage(),0,120));
+    http_response_code($temporary ? 503 : 422);
+    echo json_encode(['ok'=>false,'error'=>'snapshot_rejected',
+        'reason_code'=>substr($code,0,90)], JSON_THROW_ON_ERROR);
 }
