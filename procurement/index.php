@@ -28,6 +28,7 @@ require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
+require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -205,6 +206,18 @@ if ($isAdmin) {
             aur_denied(503, 'catalogue synchronization credential could not be stored');
         }
         @chmod($credentialFile, 0600);
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['record_supplier_reply'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $draftId=trim((string)($_POST['draft_id']??''));
+            aur_reply_record($aurStore,$case,$draftId,trim((string)($_POST['supplier_item']??'')),$_POST);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference']).'&draft='.rawurlencode($draftId).'&response_saved=1#supplier-replies',true,303);
+            exit;
+        }catch(Throwable $e){
+            error_log('AURENOEVA supplier reply entry: '.get_class($e));
+            $supplierDiscoveryMessage='Supplier quotation not saved. Check the selected sent RFQ, original equipment item, price/currency and source reference.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_rfq'])) {
         try {
             $testStatus=aur_vendor_rfq_send_smoke_test($aurStore);
