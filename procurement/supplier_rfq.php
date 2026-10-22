@@ -19,7 +19,8 @@ function aur_vendor_rfq_safe_error(Throwable $e):string {
       'supplier_research_commit_failed','invalid_dashboard_vendor_selection',
       'private_directory_unavailable','rfq_send_lock_unavailable',
       'destination_requires_sanctions_review','destination_changed_redraft_required',
-      'commercial_draft_redraft_required','rfq_template_outdated_redraft_required'
+      'commercial_draft_redraft_required','rfq_template_outdated_redraft_required',
+      'rfq_smtp_not_configured','rfq_smtp_invalid_configuration'
     ];
     return in_array($e->getMessage(),$allowed,true)?$e->getMessage() :
       ($e instanceof InvalidArgumentException?'invalid_supplier_selection':'private_rfq_storage_or_research_error');
@@ -179,24 +180,123 @@ function aur_vendor_rfq_read(string $store,array $case,string $id):array {
        ||($data['case_source_sha256']??'')!==$case['source_sha256'])throw new RuntimeException('rfq_draft_mismatch');
     return $data;
 }
-function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):bool {
-    if(filter_var($to,FILTER_VALIDATE_EMAIL)===false||strpbrk($to,"\r\n")!==false)return false;
-    $from='info@aurenoeva.com';
-    // Existing site mail transport can be reused on Hostinger.
-    $common=dirname(__DIR__).'/_form_common.php';
-    if(is_file($common)) {
-        require_once $common;
-        if(function_exists('aur_send_via_smtp') && aur_send_via_smtp($to,$subject,$body,$from,$from))return true;
+/**
+ * Supplier RFQs use ONE authenticated SMTP route. Never fall back to PHP mail():
+ * a false/ambiguous local MTA result could cause a second supplier message.
+ * All diagnostics are written to the existing private, per-recipient outbox.
+ */
+function aur_vendor_rfq_smtp_config():array {
+    $host=trim((string)(getenv('AURENOEVA_SMTP_HOST')?:'smtp.hostinger.com'));
+    $user=trim((string)(getenv('AURENOEVA_SMTP_USER')?:''));
+    $pass=(string)(getenv('AURENOEVA_SMTP_PASSWORD')?:'');
+    $port=(int)(getenv('AURENOEVA_SMTP_PORT')?:465);
+    $security=strtolower(trim((string)(getenv('AURENOEVA_SMTP_SECURITY')?:($port===465?'ssl':'tls'))));
+    if($user!=='info@aurenoeva.com'||$pass===''||$host==='')
+        throw new RuntimeException('rfq_smtp_not_configured');
+    if(!preg_match('/^[a-z0-9.-]+$/iD',$host)||
+       !(($port===465&&$security==='ssl')||($port===587&&$security==='tls')))
+        throw new RuntimeException('rfq_smtp_invalid_configuration');
+    return ['host'=>$host,'user'=>$user,'pass'=>$pass,'port'=>$port,'security'=>$security];
+}
+function aur_vendor_rfq_smtp_ready():bool {
+    try {aur_vendor_rfq_smtp_config();return true;}
+    catch(Throwable $e){return false;}
+}
+function aur_vendor_rfq_smtp_exchange($socket,?string $command,array $expected,string $stage):array {
+    if($command!==null) {
+        $bytes=strlen($command)+2;
+        $sent=@fwrite($socket,$command."\r\n");
+        if($sent===false||$sent!==$bytes)
+            return ['ok'=>false,'stage'=>$stage,'code'=>0,'response'=>'socket_write_failed'];
     }
-    if(!function_exists('mail'))return false;
-    $headers=[
-      'From: AURENOEVA Procurement <'.$from.'>',
-      'Reply-To: '.$from,
-      'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=UTF-8',
-      'Content-Transfer-Encoding: 8bit'
-    ];
-    return @mail($to,'=?UTF-8?B?'.base64_encode($subject).'?=', $body,implode("\r\n",$headers),'-f'.$from);
+    $response='';
+    for($n=0;$n<40&&!feof($socket);$n++) {
+        $line=@fgets($socket,1024);
+        if($line===false)break;
+        $response.=$line;
+        if(strlen($line)>=4&&$line[3]===' ')break;
+    }
+    $code=(int)substr($response,0,3);
+    $clean=substr(trim((string)preg_replace('/[\x00-\x1F\x7F]+/',' ',$response)),0,350);
+    return ['ok'=>in_array($code,$expected,true),'stage'=>$stage,'code'=>$code,
+        'response'=>$clean!==''?$clean:'smtp_no_response'];
+}
+function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId=''):array {
+    $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
+        'code'=>0,'response'=>'','outcome'=>'NOT_SENT'];
+    if(filter_var($to,FILTER_VALIDATE_EMAIL)===false||strpbrk($to,"\r\n")!==false)
+        return $base+['reason'=>'invalid_recipient'];
+    try {$cfg=aur_vendor_rfq_smtp_config();}
+    catch(Throwable $e) {$base['response']=$e->getMessage();return $base;}
+    if(!preg_match('/^[a-f0-9]{32}@aurenoeva\.com$/D',$messageId))
+        $messageId=bin2hex(random_bytes(16)).'@aurenoeva.com';
+    $base['message_id']=$messageId;
+    $context=stream_context_create(['ssl'=>['verify_peer'=>true,
+        'verify_peer_name'=>true,'peer_name'=>$cfg['host'],'SNI_enabled'=>true]]);
+    $address=($cfg['security']==='ssl'?'ssl://':'tcp://').$cfg['host'].':'.$cfg['port'];
+    $errno=0;$errstr='';
+    $socket=@stream_socket_client($address,$errno,$errstr,12,STREAM_CLIENT_CONNECT,$context);
+    if(!is_resource($socket)) {
+        $base['stage']='CONNECT';
+        $base['response']='smtp_connect_failed_'.(int)$errno;
+        return $base;
+    }
+    stream_set_timeout($socket,12);
+    try {
+        $steps=[
+            [null,[220],'GREETING'],
+            ['EHLO aurenoeva.com',[250],'EHLO']
+        ];
+        foreach($steps as [$command,$codes,$stage]) {
+            $r=aur_vendor_rfq_smtp_exchange($socket,$command,$codes,$stage);
+            if(!$r['ok'])return array_merge($base,$r);
+        }
+        if($cfg['security']==='tls') {
+            $r=aur_vendor_rfq_smtp_exchange($socket,'STARTTLS',[220],'STARTTLS');
+            if(!$r['ok'])return array_merge($base,$r);
+            if(@stream_socket_enable_crypto($socket,true,STREAM_CRYPTO_METHOD_TLS_CLIENT)!==true)
+                return array_merge($base,['stage'=>'TLS_HANDSHAKE','response'=>'tls_validation_failed']);
+            $r=aur_vendor_rfq_smtp_exchange($socket,'EHLO aurenoeva.com',[250],'EHLO_TLS');
+            if(!$r['ok'])return array_merge($base,$r);
+        }
+        $commands=[
+            ['AUTH LOGIN',[334],'AUTH_START'],
+            [base64_encode($cfg['user']),[334],'AUTH_USER'],
+            [base64_encode($cfg['pass']),[235],'AUTH_PASSWORD'],
+            ['MAIL FROM:<info@aurenoeva.com>',[250],'MAIL_FROM'],
+            ['RCPT TO:<'.$to.'>',[250,251],'RCPT_TO'],
+            ['DATA',[354],'DATA']
+        ];
+        foreach($commands as [$command,$codes,$stage]) {
+            $r=aur_vendor_rfq_smtp_exchange($socket,$command,$codes,$stage);
+            if(!$r['ok'])return array_merge($base,$r);
+        }
+        $headers=[
+            'From: AURENOEVA Purchasing <info@aurenoeva.com>',
+            'To: '.$to,
+            'Reply-To: info@aurenoeva.com',
+            'Subject: =?UTF-8?B?'.base64_encode($subject).'?=',
+            'Date: '.date(DATE_RFC2822),
+            'Message-ID: <'.$messageId.'>',
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: base64'
+        ];
+        $payload=implode("\r\n",$headers)."\r\n\r\n".
+            chunk_split(base64_encode($body),76,"\r\n").'.';
+        $r=aur_vendor_rfq_smtp_exchange($socket,$payload,[250],'DATA_ACCEPTANCE');
+        $base=array_merge($base,$r);
+        $base['accepted']=$r['ok'];
+        $base['outcome']=$r['ok']?'SMTP_ACCEPTED':
+            ($r['code']>=400?'SMTP_REJECTED':'UNCERTAIN_AFTER_DATA');
+        return $base;
+    } finally {
+        @fwrite($socket,"QUIT\r\n");
+        @fclose($socket);
+    }
+}
+function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):bool {
+    return aur_vendor_rfq_send_transport_detail($to,$subject,$body)['accepted']===true;
 }
 /**
  * One explicit approval sends the selected, consolidated vendor messages in
@@ -256,6 +356,15 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         } elseif(($draft['status']??'')!=='DISPATCHING' || !is_array($draft['approval']??null)) {
             throw new RuntimeException('draft_already_processed_create_new_draft');
         }
+        // Refuse dispatch before changing any draft if the verified SMTP
+        // credentials have not been installed on the website host.
+        if($sender===null) {
+            foreach($draft['messages'] as $pending) {
+                if(($pending['status']??'')==='DRAFT') {
+                    aur_vendor_rfq_smtp_config();break;
+                }
+            }
+        }
         $sentThisRequest=0;
         foreach($draft['messages'] as $i=>$message) {
             if(($message['status']??'')!=='DRAFT')continue;
@@ -263,12 +372,24 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             // Persist first. Unknown/failed outcomes never retry automatically.
             $draft['messages'][$i]['status']='IN_FLIGHT';
             $draft['messages'][$i]['attempted_at']=gmdate('c');
+            $draft['messages'][$i]['smtp_message_id']=bin2hex(random_bytes(16)).'@aurenoeva.com';
             aur_vendor_rfq_write($path,$draft);
-            $ok=false;
+            $detail=['transport'=>$sender?'TEST_INJECTED':'AUTHENTICATED_SMTP',
+                'accepted'=>false,'stage'=>'TRANSPORT_EXCEPTION','code'=>0,
+                'response'=>'transport_exception','outcome'=>'UNCERTAIN'];
             try {
-                $ok=$sender ? (bool)$sender($message['to'],$message['subject'],$message['body'])
-                            : aur_vendor_rfq_send_transport($message['to'],$message['subject'],$message['body']);
-            } catch(Throwable $e) {$ok=false;}
+                $detail=$sender
+                    ? ['transport'=>'TEST_INJECTED',
+                        'accepted'=>(bool)$sender($message['to'],$message['subject'],$message['body']),
+                        'stage'=>'INJECTED','code'=>0,'response'=>'test_sender',
+                        'outcome'=>'TEST_ONLY']
+                    : aur_vendor_rfq_send_transport_detail($message['to'],$message['subject'],
+                        $message['body'],$draft['messages'][$i]['smtp_message_id']);
+            } catch(Throwable $e) {
+                error_log('AURENOEVA supplier SMTP exception: '.get_class($e));
+            }
+            $ok=$detail['accepted']===true;
+            $draft['messages'][$i]['transport_result']=$detail;
             $draft['messages'][$i]['status']=$ok?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
             $draft['messages'][$i]['sent_at']=$ok?gmdate('c'):null;
             $sentThisRequest++;
