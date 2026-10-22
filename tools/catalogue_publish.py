@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import fcntl
 from http.client import RemoteDisconnected, HTTPException
 import os
 from pathlib import Path
@@ -202,7 +203,7 @@ def publish(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     return {"status": "PUBLISHED", "records": count, "sha256": digest}
 
 
-def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
+def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str], mode: str = "all") -> dict:
     """Publish all products, then all vendor evidence in bounded HTTPS batches.
 
     Each batch is authenticated and acknowledged. Any failure leaves previous
@@ -304,21 +305,26 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
         left,n1=transfer(fragment(items[:pivot]),pivot,mode,offset)
         right,n2=transfer(fragment(items[pivot:]),len(items)-pivot,mode,offset+pivot)
         return right,n1+n2
-    for batch,number in product_batches(payload):
-        result,used=transfer(batch,number,"products",accepted)
-        accepted+=number
-        batches+=used
-        published_total=result["records"]
-    if accepted!=count:
-        raise RuntimeError("site_catalogue_incomplete_product_batches")
-    # Product publication has its own proof of completion. RFQ evidence is
-    # important but must not hide a successful searchable-product deployment.
     products_receipt=state_dir/"catalogue-products-pushed.sha256"
-    temp=products_receipt.with_suffix(".new")
-    temp.write_text(digest+"\n",encoding="ascii")
-    os.replace(temp,products_receipt)
-    print(json.dumps({"event":"PRODUCTS_PUBLISHED","records":published_total,
-         "submitted_products":accepted,"batches":batches}),flush=True)
+    if mode!="vendors":
+        for batch,number in product_batches(payload):
+            result,used=transfer(batch,number,"products",accepted)
+            accepted+=number
+            batches+=used
+            published_total=result["records"]
+        if accepted!=count:
+            raise RuntimeError("site_catalogue_incomplete_product_batches")
+        temp=products_receipt.with_suffix(".new")
+        temp.write_text(digest+"\n",encoding="ascii")
+        os.replace(temp,products_receipt)
+        print(json.dumps({"event":"PRODUCTS_PUBLISHED","records":published_total,
+             "submitted_products":accepted,"batches":batches}),flush=True)
+        if mode=="products":
+            return {"status":"PRODUCTS_PUBLISHED","records":published_total,
+                    "submitted_products":accepted,"product_batches":batches,
+                    "vendor_pending":True,"sha256":digest}
+    elif not products_receipt.is_file() or products_receipt.read_text().strip()!=digest:
+        raise RuntimeError("vendor_sync_requires_product_publication_for_same_snapshot")
     for body,number in vendor_evidence_batches(snapshot):
         result,used=transfer(body,number,"vendors",evidence)
         vendor_batches+=used
@@ -328,8 +334,10 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     temp=receipt.with_suffix(".new")
     temp.write_text(digest+"\n",encoding="ascii")
     os.replace(temp,receipt)
-    return {"status":"PUBLISHED","records":published_total,
-            "submitted_products":accepted,"product_batches":batches,
+    return {"status":"VENDORS_PUBLISHED" if mode=="vendors" else "PUBLISHED",
+            "records":published_total if mode=="all" else None,
+            "submitted_products":accepted if mode=="all" else None,
+            "product_batches":batches,
             "vendor_evidence_records":evidence,"vendor_batches":vendor_batches,
             "sha256":digest}
 
@@ -339,14 +347,28 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--snapshot", type=Path, default=Path("/var/lib/aurenoeva/catalogue-public.json"))
     parser.add_argument("--state-dir", type=Path, default=Path("/var/lib/aurenoeva"))
+    stage=parser.add_mutually_exclusive_group()
+    stage.add_argument("--products-only",action="store_true",
+                       help="Restore website search before large vendor evidence transfer")
+    stage.add_argument("--vendors-only",action="store_true",
+                       help="Sync RFQ vendors after products from the identical snapshot are published")
     args = parser.parse_args()
     try:
         env = dict(os.environ)
-        if Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
+        args.state_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
+        with (args.state_dir/"catalogue-publisher.lock").open("a+") as lock:
+            try:
+                fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError("ANOTHER_CATALOGUE_PUBLICATION_IN_PROGRESS")
+            if Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
                          "/var/lib/aurenoeva/catalogue-sync-token")).is_file():
-            result = publish_https(args.snapshot, args.state_dir, env)
-        else:
-            result = publish(args.snapshot, args.state_dir, env)  # preserve existing SFTP option
+                mode="products" if args.products_only else ("vendors" if args.vendors_only else "all")
+                result=publish_https(args.snapshot,args.state_dir,env,mode=mode)
+            else:
+                if args.products_only or args.vendors_only:
+                    raise ValueError("split_stages_require_configured_https_token")
+                result=publish(args.snapshot,args.state_dir,env)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         print(json.dumps({"status": "DELIVERY_FAILED", "reason": str(exc)}))
         return 1
