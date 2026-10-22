@@ -34,9 +34,13 @@ for name, edits in SCRIPT_REPLACEMENTS.items():
     path = ROOT / name
     content = path.read_text(encoding="utf-8")
     for old, new in edits.items():
-        if old not in content:
+        # "Bedarf" is a visible one-word summary field. Match the JS string
+        # literal only, not occurrences inside words such as "Beschaffungsbedarf".
+        needle = "'Bedarf'" if name == "assets/js/site.js" and old == "Bedarf" else old
+        replacement = "'Beschreibung'" if needle == "'Bedarf'" else new
+        if needle not in content:
             raise SystemExit("Missing dynamic DE text in " + name + ": " + old[:90])
-        content = content.replace(old, new)
+        content = content.replace(needle, replacement)
     path.write_text(content, encoding="utf-8")
     updated[name] = updated.get(name, 0) + len(edits)
 
