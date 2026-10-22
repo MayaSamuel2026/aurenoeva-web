@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/publish.yml'
+      - 'deployment/site/procurement/**'
 
 permissions:
   contents: write
