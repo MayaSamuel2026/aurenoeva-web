@@ -147,4 +147,60 @@
       sendButton.disabled = true;
     }
   });
+
+  // Recovery is a different explicit action from first-time dispatch.
+  // Only the saved failed/unconfirmed recipients are eligible; this code
+  // never retries accepted messages, nor a previously attempted recovery.
+  const recoveryForm = document.getElementById('aur-rfq-recover-form');
+  const recoveryButton = document.getElementById('aur-recover-rfqs');
+  const recoveryProgress = document.getElementById('aur-recover-progress');
+  if (recoveryForm && recoveryButton && recoveryProgress) {
+    recoveryForm.addEventListener('submit', async event => {
+      if (!recoveryForm.reportValidity()) return;
+      event.preventDefault();
+      recoveryButton.disabled = true;
+      const csrf = recoveryForm.querySelector('input[name="csrf"]')?.value;
+      const caseRef = recoveryForm.querySelector('input[name="case_ref"]')?.value;
+      const draftId = recoveryForm.querySelector('input[name="draft_id"]')?.value;
+      const total = Number(recoveryForm.dataset.total || 0);
+      if (!csrf || !caseRef || !draftId || total < 1) {
+        recoveryProgress.textContent = 'Saved RFQ data unavailable. Reload the original draft.';
+        return;
+      }
+      try {
+        for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {
+          const response = await fetch('/procurement/',{
+            method:'POST', credentials:'same-origin',
+            headers:{'Content-Type':'application/json',Accept:'application/json'},
+            body:JSON.stringify({task:'recover',csrf,case_ref:caseRef,
+              draft_id:draftId,manual_review:true,duplicate_risk_ack:true})
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || data.ok !== true)
+            throw new Error('Recovery stopped (' + response.status + '): ' +
+              (data.error || 'check the saved recipient ledger'));
+          const p = data.progress || {};
+          const accepted = Number(p.accepted || 0);
+          const eligible = Number(p.recovery_remaining || 0);
+          const failed = Number(p.failed_or_unconfirmed || 0);
+          recoveryProgress.textContent = accepted + ' of ' + (p.total || total) +
+            ' accepted in the case ledger; ' + eligible + ' follow-ups still eligible; ' +
+            failed + ' uncertain. The original accepted suppliers have not been resent.';
+          if (data.status !== 'RECOVERY_DISPATCHING') {
+            window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
+              '&draft=' + encodeURIComponent(draftId) + '#aur-rfq-approval');
+            return;
+          }
+          if (Number(p.processed_this_request || 0) === 0)
+            throw new Error('No new messages processed; check the persisted case status');
+        }
+        throw new Error('Batch limit reached; reload the saved draft before continuing');
+      } catch (error) {
+        recoveryProgress.textContent = 'Recovery paused: ' + (error.message || 'Unknown error') +
+          '. Do not click send again. Reload this original RFQ and inspect the saved ' +
+          'recipient statuses before resuming the remaining eligible messages.';
+        recoveryButton.disabled = true;
+      }
+    });
+  }
 })();
