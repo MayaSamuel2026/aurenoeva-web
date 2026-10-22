@@ -8,6 +8,9 @@ Type=oneshot
 User=aurenoeva
 Group=aurenoeva
 WorkingDirectory=/opt/aurenoeva
+# One qualified update attempt before each run; failure never interrupts harvesting.
+# - ignores transient update failures; + runs the narrowly scoped installer as root.
+ExecStartPre=-+/usr/bin/python3 /opt/aurenoeva/tools/catalogue_auto_update.py
 ExecStart=/usr/bin/python3 /opt/aurenoeva/tools/catalogue_harvester.py --db /var/lib/aurenoeva/catalogue.sqlite3 --sources /opt/aurenoeva/config/catalogue_harvester.json --export /var/lib/aurenoeva/catalogue-public.json --max-pages 2500 --max-seconds 1500 --workers 12
 TimeoutStartSec=3300
 UMask=0077
