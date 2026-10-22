@@ -21,7 +21,9 @@ $example = ['schema'=>'aurenoeva-catalogue/1','items'=>[
 ]];
 try {
     $response = aur_catalogue_write_snapshot(json_encode($example), $private);
-    if (($response['records'] ?? 0) !== 1 || ($response['source_sha256'] ?? '') !== hash('sha256',json_encode($example)))
+    if (($response['records'] ?? 0) !== 1
+        || ($response['accepted_input_records'] ?? 0) !== 1
+        || ($response['source_sha256'] ?? '') !== hash('sha256',json_encode($example)))
         throw new RuntimeException('sync_snapshot_acknowledgement');
     $saved = file_get_contents($private . '/catalogue-public.json');
     if (str_contains($saved,'MUST_NOT_EXPOSE') || str_contains($saved,'Surgical carts'))
@@ -37,7 +39,8 @@ try {
          'source_ref'=>'https://www.garmin.com/en-US/p/2001334/']
     ]];
     $reconciled = aur_catalogue_write_snapshot(json_encode($next), $private);
-    if (($reconciled['records'] ?? 0) !== 2)
+    if (($reconciled['records'] ?? 0) !== 2
+        || ($reconciled['accepted_input_records'] ?? 0) !== 1)
         throw new RuntimeException('historical_products_not_preserved');
     $marine = aur_catalogue_snapshot_search('GPSMAP 9217xsv', 8, 'marine', 'Navigation / instrumentation');
     if (count($marine ?? []) !== 1 || $marine[0]['sector'] !== 'marine')
@@ -46,6 +49,19 @@ try {
         throw new RuntimeException('sector_filter_not_applied');
     if (count(aur_catalogue_snapshot_search('WATO EX-35') ?? []) !== 1)
         throw new RuntimeException('original_model_lost_during_reconciliation');
+    // Later batches must append instead of replacing the first two products.
+    $third=['schema'=>'aurenoeva-catalogue/1','items'=>[[
+        'canonical_id'=>'AUR-P-'.str_repeat('D',20), 'manufacturer'=>'Agilent',
+        'model'=>'1260 Infinity II', 'sector'=>'laboratory',
+        'category'=>'Chromatography',
+        'source_ref'=>'https://www.agilent.com/en/product/liquid-chromatography'
+    ]]];
+    $thirdAck=aur_catalogue_write_snapshot(json_encode($third),$private);
+    if(($thirdAck['records']??0)!==3||($thirdAck['accepted_input_records']??0)!==1)
+        throw new RuntimeException('catalogue_batches_replace_history');
+    if(count(aur_catalogue_snapshot_search('WATO EX-35')??[])!==1
+       ||count(aur_catalogue_snapshot_search('1260 Infinity II')??[])!==1)
+        throw new RuntimeException('catalogue_batches_not_queryable');
     // The same case-owned worldwide vendor master must absorb new product evidence
     // without losing email/contact details already discovered by RFQ research.
     require_once dirname(__DIR__,3) . '/deployment/site/procurement/private_cases.php';
