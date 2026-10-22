@@ -472,7 +472,7 @@ function aur_vendor_rfq_send_smoke_test(string $store,?callable $sender=null): a
     try {
         $previous=aur_vendor_rfq_smoke_status($store);
         if(is_array($previous)&&($previous['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT'
-           && aur_vendor_rfq_mail_verified($store)
+           && ($sender!==null||aur_vendor_rfq_mail_verified($store))
            && time()-(int)($previous['timestamp']??0)<900){
             $previous['recent_test_preserved']=true;
             return $previous;
