@@ -172,6 +172,33 @@ class Tests(unittest.TestCase):
         self.assertEqual(result["new_products"],1)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],1)
 
+    def test_product_page_is_not_starved_by_broad_search_queue(self):
+        # A very small run budget used to spend its entire allowance on
+        # category searches, leaving known OEM product links untouched.
+        config={"categories":{"medical":[f"Equipment family {i}" for i in range(15)]},
+                "sources":[{"id":"known-oem","active":True,"manufacturer":"Mindray",
+                  "sector":"medical","category":"Surgical / procedural",
+                  "seeds":["https://www.mindray.com/en/products/anesthesia/wato-ex-35"]}]}
+        called=[]
+        def sample(url,kind):
+            called.append(kind)
+            if kind=="page":return PRODUCT
+            if kind=="search":return BING
+            return ""
+        result=run(self.db,config,1,20,2,sample)
+        self.assertEqual(result["processed"],1)
+        self.assertEqual(result["new_products"],1)
+        self.assertEqual(called,["page"])
+
+    def test_search_still_executes_when_no_product_pages_are_queued(self):
+        config={"categories":{"medical":["Imaging"]},"sources":[]}
+        called=[]
+        def sample(url,kind):
+            called.append(kind)
+            return BING if kind=="search" else ""
+        run(self.db,config,2,20,2,sample)
+        self.assertIn("search",called)
+
     def test_non_product_page_not_exported(self):
         products,_,_=parse_page("<h1>Our products</h1><title>Our products</title>",
                                 "https://www.mindray.com/en/products","Mindray","medical","Imaging")
