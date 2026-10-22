@@ -108,16 +108,18 @@
       sendButton.disabled = false; return;
     }
     try {
-      for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {
+      let authorized = sendForm.dataset.approved === '1';
+      for (let i = 0; i < Math.ceil(total / 10) + 3; i++) {
         const response = await fetch('/procurement/',{
           method:'POST',credentials:'same-origin',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
-            draft_id:draftId,manual_review:true})
+          body:JSON.stringify({task:authorized?'continue':'send',csrf,case_ref:caseRef,
+            draft_id:draftId,manual_review:!authorized})
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result.ok !== true)
           throw new Error('Mail batch response ' + response.status + '. Review the saved draft before resuming.');
+        authorized = true;
         const p = result.progress || {};
         sendProgress.textContent = (p.accepted || 0) + ' of ' + (p.total || total) +
           ' vendor emails accepted by mail transport; ' + (p.remaining || 0) + ' pending.';
@@ -129,10 +131,10 @@
         if (Number(p.processed_this_request || 0) === 0)
           throw new Error('No further send progress; review saved outbox.');
       }
-      throw new Error('Maximum batch count reached; reopen the draft to continue.');
+      throw new Error('Maximum approved batches reached; reopening will continue the saved queue without repeat approval.');
     } catch (error) {
       sendProgress.textContent = 'Mail dispatch paused: ' + (error.message || 'Unknown error') +
-        ' — sent messages stay recorded and will not be resent. Reopen the saved draft.';
+        ' — accepted messages remain recorded. Reopen this draft to continue the approved queue.';
       sendButton.disabled = false;
     }
   });
