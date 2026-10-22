@@ -165,9 +165,21 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </details>
 </section>
 <?php if(is_array($rfqPreview)): ?>
+<?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
 <h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
-<p><b>Step 2 of 2 · Approve dispatch.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Confirm the legal review, then the existing outbox will send in resumable batches. Each draft remains saved under the case reference <?=aur_escape((string)$result['reference'])?>.</p>
+<p><b>Step 2 of 2 · Review stored dispatch outcome.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Statuses below are calculated from the saved per-recipient outbox, not browser progress. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Reload actual RFQ status ↻</a></p>
+<p id="aur-dispatch-ledger" style="display:flex;gap:9px;flex-wrap:wrap">
+<span class="pill"><b><?=(int)$mailLedger['accepted']?></b> accepted by sending server</span>
+<span class="pill"><b><?=(int)$mailLedger['remaining']?></b> not attempted</span>
+<span class="pill"><b><?=(int)$mailLedger['failed_or_unconfirmed']?></b> failed / unconfirmed</span>
+<?php if($mailLedger['in_flight']||$mailLedger['other']):?><span class="pill"><b><?=(int)($mailLedger['in_flight']+$mailLedger['other'])?></b> uncertain / interrupted</span><?php endif;?>
+</p>
+<?php if($mailLedger['needs_reconciliation']):?>
+<p role="alert"><b>Partial delivery or uncertain results:</b> do not start a new batch for these recipients. Check the individual statuses and reconcile mail-server outcomes first; an unconfirmed transport attempt is not proof of delivery or failure.</p>
+<?php elseif($mailLedger['accepted']===$mailLedger['total'] && $mailLedger['total']>0):?>
+<p role="status">All <?= (int)$mailLedger['total']?> supplier messages were accepted by the sending server. This does not prove inbox delivery or a supplier reply.</p>
+<?php endif;?>
 
 <?php $pricingTemplateOutdated=(($rfqPreview['status']??'')==='DRAFT_REVIEW' &&
     ($rfqPreview['template_version']??'')!=='pricing-rfq-v3'); ?>
@@ -182,11 +194,17 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
 <button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=(!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
 <?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
-<p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each email is recorded in the case outbox; duplicates are not resent automatically.</p>
+<p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.</p>
+<p><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Refresh the saved recipient ledger</a> if progress stops or the page appears stale.</p>
 </form>
 <?php else: ?><p>Mail transport acceptance is recorded separately from confirmed delivery or a supplier reply. If a send failed, prepare a new draft after examining the recipient.</p><?php endif;?>
 <details id="aur-rfq-message-preview" class="aux-disclosure">
-<summary>Inspect <?=count($rfqPreview['messages']??[])?> consolidated supplier email<?=count($rfqPreview['messages']??[])===1?'':'s'?> before or after sending</summary>
+<summary>Review <?=count($rfqPreview['messages']??[])?> individual recipient statuses and messages</summary>
+<div class="scroll"><table><thead><tr><th>Supplier</th><th>Recipient</th><th>Saved transport status</th></tr></thead><tbody>
+<?php foreach(($rfqPreview['messages']??[]) as $msg):?>
+<tr><td><?=aur_escape((string)($msg['vendor_name']??''))?></td><td><?=aur_escape((string)($msg['to']??''))?></td><td><?=aur_escape((string)($msg['status']??'UNKNOWN'))?></td></tr>
+<?php endforeach;?>
+</tbody></table></div>
 <?php foreach($rfqPreview['messages'] as $msg):?>
 <details class="aur-mail-preview"><summary><?=aur_escape((string)$msg['vendor_name'])?> · <?=aur_escape((string)$msg['to'])?> — <?=aur_escape((string)$msg['status'])?></summary>
 <p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p><p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>

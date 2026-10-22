@@ -203,6 +203,27 @@ function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):
  * short resumable batches. A message is saved IN_FLIGHT before transport, so
  * a lost HTTP response cannot cause the same recipient to be mailed again.
  */
+/**
+ * Reconcile the saved recipient ledger, never trust a browser progress label.
+ * UNKNOWN/IN_FLIGHT cannot be retried automatically because the mail server
+ * may have accepted a request before the HTTP connection was interrupted.
+ */
+function aur_vendor_rfq_status_summary(array $draft):array {
+    $summary=['total'=>count($draft['messages']??[]),'accepted'=>0,
+        'remaining'=>0,'failed_or_unconfirmed'=>0,'in_flight'=>0,'other'=>0];
+    foreach(($draft['messages']??[]) as $message) {
+        switch((string)($message['status']??'')) {
+            case 'ACCEPTED_BY_MAIL_TRANSPORT':$summary['accepted']++;break;
+            case 'DRAFT':$summary['remaining']++;break;
+            case 'TRANSPORT_FAILED_OR_UNCONFIRMED':$summary['failed_or_unconfirmed']++;break;
+            case 'IN_FLIGHT':$summary['in_flight']++;break;
+            default:$summary['other']++;break;
+        }
+    }
+    $summary['needs_reconciliation']=$summary['failed_or_unconfirmed']>0 ||
+        $summary['in_flight']>0 || $summary['other']>0;
+    return $summary;
+}
 function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
     aur_embargo_assert_dispatch_ready($case);
     if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
@@ -253,16 +274,12 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             $sentThisRequest++;
             aur_vendor_rfq_write($path,$draft);
         }
-        $remaining=0;$accepted=0;
-        foreach($draft['messages'] as $message) {
-            if(($message['status']??'')==='DRAFT')$remaining++;
-            if(($message['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT')$accepted++;
+        $summary=aur_vendor_rfq_status_summary($draft);
+        if($summary['remaining']===0) {
+            $draft['status']=$summary['accepted']===$summary['total']
+                ?'TRANSPORT_ACCEPTED':'PARTIAL_OR_FAILED';
         }
-        if($remaining===0) {
-            $draft['status']=$accepted===count($draft['messages'])?'TRANSPORT_ACCEPTED':'PARTIAL_OR_FAILED';
-        }
-        $draft['dispatch_progress']=['accepted'=>$accepted,'remaining'=>$remaining,
-            'total'=>count($draft['messages']),'processed_this_request'=>$sentThisRequest];
+        $draft['dispatch_progress']=$summary+['processed_this_request'=>$sentThisRequest];
         aur_vendor_rfq_write($path,$draft);
         return $draft;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
