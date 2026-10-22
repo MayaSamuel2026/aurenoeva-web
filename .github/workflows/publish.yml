@@ -3,8 +3,8 @@ name: Qualify and publish Aurenoeva
 on:
   workflow_dispatch:
   # Catalogue integration release: reuse full qualification before Hostinger publication.
-  # This commit triggers the established full qualification-and-publication
-  # workflow for the 22 October large-catalogue and vendor-batch repair.
+  # Release 22 October: optimize PHP catalogue merge under 27k+ records,
+  # qualify adaptive publisher retry and separated product/vendor stages.
   push:
     branches: [main]
     paths:
@@ -216,6 +216,8 @@ jobs:
           cp hotfix/v8.2.6.12/catalogue-sync.php "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'aur_catalogue_write_snapshot' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'accepted_input_records' "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q 'catalogue-merge.lock' "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q 'existing_catalogue_snapshot_unreadable' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'aurenoeva-vendor-evidence/1' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q '256_000_000' "$RUNNER_TEMP/source/site/catalogue_local.php"
           php -l "$RUNNER_TEMP/source/site/catalogue-sync.php"
