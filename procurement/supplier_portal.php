@@ -167,7 +167,8 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
-<section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
+<?php $mailProof=aur_vendor_rfq_delivery_breakdown($rfqPreview); ?>
+<section id="aur-rfq-approval" data-case-ref="<?=aur_escape((string)$result['reference'])?>" data-draft-id="<?=aur_escape((string)$rfqPreview['draft_id'])?>" data-accepted="<?=(int)$mailLedger['accepted']?>" data-confirmed="<?=(int)$mailProof['smtp_250_confirmed']?>" data-open="<?=(int)($mailLedger['total']-$mailLedger['accepted'])?>" style="padding:25px 0;border-top:1px solid #dae4e0">
 <h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p><b>Step 2 of 2 · Review stored dispatch outcome.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Statuses below are calculated from the saved per-recipient outbox, not browser progress. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Reload actual RFQ status ↻</a></p>
 <?php if(aur_vendor_rfq_smtp_ready()&&!aur_vendor_rfq_mail_verified($aurStore)):?>
@@ -177,11 +178,11 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <p role="alert"><b>Supplier sending paused:</b> the website has no verified authenticated SMTP configuration for info@aurenoeva.com. No RFQs will be sent through PHP mail(). <a href="#aur-mail-settings">Connect the mailbox in the staff workspace</a>, then run the internal test before approving supplier outreach.</p>
 <?php endif;?>
 <p id="aur-dispatch-ledger" style="display:flex;gap:9px;flex-wrap:wrap">
-<span class="pill"><b><?=(int)$mailLedger['accepted']?></b> accepted by sending server</span>
-<span class="pill"><b><?=(int)$mailLedger['remaining']?></b> not attempted</span>
-<span class="pill"><b><?=(int)$mailLedger['failed_or_unconfirmed']?></b> failed / unconfirmed</span>
-<?php if($mailLedger['in_flight']||$mailLedger['other']):?><span class="pill"><b><?=(int)($mailLedger['in_flight']+$mailLedger['other'])?></b> uncertain / interrupted</span><?php endif;?>
+<span class="pill"><b id="aur-smtp-confirmed"><?=(int)$mailProof['smtp_250_confirmed']?></b> confirmed SMTP 250 acceptances</span>
+<span class="pill"><b id="aur-legacy-accepted"><?=(int)$mailProof['accepted_without_smtp_250_proof']?></b> earlier accepted · no saved 250 proof</span>
+<span class="pill"><b id="aur-awaiting"><?=(int)($mailLedger['total']-$mailLedger['accepted'])?></b> not confirmed accepted</span>
 </p>
+<p id="aur-ledger-verification" role="status" class="muted">Verifying this saved RFQ against the server ledger…</p>
 <?php if($mailLedger['needs_reconciliation']):?>
 <p role="alert"><b>Partial delivery or uncertain results:</b> do not start a new batch for these recipients. Check the individual statuses and reconcile mail-server outcomes first; an unconfirmed transport attempt is not proof of delivery or failure.</p>
 <?php elseif($mailLedger['accepted']===$mailLedger['total'] && $mailLedger['total']>0):?>
@@ -238,16 +239,36 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <summary>Review <?=count($rfqPreview['messages']??[])?> individual recipient statuses and messages</summary>
 <div class="scroll"><table><thead><tr><th>Supplier</th><th>Recipient</th><th>Saved transport status</th></tr></thead><tbody>
 <?php foreach(($rfqPreview['messages']??[]) as $msg):?>
-<tr><td><?=aur_escape((string)($msg['vendor_name']??''))?></td><td><?=aur_escape((string)($msg['to']??''))?></td><td><?=aur_escape((string)($msg['status']??'UNKNOWN'))?>
-<?php if(is_array($msg['transport_result']??null)): $smtpResult=$msg['transport_result']; ?>
-<div class="muted">Transport: <?=aur_escape((string)($smtpResult['transport']??''))?> · Stage: <?=aur_escape((string)($smtpResult['stage']??''))?> · SMTP: <?= (int)($smtpResult['code']??0) ?></div>
-<div class="muted"><?=aur_escape((string)($smtpResult['response']??''))?></div>
-<?php if(!empty($smtpResult['message_id'])):?><div class="muted">Message ID: <?=aur_escape((string)$smtpResult['message_id'])?></div><?php endif;?>
-<?php else:?><div class="muted">Historical attempt · detailed SMTP evidence not recorded</div><?php endif;?>
-<?php if(is_array($msg['recovery']??null)): $rec=$msg['recovery']; ?>
-<div class="muted"><b>Follow-up attempt:</b> <?=aur_escape((string)($rec['status']??''))?> · <?=aur_escape((string)($rec['attempted_at']??''))?></div>
-<div class="muted">SMTP <?= (int)($rec['transport_result']['code']??0) ?> · <?=aur_escape((string)($rec['transport_result']['response']??''))?></div>
-<?php endif;?></td></tr>
+<?php
+$followup=is_array($msg['recovery']??null)?$msg['recovery']:null;
+$proof=$followup!==null?($followup['transport_result']??null):($msg['transport_result']??null);
+$isSmtpConfirmed=is_array($proof)&&
+    ($proof['transport']??'')==='AUTHENTICATED_SMTP'&&
+    ($proof['stage']??'')==='DATA_ACCEPTANCE'&&
+    (int)($proof['code']??0)===250&&
+    ($proof['outcome']??'')==='SMTP_ACCEPTED'&&
+    ($msg['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT';
+$acceptedWithoutProof=(!$isSmtpConfirmed&&($msg['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT');
+?>
+<tr>
+<td><?=aur_escape((string)($msg['vendor_name']??''))?></td>
+<td><?=aur_escape((string)($msg['to']??''))?></td>
+<td>
+<strong><?=$isSmtpConfirmed?'SMTP 250 — accepted':($acceptedWithoutProof?'Previously accepted — no saved 250 evidence':'SMTP acceptance unconfirmed')?></strong>
+<?php if($isSmtpConfirmed):?>
+<div class="muted"><?=aur_escape((string)($proof['response']??''))?></div>
+<div class="muted">Message-ID: <?=aur_escape((string)($proof['message_id']??$followup['message_id']??$msg['smtp_message_id']??''))?></div>
+<div class="muted">Recorded <?=aur_escape((string)($followup['finished_at']??$msg['sent_at']??''))?></div>
+<?php elseif($acceptedWithoutProof):?>
+<div class="muted">Legacy send record; SMTP server transcript was not retained.</div>
+<?php elseif(is_array($proof)):?>
+<div class="muted">SMTP <?= (int)($proof['code']??0) ?> · <?=aur_escape((string)($proof['stage']??''))?> · <?=aur_escape((string)($proof['response']??''))?></div>
+<?php else:?><div class="muted">Historical failed / unconfirmed attempt; no SMTP acceptance proof.</div>
+<?php endif;?>
+<?php if($followup!==null):?>
+<div class="muted">Recovery: <?=aur_escape((string)($followup['status']??''))?> (one attempt only)</div>
+<?php endif;?>
+</td></tr>
 <?php endforeach;?>
 </tbody></table></div>
 <?php foreach($rfqPreview['messages'] as $msg):?>
