@@ -19,15 +19,16 @@ mkdir -p "$WORK/tools" "$WORK/config" "$WORK/tests" "$WORK/ops"
 BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/main
 for file in \
   tools/catalogue_harvester.py tools/catalogue_publish.py \
-  config/catalogue_harvester.json \
+  tools/catalogue_auto_update.py config/catalogue_harvester.json \
   ops/aurenoeva-catalogue.service ops/aurenoeva-catalogue.timer \
-  tests/test_catalogue_harvester.py; do
+  tests/test_catalogue_harvester.py tests/test_catalogue_publish.py \
+  tests/test_catalogue_auto_update.py; do
   curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 60 \
     "$BASE/$file" -o "$WORK/$file"
 done
-python3 -m py_compile "$WORK/tools/catalogue_harvester.py" "$WORK/tools/catalogue_publish.py"
+python3 -m py_compile "$WORK/tools/catalogue_harvester.py" "$WORK/tools/catalogue_publish.py" "$WORK/tools/catalogue_auto_update.py"
 python3 -m json.tool "$WORK/config/catalogue_harvester.json" >/dev/null
-(cd "$WORK" && python3 -m unittest discover -s tests -p test_catalogue_harvester.py -v)
+(cd "$WORK" && python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v)
 echo "=== STOP AND RETIRE ORIGINAL CRAWLER ==="
 systemctl stop "$TIMER" 2>/dev/null || true
 systemctl stop "$SERVICE" 2>/dev/null || true
@@ -50,6 +51,7 @@ for file in "$UNIT" "/etc/systemd/system/$TIMER" "$APP/tools/catalogue_publish.p
 done
 install -m 0644 "$WORK/tools/catalogue_harvester.py" "$APP/tools/catalogue_harvester.py"
 install -m 0644 "$WORK/tools/catalogue_publish.py" "$APP/tools/catalogue_publish.py"
+install -m 0644 "$WORK/tools/catalogue_auto_update.py" "$APP/tools/catalogue_auto_update.py"
 install -m 0644 "$WORK/config/catalogue_harvester.json" "$APP/config/catalogue_harvester.json"
 install -m 0644 "$WORK/ops/aurenoeva-catalogue.service" "$UNIT"
 install -m 0644 "$WORK/ops/aurenoeva-catalogue.timer" "/etc/systemd/system/$TIMER"
@@ -61,7 +63,9 @@ if [[ -s "$STATE/catalogue-sync-token" ]];then
       > "/etc/systemd/system/$SERVICE.d/publish.conf"
   fi
 fi
-# Old v3 timeouts must not kill this 45-minute batch at 5 or 35 minutes.
+# Preserve the existing timer; the one installed pre-run updater now handles
+# future qualified GitHub source changes without another root shell deployment.
+# Retain enough time for the preflight plus bounded harvest and publication.
 mkdir -p "/etc/systemd/system/$SERVICE.d"
 printf '[Service]\nTimeoutStartSec=3300s\n' \
   > "/etc/systemd/system/$SERVICE.d/zz-harvester-v4.conf"
@@ -69,7 +73,10 @@ systemctl daemon-reload
 systemctl enable --now "$TIMER"
 systemctl start --no-block "$SERVICE"
 echo "=== CONFIRM ONE INSTALLED ENGINE ==="
-systemctl cat "$SERVICE" | grep -E 'ExecStart=|ExecStartPost=|TimeoutStartSec=|RuntimeMaxSec='
+systemctl cat "$SERVICE" | grep -E 'ExecStart=|ExecStartPre=|ExecStartPost=|TimeoutStartSec=|RuntimeMaxSec='
+systemctl cat "$SERVICE" | grep -q 'ExecStartPre=-+/usr/bin/python3 /opt/aurenoeva/tools/catalogue_auto_update.py' ||
+  { echo "CATALOGUE_AUTO_UPDATER_NOT_INSTALLED"; exit 1; }
+echo "CATALOGUE_AUTO_UPDATE_BOOTSTRAP=PASS"
 systemctl list-timers --all "$TIMER" --no-pager || true
 echo "=== CURRENT DATABASE: ORIGINAL PRODUCTS PRESERVED ==="
 python3 - "$DB" "$BACKUP" <<'PY'
