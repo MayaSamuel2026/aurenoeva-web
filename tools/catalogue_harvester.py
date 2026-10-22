@@ -67,7 +67,7 @@ def fetch(url,kind="page"):
     with OPENER.open(Request(url,headers={"User-Agent":AGENT,"Accept":"text/html,application/xhtml+xml,application/xml,text/xml"}),timeout=12) as resp:
         typ=resp.headers.get("Content-Type","")
         if not any(x in typ.lower() for x in ("html","xml","text/")) and not (kind=="sitemap" and urlsplit(url).path.lower().endswith(".xml.gz")):raise ValueError("nontext_content")
-        limit=8_000_000 if kind in ("sitemap","search") else 2_000_000
+        limit=24_000_000 if kind=="sitemap" else (8_000_000 if kind=="search" else 2_000_000)
         raw=resp.read(limit+1)
         if len(raw)>limit:raise ValueError("large_page")
         if kind=="sitemap" and raw[:2]==b"\x1f\x8b":
