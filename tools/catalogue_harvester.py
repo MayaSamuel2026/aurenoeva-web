@@ -399,7 +399,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
                               (hostof(link),row["sector"],row["category"],link,t,t))
                             stats["vendor_leads"]+=1
                     elif kind=="sitemap" and row["depth"]<6:
-                        for link in links[:12000]:
+                        for link in links[:50000]:  # standard sitemap URL ceiling; queue is durable
                             try:public_url(link)
                             except ValueError:continue
                             if hostof(link)!=hostof(url):continue
