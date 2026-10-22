@@ -134,164 +134,246 @@ function aur_supplier_pdf_wrap(string $text,int $cols=93):array {
  * Original specification appears once per item. Supplier addresses and
  * consolidated item numbers appear in the second section.
  */
+/**
+ * Client-forwardable procurement report:
+ * serif section headings / sans-serif body, A4, source indexes and
+ * consolidated supplier directory. No external PDF library required.
+ */
 function aur_supplier_report_pdf(array $report):string {
-    $pages=[];$stream='';$y=0.0;$pageNum=0;
     $ref=(string)$report['reference'];
-    $ink=[0.12,0.17,0.23];$muted=[0.39,0.46,0.52];
-    $teal=[0.04,0.38,0.43];$pale=[0.92,0.96,0.97];$light=[0.96,0.97,0.98];
-    $draw=static function(string $str,float $x,float $pos,float $size=9.0,bool $bold=false,array $rgb=[0.12,0.17,0.23]) use (&$stream):void {
-        $s=aur_supplier_pdf_text($str);
-        $s=str_replace(['\\','(',')'],['\\\\','\\(','\\)'],$s);
+    $contacts=[];$makers=[];
+    foreach(($report['vendors']??[]) as $id=>$v) {
+        if(!is_array($v))continue;
+        if(!empty($v['contactable']))$contacts[$id]=$v;
+        else $makers[$id]=$v;
+    }
+    uasort($contacts,static fn($a,$b)=>strcasecmp((string)$a['name'],(string)$b['name']));
+    uasort($makers,static fn($a,$b)=>strcasecmp((string)$a['name'],(string)$b['name']));
+    $codes=[];
+    $i=0;foreach($contacts as $id=>$v)$codes[$id]='S'.sprintf('%02d',++$i);
+    $i=0;foreach($makers as $id=>$v)$codes[$id]='M'.sprintf('%02d',++$i);
+
+    $navy=[0.098,0.149,0.192];$teal=[0.118,0.365,0.376];
+    $dark=[0.153,0.192,0.227];$grey=[0.384,0.451,0.486];
+    $wash=[0.961,0.969,0.969];$pale=[0.918,0.945,0.941];
+    $border=[0.863,0.890,0.902];
+    $pages=[];$stream='';$y=0.0;$pageNumber=0;
+    $draw=static function(string $s,float $x,float $yp,float $size=8.5,string $font='F1',array $rgb=[0.153,0.192,0.227])
+      use (&$stream):void {
+        $txt=aur_supplier_pdf_text($s);
+        $txt=str_replace(['\\','(',')'],['\\\\','\\(','\\)'],$txt);
         $stream.=sprintf("%.3f %.3f %.3f rg BT /%s %.2f Tf %.2f %.2f Td (%s) Tj ET\n",
-            $rgb[0],$rgb[1],$rgb[2],$bold?'F3':'F1',$size,$x,$pos,$s);
+            $rgb[0],$rgb[1],$rgb[2],$font,$size,$x,$yp,$txt);
     };
-    $rect=static function(float $x,float $pos,float $w,float $h,array $rgb)use (&$stream):void {
+    $rect=static function(float $x,float $yp,float $width,float $height,array $rgb)use (&$stream):void {
         $stream.=sprintf("%.3f %.3f %.3f rg %.2f %.2f %.2f %.2f re f\n",
-            $rgb[0],$rgb[1],$rgb[2],$x,$pos,$w,$h);
+            $rgb[0],$rgb[1],$rgb[2],$x,$yp,$width,$height);
     };
-    $newPage=static function()use (&$pages,&$stream,&$y,&$pageNum,$rect,$draw,$teal,$muted):void {
-        if($pageNum>0)$pages[]=$stream;
-        $pageNum++;$stream='';$y=777.0;
-        $rect(0,815,612,27,$teal);
-        $draw('AURENOEVA  /  CUSTOMER SOURCING REPORT',40,824,10,true,[1,1,1]);
-        $draw('Confidential case report',428,825,7.5,false,[1,1,1]);
-        $rect(40,802,532,0.7,[0.8,0.84,0.86]);
+    $rule=static function(float $x,float $yp,float $end,array $rgb)use (&$stream):void {
+        $stream.=sprintf("%.3f %.3f %.3f RG 0.45 w %.2f %.2f m %.2f %.2f l S\n",
+            $rgb[0],$rgb[1],$rgb[2],$x,$yp,$end,$yp);
+    };
+    $newPage=static function()use (&$pages,&$stream,&$y,&$pageNumber,$draw,$rect,$navy):void {
+        if($pageNumber>0)$pages[]=$stream;
+        $pageNumber++;$stream='';$y=762;
+        $rect(0,798,595.28,44,$navy);
+        $draw('AURENOEVA',57,813,9.5,'F2',[1,1,1]);
+        $draw('MEDICAL EQUIPMENT  /  SUPPLIER SOURCING',320,813,7.2,'F1',[1,1,1]);
     };
     $newPage();
     $ensure=static function(float $height)use (&$y,$newPage):void {
-        if($y-$height<52)$newPage();
+        if($y-$height<65)$newPage();
     };
-    $line=static function(string $s,float $x=44.0,float $size=9.0,bool $bold=false,?array $color=null,
-        float $spacing=12.3)use (&$y,$draw,$ink,$ensure):void {
-        $ensure($spacing);
-        $draw($s,$x,$y,$size,$bold,$color??$ink);
-        $y-=$spacing;
+    $wrap=static function(string $text,float $width=480,float $size=9):array {
+        return aur_supplier_pdf_wrap($text,max(18,(int)floor($width/($size*0.51))));
     };
-    $para=static function(string $str,float $x=44.0,float $width=524.0,float $size=9.0,
-        ?array $color=null,float $leading=12.2)use ($line,$muted):void {
-        $cols=max(24,(int)floor($width/($size*0.53)));
-        foreach(aur_supplier_pdf_wrap($str,$cols) as $wrapped)
-            $line($wrapped,$x,$size,false,$color??$muted,$leading);
+    $paragraph=static function(string $s,float $x=57,float $width=481,float $size=9.0,
+      float $leading=13,array $rgb=[0.153,0.192,0.227])use ($wrap,$ensure,$draw,&$y):void {
+        foreach($wrap($s,$width,$size) as $text) {
+            $ensure($leading);
+            $draw($text,$x,$y,$size,'F1',$rgb);
+            $y-=$leading;
+        }
     };
-    $section=static function(string $str)use (&$y,$ensure,$rect,$draw,$teal,$pale):void {
-        $ensure(62);
-        $y-=10;$rect(40,$y-9,532,26,$pale);
-        $draw($str,49,$y,14,true,$teal);
+    $kicker=static function(string $s)use ($ensure,$draw,&$y,$teal):void {
+        $ensure(19);$draw($s,57,$y,8,'F2',$teal);$y-=20;
+    };
+    $heading=static function(string $s,float $size=18)use ($ensure,$draw,&$y,$navy):void {
+        $ensure($size+24);$draw($s,57,$y,$size,'F4',$navy);$y-=$size+16;
+    };
+    $small=static function(string $s,float $size=9)use ($ensure,$draw,&$y,$dark):void {
+        $ensure($size+10);$draw($s,57,$y,$size,'F1',$dark);$y-=$size+11;
+    };
+    $equipHeader=static function()use ($ensure,$draw,$rect,$teal,$pale,&$y):void {
+        $ensure(34);
+        $rect(57,$y-19,481,29,$pale);
+        $draw('ITEM / QTY',63,$y-9,7.2,'F2',$teal);
+        $draw('ORIGINAL EQUIPMENT SPECIFICATION',124,$y-9,7.2,'F2',$teal);
+        $draw('POTENTIAL SUPPLIERS',408,$y-9,7.2,'F2',$teal);
         $y-=35;
     };
-    $contactable=count(array_filter($report['vendors'],static fn($v)=>!empty($v['contactable'])));
-    $leads=count($report['vendors']);
-    $primary=count(array_filter($report['items'],static fn($i)=>$i['option']!=='ALTERNATIVE'));
-    $alternatives=count($report['items'])-$primary;
-    $line('Medical Equipment Sourcing Report',44,18,true,$ink,27);
-    $line('Case '.$ref.'  |  Destination: Uzbekistan',44,10,false,$teal,19);
-    $line('Prepared '.gmdate('d M Y',strtotime((string)$report['generated_at'])).' (UTC)',44,8.3,false,$muted,18);
-    $rect(40,$y-31,532,48,$light);
-    $draw((string)count($report['items']),56,$y-4,17,true,$teal);
-    $draw('Equipment entries',56,$y-20,8,false,$muted);
-    $draw((string)$contactable,233,$y-4,17,true,$teal);
-    $draw('Published email contacts',233,$y-20,8,false,$muted);
-    $draw((string)$leads,440,$y-4,17,true,$teal);
-    $draw('Supplier / maker leads',440,$y-20,8,false,$muted);
-    $y-=61;
-    $para($primary.' original equipment entries and '.$alternatives.' alternative choices. '.
-          'Every candidate is a sourcing lead, not an offer, stock confirmation or approved distributor.',44,523,9,$muted,13);
-    $y-=5;
-    $section('01  |  Equipment-to-supplier register');
-    $para('Original technical descriptions and quantities are preserved. Published emails are shown below; '.
-          'full supplier contact details and combined item references are in section 02.',44,521,8.7,$muted,12);
-    $y-=10;
-    $altCount=[];
-    foreach($report['items'] as $item) {
-        $no=(int)$item['number'];$isAlt=$item['option']==='ALTERNATIVE';
-        if($isAlt) $altCount[$no]=($altCount[$no]??0)+1;
-        $designation='ITEM '.str_pad((string)$no,2,'0',STR_PAD_LEFT).
-            ($isAlt?chr(64+$altCount[$no]):'');
-        $qty=$item['quantity']===null?'To confirm':(string)$item['quantity'];
-        $vendorIds=array_keys($item['vendors']);
-        $rows=(int)ceil(count($vendorIds)/2);
-        $headingHeight=26+max(1,count(aur_supplier_pdf_wrap($item['description'],100)))*12;
-        $ensure(min(265,$headingHeight+38));
-        $rect(40,$y-4,532,23,$pale);
-        $draw($designation,49,$y+3,10.3,true,$teal);
-        $draw($isAlt?'ALTERNATIVE':'ORIGINAL REQUEST',166,$y+3,8.2,false,$muted);
-        $draw('Quantity: '.$qty,475,$y+3,8.6,true,$ink);
-        $y-=30;
-        $para($item['description'],49,512,8.8,$ink,12);
-        $y-=4;
-        $line('IDENTIFIED SUPPLIER CONTACTS  |  '.count($vendorIds).' leads',49,7.7,true,$teal,13);
-        if(!$vendorIds) {
-            $line('No lead identified yet. Research remains open.',55,8.3,false,$muted,16);
-        } else {
-            $pairs=array_chunk($vendorIds,2);
-            foreach($pairs as $pair) {
-                $ensure(29);
-                foreach($pair as $col=>$id) {
-                    $v=$report['vendors'][$id];$x=49+$col*267;
-                    $name=(string)$v['name'];
-                    $draw($name,$x,$y,8.0,true,$ink);
-                    $caption=$v['email']!==''?$v['email']:'Email not established';
-                    $draw($caption,$x,$y-11,7.4,false,$v['email']!==''?$teal:$muted);
-                }
-                $y-=25;
-            }
-        }
-        $y-=8;
-        $rect(40,$y+3,532,0.4,[0.84,0.88,0.89]);
-        $y-=8;
+    $manufacturerHeader=static function()use ($ensure,$draw,$rect,$teal,$pale,&$y):void {
+        $ensure(32);$rect(57,$y-19,481,29,$pale);
+        foreach([['REF.',63],['MANUFACTURER / SOURCE',107],['WEBSITE',278],['RELATED ITEMS',436]] as $pair)
+            $draw($pair[0],$pair[1],$y-9,7.2,'F2',$teal);
+        $y-=35;
+    };
+
+    // Cover - typography and structure match the customer reference style.
+    $y-=63;
+    $kicker('PROCUREMENT INTELLIGENCE  /  UZBEKISTAN');
+    $heading('Medical Equipment',27);
+    $heading('Supplier Sourcing Report',27);
+    $paragraph('A structured overview of requested medical equipment, potential sourcing channels and supplier contact information.',57,475,10,16);
+    $y-=28;
+    $ensure(80);
+    $rect(57,$y-62,481,65,$wash);
+    $draw('CASE REFERENCE',70,$y-16,7.7,'F2',$teal);
+    $draw('REPORT PREPARED',307,$y-16,7.7,'F2',$teal);
+    $draw($ref,70,$y-36,10,'F2',$navy);
+    $draw(gmdate('d F Y',strtotime((string)$report['generated_at'])).' UTC',307,$y-36,9,'F2',$navy);
+    $y-=91;
+    $rect(57,$y-80,481,82,$pale);
+    foreach([
+        [count($report['items']),'Equipment entries'],
+        [count($contacts),'Published email contacts'],
+        [count($makers),'Manufacturer / source leads']
+    ] as $idx=>$data) {
+        $xx=71+$idx*159;
+        $draw((string)$data[0],$xx,$y-30,22,'F4',$navy);
+        $draw($data[1],$xx,$y-52,7.8,'F1',$grey);
     }
+    $y-=114;
+    $heading('How to read this report',16);
+    $paragraph('The equipment register retains the customer’s original specifications and quantities. Supplier index codes (S01, S02, etc.) link to their contact details in Section 02. Additional manufacturer and source references use the M prefix.',57,481,9.1,14);
+    $y-=12;
+    $paragraph('This report identifies possible sourcing channels. No company listed here has thereby confirmed stock, exact-model availability, distributor authorisation, pricing or delivery. Supplier quotations and relevant trade-compliance checks must be completed separately.',57,481,9.1,14);
+    $y-=25;
+    $heading('Contents',16);
+    $small('01     Requested equipment and potential suppliers',9.3);
+    $small('02     Supplier contact directory and combined equipment coverage',9.3);
+    $small('03     Additional manufacturer references and sourcing notes',9.3);
+
+    // Section 1: compact table; specifications appear exactly once.
     $newPage();
-    $section('02  |  Consolidated supplier directory');
-    $para('A supplier is listed once, regardless of how many equipment entries match. '.
-          'The item references below map to the full original specifications in section 01. '.
-          'Supplier availability, legal eligibility and exact model matching still require confirmation.',44,525,8.8,$muted,12);
-    $y-=14;
-    foreach($report['vendors'] as $v) {
-        $items=array_values($v['items']);
-        $tokens=[];
-        foreach($items as $i) {
-            $tokens[]='#'.(int)$i['number'].($i['option']==='ALTERNATIVE'?' (alt)':'').
-                ': '.($i['quantity']===null?'qty TBC':'qty '.$i['quantity']);
+    $kicker('01  /  EQUIPMENT REGISTER');
+    $heading('Requested equipment & potential suppliers',18);
+    $paragraph('Original requested specifications are retained. Quantities marked To confirm were not supplied; alternatives are shown separately and are not additional confirmed orders.',57,480,8.8,12.5,$grey);
+    $y-=17;
+    $equipHeader();
+    $alternatives=[];
+    foreach($report['items'] as $rowIndex=>$item) {
+        $no=(int)$item['number'];$isAlt=($item['option']==='ALTERNATIVE');
+        if($isAlt)$alternatives[$no]=($alternatives[$no]??0)+1;
+        $itemLabel=str_pad((string)$no,2,'0',STR_PAD_LEFT).($isAlt?' Alt. '.chr(64+$alternatives[$no]):'');
+        $qty=$item['quantity']===null?'To confirm':(string)$item['quantity'];
+        $sourceIds=[];$makerIds=[];
+        foreach(array_keys($item['vendors']) as $id) {
+            if(!isset($codes[$id]))continue;
+            if(isset($contacts[$id]))$sourceIds[]=$codes[$id];
+            else $makerIds[]=$codes[$id];
         }
-        $tokenString=implode('  |  ',$tokens);
-        $itemLines=aur_supplier_pdf_wrap($tokenString,116);
-        $height=92+count($itemLines)*11;
-        $ensure(min(250,$height));
-        $rect(40,$y-7,532,27,$pale);
-        $draw((string)$v['name'],49,$y+2,10,true,$ink);
-        $draw(count($items).' equipment entries',439,$y+2,8.0,false,$teal);
-        $y-=34;
-        $para('Address / location: '.(string)$v['location'],49,515,8.3,$ink,12);
-        $para('Email: '.($v['email']!==''?$v['email']:'Not published').
-            '    Phone: '.($v['phone']!==''?$v['phone']:'Not established'),49,515,8.3,$ink,12);
-        $para('Website: '.($v['website']!==''?$v['website']:'Not established'),49,515,8.2,$muted,12);
-        $para('Enquiry contact: '.($v['email']!==''?'Published email - quotation not yet received':'Further contact research required'),49,515,8.2,$teal,12);
-        $line('MATCHING ITEM NUMBERS & REQUESTED QUANTITIES',49,7.7,true,$teal,12);
-        $para($tokenString,49,519,8.4,$ink,11.6);
-        $y-=15;
+        $spec=$wrap((string)$item['description'],271,8.2);
+        $sup=$sourceIds?$wrap('Supplier contacts: '.implode(', ',$sourceIds),119,7.6):[];
+        $makes=$makerIds?$wrap('Manufacturer leads: '.implode(', ',$makerIds),119,7.6):[];
+        $h=max(2,count($spec),count($sup)+count($makes)+($sup&&$makes?1:0))*11.4+16;
+        $before=$pageNumber;$ensure($h+8);
+        if($pageNumber!==$before)$equipHeader();
+        $top=$y;
+        if($rowIndex%2===1)$rect(57,$top-$h+2,481,$h+1,$wash);
+        $draw($itemLabel,64,$top-11,8.7,'F2',$dark);
+        $draw('Qty: '.$qty,64,$top-25,7.7,'F1',$grey);
+        foreach($spec as $lineNo=>$str)$draw($str,124,$top-11-$lineNo*11.4,8.2,'F1',$dark);
+        $j=0;
+        foreach($sup as $str){$draw($str,409,$top-11-$j*11.4,7.6,'F1',$grey);$j++;}
+        if($sup&&$makes)$j++;
+        foreach($makes as $str){$draw($str,409,$top-11-$j*11.4,7.6,'F1',$grey);$j++;}
+        $rule(57,$top-$h,538,$border);
+        $y=$top-$h;
     }
-    $ensure(45);
-    $line('REPORT NOTES',44,9,true,$teal,16);
-    $para('Published contact details are not evidence of current stock or ability to supply any named item. '.
-          'No supplier quote has been assumed. RFQ dispatch remains a separate, explicit administrator action.',44,520,8.5,$muted,12);
+
+    // Section 2: supplier-centric directory, one card per email contact.
+    $newPage();
+    $kicker('02  /  SUPPLIER DIRECTORY');
+    $heading('Supplier contacts & combined item coverage',18);
+    $paragraph('Each contact appears once. Item numbers represent potential sourcing opportunities, not a confirmed stock offer or quotation.',57,480,8.8,13,$grey);
+    $y-=18;
+    foreach($contacts as $id=>$v) {
+        $labels=[];
+        foreach(($v['items']??[]) as $i) {
+            $label='#'.(int)$i['number'].(($i['option']??'')==='ALTERNATIVE'?' alt.':'');
+            if(!in_array($label,$labels,true))$labels[]=$label;
+        }
+        $location=$wrap('Location: '.($v['location']??'Not established'),447,8.3);
+        $phone=(string)($v['phone']??'');
+        $contact=$wrap('Email: '.(string)$v['email'].($phone!==''?'  |  Telephone: '.$phone:''),447,8.3);
+        $website=$wrap('Website: '.(string)$v['website'],447,8.3);
+        $coverage=$wrap('Potential item coverage: '.implode(', ',$labels).' ('.count($v['items']).' entries)',447,8.2);
+        $h=38+(count($location)+count($contact)+count($website)+count($coverage))*11.6+15;
+        $ensure($h+10);
+        $top=$y;
+        $rect(57,$top-$h,481,$h,$wash);
+        $rect(57,$top-$h,2.5,$h,$teal);
+        $draw($codes[$id].'   '.$v['name'],71,$top-20,11.8,'F4',$navy);
+        $yy=$top-38;
+        foreach([$location,$contact,$website,$coverage] as $part){
+            foreach($part as $text){$draw($text,72,$yy,8.3,'F1',$dark);$yy-=11.6;}
+            $yy-=2.3;
+        }
+        $y=$top-$h-12;
+    }
+
+    // Section 3: noncontact manufacturers/other sources are not presented
+    // as sales leads with published recipient email.
+    $newPage();
+    $kicker('03  /  REFERENCE DIRECTORY');
+    $heading('Additional manufacturer & source references',18);
+    $paragraph('These references can assist further sourcing. They are not included as contactable suppliers because a published sales email was not established in this enquiry research.',57,480,8.8,13,$grey);
+    $y-=16;
+    $manufacturerHeader();
+    foreach($makers as $id=>$v) {
+        $labels=[];
+        foreach(($v['items']??[]) as $i) {
+            $label='#'.(int)$i['number'];
+            if(!in_array($label,$labels,true))$labels[]=$label;
+        }
+        $name=$wrap((string)$v['name'],160,8.25);
+        $site=$wrap((string)$v['website'],148,8.15);
+        $coverage=$wrap(implode(', ',$labels),97,7.75);
+        $h=max(count($name),count($site),count($coverage))*11.5+17;
+        $before=$pageNumber;$ensure($h+8);
+        if($pageNumber!==$before)$manufacturerHeader();
+        $top=$y;
+        if((int)substr($codes[$id],1)%2===0)$rect(57,$top-$h+2,481,$h+1,$wash);
+        $draw($codes[$id],63,$top-11,8.3,'F2',$teal);
+        foreach($name as $j=>$text)$draw($text,107,$top-11-$j*11.5,8.25,'F1',$dark);
+        foreach($site as $j=>$text)$draw($text,278,$top-11-$j*11.5,8.15,'F1',$grey);
+        foreach($coverage as $j=>$text)$draw($text,436,$top-11-$j*11.5,7.75,'F1',$grey);
+        $rule(57,$top-$h,538,$border);$y=$top-$h;
+    }
+    $y-=21;
+    $heading('Sourcing and quotation notes',16);
+    $paragraph('This customer report reflects preliminary research recorded for the enquiry. It does not represent prices, available inventory, shipping schedules, confirmed distribution rights or a purchase commitment. RFQs and evaluation of supplier quotations are handled separately.',57,481,8.9,13);
+    $y-=8;
+    $paragraph('For quotation coordination and updates: info@aurenoeva.com  |  aurenoeva.com',57,481,9.0,13,$teal);
     $pages[]=$stream;
-    // Standard PDF 1.4 / Helvetica, vector text and fills, no external libraries.
     $objects=[
-        1=>'<< /Type /Catalog /Pages 2 0 R >>',
-        3=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
-        4=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-        5=>'<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>'
+      1=>'<< /Type /Catalog /Pages 2 0 R >>',
+      3=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+      4=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+      5=>'<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>'
     ];
-    $kids=[];$id=6;
-    foreach($pages as $n=>$s) {
-        $pageId=$id++;$contentId=$id++;
-        $kids[]="$pageId 0 R";
-        $footer='AURENOEVA  /  '.$ref.'   |   Page '.($n+1).' of '.count($pages);
-        $escaped=str_replace(['\\','(',')'],['\\\\','\\(','\\)'],aur_supplier_pdf_text($footer));
-        $s.="0.44 0.50 0.53 rg BT /F1 8 Tf 40 32 Td ($escaped) Tj ET\n";
-        $objects[$pageId]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] ".
-            "/Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents $contentId 0 R >>";
-        $objects[$contentId]="<< /Length ".strlen($s)." >>\nstream\n".$s."endstream";
+    $kids=[];$objId=6;
+    foreach($pages as $index=>$pageStream) {
+        $pid=$objId++;$sid=$objId++;$kids[]="$pid 0 R";
+        $footer=$ref.'   |   AURENOEVA  |  Page '.($index+1).' / '.count($pages);
+        $safe=aur_supplier_pdf_text($footer);
+        $safe=str_replace(['\\','(',')'],['\\\\','\\(','\\)'],$safe);
+        $pageStream.="0.863 0.890 0.902 RG 0.5 w 57 55 m 538 55 l S\n";
+        $pageStream.="0.384 0.451 0.486 rg BT /F1 7.5 Tf 57 38 Td ($safe) Tj ET\n";
+        $objects[$pid]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] ".
+            "/Resources << /Font << /F1 3 0 R /F2 4 0 R /F4 5 0 R >> >> /Contents $sid 0 R >>";
+        $objects[$sid]="<< /Length ".strlen($pageStream)." >>\nstream\n".$pageStream."endstream";
     }
     $objects[2]='<< /Type /Pages /Count '.count($pages).' /Kids ['.implode(' ',$kids).'] >>';
     ksort($objects);
@@ -299,7 +381,7 @@ function aur_supplier_report_pdf(array $report):string {
     foreach($objects as $n=>$object){$offsets[$n]=strlen($pdf);$pdf.="$n 0 obj\n$object\nendobj\n";}
     $xref=strlen($pdf);$max=max(array_keys($objects));
     $pdf.="xref\n0 ".($max+1)."\n0000000000 65535 f \n";
-    for($i=1;$i<=$max;$i++)$pdf.=sprintf('%010d 00000 n ',(int)($offsets[$i]??0))."\n";
+    for($n=1;$n<=$max;$n++)$pdf.=sprintf('%010d 00000 n ',(int)($offsets[$n]??0))."\n";
     $pdf.="trailer\n<< /Size ".($max+1)." /Root 1 0 R >>\nstartxref\n$xref\n%%EOF";
     return $pdf;
 }
@@ -335,7 +417,7 @@ function aur_supplier_report_save(string $store,array $case,array $intel):array 
     // Keep the legacy filename for previous download compatibility.
     $path="$dir/$ref-customer-supplier-report.pdf";
     $fingerprint=hash('sha256',json_encode([
-        'customer-layout-serif-v3',$case['source_sha256']??'',
+        'customer-layout-serif-v4-compact',$case['source_sha256']??'',
         $report['items'],$report['vendors']
     ],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
     $statePath="$dir/$ref-customer-supplier-report.sha256";
