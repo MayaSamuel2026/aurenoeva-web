@@ -96,8 +96,8 @@
   const sendForm = document.getElementById('aur-vendor-send-form');
   const sendButton = document.getElementById('aur-send-all-rfqs');
   const sendProgress = document.getElementById('aur-send-progress');
-  if (!sendForm || !sendButton || !sendProgress) return;
-  sendForm.addEventListener('submit', async event => {
+  if (sendForm && sendButton && sendProgress) {
+    sendForm.addEventListener('submit', async event => {
     if (!sendForm.reportValidity()) return;
     event.preventDefault();
     sendButton.disabled = true;
@@ -146,7 +146,8 @@
       // A reload shows authoritative persisted status and prevents blind repeats.
       sendButton.disabled = true;
     }
-  });
+    });
+  }
 
   // Recovery is a different explicit action from first-time dispatch.
   // Only the saved failed/unconfirmed recipients are eligible; this code
