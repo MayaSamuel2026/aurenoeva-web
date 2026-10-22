@@ -110,12 +110,13 @@ try{
  $draft=aur_vendor_rfq_prepare($store,$case,$research,['2~seed-intermed']);
  verify($draft['status']==='DRAFT_REVIEW','draft state invalid');
  verify(($draft['information_only']??false)===true,'new supplier draft still follows old sales workflow');
- verify(($draft['template_version']??'')==='pricing-rfq-v2','pricing template version missing');
+ verify(($draft['template_version']??'')==='pricing-rfq-v3','pricing template version missing');
  verify(str_contains($draft['messages'][0]['body'],'Unit price, currency')
     && str_contains($draft['messages'][0]['body'],'within five working days')
     && str_contains($draft['messages'][0]['body'],'AURENOEVA Purchasing')
     && str_contains($draft['messages'][0]['body'],'NOEVA Systems e.K.')
-    && str_contains($draft['messages'][0]['body'],'HRA 23554'),
+    && str_contains($draft['messages'][0]['body'],'HRA 23554')
+    && !str_contains($draft['messages'][0]['body'],'Proprietor:'),
     'supplier RFQ lacks pricing or registered NOEVA business signature');
  echo "AURENOEVA_PRICING_TEMPLATE=PASS\n";
  $legacy=aur_vendor_rfq_prepare($store,$case,$research,['2~seed-intermed']);
