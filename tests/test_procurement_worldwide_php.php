@@ -204,7 +204,7 @@ try{
  // Regression: original 44-line case always takes priority over utility cards.
  $entry=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
  $caseAt=strpos($entry,'<section class="card"><span class="pill">Saved');
- $testAt=strpos($entry,'<h2>Email automation — dummy RFQ test</h2>');
+ $testAt=strpos($entry,'<h2 id="aur-mail-settings">AURENOEVA supplier mailbox</h2>');
  verify($caseAt!==false && $testAt!==false && $caseAt<$testAt,
    'procurement case/RFQ has regressed below the dummy email utility');
  $adminGuardStart=strpos($entry,'<?php if (!$isAdmin): ?>');
