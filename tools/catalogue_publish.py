@@ -236,11 +236,21 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str], mode: st
                     raise RuntimeError("site_rejected_batch_http_"+str(response.status))
                 result=json.loads(response.read(16384).decode("utf-8"))
         except HTTPError as e:
+            # Authenticated server provides only a safe reason_code (never
+            # private record data, filesystem paths or credentials).
+            try:
+                detail=json.loads(e.read(2048).decode("utf-8"))
+                reason=detail.get("reason_code","")
+                if not isinstance(reason,str) or not re.fullmatch(r"[A-Za-z0-9_]{1,90}",reason):
+                    reason="unspecified"
+            except (ValueError,UnicodeError):
+                reason="unspecified"
+            tag="site_rejected_http_"+str(e.code)+":"+reason
             if e.code in (401,403):
                 raise ValueError("site_auth_rejected_http_"+str(e.code)) from e
             if e.code in (413,429,500,502,503,504):
-                raise ConnectionError("site_temporarily_rejected_http_"+str(e.code)) from e
-            raise ValueError("site_rejected_http_"+str(e.code)) from e
+                raise ConnectionError(tag) from e
+            raise ValueError(tag) from e
         except (URLError,OSError,HTTPException,TimeoutError) as exc:
             raise ConnectionError("site_connection_"+type(exc).__name__+":_"+str(exc)[:90]) from exc
         if (result.get("ok") is not True or
@@ -278,6 +288,22 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str], mode: st
                       "offset":offset,"records":number,"bytes":len(body),
                       "attempt":attempt,"reason":str(error)[:130]}),flush=True)
                 if attempt<3: time.sleep(attempt)
+            except ValueError as error:
+                # Split opaque 422 rejects to distinguish one problematic row
+                # from an entire failed batch. Never discard the last row.
+                reason=str(error)
+                print(json.dumps({"event":"BATCH_REJECTED","kind":mode,
+                      "offset":offset,"records":number,"reason":reason[:130]}),flush=True)
+                if (not reason.startswith("site_rejected_http_422:") or
+                    number<=1 or any(reason.endswith(":"+code) for code in (
+                        "existing_catalogue_snapshot_unreadable",
+                        "existing_catalogue_schema_invalid",
+                        "catalogue_snapshot_write_lock_unavailable",
+                        "snapshot_temp_unavailable",
+                        "snapshot_write_failed", "snapshot_replace_failed",
+                        "snapshot_readback"))):
+                    raise
+                break
         # If a host/proxy disconnects on medium requests, split in half.
         if number<=25:
             raise RuntimeError("site_transfer_failed_after_retry:"+
