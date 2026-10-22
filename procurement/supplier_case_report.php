@@ -303,28 +303,96 @@ function aur_supplier_report_pdf(array $report):string {
     $pdf.="trailer\n<< /Size ".($max+1)." /Root 1 0 R >>\nstartxref\n$xref\n%%EOF";
     return $pdf;
 }
+/**
+ * Case PDFs are retained by source fingerprint so a new crawler update
+ * never destroys an earlier customer-facing report.
+ */
+function aur_customer_report_archive_dir(string $store,string $ref):string {
+    if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref))
+        throw new InvalidArgumentException('invalid_case_reference');
+    $parent=aur_private_directory($store,'supplier-reports');
+    $folder=$parent.'/'.$ref;
+    if(is_link($folder)||(!is_dir($folder)&&!@mkdir($folder,0700)))
+        throw new RuntimeException('customer_report_archive_unavailable');
+    @chmod($folder,0700);
+    return $folder;
+}
+function aur_customer_report_archive_copy(string $current,string $archive):void {
+    if(is_file($archive)&&!is_link($archive))return;
+    if(!is_file($current)||is_link($current))throw new RuntimeException('report_source_missing');
+    $tmp=dirname($archive).'/.archive-'.bin2hex(random_bytes(8));
+    if(!@copy($current,$tmp)||!str_starts_with((string)@file_get_contents($tmp,false,null,0,5),'%PDF-')) {
+        @unlink($tmp);throw new RuntimeException('report_archive_copy_failed');
+    }
+    @chmod($tmp,0600);
+    if(!@rename($tmp,$archive)){@unlink($tmp);throw new RuntimeException('report_archive_commit_failed');}
+}
 function aur_supplier_report_save(string $store,array $case,array $intel):array {
     $report=aur_supplier_report_data($case,$intel);
-    $ref=$report['reference'];
-    if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref))throw new InvalidArgumentException('invalid_report_case');
+    $ref=(string)$report['reference'];
+    $folder=aur_customer_report_archive_dir($store,$ref);
     $dir=aur_private_directory($store,'supplier-reports');
+    // Keep the legacy filename for previous download compatibility.
     $path="$dir/$ref-customer-supplier-report.pdf";
-    $fingerprint=hash('sha256',json_encode(['customer-layout-serif-v3', $case['source_sha256']??'', $report['items'],$report['vendors']],JSON_THROW_ON_ERROR));
+    $fingerprint=hash('sha256',json_encode([
+        'customer-layout-serif-v3',$case['source_sha256']??'',
+        $report['items'],$report['vendors']
+    ],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
     $statePath="$dir/$ref-customer-supplier-report.sha256";
-    if(is_file($path)&&is_file($statePath)&&trim((string)file_get_contents($statePath))===$fingerprint)
-        return ['path'=>$path,'report'=>$report];
+    $version=substr($fingerprint,0,16);
+    $archive=$folder.'/'.$version.'.pdf';
     $lock=@fopen("$dir/.$ref-report.lock",'c');
     if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('report_lock_unavailable');
     try {
-        if(!is_file($path)||!is_file($statePath)||trim((string)file_get_contents($statePath))!==$fingerprint) {
+        $priorHash=is_file($statePath)?trim((string)file_get_contents($statePath)):'';
+        $currentValid=is_file($path)&&!is_link($path)
+            && $priorHash===$fingerprint;
+        if($currentValid) {
+            // Existing current PDFs are also migrated into case history.
+            aur_customer_report_archive_copy($path,$archive);
+        } else {
+            // Preserve the last customer-visible version BEFORE replacing it.
+            if(preg_match('/^[a-f0-9]{64}$/D',$priorHash)&&is_file($path)&&!is_link($path)) {
+                $previousPath=$folder.'/'.substr($priorHash,0,16).'.pdf';
+                aur_customer_report_archive_copy($path,$previousPath);
+            }
             $pdf=aur_supplier_report_pdf($report);
-            $tmp="$dir/.report-".bin2hex(random_bytes(8));
-            if(file_put_contents($tmp,$pdf,LOCK_EX)!==strlen($pdf))throw new RuntimeException('report_pdf_write_failed');
-            @chmod($tmp,0600);
-            if(!rename($tmp,$path))throw new RuntimeException('report_pdf_commit_failed');
-            file_put_contents($statePath,$fingerprint."\n",LOCK_EX);
+            if(!str_starts_with($pdf,'%PDF-')||strlen($pdf)<1000)
+                throw new RuntimeException('invalid_customer_pdf');
+            // Save an immutable case snapshot and update the latest copy.
+            $temp=$folder.'/.new-'.bin2hex(random_bytes(8));
+            if(file_put_contents($temp,$pdf,LOCK_EX)!==strlen($pdf))
+                throw new RuntimeException('report_archive_write_failed');
+            @chmod($temp,0600);
+            if(!rename($temp,$archive))throw new RuntimeException('report_archive_commit_failed');
+            $currentTemp=$dir.'/.current-'.bin2hex(random_bytes(8));
+            if(!@copy($archive,$currentTemp)||!@rename($currentTemp,$path))
+                throw new RuntimeException('report_latest_commit_failed');
+            @chmod($path,0600);
+            if(file_put_contents($statePath,$fingerprint."\n",LOCK_EX)!==strlen($fingerprint)+1)
+                throw new RuntimeException('report_state_save_failed');
             @chmod($statePath,0600);
         }
     } finally {flock($lock,LOCK_UN);fclose($lock);}
-    return ['path'=>$path,'report'=>$report];
+    return ['path'=>$archive,'report'=>$report,'version'=>$version];
+}
+function aur_customer_report_history(string $store,string $ref):array {
+    $folder=aur_customer_report_archive_dir($store,$ref);
+    $history=[];
+    foreach(glob($folder.'/*.pdf')?:[] as $file) {
+        if(!is_file($file)||is_link($file))continue;
+        $id=substr(basename($file),0,-4);
+        if(!preg_match('/^[a-f0-9]{16}$/D',$id))continue;
+        $history[]=['version'=>$id,'timestamp'=>(int)(filemtime($file)?:0),
+            'size'=>(int)(filesize($file)?:0)];
+    }
+    usort($history,static fn($a,$b)=>($b['timestamp']<=>$a['timestamp'])?:strcmp($b['version'],$a['version']));
+    return array_slice($history,0,100);
+}
+function aur_customer_report_version_path(string $store,string $ref,string $version):string {
+    if(!preg_match('/^[a-f0-9]{16}$/D',$version))
+        throw new InvalidArgumentException('invalid_customer_report_version');
+    $file=aur_customer_report_archive_dir($store,$ref).'/'.$version.'.pdf';
+    if(!is_file($file)||is_link($file))throw new RuntimeException('customer_report_version_missing');
+    return $file;
 }
