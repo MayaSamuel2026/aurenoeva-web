@@ -303,6 +303,7 @@ jobs:
           node --check "$RUNNER_TEMP/source/site/procurement/worldwide.js"
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
+          php tests/test_procurement_supplier_replies.php
           grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
 
       - name: Refine natural German website copy
