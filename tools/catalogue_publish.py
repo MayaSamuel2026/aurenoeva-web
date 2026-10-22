@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
+from http.client import RemoteDisconnected, HTTPException
 import os
 from pathlib import Path
 import re
@@ -74,8 +76,8 @@ def normalized_snapshot(path: Path) -> tuple[bytes, int]:
 
 
 
-def product_batches(payload: bytes, max_records: int = 6500,
-                    max_bytes: int = 5_000_000):
+def product_batches(payload: bytes, max_records: int = 600,
+                    max_bytes: int = 250_000):
     """Bound each POST while keeping all historical products in the receiver."""
     doc = json.loads(payload)
     batch = []
@@ -95,7 +97,7 @@ def product_batches(payload: bytes, max_records: int = 6500,
                          ensure_ascii=False,separators=(",",":")).encode("utf-8"),len(batch)
 
 
-def vendor_evidence_batches(path: Path, max_records: int = 1500):
+def vendor_evidence_batches(path: Path, max_records: int = 300):
     """Keep all private vendor evidence, streaming it as small replayable batches.
 
     Output never contains buyer, case, price, inventory or quote details.
@@ -224,41 +226,102 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
         if mode=="vendors":uri+="?mode=vendors"
         request=Request(uri,data=body,method="POST",headers={
             "Content-Type":"application/json",
-            "User-Agent":"AurenoevaCataloguePublisher/2.0",
+            "User-Agent":"AurenoevaCataloguePublisher/2.1",
             "X-Aurenoeva-Sync-Token":token,
         })
         try:
-            with urlopen(request,timeout=90) as response:
-                if response.status!=200:raise RuntimeError("site_rejected_batch")
+            with urlopen(request,timeout=70) as response:
+                if response.status!=200:
+                    raise RuntimeError("site_rejected_batch_http_"+str(response.status))
                 result=json.loads(response.read(16384).decode("utf-8"))
-        except (HTTPError,URLError) as exc:
-            raise RuntimeError("site_catalogue_https_unavailable") from exc
+        except HTTPError as e:
+            if e.code in (401,403):
+                raise ValueError("site_auth_rejected_http_"+str(e.code)) from e
+            if e.code in (413,429,500,502,503,504):
+                raise ConnectionError("site_temporarily_rejected_http_"+str(e.code)) from e
+            raise ValueError("site_rejected_http_"+str(e.code)) from e
+        except (URLError,OSError,HTTPException,TimeoutError) as exc:
+            raise ConnectionError("site_connection_"+type(exc).__name__+":_"+str(exc)[:90]) from exc
         if (result.get("ok") is not True or
                 result.get("source_sha256")!=hashlib.sha256(body).hexdigest()):
-            raise RuntimeError("site_catalogue_batch_readback_failed")
+            raise ValueError("site_catalogue_batch_readback_failed")
         return result
     accepted=0
     batches=0
     published_total=0
+    vendor_batches=0
+    evidence=0
+    def transfer(body,number,mode,offset):
+        """Retries transient failures; split only after retries exhausted.
+
+        Progress output makes server-side request limits visible in journalctl.
+        Does not count any unacknowledged record as published.
+        """
+        for attempt in range(1,4):
+            try:
+                result=send(body,mode)
+                if mode=="products":
+                    if (result.get("status")!="PUBLISHED" or
+                        result.get("accepted_input_records")!=number or
+                        result.get("records",0)<number or
+                        not re.fullmatch(r"[a-f0-9]{64}",str(result.get("sha256","")))):
+                        raise ValueError("site_catalogue_product_batch_not_acknowledged")
+                elif result.get("status")!="MERGED":
+                    raise ValueError("site_vendor_evidence_batch_not_acknowledged")
+                print(json.dumps({"event":"BATCH_ACK","kind":mode,"offset":offset,
+                     "records":number,"bytes":len(body),"attempt":attempt,
+                     "site_records":result.get("records")}),flush=True)
+                return result,1
+            except ConnectionError as error:
+                print(json.dumps({"event":"BATCH_RETRY","kind":mode,
+                      "offset":offset,"records":number,"bytes":len(body),
+                      "attempt":attempt,"reason":str(error)[:130]}),flush=True)
+                if attempt<3: time.sleep(attempt)
+        # If a host/proxy disconnects on medium requests, split in half.
+        if number<=25:
+            raise RuntimeError("site_transfer_failed_after_retry:"+
+                               mode+":offset="+str(offset)+":records="+str(number))
+        doc=json.loads(body)
+        key="items" if mode=="products" else None
+        if key:
+            items=[("items",v) for v in doc["items"]]
+        else:
+            items=[("vendor_leads",v) for v in doc.get("vendor_leads",[])]
+            items.extend(("vendor_products",v) for v in doc.get("vendor_products",[]))
+        pivot=len(items)//2
+        if not pivot:
+            raise RuntimeError("site_transfer_cannot_split:"+mode)
+        def fragment(part):
+            payload={"schema":doc["schema"]}
+            if mode=="products": payload["items"]=[v for _,v in part]
+            else:
+                payload["vendor_leads"]=[v for k,v in part if k=="vendor_leads"]
+                payload["vendor_products"]=[v for k,v in part if k=="vendor_products"]
+            return json.dumps(payload,ensure_ascii=False,separators=(",",":")).encode("utf-8")
+        print(json.dumps({"event":"BATCH_SPLIT","kind":mode,
+               "offset":offset,"records":number,"left":pivot,
+               "right":len(items)-pivot}),flush=True)
+        left,n1=transfer(fragment(items[:pivot]),pivot,mode,offset)
+        right,n2=transfer(fragment(items[pivot:]),len(items)-pivot,mode,offset+pivot)
+        return right,n1+n2
     for batch,number in product_batches(payload):
-        result=send(batch,"products")
-        if(result.get("status")!="PUBLISHED" or
-           result.get("accepted_input_records")!=number or
-           result.get("records",0)<number or
-           not re.fullmatch(r"[a-f0-9]{64}",str(result.get("sha256","")))):
-            raise RuntimeError("site_catalogue_product_batch_not_acknowledged")
+        result,used=transfer(batch,number,"products",accepted)
         accepted+=number
-        batches+=1
+        batches+=used
         published_total=result["records"]
     if accepted!=count:
         raise RuntimeError("site_catalogue_incomplete_product_batches")
-    vendor_batches=0
-    evidence=0
+    # Product publication has its own proof of completion. RFQ evidence is
+    # important but must not hide a successful searchable-product deployment.
+    products_receipt=state_dir/"catalogue-products-pushed.sha256"
+    temp=products_receipt.with_suffix(".new")
+    temp.write_text(digest+"\n",encoding="ascii")
+    os.replace(temp,products_receipt)
+    print(json.dumps({"event":"PRODUCTS_PUBLISHED","records":published_total,
+         "submitted_products":accepted,"batches":batches}),flush=True)
     for body,number in vendor_evidence_batches(snapshot):
-        result=send(body,"vendors")
-        if result.get("status")!="MERGED":
-            raise RuntimeError("site_vendor_evidence_batch_not_acknowledged")
-        vendor_batches+=1
+        result,used=transfer(body,number,"vendors",evidence)
+        vendor_batches+=used
         evidence+=number
     # This receipt means both product and vendor batches finished, not merely
     # that the website acknowledged one small initial fragment.
