@@ -315,6 +315,56 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(attempts.count(32),3)
         self.assertTrue((self.root/"catalogue-products-pushed.sha256").exists())
 
+    def test_http_422_rejection_is_split_and_all_records_retained(self):
+        from io import BytesIO
+        from urllib.error import HTTPError
+        doc=json.loads(self.source.read_text())
+        doc["items"]=[{
+            **VALID["items"][0],"canonical_id":"AUR-P-"+format(i,"020X"),
+            "model":"EX-"+str(i)} for i in range(32)]
+        self.source.write_text(json.dumps(doc))
+        key=self.root/"catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        live=set();sizes=[]
+        class Response:
+            status=200
+            def __init__(self,result):self.result=result
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,n):return json.dumps(self.result).encode()
+        def fake_open(request,timeout):
+            items=json.loads(request.data)["items"]
+            sizes.append(len(items))
+            if len(items)>16:
+                raise HTTPError(request.full_url,422,"Unprocessable",
+                    {},BytesIO(b'{"ok":false,"error":"snapshot_rejected","reason_code":"unexpected_RuntimeException"}'))
+            live.update(item["canonical_id"] for item in items)
+            return Response({"ok":True,"status":"PUBLISHED","records":len(live),
+                "accepted_input_records":len(items),"sha256":"b"*64,
+                "source_sha256":hashlib.sha256(request.data).hexdigest()})
+        with patch("catalogue_publish.urlopen",fake_open):
+            result=publish_https(self.source,self.root,
+                {"AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)},mode="products")
+        self.assertEqual(result["submitted_products"],32)
+        self.assertEqual(len(live),32)
+        self.assertIn(32,sizes)
+        self.assertIn(16,sizes)
+        self.assertTrue((self.root/"catalogue-products-pushed.sha256").exists())
+
+    def test_single_rejected_record_blocks_success_receipt(self):
+        from io import BytesIO
+        from urllib.error import HTTPError
+        key=self.root/"catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        def reject(request,timeout):
+            raise HTTPError(request.full_url,422,"Unprocessable",
+                 {},BytesIO(b'{"ok":false,"reason_code":"snapshot_no_products"}'))
+        with patch("catalogue_publish.urlopen",reject):
+            with self.assertRaisesRegex(ValueError,"snapshot_no_products"):
+                publish_https(self.source,self.root,
+                    {"AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)},mode="products")
+        self.assertFalse((self.root/"catalogue-products-pushed.sha256").exists())
+
     def test_failed_upload_never_records_success_receipt(self):
         env = self.configured()
         with patch("catalogue_publish.subprocess.run",
