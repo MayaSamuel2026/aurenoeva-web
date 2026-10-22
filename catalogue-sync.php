@@ -10,13 +10,13 @@ header('X-Robots-Tag: noindex, nofollow, noarchive');
 header('X-Content-Type-Options: nosniff');
 
 function aur_catalogue_clean_snapshot(string $body): array {
-    if ($body === '' || strlen($body) > 24000000) throw new RuntimeException('snapshot_size');
+    if ($body === '' || strlen($body) > 256000000) throw new RuntimeException('snapshot_size');
     $raw = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
     if (!is_array($raw) || ($raw['schema'] ?? '') !== 'aurenoeva-catalogue/1'
         || !isset($raw['items']) || !is_array($raw['items'])) {
         throw new RuntimeException('snapshot_schema');
     }
-    if (count($raw['items']) > 80000) throw new RuntimeException('snapshot_record_count');
+    if (count($raw['items']) > 800000) throw new RuntimeException('snapshot_record_count');
     $items = [];
     $generic = ['surgical carts','surgical cart','products','product','dental units',
         'dental equipment','equipment','medical devices','medical equipment',
@@ -55,6 +55,7 @@ function aur_catalogue_clean_snapshot(string $body): array {
 
 function aur_catalogue_write_snapshot(string $body, string $directory): array {
     [$clean, $count] = aur_catalogue_clean_snapshot($body);
+    $acceptedInput=$count;
     $target = $directory . '/catalogue-public.json';
     // Reconcile with the last published snapshot: missing items in a later scan
     // must not silently erase previously known product identities.
@@ -98,7 +99,7 @@ function aur_catalogue_write_snapshot(string $body, string $directory): array {
         $incoming = '';
         $digest = hash('sha256', $clean);
         if (hash_file('sha256', $target) !== $digest) throw new RuntimeException('snapshot_readback');
-        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$digest,'source_sha256'=>hash('sha256', $body)];
+        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'accepted_input_records'=>$acceptedInput,'sha256'=>$digest,'source_sha256'=>hash('sha256', $body)];
     } finally {
         if ($incoming !== '' && is_file($incoming)) @unlink($incoming);
     }
@@ -266,15 +267,24 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 24000000) {
 }
 try {
     $body = file_get_contents('php://input', false, null, 0, 24000001);
-    $result = aur_catalogue_write_snapshot((string)$body, $private);
-    try {
+    $mode=(string)($_GET['mode']??'products');
+    if($mode==='vendors') {
+        // Transfer vendor evidence separately, in small authenticated batches.
+        // The product catalogue stays searchable even when vendor writes retry.
+        $evidence=json_decode((string)$body,true,512,JSON_THROW_ON_ERROR);
+        if(($evidence['schema']??'')!=='aurenoeva-vendor-evidence/1'
+           || !is_array($evidence['vendor_products']??null)
+           || !is_array($evidence['vendor_leads']??null)
+           || count($evidence['vendor_products'])+count($evidence['vendor_leads'])>2500)
+            throw new RuntimeException('invalid_vendor_evidence_batch');
         require_once __DIR__ . '/procurement/supplier_worldwide.php';
-        $result['vendor_intelligence']=aur_catalogue_merge_vendor_evidence($private,(string)$body);
-        $result['vendor_sync']='PUBLISHED';
-    }catch(Throwable $vendorFailure){
-        error_log('AURENOEVA vendor sync retry required: '.substr($vendorFailure->getMessage(),0,120));
-        $result['vendor_sync']='RETRY_REQUIRED';
-    }
+        $result=['ok'=>true,'status'=>'MERGED',
+            'vendor_intelligence'=>aur_catalogue_merge_vendor_evidence($private,(string)$body),
+            'source_sha256'=>hash('sha256',(string)$body)];
+    }elseif($mode==='products') {
+        $result = aur_catalogue_write_snapshot((string)$body, $private);
+        $result['vendor_sync']='NOT_INCLUDED';
+    }else throw new RuntimeException('unsupported_sync_mode');
     echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
     error_log('AURENOEVA catalogue sync failure: ' . substr($e->getMessage(), 0, 100));

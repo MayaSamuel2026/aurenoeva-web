@@ -21,7 +21,7 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
     $real = realpath($path);
     if (!$real || !is_file($real) || ($root && ($real === $root || str_starts_with($real, $root . DIRECTORY_SEPARATOR)))) return null;
     $size = filesize($real);
-    if ($size === false || $size > 24_000_000) return null;
+    if ($size === false || $size > 256_000_000) return null;
     $raw = @file_get_contents($real);
     if (!is_string($raw)) return null;
     $data = json_decode($raw, true);
@@ -31,7 +31,7 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
     $q = $norm($query);
     if ($q === '') return [];
     $ranked = [];
-    foreach (array_slice($data['items'], 0, 80000) as $p) {
+    foreach ($data['items'] as $p) {
         if (!is_array($p)) continue;
         $maker = trim((string)($p['manufacturer'] ?? ''));
         $model = trim((string)($p['model'] ?? ''));
