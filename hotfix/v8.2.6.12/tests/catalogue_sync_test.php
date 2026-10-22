@@ -31,6 +31,25 @@ try {
     $found = aur_catalogue_snapshot_search('WATO EX-35');
     if (!is_array($found) || count($found) !== 1 || $found[0]['model'] !== 'WATO EX-35')
         throw new RuntimeException('website_search_readback_failed');
+    // Regression: byte-limited fields containing international names must
+    // never split UTF-8 sequences into malformed JSON (live HTTP 422).
+    $utf8Input = ['schema'=>'aurenoeva-catalogue/1','items'=>[[
+        'canonical_id'=>'AUR-P-'.str_repeat('E',20),
+        'manufacturer'=>'Testgeräte GmbH','model'=>'PÜ-493',
+        'category'=>str_repeat('y',159).'ü Kategorie',
+        'description'=>str_repeat('x',239).'ä Gerät mit Zubehör',
+        'source_ref'=>'https://example.com/products/testgeraet-493',
+        'last_seen'=>gmdate('c')
+    ]]];
+    [$utf8Clean,$utf8Count]=aur_catalogue_clean_snapshot(
+        json_encode($utf8Input,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    $utf8Output=json_decode($utf8Clean,true,512,JSON_THROW_ON_ERROR);
+    if($utf8Count!==1
+        || $utf8Output['items'][0]['description']!==str_repeat('x',239)
+        || $utf8Output['items'][0]['category']!==str_repeat('y',159)
+        || $utf8Output['items'][0]['manufacturer']!=='Testgeräte GmbH'
+        || strlen($utf8Output['items'][0]['description'])>240)
+        throw new RuntimeException('catalogue_utf8_byte_boundary_regression');
     // A later smaller scan keeps previously published product identities.
     $next = ['schema'=>'aurenoeva-catalogue/1','items'=>[
         ['canonical_id'=>'AUR-P-'.str_repeat('C',20), 'manufacturer'=>'Garmin',
