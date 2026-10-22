@@ -300,6 +300,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m py_compile hotfix/de-language-refinement/apply.py
           python3 hotfix/de-language-refinement/apply.py "$RUNNER_TEMP/source/site"
           grep -q 'Das passende Teil finden. Auch wenn es schwer zu beschaffen ist.' "$RUNNER_TEMP/source/site/index.html"
           grep -q 'Ihre Beschaffungsanfrage in vier Schritten' "$RUNNER_TEMP/source/site/requirement.html"
