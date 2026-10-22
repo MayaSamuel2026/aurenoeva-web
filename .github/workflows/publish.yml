@@ -289,6 +289,8 @@ jobs:
           grep -q 'Consolidated supplier selection' "$RUNNER_TEMP/source/site/procurement/supplier_portal.php"
           grep -q 'id="aur-vendor-selection-form"' "$RUNNER_TEMP/source/site/procurement/supplier_portal.php"
           grep -q 'aur_vendor_rfq_expand_vendors' "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
+          grep -q 'commercial_draft_redraft_required' "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
+          grep -q 'information_only' "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
           grep -q 'function aur_worldwide_scan_batch' "$RUNNER_TEMP/source/site/procurement/supplier_worldwide.php"
           test -s "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
           node --check "$RUNNER_TEMP/source/site/procurement/discover.js"

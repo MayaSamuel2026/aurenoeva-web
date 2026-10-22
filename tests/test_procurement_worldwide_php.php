@@ -109,6 +109,14 @@ try{
  verify(isset($routes['2~seed-intermed']),'published WATO contact not selectable');
  $draft=aur_vendor_rfq_prepare($store,$case,$research,['2~seed-intermed']);
  verify($draft['status']==='DRAFT_REVIEW','draft state invalid');
+ verify(($draft['information_only']??false)===true,'new supplier draft still follows old sales workflow');
+ $legacy=aur_vendor_rfq_prepare($store,$case,$research,['2~seed-intermed']);
+ unset($legacy['information_only']);
+ aur_vendor_rfq_write(aur_vendor_rfq_path($store,$case['reference'],$legacy['draft_id']),$legacy);
+ $legacyBlocked=false;
+ try{aur_vendor_rfq_dispatch($store,$case,$legacy['draft_id'],true,static fn()=>true);}
+ catch(InvalidArgumentException $e){$legacyBlocked=$e->getMessage()==='commercial_draft_redraft_required';}
+ verify($legacyBlocked,'old price-request drafts must be preserved but cannot be dispatched');
  verify(count($draft['messages'])===1,'one RFQ per supplier not enforced');
  verify(str_contains($draft['messages'][0]['body'],'Quantity: 2'),'source item quantity lost');
  verify($draft['messages'][0]['status']==='DRAFT','draft sent unexpectedly');
