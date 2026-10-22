@@ -240,6 +240,11 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         if(($draft['status']??'')==='DRAFT_REVIEW') {
             if(!$manualComplianceReview)
                 throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
+            foreach(($draft['messages']??[]) as $pending) {
+                if(empty($pending['rfq_reference'])||
+                    !str_contains((string)($pending['body']??''),'FIVE WORKING DAYS'))
+                    throw new RuntimeException('prepare_new_five_day_rfq_draft');
+            }
             $draft['status']='DISPATCHING';
             $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
                 'statement'=>'I reviewed supplier identities, destination, intended end use, sanctions/embargoes and export-control requirements before authorizing these non-binding RFQs. No clearance is implied.'];
