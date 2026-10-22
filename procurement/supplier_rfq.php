@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/trade_compliance.php';
 /**
  * Human-approved supplier enquiry outbox in the SAME private case store.
  * Draft -> review -> explicit approve -> SMTP/mail acceptance -> ledger.
@@ -231,6 +232,9 @@ function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):
  * a lost HTTP response cannot cause the same recipient to be mailed again.
  */
 function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
+    // Mandatory for both browser-initiated sends and unattended CLI batches.
+    // Previous approvals do not override a missing, expired or held country review.
+    aur_trade_review_require($store,$case);
     if($batchLimit<1||$batchLimit>10)throw new InvalidArgumentException('invalid_outbox_batch_size');
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     $lock=@fopen($path.'.lock','c');
