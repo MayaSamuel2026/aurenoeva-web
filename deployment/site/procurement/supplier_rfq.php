@@ -348,14 +348,6 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         $draftCountry=(string)($draft['destination_country']??($parts[1]??''));
         if($draftCountry!==(string)($case['country']??''))
             throw new InvalidArgumentException('destination_changed_redraft_required');
-        if(($draft['status']??'')==='DRAFT_REVIEW') {
-            $draft['status']='DISPATCHING';
-            $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
-                'statement'=>'I reviewed supplier identities, destination, intended end use, sanctions/embargoes and export-control requirements before authorizing these non-binding RFQs. No clearance is implied.'];
-            aur_vendor_rfq_write($path,$draft);
-        } elseif(($draft['status']??'')!=='DISPATCHING' || !is_array($draft['approval']??null)) {
-            throw new RuntimeException('draft_already_processed_create_new_draft');
-        }
         // Refuse dispatch before changing any draft if the verified SMTP
         // credentials have not been installed on the website host.
         if($sender===null) {
@@ -364,6 +356,14 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
                     aur_vendor_rfq_smtp_config();break;
                 }
             }
+        }
+        if(($draft['status']??'')==='DRAFT_REVIEW') {
+            $draft['status']='DISPATCHING';
+            $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
+                'statement'=>'I reviewed supplier identities, destination, intended end use, sanctions/embargoes and export-control requirements before authorizing these non-binding RFQs. No clearance is implied.'];
+            aur_vendor_rfq_write($path,$draft);
+        } elseif(($draft['status']??'')!=='DISPATCHING' || !is_array($draft['approval']??null)) {
+            throw new RuntimeException('draft_already_processed_create_new_draft');
         }
         $sentThisRequest=0;
         foreach($draft['messages'] as $i=>$message) {
@@ -452,12 +452,17 @@ function aur_vendor_rfq_send_smoke_test(string $store,?callable $sender=null): a
             'recipient'=>$recipient,'sender'=>'info@aurenoeva.com',
             'subject'=>$subject,'scenario'=>'ONE_DUMMY_RFQ_NO_VENDOR_CONTACT'];
         aur_vendor_rfq_write($file,$record);
-        $accepted=false;
+        $detail=['transport'=>$sender?'TEST_INJECTED':'AUTHENTICATED_SMTP',
+            'accepted'=>false,'stage'=>'TRANSPORT_EXCEPTION','code'=>0,
+            'response'=>'transport_exception','outcome'=>'UNCERTAIN'];
         try{
-            $accepted=$sender ? (bool)$sender($recipient,$subject,$body)
-                : aur_vendor_rfq_send_transport($recipient,$subject,$body);
-        }catch(Throwable $e){$accepted=false;}
-        $record['status']=$accepted?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
+            $detail=$sender
+                ? ['transport'=>'TEST_INJECTED','accepted'=>(bool)$sender($recipient,$subject,$body),
+                    'stage'=>'INJECTED','code'=>0,'response'=>'test_sender','outcome'=>'TEST_ONLY']
+                : aur_vendor_rfq_send_transport_detail($recipient,$subject,$body);
+        }catch(Throwable $e){error_log('AURENOEVA test SMTP exception: '.get_class($e));}
+        $record['transport_result']=$detail;
+        $record['status']=$detail['accepted']?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
         $record['finished_at']=gmdate('c');
         aur_vendor_rfq_write($file,$record);
         return $record;
