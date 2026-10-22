@@ -90,15 +90,18 @@ if len(items)<100:raise SystemExit("CATALOGUE_UNEXPECTEDLY_SMALL")
 # Check a record near the end, not one of the previous 1,813 products.
 search_candidates=[x for x in items[int(len(items)*0.8):]
                    if x.get("model") and len(x["model"])>=4
-                   and any(c.isdigit() for c in x["model"])]
+                   and any(c.isdigit() for c in x["model"])
+                   and len(x.get("manufacturer","")+" "+x["model"])<175]
 if not search_candidates:raise SystemExit("NO_MODEL_TO_VERIFY")
-model=search_candidates[0]["model"]
-url="https://aurenoeva.com/catalogue-search.php?"+urllib.parse.urlencode({"q":model})
+record=search_candidates[0]
+model=record["model"]
+query=record["manufacturer"]+" "+model
+url="https://aurenoeva.com/catalogue-search.php?"+urllib.parse.urlencode({"q":query})
 with urllib.request.urlopen(url,timeout=45) as r:
     public=json.loads(r.read(200000))
 if public.get("source")!="AURENOEVA_OWNED_CATALOGUE":
     raise SystemExit("LIVE_SITE_NOT_USING_OWNED_CATALOGUE")
-if not any(x.get("model")==model for x in public.get("items",[])):
+if not any(x.get("canonical_id")==record.get("canonical_id") for x in public.get("items",[])):
     raise SystemExit("LIVE_SEARCH_READBACK_FAILED_FOR="+model)
 print("AURENOEVA_CATALOGUE_SEARCH=PASS model="+model)
 PY
