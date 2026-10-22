@@ -90,5 +90,15 @@ function aur_staff_procurement_json_post(string $body):array {
         $post['send_vendor_rfqs']='1';
         return $post;
     }
+    if(($request['task']??'')==='recover') {
+        if(!is_string($request['draft_id']??null)
+            ||!preg_match('/^[a-f0-9]{24}$/D',$request['draft_id']))
+            throw new InvalidArgumentException('invalid_dashboard_draft');
+        $post['draft_id']=$request['draft_id'];
+        $post['manual_review']=($request['manual_review']??false)===true?'1':'0';
+        $post['duplicate_risk_ack']=($request['duplicate_risk_ack']??false)===true?'1':'0';
+        $post['recover_vendor_rfqs']='1';
+        return $post;
+    }
     throw new InvalidArgumentException('unknown_dashboard_request');
 }
