@@ -172,6 +172,19 @@ class Tests(unittest.TestCase):
         self.assertEqual(result["new_products"],1)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],1)
 
+    def test_high_yield_manufacturer_sitemaps_are_seeded(self):
+        cfg=json.loads((Path(__file__).resolve().parents[1]/
+            "config/catalogue_harvester.json").read_text())
+        discovered={url for src in cfg["sources"]
+                    for url in src.get("sitemap_seeds",[])}
+        self.assertTrue({
+            "https://www.phoenixcontact.com/crisp_sitemap_index.xml",
+            "https://www.keysight.com/aem-sitemap-index.xml",
+            "https://www.agilent.com/sitemap.xml",
+            "https://www.tek.com/en/sitemap.xml",
+            "https://www.ifm.com/us/en/sitemap.xml",
+        }.issubset(discovered))
+
     def test_product_page_is_not_starved_by_broad_search_queue(self):
         # A very small run budget used to spend its entire allowance on
         # category searches, leaving known OEM product links untouched.
