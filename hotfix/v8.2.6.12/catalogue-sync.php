@@ -9,6 +9,22 @@ header('Cache-Control: no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
 header('X-Content-Type-Options: nosniff');
 
+/** Keep length limits in bytes without cutting through a UTF-8 code point. */
+function aur_catalogue_utf8_cut(string $value, int $maxBytes): string {
+    $value = trim($value);
+    if (strlen($value) <= $maxBytes) return $value;
+    if (function_exists('mb_strcut')) {
+        return mb_strcut($value, 0, $maxBytes, 'UTF-8');
+    }
+    // The JSON parser has already validated UTF-8. At most three trailing
+    // bytes need removal to restore a complete Unicode character.
+    $slice = substr($value, 0, $maxBytes);
+    while ($slice !== '' && preg_match('//u', $slice) !== 1) {
+        $slice = substr($slice, 0, -1);
+    }
+    return $slice;
+}
+
 function aur_catalogue_clean_snapshot(string $body): array {
     if ($body === '' || strlen($body) > 256000000) throw new RuntimeException('snapshot_size');
     $raw = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -39,10 +55,10 @@ function aur_catalogue_clean_snapshot(string $body): array {
             'manufacturer' => $manufacturer,
             'model' => $model,
             'sector' => in_array((string)($p['sector'] ?? ''), ['laboratory','test','medical','industrial','energy','marine','aviation'], true) ? (string)$p['sector'] : '',
-            'category' => substr(trim((string)($p['category'] ?? '')), 0, 160),
-            'description' => substr(trim((string)($p['description'] ?? '')), 0, 240),
+            'category' => aur_catalogue_utf8_cut((string)($p['category'] ?? ''), 160),
+            'description' => aur_catalogue_utf8_cut((string)($p['description'] ?? ''), 240),
             'source_ref' => $source,
-            'last_seen' => substr(trim((string)($p['last_seen'] ?? '')), 0, 40),
+            'last_seen' => aur_catalogue_utf8_cut((string)($p['last_seen'] ?? ''), 40),
             'lifecycle_status' => 'UNVERIFIED'
         ];
     }
