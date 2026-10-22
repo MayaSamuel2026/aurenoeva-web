@@ -99,6 +99,50 @@ Also check https://aurenoeva.com/procurement/ and test a real known model in
 /catalogue-search.php with an ordinary search. The private administration shows
 both the published catalogue and worldwide vendor master metrics.
 
+## 22 October 2026: 27,773 products and 24 MB publication repair
+
+At 04:33 Europe/Berlin, the user-provided Hostinger journal confirmed:
+- Canonical SQLite database: **27,773** product identities
+- JSON export: **27,772** identity records
+- Last successful website readback remains at the previous published baseline
+  because the publisher reported `DELIVERY_FAILED: missing_or_oversized_snapshot`
+- Export vendor evidence was capped at 25,000 product links and 5,000 leads;
+  both arbitrary export caps were removed in the V4 source
+
+Root cause: `tools/catalogue_publish.py` refused any combined catalogue +
+private vendor-evidence JSON above 24 MB. Additionally, the website receiver
+limited its old snapshot to 24 MB and its search reader would ignore any
+snapshot larger than 24 MB, as well as all products after the first 80,000.
+
+Repair: the replacement publisher sends product-only records in bounded
+batches with accepted-input-count and SHA-256 acknowledgements, followed by
+private vendor-evidence batches to the same authenticated receiver. Each
+batch is durable and idempotent. The website merges products while retaining
+historic records, and the RFQ-owned supplier master merges evidence separately.
+
+The existing canonical database and private RFQ files are not replaced.
+
+### Apply the repair on the EXISTING VPS only after the website release
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/main/ops/repair-large-catalogue-publish.sh -o /tmp/aur-repair-publish.sh && bash /tmp/aur-repair-publish.sh
+```
+
+The script first runs unit tests and a token-authenticated preflight call
+against the **live** new receiver. If the site has not actually deployed,
+it aborts before altering VPS files. Then it backs up each installed worker
+file, replaces the old publisher and harvester (no service interruption), and
+republishes current JSON product and vendor data. It checks a real website
+model after acknowledgement. The original half-hour timer continues.
+
+`PUBLISHED` now means all submitted product and vendor-evidence batches were
+acknowledged; publishing receipts are not saved for incomplete jobs.
+
+A PHP JSON snapshot is a short-term search implementation, not ideal
+for hundreds of thousands of records. A performance-oriented indexed
+search format will be needed as the catalogue grows substantially.
+No claim of verified stock/availability derives from these products.
+
 ## Status convention
 A GitHub source commit, a passed CI run, and even an updated production website
 are NOT proof that the Hostinger VPS harvester ran. Only service journal entries,
