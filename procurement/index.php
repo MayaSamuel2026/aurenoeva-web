@@ -275,7 +275,7 @@ if ($isAdmin) {
                     JSON_THROW_ON_ERROR);
                 exit;
             }
-            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.$draft['draft_id'],true,303);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.$draft['draft_id'].'#aur-rfq-approval',true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ draft: '.get_class($e).' '.substr($e->getMessage(),0,120));
@@ -429,6 +429,15 @@ input{border:1px solid #c5d2cd;border-radius:8px;padding:12px;font:inherit;backg
 input[type=file]{width:390px}.muted{font-size:13px;color:#6b7671}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e6ece9}th{color:#64736d;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .pill{display:inline-block;background:#edf4f1;border-radius:20px;padding:4px 10px;font-size:12px;color:#235c50}
+.aux-disclosure{border:1px solid #e0e8e3;border-radius:10px;padding:14px 16px;margin:16px 0;background:#fafcfb}
+.aux-disclosure>summary{font-weight:700;cursor:pointer;color:#1c4037;padding:2px;list-style-position:inside}
+.aux-disclosure[open]>summary{padding-bottom:12px;border-bottom:1px solid #e1e8e4;margin-bottom:14px}
+.aux-disclosure .scroll{max-height:480px;overflow:auto}
+.aur-workflow-note{background:#eff5f2;border-left:3px solid #256556;padding:12px 15px;border-radius:5px;line-height:1.5}
+.aur-mail-preview{padding:12px 0;border-bottom:1px solid #dae4e0}
+.aur-mail-preview>summary{font-weight:600;cursor:pointer}
+#aur-prepare-rfqs,#aur-send-all-rfqs{font-size:16px;padding:15px 24px}
+#supplier-workspace .pill{margin:2px}
 @media(max-width:700px){.card{padding:18px}.top{align-items:flex-start}input[type=file]{width:100%}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
@@ -460,8 +469,7 @@ catch(Throwable $e) {
     $aurSupplierHistory=null;
 }
 ?>
-<section class="card" id="supplier-history-counts">
-<h2>Accumulated supplier research — all saved RFQs</h2>
+<details class="card aux-disclosure" id="supplier-history-counts"><summary>Global supplier research and catalogue history</summary><div>
 <p class="muted">This counts the actual saved evidence in the private procurement workspace, including previously saved research and search-only leads. It is a different dataset from the VPS product-identity catalogue. Unverified search leads are not confirmed inventory or supplier quotations.</p>
 <?php if($aurSupplierAuditMessage!==null):?><p role="status"><b><?=aur_escape($aurSupplierAuditMessage)?></b></p><?php endif;?>
 <?php if(is_array($aurSupplierHistory)):?>
@@ -482,7 +490,7 @@ catch(Throwable $e) {
 <button type="submit" name="consolidate_supplier_history" value="1">Consolidate existing RFQ research into worldwide supplier master</button>
 </form>
 <p class="muted">Imports saved source leads with their original evidence and verification status. No crawl, vendor email, case deletion or customer data export is performed. Older external CORE/VPS research is not counted unless it exists in this Hostinger procurement store.</p>
-</section>
+</div></details>
 <?php if (is_array($result) && isset($result['reference'])): ?>
 <section class="card"><span class="pill">Saved · verified database readback</span><h2 style="margin-top:16px">Case <?=aur_escape((string)$result['reference'])?></h2>
 <p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·
@@ -521,8 +529,7 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original case RFQ draft</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
-<section aria-labelledby="original-equipment-heading" id="original-rfq-equipment">
-<h3 id="original-equipment-heading" style="margin-top:30px;font-size:21px">Original requested equipment — <?= (int)($result['line_count']??0) ?> saved entries</h3>
+<details aria-labelledby="original-equipment-heading" id="original-rfq-equipment" class="aux-disclosure"><summary id="original-equipment-heading">Original requested equipment — <?= (int)($result['line_count']??0) ?> saved entries</summary>
 <p class="muted">This is your original uploaded customer enquiry, stored in the case record. It is always displayed, independently of worldwide supplier discovery, and is not overwritten by new research.</p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment / original specification</th><th>Quantity</th><th>Option</th></tr></thead><tbody>
 <?php foreach (($result['payload']['sourcing_lines'] ?? []) as $line): ?>
@@ -531,9 +538,8 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <td><?=aur_escape((string)($line['option_type']??'REQUESTED'))?></td></tr>
 <?php endforeach; ?></tbody></table></div>
 <p class="muted">Saved reference: <?=aur_escape((string)$result['reference'])?> · <a href="?case=<?=rawurlencode((string)$result['reference'])?>">Reload original enquiry</a></p>
-</section>
-<section id="supplier-search-controls" aria-label="Persistent worldwide supplier search" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
-<h3>Search for suppliers worldwide</h3>
+</details>
+<details id="supplier-search-controls" class="aux-disclosure" aria-label="Persistent worldwide supplier search"><summary>Find additional suppliers worldwide</summary>
 <p>This search remains available alongside the original enquiry, even if supplier research is temporarily unavailable. Previously discovered source links are preserved independently of the uploaded customer specifications.</p>
 <form id="aur-worldwide-scan-form" method="post" action="/procurement/" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
@@ -543,7 +549,7 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 </form>
 <p id="aur-worldwide-progress" role="status" class="muted"></p>
 <a href="#supplier-workspace">View saved supplier sources and prepare RFQs ↓</a>
-</section>
+</details>
 </section>
 <?php if (is_array($supplierResearch)): ?>
 <section class="card">
@@ -632,5 +638,5 @@ try {
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=5"></script>
+<script defer src="/procurement/worldwide.js?v=6"></script>
 <?php endif; ?></body></html>
