@@ -347,7 +347,7 @@ if ($isAdmin) {
                     'progress'=>$dispatch['dispatch_progress']??null],JSON_THROW_ON_ERROR);
                 exit;
             }
-            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#supplier-history',true,303);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#rfq-step-review',true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ dispatch: '.get_class($e).' '.substr($e->getMessage(),0,120));
