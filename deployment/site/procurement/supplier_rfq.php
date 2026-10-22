@@ -120,7 +120,6 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     $body.="Thank you for your consideration. We look forward to your reply.\n\n";
     $body.="Kind regards,\nAURENOEVA Purchasing\n";
     $body.="Operated by NOEVA Systems e.K.\n";
-    $body.="Proprietor: Frederick Ambrose Samuel\n";
     $body.="Marienburger Straße 16 | 56112 Lahnstein | Germany\n";
     $body.="Email: info@aurenoeva.com | https://aurenoeva.com\n";
     $body.="Registered with Amtsgericht Koblenz | HRA 23554\n";
@@ -166,7 +165,7 @@ function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $se
     foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']));
     $draftId=bin2hex(random_bytes(12));
     $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
-        'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'information_only'=>true,'template_version'=>'pricing-rfq-v2','draft_id'=>$draftId,'created_at'=>gmdate('c'),
+        'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'information_only'=>true,'template_version'=>'pricing-rfq-v3','draft_id'=>$draftId,'created_at'=>gmdate('c'),
         'approval'=>null,'status'=>'DRAFT_REVIEW','messages'=>$messages];
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     aur_vendor_rfq_write($path,$draft);
@@ -221,7 +220,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         // the owner's requested prices and registered business signature.
         // Keep the draft for the audit trail; require a fresh draft instead.
         if(($draft['status']??'')==='DRAFT_REVIEW'
-           && ($draft['template_version']??'')!=='pricing-rfq-v2')
+           && ($draft['template_version']??'')!=='pricing-rfq-v3')
             throw new InvalidArgumentException('rfq_template_outdated_redraft_required');
         // Historic drafts imply the original destination in their case reference.
         $parts=explode('-', (string)$case['reference']);
