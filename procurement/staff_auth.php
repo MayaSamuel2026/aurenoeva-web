@@ -90,5 +90,15 @@ function aur_staff_procurement_json_post(string $body):array {
         $post['send_vendor_rfqs']='1';
         return $post;
     }
+    if(($request['task']??'')==='continue') {
+        if(!is_string($request['draft_id']??null)
+            ||!preg_match('/^[a-f0-9]{24}$/D',$request['draft_id']))
+            throw new InvalidArgumentException('invalid_dashboard_draft');
+        $post['draft_id']=$request['draft_id'];
+        // Continuation is allowed only if the stored draft records a prior
+        // authenticated administrator approval.
+        $post['continue_vendor_rfqs']='1';
+        return $post;
+    }
     throw new InvalidArgumentException('unknown_dashboard_request');
 }
