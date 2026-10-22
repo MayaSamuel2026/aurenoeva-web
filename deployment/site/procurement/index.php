@@ -206,6 +206,24 @@ if ($isAdmin) {
             aur_denied(503, 'catalogue synchronization credential could not be stored');
         }
         @chmod($credentialFile, 0600);
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['configure_rfq_smtp'])) {
+        try {
+            aur_vendor_rfq_store_smtp_password($aurStore,(string)($_POST['smtp_password']??''));
+            $ref=trim((string)($_POST['case_ref']??''));
+            $draft=trim((string)($_POST['draft_id']??''));
+            $location='/procurement/?smtp_configured=1';
+            if(preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref))
+                $location.='&case='.rawurlencode($ref);
+            if(preg_match('/^[a-f0-9]{24}$/D',$draft))
+                $location.='&draft='.rawurlencode($draft);
+            header('Location: '.$location.'#aur-rfq-approval',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA SMTP configuration: '.get_class($e));
+            $supplierDiscoveryMessage='Mailbox settings could not be saved. Check the mailbox SMTP password and try again.';
+            try {$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
+            catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['record_supplier_reply'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
@@ -334,7 +352,7 @@ if ($isAdmin) {
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 http_response_code(422);
                 header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['ok'=>false,'error'=>'rfq_dispatch_unavailable']);
+                echo json_encode(['ok'=>false,'error'=>aur_vendor_rfq_safe_error($e)]);
                 exit;
             }
             aur_denied(422,'RFQ dispatch not completed; check saved draft statuses before retrying');
@@ -590,18 +608,23 @@ try {
 
 <section class="card">
 <h2>Email automation — dummy RFQ test</h2>
-<p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to <b>fredericksamuel1965@gmail.com</b>, using the website's real outbound email transport. This does not contact any supplier or alter existing enquiries.</p>
+<p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to the <b>same AURENOEVA inbox</b> via authenticated SMTP. This does not contact suppliers or change enquiries. Supplier sending remains locked until the website test succeeds.</p>
 <form method="post">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <?php if(is_array($result)&&isset($result['reference'])):?><input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>"><?php endif;?>
-<button type="submit" name="send_test_rfq" value="1">Send one dummy RFQ to my Gmail</button>
+<button type="submit" name="send_test_rfq" value="1" <?=!aur_vendor_rfq_smtp_ready()?'disabled':''?>>Test AURENOEVA SMTP → AURENOEVA inbox</button>
 </form>
 <?php $smtpSmoke=aur_vendor_rfq_smoke_status($aurStore); ?>
+<?php if(isset($_GET['smtp_configured'])):?><p role="status"><b>Mailbox password saved privately.</b> Run the internal test below; it will not contact suppliers.</p><?php endif;?>
+<?php if(aur_vendor_rfq_mail_verified($aurStore)):?><p role="status"><b>Website SMTP test passed.</b> Supplier dispatch can be approved after the existing legal review.</p><?php endif;?>
 <?php if(is_array($smtpSmoke)): ?>
 <p><b>Latest test:</b> <?=aur_escape((string)($smtpSmoke['status']??'UNKNOWN'))?> · <?=aur_escape((string)($smtpSmoke['checked_at']??''))?> UTC</p>
-<p class="muted">To: <?=aur_escape((string)($smtpSmoke['recipient']??''))?>. <?=($smtpSmoke['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT'?'Mail transport accepted the message. Check Gmail to confirm delivery.':'Transport delivery was not confirmed. Review the mail service configuration.'?></p>
+<p class="muted">To: <?=aur_escape((string)($smtpSmoke['recipient']??''))?>. <?=($smtpSmoke['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT'?'SMTP server accepted the internal test. Check the AURENOEVA inbox to confirm arrival.':'Transport delivery was not confirmed. Review the mail service configuration.'?></p>
 <?php endif;?>
-<p class="muted">A repeated click within 15 minutes returns the prior test result and does not send another email.</p>
+<?php if(is_array($smtpSmoke['transport_result']??null)): $tr=$smtpSmoke['transport_result']; ?>
+<p class="muted">SMTP stage: <?=aur_escape((string)($tr['stage']??''))?> · Code: <?=(int)($tr['code']??0)?> · <?=aur_escape((string)($tr['response']??''))?></p>
+<?php endif;?>
+<p class="muted">A successful test is reused for 15 minutes; a failed test can be retried after correcting the configuration.</p>
 </section>
 <section class="card"><h2>Import Excel or CSV</h2><form method="post" enctype="multipart/form-data" class="inline">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
