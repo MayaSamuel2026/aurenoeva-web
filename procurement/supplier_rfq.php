@@ -83,38 +83,74 @@ function aur_vendor_rfq_list(string $store,array $case):array {
     usort($drafts,static fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));
     return array_slice($drafts,0,100);
 }
-function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
+/**
+ * Quotation requested within five working days of actual dispatch.
+ * Counts Monday-Friday in Europe/Berlin; public holidays may require
+ * the recipient to confirm a different applicable business calendar.
+ */
+function aur_vendor_rfq_due_date(?string $sentAt=null):string {
+    $zone=new DateTimeZone('Europe/Berlin');
+    $day=$sentAt===null?new DateTimeImmutable('now',$zone):
+        (new DateTimeImmutable($sentAt))->setTimezone($zone);
+    $n=0;
+    while($n<5) {
+        $day=$day->modify('+1 day');
+        if((int)$day->format('N')<=5)$n++;
+    }
+    return $day->format('Y-m-d');
+}
+function aur_vendor_rfq_compose(array $case,array $vendor,array $lines,string $rfqCode=''):array {
     $ref=(string)$case['reference'];
     $name=(string)$vendor['name'];
     $country=(string)($case['country']??'');
-    $subject='AURENOEVA RFQ '.$ref.' — '.count($lines).' medical equipment item(s)';
+    $subject='RFQ | '.$ref.($rfqCode!==''?' | '.$rfqCode:'').' | Medical Equipment - '.$country;
     $body="Dear Sales Team,\n\n";
-    $body.="AURENOEVA is coordinating a non-binding sourcing enquiry for medical equipment intended for ".$country.".\n";
-    $body.="We would appreciate your indication of whether you can supply the following requested equipment, or a clearly identified comparable alternative:\n\n";
-    foreach($lines as $n=>$row) {
+    $body.="We are contacting you from AURENOEVA Procurement, operated by NOEVA Systems e.K., Germany.\n";
+    $body.="We are coordinating a non-binding medical-equipment sourcing enquiry for a project in ".$country.".\n";
+    $body.="Please provide your quotation for the following items you can supply, or clearly describe a comparable alternative:\n\n";
+    foreach($lines as $row) {
         $desc=trim(preg_replace('/\s+/u',' ',(string)$row['description'])??(string)$row['description']);
         $number=(int)($row['customer_item_number']??0);
+        $sourceRow=(int)($row['source_row']??0);
         $type=(string)($row['option_type']??'REQUESTED');
         $qty=$row['quantity']??null;
-        $body.=($n+1).". Buyer item ".$number.($type==='ALTERNATIVE'?' (alternative)':'')."\n";
-        $body.="   Description: ".$desc."\n";
-        $body.="   Quantity: ".($qty===null?'Please confirm / to be agreed':(string)$qty)."\n\n";
+        $body.="Line L".str_pad((string)$sourceRow,2,'0',STR_PAD_LEFT)." | Customer item #".$number.
+            ($type==='ALTERNATIVE'?' | Alternative option':'')."\n";
+        $body.="Original specification: ".$desc."\n";
+        $body.="Requested quantity: ".($qty===null?'To be confirmed':(string)$qty)."\n\n";
     }
-    $body.="Please include in your response:\n";
-    $body.="- Manufacturer and exact model/configuration, plus differences if offering an alternative\n";
-    $body.="- Available quantity, itemized UNIT price for EACH numbered equipment item, currency, payment terms and lead time\n";
-    $body.="- Shipping/export origin and ability to supply the intended destination (".$country.")\n";
-    $body.="- Product registration/certification documentation where applicable\n";
-    $body.="- Warranty, installation, commissioning, training and after-sales servicing options\n";
-    $body.="- Validity of offer and contact person for technical follow-up\n\n";
-    $body.="Please confirm the supplier's legal name, registered country, consignee/end-user checks, export origin, and whether any sanctions, embargoes, dual-use controls, licensing or other trade restrictions could affect this request. Do not offer a route that circumvents applicable restrictions.\n\n";
-    $body.="This enquiry is non-binding and is not a purchase order. AURENOEVA acts as a disclosed sourcing intermediary; any eventual sale is to be contracted between purchaser and vendor, subject to applicable sanctions, export-control, product and end-use compliance checks. Acting as intermediary does not remove these obligations.\n";
-    $body.="Please quote our reference ".$ref." in your reply.\n\n";
-    $body.="Best regards,\nAURENOEVA Procurement\ninfo@aurenoeva.com\nhttps://aurenoeva.com\n";
-    return ['vendor_id'=>(string)$vendor['id'],'vendor_name'=>$name,'to'=>(string)$vendor['email'],
+    $body.="For EACH item you can quote, please provide:\n";
+    $body.="- Manufacturer, exact model/configuration and any technical deviations\n";
+    $body.="- Itemized unit price, currency, available quantity and equipment condition\n";
+    $body.="- Earliest availability and delivery lead time\n";
+    $body.="- Incoterms / named delivery place, export origin and freight costs if available\n";
+    $body.="- Payment terms, quotation validity and warranty / after-sales service\n";
+    $body.="- Relevant technical datasheets, registration and certification where applicable\n\n";
+    $body.="Please respond within FIVE WORKING DAYS of this request, quoting the case, RFQ and item-line references above. ".
+        "If a full quotation is not ready, please acknowledge the enquiry and advise when it can be provided.\n\n";
+    $body.="Kindly disclose the supplier's full legal name, country of registration and whether any applicable ".
+        "sanctions, export restrictions, licences or end-use requirements could affect supply. ".
+        "No transaction should circumvent applicable restrictions.\n\n";
+    $body.="This RFQ is non-binding and is not a purchase order. AURENOEVA is acting as a disclosed sourcing ".
+        "intermediary; a future transaction is subject to commercial, technical and trade-compliance review.\n\n";
+    $body.="Case: ".$ref."\n";
+    if($rfqCode!=='')$body.="Supplier RFQ reference: ".$rfqCode."\n";
+    $body.="\nKind regards,\nAURENOEVA Procurement\n".
+        "Operated by NOEVA Systems e.K.\n".
+        "Marienburger Straße 16\n56112 Lahnstein, Germany\n".
+        "Amtsgericht Koblenz, HRA 23554\n".
+        "info@aurenoeva.com\nhttps://aurenoeva.com\n";
+    return ['vendor_id'=>(string)$vendor['id'],'vendor_name'=>$name,
+        'to'=>(string)$vendor['email'],'from'=>'info@aurenoeva.com',
+        'rfq_reference'=>$rfqCode,
         'source_url'=>(string)($vendor['evidence_url']??''),'subject'=>$subject,'body'=>$body,
-        'items'=>array_map(static fn($r)=>['source_row'=>(int)($r['source_row']??0),'description'=>(string)$r['description']],$lines),
-        'status'=>'DRAFT','sent_at'=>null];
+        'items'=>array_map(static fn($r)=>[
+            'source_row'=>(int)($r['source_row']??0),
+            'customer_item_number'=>(int)($r['customer_item_number']??0),
+            'option_type'=>(string)($r['option_type']??'REQUESTED'),
+            'quantity'=>$r['quantity']??null,
+            'description'=>(string)$r['description']],$lines),
+        'status'=>'DRAFT','sent_at'=>null,'response_due_on'=>null];
 }
 function aur_vendor_rfq_path(string $store,string $caseRef,string $draftId):string {
     if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$caseRef)||!preg_match('/^[a-f0-9]{24}$/D',$draftId))throw new InvalidArgumentException('invalid_rfq_reference');
@@ -149,9 +185,12 @@ function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $se
         $groups[$id]['rows'][(string)$pair['key']]=$row;
     }
     if(count($groups)>300)throw new InvalidArgumentException('maximum_300_suppliers_per_batch');
-    $messages=[];
-    foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']));
     $draftId=bin2hex(random_bytes(12));
+    $messages=[];$supplierNo=0;
+    foreach($groups as $g){
+        $rfqCode=strtoupper(substr($draftId,0,8)).'-S'.str_pad((string)++$supplierNo,3,'0',STR_PAD_LEFT);
+        $messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']),$rfqCode);
+    }
     $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
         'case_source_sha256'=>$case['source_sha256'],'draft_id'=>$draftId,'created_at'=>gmdate('c'),
         'approval'=>null,'status'=>'DRAFT_REVIEW','messages'=>$messages];
@@ -192,14 +231,15 @@ function aur_vendor_rfq_send_transport(string $to,string $subject,string $body):
  * a lost HTTP response cannot cause the same recipient to be mailed again.
  */
 function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
-    if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
-    if($batchLimit<1||$batchLimit>5)throw new InvalidArgumentException('invalid_outbox_batch_size');
+    if($batchLimit<1||$batchLimit>10)throw new InvalidArgumentException('invalid_outbox_batch_size');
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     $lock=@fopen($path.'.lock','c');
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
     try{
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
         if(($draft['status']??'')==='DRAFT_REVIEW') {
+            if(!$manualComplianceReview)
+                throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
             $draft['status']='DISPATCHING';
             $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
                 'statement'=>'I reviewed supplier identities, destination, intended end use, sanctions/embargoes and export-control requirements before authorizing these non-binding RFQs. No clearance is implied.'];
@@ -213,7 +253,9 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             if($sentThisRequest>=$batchLimit)break;
             // Persist first. Unknown/failed outcomes never retry automatically.
             $draft['messages'][$i]['status']='IN_FLIGHT';
-            $draft['messages'][$i]['attempted_at']=gmdate('c');
+            $sentAt=gmdate('c');
+            $draft['messages'][$i]['attempted_at']=$sentAt;
+            $draft['messages'][$i]['response_due_on']=aur_vendor_rfq_due_date($sentAt);
             aur_vendor_rfq_write($path,$draft);
             $ok=false;
             try {
