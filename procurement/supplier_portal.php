@@ -177,7 +177,12 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:440px;overflow:auto;padding:16px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre>
 </article>
 <?php endforeach;?>
-<?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
+<?php $legacyRfqTemplate=($rfqPreview['status']??'')==='DRAFT_REVIEW'
+    && empty($rfqPreview['messages'][0]['rfq_reference']); ?>
+<?php if($legacyRfqTemplate):?>
+<p role="alert" style="padding:12px;background:#fff7ed;border:1px solid #e7c9a9;border-radius:8px">This draft uses the previous email template. To request responses within five working days and include unique tracking references, return to supplier selection and prepare a fresh draft. No messages have been sent from this draft.</p>
+<?php endif;?>
+<?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true) && !$legacyRfqTemplate): ?>
 <form method="post" action="/procurement/" id="aur-vendor-send-form"
  data-total="<?=count($rfqPreview['messages']??[])?>"
  data-approved="<?=($rfqPreview['status']??'')==='DISPATCHING'?'1':'0'?>">
