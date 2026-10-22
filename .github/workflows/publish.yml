@@ -3,8 +3,8 @@ name: Qualify and publish Aurenoeva
 on:
   workflow_dispatch:
   # Catalogue integration release: reuse full qualification before Hostinger publication.
-  # Release 22 October: optimize PHP catalogue merge under 27k+ records,
-  # qualify adaptive publisher retry and separated product/vendor stages.
+  # Release 22 October final: qualify memory-safe PHP merging, adaptive
+  # disconnect recovery, verified 25-test publisher and two-stage VPS repair.
   push:
     branches: [main]
     paths:
