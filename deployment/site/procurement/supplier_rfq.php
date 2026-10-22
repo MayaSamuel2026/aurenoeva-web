@@ -238,8 +238,13 @@ function aur_vendor_rfq_smtp_exchange($socket,?string $command,array $expected,s
     if($command!==null) {
         $bytes=strlen($command)+2;
         $sent=@fwrite($socket,$command."\r\n");
-        if($sent===false||$sent!==$bytes)
-            return ['ok'=>false,'stage'=>$stage,'code'=>0,'response'=>'socket_write_failed'];
+        $written=0;
+        while($written<$bytes) {
+            $sent=@fwrite($socket,substr($command."\r\n",$written));
+            if($sent===false||$sent===0)
+                return ['ok'=>false,'stage'=>$stage,'code'=>0,'response'=>'socket_write_failed'];
+            $written+=$sent;
+        }
     }
     $response='';
     for($n=0;$n<40&&!feof($socket);$n++) {
@@ -363,10 +368,22 @@ function aur_vendor_rfq_status_summary(array $draft):array {
 function aur_vendor_rfq_delivery_breakdown(array $draft):array {
     $result=['original_accepted'=>0,'followup_accepted'=>0,
         'followup_failed_or_unconfirmed'=>0,'followup_in_flight'=>0,
-        'followup_attempted'=>0];
+        'followup_attempted'=>0,'smtp_250_confirmed'=>0,
+        'accepted_without_smtp_250_proof'=>0];
     foreach(($draft['messages']??[]) as $message) {
         if(!is_array($message))continue;
         $recovery=$message['recovery']??null;
+        if(($message['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT') {
+            $evidence=is_array($recovery)?($recovery['transport_result']??null):
+                ($message['transport_result']??null);
+            if(is_array($evidence)
+               && ($evidence['transport']??'')==='AUTHENTICATED_SMTP'
+               && ($evidence['stage']??'')==='DATA_ACCEPTANCE'
+               && (int)($evidence['code']??0)===250
+               && ($evidence['outcome']??'')==='SMTP_ACCEPTED')
+                $result['smtp_250_confirmed']++;
+            else $result['accepted_without_smtp_250_proof']++;
+        }
         if(!is_array($recovery)) {
             if(($message['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT')
                 $result['original_accepted']++;
