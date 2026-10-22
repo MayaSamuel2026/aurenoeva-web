@@ -93,6 +93,68 @@
     });
   }
 
+  // Authoritative delivery proof: retrieve the persisted RFQ file after
+  // sending, never present a browser progress counter as an audited result.
+  const ledgerPanel = document.getElementById('aur-rfq-approval');
+  const ledgerNotice = document.getElementById('aur-ledger-verification');
+  const savedCase = ledgerPanel?.dataset.caseRef;
+  const savedDraft = ledgerPanel?.dataset.draftId;
+  async function readSavedLedger(caseRef, draftId) {
+    const qs = new URLSearchParams({rfq_status:'1',case_ref:caseRef,draft:draftId});
+    const response=await fetch('/procurement/?'+qs.toString(),{
+      method:'GET',credentials:'same-origin',cache:'no-store',
+      headers:{Accept:'application/json'}
+    });
+    const data=await response.json().catch(()=>null);
+    if(!response.ok || data?.ok!==true ||
+       data.case_reference!==caseRef || data.draft_id!==draftId)
+      throw new Error('Cannot verify saved sending evidence ('+response.status+')');
+    return data;
+  }
+  function renderSavedLedger(data) {
+    const p=data.progress||{};
+    const confirmed=Number(p.smtp_250_confirmed||0);
+    const legacy=Number(p.accepted_without_smtp_250_proof||0);
+    const unconfirmed=Number(p.total||0)-Number(p.accepted||0);
+    document.getElementById('aur-smtp-confirmed')?.replaceChildren(
+      document.createTextNode(String(confirmed)));
+    document.getElementById('aur-legacy-accepted')?.replaceChildren(
+      document.createTextNode(String(legacy)));
+    document.getElementById('aur-awaiting')?.replaceChildren(
+      document.createTextNode(String(Math.max(0,unconfirmed))));
+    if(ledgerNotice) ledgerNotice.textContent =
+      'Verified against the saved RFQ: '+confirmed+' authenticated SMTP 250 acceptances; '+
+      legacy+' historical acceptances without stored SMTP 250 proof; '+
+      Math.max(0,unconfirmed)+' unresolved. SMTP acceptance is evidence of sending, not inbox delivery.';
+    return {confirmed,legacy,unconfirmed};
+  }
+  if(savedCase && savedDraft) {
+    readSavedLedger(savedCase,savedDraft).then(data=>{
+      const c=renderSavedLedger(data);
+      // Replace any stale server-rendered page only once with the current
+      // recipient table. No writing, no SMTP call and no new RFQ on refresh.
+      const originalAccepted=Number(ledgerPanel.dataset.accepted||0);
+      const originalConfirmed=Number(ledgerPanel.dataset.confirmed||0);
+      const originalUnconfirmed=Number(ledgerPanel.dataset.open||0);
+      if(c.confirmed!==originalConfirmed ||
+         c.confirmed+c.legacy!==originalAccepted ||
+         c.unconfirmed!==originalUnconfirmed) {
+        const url=new URL(window.location.href);
+        if(url.searchParams.get('ledger_refreshed')!=='1') {
+          url.searchParams.set('ledger_refreshed','1');
+          url.hash='aur-rfq-approval';
+          window.location.replace(url.toString());
+        } else if(ledgerNotice) {
+          ledgerNotice.textContent +=
+            ' Recipient list may be outdated; use Reload actual RFQ status.';
+        }
+      }
+    }).catch(err=>{
+      if(ledgerNotice) ledgerNotice.textContent =
+        'Saved mail ledger could not be verified. Do not assume any unverified messages were sent. '+err.message;
+    });
+  }
+
   const sendForm = document.getElementById('aur-vendor-send-form');
   const sendButton = document.getElementById('aur-send-all-rfqs');
   const sendProgress = document.getElementById('aur-send-progress');
@@ -130,8 +192,13 @@
           failed + ' failed/unconfirmed; ' + uncertain + ' interrupted/uncertain. ' +
           'Consult the saved recipient ledger before any further action.';
         if (result.status !== 'DISPATCHING') {
+          const verified=await readSavedLedger(caseRef,draftId);
+          if(Number(verified.progress?.accepted)!==accepted ||
+             Number(verified.progress?.remaining)!==unsent)
+            throw new Error('Saved RFQ ledger does not match SMTP response');
+          renderSavedLedger(verified);
           window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
-            '&draft=' + encodeURIComponent(draftId) + '#supplier-history');
+            '&draft=' + encodeURIComponent(draftId) + '&ledger_refreshed=1#aur-rfq-approval');
           return;
         }
         if (Number(p.processed_this_request || 0) === 0)
@@ -188,8 +255,20 @@
             ' accepted in the case ledger; ' + eligible + ' follow-ups still eligible; ' +
             failed + ' uncertain. The original accepted suppliers have not been resent.';
           if (data.status !== 'RECOVERY_DISPATCHING') {
+            // Read the file again AFTER the POST. This independent readback
+            // must agree before telling the user sending has completed.
+            const verified=await readSavedLedger(caseRef,draftId);
+            if(Number(verified.progress?.accepted)!==accepted ||
+               Number(verified.progress?.recovery_remaining)!==eligible)
+              throw new Error('Mail responses and persisted RFQ ledger disagree');
+            renderSavedLedger(verified);
+            recoveryProgress.textContent = 'Saved RFQ independently verified: ' +
+              Number(verified.progress?.smtp_250_confirmed||0) +
+              ' SMTP 250 acceptances and ' +
+              Number(verified.progress?.accepted_without_smtp_250_proof||0) +
+              ' earlier accepted records without saved 250 proof. Refreshing recipient ledger.';
             window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
-              '&draft=' + encodeURIComponent(draftId) + '#aur-rfq-approval');
+              '&draft=' + encodeURIComponent(draftId) + '&ledger_refreshed=1#aur-rfq-approval');
             return;
           }
           if (Number(p.processed_this_request || 0) === 0)
