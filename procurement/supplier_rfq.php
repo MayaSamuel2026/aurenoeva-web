@@ -18,7 +18,8 @@ function aur_vendor_rfq_safe_error(Throwable $e):string {
       'supplier_research_lock_unavailable','supplier_research_save_failed',
       'supplier_research_commit_failed','invalid_dashboard_vendor_selection',
       'private_directory_unavailable','rfq_send_lock_unavailable',
-      'destination_requires_sanctions_review','destination_changed_redraft_required'
+      'destination_requires_sanctions_review','destination_changed_redraft_required',
+      'commercial_draft_redraft_required'
     ];
     return in_array($e->getMessage(),$allowed,true)?$e->getMessage() :
       ($e instanceof InvalidArgumentException?'invalid_supplier_selection':'private_rfq_storage_or_research_error');
@@ -154,7 +155,7 @@ function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $se
     foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']));
     $draftId=bin2hex(random_bytes(12));
     $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
-        'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'draft_id'=>$draftId,'created_at'=>gmdate('c'),
+        'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'information_only'=>true,'draft_id'=>$draftId,'created_at'=>gmdate('c'),
         'approval'=>null,'status'=>'DRAFT_REVIEW','messages'=>$messages];
     $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
     aur_vendor_rfq_write($path,$draft);
@@ -201,6 +202,10 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
     try{
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
+        // Drafts composed before the information-only policy may still ask for
+        // prices or commercial terms. Keep their history but never send them.
+        if(($draft['information_only']??false)!==true)
+            throw new InvalidArgumentException('commercial_draft_redraft_required');
         // Historic drafts imply the original destination in their case reference.
         $parts=explode('-', (string)$case['reference']);
         $draftCountry=(string)($draft['destination_country']??($parts[1]??''));
