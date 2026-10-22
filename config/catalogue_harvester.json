@@ -694,6 +694,51 @@
         "/marine/products/"
       ],
       "refresh_hours": 72
+    },
+    {
+      "id": "wago-component-identity",
+      "active": true,
+      "manufacturer": "WAGO",
+      "allowed_hosts": [
+        "www.wago.com"
+      ],
+      "seeds": [
+        "https://www.wago.com/global/c/topjob-s",
+        "https://www.wago.com/global/rail-mount-terminal-blocks/double-deck-terminal-block/p/2002-2731"
+      ],
+      "follow_paths": [
+        "/global/c/",
+        "/global/rail-mount-terminal-blocks/",
+        "/global/electrical-interconnections/",
+        "/c/",
+        "/rail-mount-terminal-blocks/"
+      ],
+      "follow_regex": "^/(?:global/)?[a-z0-9/-]+/p/[0-9][a-z0-9-]+/?$",
+      "max_depth": 5,
+      "refresh_hours": 72,
+      "sector": "industrial",
+      "category": "PLC / control modules"
+    },
+    {
+      "id": "keysight-test-instruments",
+      "active": true,
+      "manufacturer": "Keysight",
+      "allowed_hosts": [
+        "www.keysight.com"
+      ],
+      "seeds": [
+        "https://www.keysight.com/us/en/products/waveform-and-function-generators.html",
+        "https://www.keysight.com/zz/en/products/signal-sources.html",
+        "https://www.keysight.com/us/en/products/oscilloscopes.html"
+      ],
+      "follow_paths": [
+        "/us/en/products/",
+        "/zz/en/products/"
+      ],
+      "max_depth": 5,
+      "refresh_hours": 72,
+      "sector": "test",
+      "category": "Signal sources / generators"
     }
   ]
 }
