@@ -27,20 +27,26 @@ function aur_catalogue_count_file(string $path): ?int {
         rewind($fp);
         $count = 0;
         $carry = '';
-        // Receiver emits sanitized, unique canonical IDs as JSON object fields.
-        // Scan in bounded memory: no expensive json_decode of a large catalogue.
+        $bytesRead = 0;
+        $lastMatchEnd = -1;
+        // The receiver stores unique sanitized canonical IDs. Keep bounded
+        // overlap, with absolute offsets to prevent omissions or double counts
+        // when a field straddles a 64 KiB read boundary.
         $pattern = '/"canonical_id"\s*:\s*"AUR-P-[A-F0-9]{20}"/';
         while (!feof($fp)) {
             $chunk = fread($fp, 65536);
             if ($chunk === false) return null;
             if ($chunk === '' && !feof($fp)) return null;
             $buffer = $carry . $chunk;
-            if (strlen($buffer) <= 128) { $carry = $buffer; continue; }
-            $scan = substr($buffer, 0, -128);
+            $base = $bytesRead - strlen($carry);
+            preg_match_all($pattern, $buffer, $matches, PREG_OFFSET_CAPTURE);
+            foreach ($matches[0] as [$matched, $offset]) {
+                $end = $base + $offset + strlen($matched);
+                if ($end > $lastMatchEnd) { ++$count; $lastMatchEnd = $end; }
+            }
+            $bytesRead += strlen($chunk);
             $carry = substr($buffer, -128);
-            $count += preg_match_all($pattern, $scan);
         }
-        $count += preg_match_all($pattern, $carry);
         if ($count < 1) return null;
         $payload = json_encode(['size'=>$stat['size'],'mtime'=>$stat['mtime'],
             'inode'=>$stat['ino'],'count'=>$count], JSON_THROW_ON_ERROR);
