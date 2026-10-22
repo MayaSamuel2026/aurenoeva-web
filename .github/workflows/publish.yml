@@ -255,13 +255,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/source/site/procurement"
           # Copy the complete canonical procurement application, not a stale hardcoded subset.
           # New supplier and RFQ modules must ship in the SAME release as index.php.
-          for name in index.php private_cases.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js .htaccess; do
+          for name in index.php private_cases.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js .htaccess; do
             cp "deployment/site/procurement/$name" "$RUNNER_TEMP/source/site/procurement/$name"
           done
           # Preserve the public index.html as default while allowing subdirectory PHP index.
           sed -i 's/^DirectoryIndex index.html$/DirectoryIndex index.html index.php/' "$RUNNER_TEMP/source/site/.htaccess"
           grep -q '^DirectoryIndex index.html index.php$' "$RUNNER_TEMP/source/site/.htaccess"
-          for name in index.php private_cases.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php; do
+          for name in index.php private_cases.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php; do
             php -l "$RUNNER_TEMP/source/site/procurement/$name"
           done
           python3 - "$RUNNER_TEMP/source/site/index.html" <<'PY'
@@ -294,6 +294,7 @@ jobs:
           node --check "$RUNNER_TEMP/source/site/procurement/discover.js"
           node --check "$RUNNER_TEMP/source/site/procurement/worldwide.js"
           php tests/test_procurement_worldwide_php.php
+          php tests/test_procurement_country_preflight.php
           grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
 
       - name: Refine natural German website copy
