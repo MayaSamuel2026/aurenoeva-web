@@ -358,6 +358,53 @@ try{
    'resume must send the remaining recipients only');
  echo "AURENOEVA_GLOBAL_CONSOLIDATED_RFQ=PASS\n";
 
+ // Legacy 10/17-type failure must recover without touching accepted recipients,
+ // retain original attempt evidence, and never allow a second follow-up.
+ $recoveryDraft=aur_vendor_rfq_prepare($store,$case,$bulkIntel,$bulks);
+ $recoveryDraft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN'];
+ $recoveryDraft['status']='PARTIAL_OR_FAILED';
+ foreach($recoveryDraft['messages'] as $n=>&$mail) {
+     $mail['status']=$n<3?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
+     $mail['attempted_at']='2026-10-22T18:00:00+00:00';
+     $mail['sent_at']=$n<3?'2026-10-22T18:00:01+00:00':null;
+ }
+ unset($mail);
+ $recoveryFile=aur_vendor_rfq_path($store,$case['reference'],$recoveryDraft['draft_id']);
+ aur_vendor_rfq_write($recoveryFile,$recoveryDraft);
+ verify(aur_vendor_rfq_recoverable_count($recoveryDraft)===2,'uncertain legacy recipients not eligible for recovery');
+ $missingConsent=false;
+ try{aur_vendor_rfq_recover($store,$case,$recoveryDraft['draft_id'],true,false,static fn()=>true);}
+ catch(InvalidArgumentException $e){$missingConsent=true;}
+ verify($missingConsent,'duplicate-risk acknowledgement bypassed');
+ $recoveryCalls=[];
+ $recoverSender=static function($to,$subject,$body)use(&$recoveryCalls):bool {
+     $recoveryCalls[]=$to;
+     verify(str_contains($subject,'Follow-up (same enquiry)') &&
+       str_contains($body,'disregard this duplicate') &&
+       str_contains($body,'RFQ '),'recovery message must be original enquiry with duplicate precaution');
+     return true;
+ };
+ $restored=aur_vendor_rfq_recover(
+     $store,$case,$recoveryDraft['draft_id'],true,true,$recoverSender);
+ verify(count($recoveryCalls)===2 && ($restored['status']??'')==='TRANSPORT_ACCEPTED',
+     'recovery did not contact only the two failed suppliers');
+ verify(aur_vendor_rfq_recoverable_count($restored)===0,
+     'recovered suppliers remain eligible for another follow-up');
+ foreach($restored['messages'] as $n=>$mail) {
+     if($n<3)verify(!isset($mail['recovery']) && $mail['status']==='ACCEPTED_BY_MAIL_TRANSPORT',
+         'previously accepted recipient was altered');
+     else verify(isset($mail['recovery']['prior_status']) &&
+         $mail['recovery']['prior_status']==='TRANSPORT_FAILED_OR_UNCONFIRMED' &&
+         $mail['recovery']['status']==='ACCEPTED_BY_MAIL_TRANSPORT',
+         'recovery destroyed historical transport evidence');
+ }
+ $blocked=false;
+ try{aur_vendor_rfq_recover($store,$case,$recoveryDraft['draft_id'],true,true,$recoverSender);}
+ catch(InvalidArgumentException $e){$blocked=true;}
+ verify($blocked && count($recoveryCalls)===2,'duplicate recovery was not blocked');
+ echo "AURENOEVA_LEGACY_RFQ_RECOVERY=PASS\n";
+
+
  // Dummy email automation must address only the owner's fixed mailbox,
  // exercise the real RFQ format and never send a duplicate on repeated clicks.
  $testCalls=0;
