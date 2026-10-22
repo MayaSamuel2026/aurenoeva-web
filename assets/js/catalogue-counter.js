@@ -28,8 +28,8 @@
       if (total === null) return;
       const de = String(locale || lang()).toLowerCase().startsWith('de');
       number.textContent = new Intl.NumberFormat(de ? 'de-DE' : 'en-GB').format(total);
-      label.textContent = de ? 'Durchsuchbare Teile im Katalog' : 'Parts searchable in our catalogue';
-      note.textContent = de ? 'Lieferbarkeit wird auf Anfrage geprüft.' : 'Supplier stock is checked on enquiry.';
+      label.textContent = de ? 'Teile in unserem Katalog' : 'Parts searchable in our catalogue';
+      note.textContent = de ? 'Verfügbarkeit prüfen wir auf Anfrage.' : 'Supplier stock is checked on enquiry.';
       link.textContent = de ? 'Jetzt suchen →' : 'Search parts →';
       banner.hidden = false;
     }

@@ -1,6 +1,6 @@
 const translations={
  en:{navHow:'How it works',navIndustries:'Sectors',navTrust:'Evidence & methodology',navSuppliers:'For suppliers',navAbout:'About',navContact:'Contact',cta:'Start a requirement',brandSub:'PROCUREMENT · COMPONENTS · INTELLIGENCE',footerIntro:'Intelligent, evidence-led procurement for scarce, obsolete, refurbished and high-value technical components and equipment.',footerPlatform:'How Aurenoeva works',footerCompany:'Company',footerLegal:'Legal',privacy:'Privacy',terms:'Terms of use',accessibility:'Accessibility',imprint:'Imprint',cookies:'Cookies & storage',cookieSettings:'Cookie settings'},
- de:{navHow:'So funktioniert es',navIndustries:'Bereiche',navTrust:'Nachweise & Methodik',navSuppliers:'Für Lieferanten',navAbout:'Über uns',navContact:'Kontakt',cta:'Beschaffung starten',brandSub:'PROCUREMENT · COMPONENTS · INTELLIGENCE',footerIntro:'Intelligente, nachvollziehbare Beschaffung für schwer verfügbare, abgekündigte, überholte und hochwertige technische Komponenten und Anlagen.',footerPlatform:'So arbeitet Aurenoeva',footerCompany:'Unternehmen',footerLegal:'Rechtliches',privacy:'Datenschutz',terms:'Nutzungsbedingungen',accessibility:'Barrierefreiheit',imprint:'Impressum',cookies:'Cookies & Speicher',cookieSettings:'Cookie-Einstellungen'}
+ de:{navHow:'So funktioniert es',navIndustries:'Bereiche',navTrust:'Nachweise & Methodik',navSuppliers:'Für Lieferanten',navAbout:'Über uns',navContact:'Kontakt',cta:'Beschaffung starten',brandSub:'PROCUREMENT · COMPONENTS · INTELLIGENCE',footerIntro:'Wir unterstützen Unternehmen bei der Beschaffung schwer erhältlicher Ersatzteile, abgekündigter Komponenten und hochwertiger technischer Geräte.',footerPlatform:'So unterstützen wir Sie',footerCompany:'Unternehmen',footerLegal:'Rechtliches',privacy:'Datenschutz',terms:'Nutzungsbedingungen',accessibility:'Barrierefreiheit',imprint:'Impressum',cookies:'Cookies und Speicher',cookieSettings:'Cookie-Einstellungen'}
 };
 const pageLinks=[['how-it-works.html','navHow'],['industries.html','navIndustries'],['trust-methodology.html','navTrust'],['suppliers.html','navSuppliers'],['about.html','navAbout']];
 const industries={
@@ -15,7 +15,7 @@ const industries={
  ],
  test:[
   {v:'Oscilloscopes',en:'Oscilloscopes',de:'Oszilloskope'},
-  {v:'Spectrum / signal analyzers',en:'Spectrum / signal analyzers',de:'Spektrum- / Signalanalysatoren'},
+  {v:'Spectrum / signal analyzers',en:'Spectrum / signal analyzers',de:'Spektrum- und Signalanalysatoren'},
   {v:'Signal sources / generators',en:'Signal sources / generators',de:'Signalquellen / Generatoren'},
   {v:'Meters & power analyzers',en:'Meters & power analyzers',de:'Messgeräte & Leistungsanalysatoren'},
   {v:'RF / microwave',en:'RF / microwave',de:'HF / Mikrowelle'},
@@ -33,29 +33,29 @@ const industries={
  ],
  industrial:[
   {v:'PLC / control modules',en:'PLC / control modules',de:'SPS / Steuerungsmodule'},
-  {v:'Drives / servo / motion',en:'Drives / servo / motion',de:'Antriebe / Servo / Motion'},
+  {v:'Drives / servo / motion',en:'Drives / servo / motion',de:'Antriebs- und Servotechnik'},
   {v:'Motors / gearboxes',en:'Motors / gearboxes',de:'Motoren / Getriebe'},
   {v:'Sensors / instrumentation',en:'Sensors / instrumentation',de:'Sensorik / Instrumentierung'},
   {v:'Pneumatics / hydraulics',en:'Pneumatics / hydraulics',de:'Pneumatik / Hydraulik'},
-  {v:'Robotics / automation',en:'Robotics / automation',de:'Robotik / Automation'},
-  {v:'Machine / process equipment',en:'Machine / process equipment',de:'Maschinen- / Prozessequipment'}
+  {v:'Robotics / automation',en:'Robotics / automation',de:'Robotik und Automatisierung'},
+  {v:'Machine / process equipment',en:'Machine / process equipment',de:'Maschinen- und Prozessanlagen'}
  ],
  energy:[
   {v:'Transformers',en:'Transformers',de:'Transformatoren'},
   {v:'Switchgear & protection',en:'Switchgear & protection',de:'Schaltanlagen & Schutztechnik'},
   {v:'Generators',en:'Generators',de:'Generatoren'},
   {v:'Power conversion / inverters',en:'Power conversion / inverters',de:'Leistungsumwandlung / Wechselrichter'},
-  {v:'Power quality / monitoring',en:'Power quality / monitoring',de:'Netzqualität / Monitoring'},
+  {v:'Power quality / monitoring',en:'Power quality / monitoring',de:'Netzqualität und Überwachung'},
   {v:'Turbine / plant components',en:'Turbine / plant components',de:'Turbinen- / Anlagenkomponenten'},
   {v:'Storage / auxiliary systems',en:'Storage / auxiliary systems',de:'Speicher- / Hilfssysteme'}
  ],
  marine:[
-  {v:'Engines & propulsion',en:'Engines & propulsion',de:'Motoren & Antrieb'},
-  {v:'Pumps / fluid systems',en:'Pumps / fluid systems',de:'Pumpen / Fluidsysteme'},
+  {v:'Engines & propulsion',en:'Engines & propulsion',de:'Motoren und Antriebe'},
+  {v:'Pumps / fluid systems',en:'Pumps / fluid systems',de:'Pumpen und Fluidtechnik'},
   {v:'Electrical & switchgear',en:'Electrical & switchgear',de:'Elektrik & Schaltanlagen'},
-  {v:'Navigation / instrumentation',en:'Navigation / instrumentation',de:'Navigation / Instrumentierung'},
+  {v:'Navigation / instrumentation',en:'Navigation / instrumentation',de:'Navigation und Messtechnik'},
   {v:'Deck machinery',en:'Deck machinery',de:'Deckmaschinen'},
-  {v:'HVAC / refrigeration',en:'HVAC / refrigeration',de:'Klima / Kälte'},
+  {v:'HVAC / refrigeration',en:'HVAC / refrigeration',de:'Klima- und Kältetechnik'},
   {v:'Safety / auxiliary systems',en:'Safety / auxiliary systems',de:'Sicherheits- / Hilfssysteme'}
  ],
  aviation:[
@@ -64,7 +64,7 @@ const industries={
   {v:'Hydraulic / pneumatic',en:'Hydraulic / pneumatic',de:'Hydraulik / Pneumatik'},
   {v:'Engine / powerplant components',en:'Engine / powerplant components',de:'Triebwerkskomponenten'},
   {v:'Landing gear / actuation',en:'Landing gear / actuation',de:'Fahrwerk / Aktuatoren'},
-  {v:'Ground support / test equipment',en:'Ground support / test equipment',de:'Boden- / Prüfequipment'},
+  {v:'Ground support / test equipment',en:'Ground support / test equipment',de:'Boden- und Prüfgeräte'},
   {v:'Traceable specialist components',en:'Traceable specialist components',de:'Rückverfolgbare Spezialkomponenten'}
  ]
 };
@@ -78,12 +78,12 @@ const decisionData={
   ['DECISION RESOLUTION','Proceed with condition','The strongest candidate is selected with explicit conditions — not simply because it has the lowest visible price.','Decision recorded']
  ],
  de:[
-  ['BEDARFSAUFLÖSUNG','72 % strukturiert','Anwendung, Konfiguration, Lieferregion, Budget und Nachweisanforderungen sind klar. Eine wesentliche Frage ist noch offen: Übertragbarkeit von Software oder Lizenzen.','Bedarf aktiv'],
-  ['LIEFERQUELLEN','14 plausible Kandidaten','Die Suche hat plausible Lieferquellen aus freigegebenen Quellen und bestehenden Lieferantenbeziehungen zusammengeführt, bevor die vertiefte Qualifizierung beginnt.','Lieferquellen geprüft'],
-  ['NACHWEISAUFLÖSUNG','91 % Nachweisstärke','Identität, Servicehistorie, Konfiguration und dokumentierte Aussagen bleiben mit ihren Quellen verbunden – einschließlich Lücken und Widersprüchen.','Nachweise in Prüfung'],
-  ['RISIKOAUFLÖSUNG','Niedrig–mittel','Technische, nachweisbezogene, lieferantenbezogene, logistische und kommerzielle Risiken bleiben getrennt und damit prüfbar.','Risiko bewertet'],
-  ['KOSTENAUFLÖSUNG','23.440 € vergleichbare Kosten','Angebotspreis, Versand, Prüfung, bekannte Aufbereitung und weitere Beschaffungsfaktoren wurden zu einem vergleichbaren Kostenbild zusammengeführt.','Kosten abgeglichen'],
-  ['ENTSCHEIDUNGSAUFLÖSUNG','Mit Bedingung fortfahren','Der stärkste Kandidat wird mit klaren Bedingungen ausgewählt – nicht einfach, weil sein sichtbarer Preis am niedrigsten ist.','Entscheidung dokumentiert']
+  ['ANFRAGE','72 % strukturiert','Anwendung, Konfiguration, Lieferregion, Budget und Nachweisanforderungen sind klar. Eine wesentliche Frage ist noch offen: Übertragbarkeit von Software oder Lizenzen.','Bedarf aktiv'],
+  ['LIEFERQUELLEN','14 mögliche Lieferquellen','Die Suche hat plausible Lieferquellen aus freigegebenen Quellen und bestehenden Lieferantenbeziehungen zusammengeführt, bevor die vertiefte Qualifizierung beginnt.','Lieferquellen geprüft'],
+  ['NACHWEISE','91 % dokumentiert','Identität, Servicehistorie, Konfiguration und dokumentierte Aussagen bleiben mit ihren Quellen verbunden – einschließlich Lücken und Widersprüchen.','Nachweise in Prüfung'],
+  ['RISIKEN','Niedrig–mittel','Technische, nachweisbezogene, lieferantenbezogene, logistische und kommerzielle Risiken bleiben getrennt und damit prüfbar.','Risiko bewertet'],
+  ['GESAMTKOSTEN','23.440 € Gesamtkosten','Angebotspreis, Versand, Prüfung, bekannte Aufbereitung und weitere Beschaffungsfaktoren wurden zu einem vergleichbaren Kostenbild zusammengeführt.','Kosten abgeglichen'],
+  ['EMPFEHLUNG','Mit Bedingung fortfahren','Der stärkste Kandidat wird mit klaren Bedingungen ausgewählt – nicht einfach, weil sein sichtbarer Preis am niedrigsten ist.','Entscheidung dokumentiert']
  ]
 };
 function currentPage(){return location.pathname.split('/').pop()||'index.html'}
@@ -122,7 +122,7 @@ function initDecision(){
 }
 function query(params){return new URLSearchParams(params).toString()}
 function categoryLabel(industry,value,lang){const item=industries[industry]?.find(x=>x.v===value);return item?.[lang]||value}
-function conditionLabel(value,lang){const m={any:{en:'Any condition',de:'Zustand offen'},new:{en:'New only',de:'Nur neu'},refurbished:{en:'Refurbished accepted',de:'Überholt möglich'},used:{en:'Used accepted',de:'Gebraucht möglich'}};return m[value]?.[lang]||value}
+function conditionLabel(value,lang){const m={any:{en:'Any condition',de:'Zustand egal'},new:{en:'New only',de:'Nur neu'},refurbished:{en:'Refurbished accepted',de:'Generalüberholt ist möglich'},used:{en:'Used accepted',de:'Gebraucht ist möglich'}};return m[value]?.[lang]||value}
 function industryLabel(industry,lang){const m={laboratory:{en:'Laboratory',de:'Labor & Analytik'},test:{en:'Test & Measurement',de:'Mess- & Prüftechnik'},medical:{en:'Medical',de:'Medizintechnik'},industrial:{en:'Industrial',de:'Industrie & Automation'},energy:{en:'Energy',de:'Energie'},marine:{en:'Marine',de:'Marine'},aviation:{en:'Aviation',de:'Luftfahrt'}};return m[industry]?.[lang]||industry}
 const AUR_SELECTED_PARTS_KEY='aur_selected_parts_v1';
 function loadSelectedParts(){
@@ -211,12 +211,12 @@ function initSearchStudio(){
  function showStatus(message,kind='neutral'){if(!panel||!status)return;panel.hidden=false;status.className=`catalogue-match-status ${kind}`;status.textContent=message}
  async function performSearch(explicit=false){
   const q=exact.value.trim(),lang=getLang();if(q.length<2){if(panel)panel.hidden=true;if(matches)matches.innerHTML='';return}
-  lastSearch=q;showStatus(lang==='de'?'Aurenoeva gleicht Ihre Eingabe mit dem Katalog ab …':'Aurenoeva is matching your input against the catalogue …');
+  lastSearch=q;showStatus(lang==='de'?'Wir suchen nach passenden Teilen …':'Aurenoeva is matching your input against the catalogue …');
   const data=await searchCatalogue(q,{industry,category:cat.value});if(lastSearch!==q)return;
-  if(!data.available){if(matches)matches.innerHTML='';showStatus(lang==='de'?'Für diese Eingabe ist derzeit kein Live-Katalogtreffer verfügbar. Sie können mit Ihrer Kennung trotzdem fortfahren; Aurenoeva klärt die Identität im Beschaffungsprozess.':'No live catalogue match is available for this query right now. You can still continue with your identifier; Aurenoeva will resolve the identity during sourcing.','neutral');return}
-  if(!data.items.length){if(matches)matches.innerHTML='';showStatus(lang==='de'?'Kein eindeutiger Katalogtreffer gefunden. Fahren Sie mit Ihrer Kennung oder Beschreibung fort.':'No clear catalogue match was found. Continue with your identifier or description.','neutral');return}
+  if(!data.available){if(matches)matches.innerHTML='';showStatus(lang==='de'?'Zu Ihrer Eingabe gibt es derzeit keinen Katalogtreffer. Sie können die Anfrage trotzdem fortsetzen – wir recherchieren weiter.':'No live catalogue match is available for this query right now. You can still continue with your identifier; Aurenoeva will resolve the identity during sourcing.','neutral');return}
+  if(!data.items.length){if(matches)matches.innerHTML='';showStatus(lang==='de'?'Kein passender Treffer gefunden. Sie können mit Ihrer Teilenummer oder Beschreibung fortfahren.':'No clear catalogue match was found. Continue with your identifier or description.','neutral');return}
   showStatus(lang==='de'?`${data.items.length} mögliche Katalogtreffer. Wählen Sie das passende Teil aus.`:`${data.items.length} possible catalogue matches. Add the relevant part to your enquiry.`,'success');
-  renderCatalogueResults(matches,data.items,p=>{selectedParts=addSelectedPart(selectedParts,p,q);renderSelected();showStatus(lang==='de'?'Teil zur Anfrage hinzugefügt. Weitere Treffer können Sie ebenfalls auswählen.':'Part added to your enquiry. You can add more matches if needed.','success')});
+  renderCatalogueResults(matches,data.items,p=>{selectedParts=addSelectedPart(selectedParts,p,q);renderSelected();showStatus(lang==='de'?'Das Teil wurde übernommen. Sie können weitere Teile hinzufügen.':'Part added to your enquiry. You can add more matches if needed.','success')});
  }
  function scheduleSearch(){clearTimeout(timer);if(mode==='exact'&&exact.value.trim().length>=3)timer=setTimeout(()=>performSearch(false),450)}
  modeTabs.forEach(t=>t.addEventListener('click',()=>{mode=t.dataset.mode;modeTabs.forEach(x=>x.classList.toggle('active',x===t));setPlaceholder();update();if(mode==='exact')scheduleSearch();else if(panel)panel.hidden=true}));
@@ -240,17 +240,17 @@ function initRequirementWizard(){
  function clearError(){setError('')}
  function emailValid(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())}
  function evidenceValues(){const lang=getLang();return [...wizard.querySelectorAll('[data-evidence]:checked')].map(el=>lang==='de'?(el.dataset.deValue||el.value):el.value)}
- function evidenceText(){const values=evidenceValues();return values.length?values.join(', '):(getLang()==='de'?'Keine besonderen Nachweise angegeben':'No specific evidence requested')}
+ function evidenceText(){const values=evidenceValues();return values.length?values.join(', '):(getLang()==='de'?'Keine besonderen Nachweise ausgewählt':'No specific evidence requested')}
  function renderSelected(){renderSelectedPartTray(selectedTray,selectedParts,key=>{selectedParts=removeSelectedPart(selectedParts,key);renderSelected();if(step>=3)renderBrief(step===4)})}
  function showMatchStatus(message,kind='neutral'){if(!matchPanel||!matchStatus)return;matchPanel.hidden=false;matchStatus.className=`catalogue-match-status ${kind}`;matchStatus.textContent=message}
  async function performSearch(){
   const q=fields.query.value.trim(),lang=getLang();if(q.length<2){if(matchPanel)matchPanel.hidden=true;if(matches)matches.innerHTML='';return}
-  lastSearch=q;showMatchStatus(lang==='de'?'Abgleich mit dem Aurenoeva Katalog …':'Matching against the Aurenoeva catalogue …');
+  lastSearch=q;showMatchStatus(lang==='de'?'Wir durchsuchen den Aurenoeva-Katalog …':'Matching against the Aurenoeva catalogue …');
   const data=await searchCatalogue(q,{industry:fields.industry.value,category:fields.category.value});if(lastSearch!==q)return;
-  if(!data.available){if(matches)matches.innerHTML='';showMatchStatus(lang==='de'?'Kein Live-Katalogtreffer verfügbar. Ihre eingegebene Kennung bleibt trotzdem Teil der Anfrage und wird im Beschaffungsprozess aufgelöst.':'No live catalogue match is available. Your entered identifier will still remain part of the enquiry and be resolved during sourcing.');return}
-  if(!data.items.length){if(matches)matches.innerHTML='';showMatchStatus(lang==='de'?'Kein eindeutiger Treffer. Sie können mit der Kennung oder Beschreibung fortfahren.':'No clear match found. You can continue with the identifier or description.');return}
+  if(!data.available){if(matches)matches.innerHTML='';showMatchStatus(lang==='de'?'Zu Ihrer Eingabe gibt es derzeit keinen Katalogtreffer. Die Teilenummer bleibt in Ihrer Anfrage gespeichert, damit wir weiter danach suchen können.':'No live catalogue match is available. Your entered identifier will still remain part of the enquiry and be resolved during sourcing.');return}
+  if(!data.items.length){if(matches)matches.innerHTML='';showMatchStatus(lang==='de'?'Kein passender Treffer gefunden. Sie können mit Ihrer Teilenummer oder Beschreibung fortfahren.':'No clear match found. You can continue with the identifier or description.');return}
   showMatchStatus(lang==='de'?`${data.items.length} mögliche Treffer. Wählen Sie ein oder mehrere passende Teile aus.`:`${data.items.length} possible matches. Add one or more relevant parts.`,'success');
-  renderCatalogueResults(matches,data.items,p=>{selectedParts=addSelectedPart(selectedParts,p,q);renderSelected();showMatchStatus(lang==='de'?'Teil hinzugefügt. Die kanonische Identität wird mit Ihrer Anfrage weitergeführt.':'Part added. Its canonical identity will travel with your enquiry.','success')});
+  renderCatalogueResults(matches,data.items,p=>{selectedParts=addSelectedPart(selectedParts,p,q);renderSelected();showMatchStatus(lang==='de'?'Das Teil wurde übernommen. Seine Teilenummer bleibt mit Ihrer Anfrage verknüpft.':'Part added. Its canonical identity will travel with your enquiry.','success')});
  }
  function scheduleSearch(){clearTimeout(searchTimer);if(fields.query.value.trim().length>=3)searchTimer=setTimeout(performSearch,500)}
  function validateStep(n){
@@ -265,10 +265,10 @@ function initRequirementWizard(){
  }
  function render(){wizard.querySelectorAll('[data-wizard-step]').forEach(el=>el.hidden=Number(el.dataset.wizardStep)!==step);wizard.querySelectorAll('.wizard-progress i').forEach((el,i)=>el.classList.toggle('active',i<step));wizard.querySelector('[data-step-label]').textContent=`0${step} / 04`;clearError();if(step===3)renderBrief();if(step===4)renderBrief(true)}
  function val(v){const lang=getLang();return v&&v.trim()?v.trim():(lang==='de'?'Nicht angegeben':'Not specified')}
- function modeText(){const lang=getLang(),m={category:{en:'Category known',de:'Kategorie bekannt'},exact:{en:'Part / model known',de:'Teil / Modell bekannt'},requirement:{en:'Application / outcome known',de:'Anwendung / Funktion bekannt'}};return m[fields.mode.value][lang]}
+ function modeText(){const lang=getLang(),m={category:{en:'Category known',de:'Kategorie bekannt'},exact:{en:'Part / model known',de:'Teilenummer oder Modell bekannt'},requirement:{en:'Application / outcome known',de:'Anwendung / Funktion bekannt'}};return m[fields.mode.value][lang]}
  function selectedPartsText(){const lang=getLang();if(!selectedParts.length)return lang==='de'?'Keine Katalogteile ausgewählt':'No catalogue parts selected';return selectedParts.map((p,i)=>`${i+1}. ${[p.manufacturer,p.part_number||p.model].filter(Boolean).join(' · ')}${p.canonical_id?` [ID ${p.canonical_id}]`:''}`).join('\n')}
  function selectedPartsHTML(){const lang=getLang();if(!selectedParts.length)return '';return `<div class="brief-selected-block"><span>${lang==='de'?'Ausgewählte Katalogteile':'Selected catalogue parts'}</span>${selectedParts.map(p=>{const identity=[p.manufacturer,p.part_number||p.model].filter(Boolean).join(' · ');const sub=[p.model&&p.model!==p.part_number?p.model:'',p.canonical_id?`ID ${p.canonical_id}`:''].filter(Boolean).join(' · ');return `<div class="brief-selected-part"><b>${escapeHTML(identity)}</b>${sub?`<small>${escapeHTML(sub)}</small>`:''}</div>`}).join('')}</div>`}
- function renderBrief(final=false){const target=wizard.querySelector(final?'#final-brief':'#brief-preview');if(!target)return;const lang=getLang();const labels=lang==='de'?['Ausgangspunkt','Bereich','Kategorie','Ihre Eingabe','Bedarf','Zustand','Menge','Lieferort','Benötigt bis','Budget','Nachweise']:['Starting point','Sector','Category','Your input','Requirement','Condition','Quantity','Delivery location','Need by','Budget','Evidence requested'];const values=[modeText(),industryLabel(fields.industry.value,lang),categoryLabel(fields.industry.value,fields.category.value,lang),val(fields.query.value),val(fields.description.value),conditionLabel(fields.condition.value,lang),val(fields.quantity.value),val(fields.geography.value),val(fields.needBy.value),val(fields.budget.value),evidenceText()];target.innerHTML=selectedPartsHTML()+labels.map((l,i)=>`<div class="brief-row"><span>${escapeHTML(l)}</span><b>${escapeHTML(values[i])}</b></div>`).join('')}
+ function renderBrief(final=false){const target=wizard.querySelector(final?'#final-brief':'#brief-preview');if(!target)return;const lang=getLang();const labels=lang==='de'?['Auswahl','Bereich','Kategorie','Ihre Eingabe','Beschreibung','Zustand','Menge','Lieferort','Gewünschter Liefertermin','Budget','Nachweise']:['Starting point','Sector','Category','Your input','Requirement','Condition','Quantity','Delivery location','Need by','Budget','Evidence requested'];const values=[modeText(),industryLabel(fields.industry.value,lang),categoryLabel(fields.industry.value,fields.category.value,lang),val(fields.query.value),val(fields.description.value),conditionLabel(fields.condition.value,lang),val(fields.quantity.value),val(fields.geography.value),val(fields.needBy.value),val(fields.budget.value),evidenceText()];target.innerHTML=selectedPartsHTML()+labels.map((l,i)=>`<div class="brief-row"><span>${escapeHTML(l)}</span><b>${escapeHTML(values[i])}</b></div>`).join('')}
  function summaryText(){const lang=getLang();const parts=selectedPartsText();return lang==='de'?`AURENOEVA BESCHAFFUNGSANFRAGE
 Ausgewählte Katalogteile:
 ${parts}
@@ -279,7 +279,7 @@ Bedarf: ${val(fields.description.value)}
 Zustand: ${conditionLabel(fields.condition.value,lang)}
 Menge: ${val(fields.quantity.value)}
 Lieferort: ${val(fields.geography.value)}
-Benötigt bis: ${val(fields.needBy.value)}
+Gewünschter Liefertermin: ${val(fields.needBy.value)}
 Budget: ${val(fields.budget.value)}
 Nachweise: ${evidenceText()}
 Unternehmen: ${val(fields.company.value)}
@@ -316,13 +316,13 @@ Email: ${val(fields.email.value)}`}
   const rc=escapeHTML(data.requirement_contract_id||data.reference||'');
   sendStatus.className='form-status success';
   sendStatus.innerHTML=lang==='de'
-   ? 'Anfrage gesendet. Ihre Referenz: <strong>'+escapeHTML(data.reference||'')+'</strong>. Beschaffungsakte: <strong>'+rc+'</strong>. Ausgewählte Teilenummern und Produktidentitäten bleiben mit dem Bedarf verbunden.'
+   ? 'Vielen Dank, Ihre Anfrage wurde gesendet. Ihre Referenz: <strong>'+escapeHTML(data.reference||'')+'</strong>. Vorgangsnummer: <strong>'+rc+'</strong>. Die ausgewählten Teile und Teilenummern bleiben Ihrer Anfrage zugeordnet.'
    : 'Enquiry sent. Your reference: <strong>'+escapeHTML(data.reference||'')+'</strong>. Requirement record: <strong>'+rc+'</strong>. Selected part numbers and product identities remain attached to the requirement.';
 }
    button.textContent=lang==='de'?'Gesendet ✓':'Sent ✓';saveSelectedParts([]);
   }catch(err){
    button.disabled=false;button.textContent=original;
-   if(sendStatus){sendStatus.className='form-status error';sendStatus.innerHTML=lang==='de'?`Die direkte Übermittlung war nicht möglich. Bitte versuchen Sie es erneut oder senden Sie die Zusammenfassung an <a href="mailto:info@aurenoeva.com">info@aurenoeva.com</a>.`:`The direct submission could not be completed. Please try again or send the summary to <a href="mailto:info@aurenoeva.com">info@aurenoeva.com</a>.`}
+   if(sendStatus){sendStatus.className='form-status error';sendStatus.innerHTML=lang==='de'?`Ihre Anfrage konnte leider nicht gesendet werden. Versuchen Sie es bitte erneut oder schicken Sie die Zusammenfassung an <a href="mailto:info@aurenoeva.com">info@aurenoeva.com</a>.`:`The direct submission could not be completed. Please try again or send the summary to <a href="mailto:info@aurenoeva.com">info@aurenoeva.com</a>.`}
   }
  });
  document.addEventListener('aur:lang',()=>{selectedCategory=fields.category.value;fillCats();renderSelected();render();if(matchPanel&&!matchPanel.hidden&&lastSearch)performSearch()});renderSelected();render();if(fields.query.value.trim().length>=3)scheduleSearch();
@@ -341,7 +341,7 @@ function initCookies(){
  const modal=document.createElement('div');modal.className='modal-backdrop';modal.hidden=true;document.body.appendChild(modal);
  function save(){try{localStorage.setItem(key,JSON.stringify({necessary:true,ts:new Date().toISOString()}))}catch(e){}banner.hidden=true;modal.hidden=true}
  function open(){modal.hidden=false}
- function copy(){const lang=getLang();const t=lang==='de'?{h:'Datenschutz & Browserspeicher',p:'Aurenoeva verwendet derzeit nur notwendigen Browserspeicher für Sprache, Datenschutzhinweise und die von Ihnen für eine laufende Beschaffungsanfrage ausgewählten Katalogteile. Es sind keine Analyse-, Werbe- oder Tracking-Dienste eingebunden.',details:'Details',ok:'Verstanden',ey:'Datenschutz',mh:'Cookie- & Speicher-Einstellungen',mp:'Aktuell ist nur notwendiger Browserspeicher aktiv. Wenn später nicht notwendige Technologien hinzukommen, werden sie erst nach einer dann erforderlichen, konkreten Einwilligung aktiviert.',essential:'Notwendig',essentialText:'Sprachauswahl, Speicherung dieses Hinweises und ausgewählte Katalogteile einer laufenden Beschaffungsanfrage.',close:'Schließen'}:{h:'Privacy & browser storage',p:'Aurenoeva currently uses only necessary browser storage for language, this privacy notice and catalogue parts you select for an active procurement enquiry. No analytics, advertising or tracking services are active.',details:'Details',ok:'Got it',ey:'Privacy',mh:'Cookie & storage settings',mp:'Only necessary browser storage is active today. If non-essential technologies are added later, they will require a new, specific choice before activation where legally required.',essential:'Necessary',essentialText:'Language selection, remembering that this notice has already been shown, and catalogue parts selected for an active procurement enquiry.',close:'Close'};
+ function copy(){const lang=getLang();const t=lang==='de'?{h:'Datenschutz und Browserspeicher',p:'Aurenoeva verwendet derzeit nur notwendigen Browserspeicher für Sprache, Datenschutzhinweise und die von Ihnen für eine laufende Beschaffungsanfrage ausgewählten Katalogteile. Es sind keine Analyse-, Werbe- oder Tracking-Dienste eingebunden.',details:'Details',ok:'Verstanden',ey:'Datenschutz',mh:'Cookie- und Speichereinstellungen',mp:'Aktuell ist nur notwendiger Browserspeicher aktiv. Wenn später nicht notwendige Technologien hinzukommen, werden sie erst nach einer dann erforderlichen, konkreten Einwilligung aktiviert.',essential:'Notwendig',essentialText:'Speicherung Ihrer Sprachauswahl, dieses Hinweises und der Teile, die Sie für Ihre Anfrage ausgewählt haben.',close:'Schließen'}:{h:'Privacy & browser storage',p:'Aurenoeva currently uses only necessary browser storage for language, this privacy notice and catalogue parts you select for an active procurement enquiry. No analytics, advertising or tracking services are active.',details:'Details',ok:'Got it',ey:'Privacy',mh:'Cookie & storage settings',mp:'Only necessary browser storage is active today. If non-essential technologies are added later, they will require a new, specific choice before activation where legally required.',essential:'Necessary',essentialText:'Language selection, remembering that this notice has already been shown, and catalogue parts selected for an active procurement enquiry.',close:'Close'};
   banner.innerHTML=`<div><h3>${t.h}</h3><p>${t.p}</p></div><div class="cookie-actions"><button class="btn ghost" type="button" data-cookie-open>${t.details}</button><button class="btn" type="button" data-cookie-ok>${t.ok}</button></div>`;
   modal.innerHTML=`<div class="cookie-modal" role="dialog" aria-modal="true" aria-label="${t.mh}"><div class="eyebrow">${t.ey}</div><h2>${t.mh}</h2><p>${t.mp}</p><div class="pref-row"><div><b>${t.essential}</b><span>${t.essentialText}</span></div><label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label></div><div class="wizard-actions"><span></span><button class="btn" type="button" data-cookie-close>${t.close}</button></div></div>`;
   bind();
