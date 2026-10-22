@@ -56,24 +56,63 @@ mkdir -p "$UNIT.d"
 printf '[Service]\nTimeoutStartSec=3300s\n' > "$UNIT.d/zz-harvester-v4.conf"
 systemctl daemon-reload
 systemctl enable --now aurenoeva-catalogue.timer
-echo "=== REPUBLISH ALL SAVED PRODUCTS AND VENDOR EVIDENCE NOW ==="
-# Never truncate or replace the SQLite DB. Re-upload the current private JSON
-# in bounded HTTPS batches, with readback after every acknowledgement.
-runuser -u aurenoeva -- /usr/bin/python3 "$ROOT/tools/catalogue_publish.py" \
-  --snapshot "$STATE/catalogue-public.json" --state-dir "$STATE"
-echo "=== VERIFY REAL WEBSITE SEARCH ==="
-python3 - "$STATE/catalogue-public.json" <<'PY'
+echo "=== PRESERVE ONE CONSISTENT PRIVATE EXPORT ==="
+SNAP="$STATE/catalogue-repair-$NOW.json"
+cp "$STATE/catalogue-public.json" "$SNAP"
+chown aurenoeva:aurenoeva "$SNAP"
+chmod 0600 "$SNAP"
+LOG="$STATE/catalogue-repair-$NOW.log"
+touch "$LOG"
+chown aurenoeva:aurenoeva "$LOG"
+chmod 0600 "$LOG"
+trap 'rm -rf "$WORK"; rm -f "$SNAP"' EXIT
+
+echo "=== STAGE 1: RESTORE ALL WEBSITE PRODUCTS (SMALL RETRYABLE BATCHES) ==="
+# Site vendor processing is deliberately separated. A large RFQ master must
+# not prevent website product search from returning all acquired identities.
+if ! runuser -u aurenoeva -- /usr/bin/python3 "$ROOT/tools/catalogue_publish.py" \
+  --snapshot "$SNAP" --state-dir "$STATE" --products-only >"$LOG" 2>&1; then
+  tail -n 28 "$LOG"
+  echo "PRODUCT_PUBLICATION_NOT_YET_COMPLETE. The source SQLite and export are intact."
+  exit 1
+fi
+tail -n 4 "$LOG"
+grep -q '"status": "PRODUCTS_PUBLISHED"' "$LOG" ||
+  { echo "PRODUCT_PUBLICATION_NOT_CONFIRMED"; exit 1; }
+
+echo "=== STAGE 2: VERIFY REAL HOSTINGER WEBSITE SEARCH ==="
+python3 - "$SNAP" <<'PY'
 import json,sys,urllib.parse,urllib.request
 data=json.load(open(sys.argv[1],encoding="utf-8"))
 items=data.get("items",[])
 print("PRIVATE_EXPORTED_PRODUCTS=",len(items))
-if not items:raise SystemExit("CATALOGUE_SNAPSHOT_EMPTY")
-model=next((x.get("model") for x in items if x.get("model") and any(c.isdigit() for c in x["model"])) ,items[0]["model"])
+if len(items)<100:raise SystemExit("CATALOGUE_UNEXPECTEDLY_SMALL")
+# Check a record near the end, not one of the previous 1,813 products.
+search_candidates=[x for x in items[int(len(items)*0.8):]
+                   if x.get("model") and len(x["model"])>=4
+                   and any(c.isdigit() for c in x["model"])]
+if not search_candidates:raise SystemExit("NO_MODEL_TO_VERIFY")
+model=search_candidates[0]["model"]
 url="https://aurenoeva.com/catalogue-search.php?"+urllib.parse.urlencode({"q":model})
-with urllib.request.urlopen(url,timeout=30) as r:
+with urllib.request.urlopen(url,timeout=45) as r:
     public=json.loads(r.read(200000))
+if public.get("source")!="AURENOEVA_OWNED_CATALOGUE":
+    raise SystemExit("LIVE_SITE_NOT_USING_OWNED_CATALOGUE")
 if not any(x.get("model")==model for x in public.get("items",[])):
     raise SystemExit("LIVE_SEARCH_READBACK_FAILED_FOR="+model)
-print("LIVE_WEBSITE_PRODUCT_SEARCH=PASS model="+model)
+print("AURENOEVA_CATALOGUE_SEARCH=PASS model="+model)
 PY
+echo "=== STAGE 3: ENRICH EXISTING RFQ VENDOR MASTER ==="
+# Unlike product search, vendor sync can retry on the next scheduled pass.
+# Record partial completion clearly rather than calling it a successful merge.
+if runuser -u aurenoeva -- /usr/bin/python3 "$ROOT/tools/catalogue_publish.py" \
+  --snapshot "$SNAP" --state-dir "$STATE" --vendors-only >>"$LOG" 2>&1; then
+  tail -n 5 "$LOG"
+  echo "AURENOEVA_VENDOR_EVIDENCE=COMPLETE"
+else
+  tail -n 22 "$LOG"
+  echo "AURENOEVA_VENDOR_EVIDENCE=RETRY_PENDING"
+  echo "Website product catalogue remains published; the 30-minute timer remains enabled."
+fi
 echo "AURENOEVA_CATALOGUE_REPUBLISHED_AND_SEARCHED=PASS"
+echo "Full transfer diagnostics: $LOG"
