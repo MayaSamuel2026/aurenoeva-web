@@ -228,6 +228,7 @@ if (isset($_GET['export_catalogue'])) {
     exit;
 }
 $aurSupplierAuditMessage=null;
+$tradeReviewMessage=null;
 if ($isAdmin) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['consolidate_supplier_history'])) {
         try {
@@ -278,6 +279,30 @@ if ($isAdmin) {
                 exit;
             }
             aur_denied(503,'worldwide research temporarily unavailable; original enquiry preserved');
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_trade_review'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $record=aur_trade_review_write($aurStore,$result,$_POST);
+            $draftId=trim((string)($_POST['draft_id']??''));
+            $draftArg=preg_match('/^[a-f0-9]{24}$/D',$draftId)
+                ?'&draft='.rawurlencode($draftId):'';
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
+                .$draftArg.'#trade-review',true,303);
+            exit;
+        } catch (Throwable $e) {
+            error_log('AURENOEVA trade screening: '.get_class($e));
+            $tradeReviewMessage=match($e->getMessage()) {
+                'select_trade_review_decision'=>'Select Proceed with RFQ or Hold.',
+                'explain_trade_review_in_notes'=>'Add a short note documenting what was checked.',
+                'complete_trade_review_checks'=>'Complete each confirmation before allowing RFQ dispatch.',
+                default=>'Unable to save this case review. No supplier RFQs have been released.'
+            };
+            if(!isset($result)||!is_array($result)) {
+                $ref=trim((string)($_POST['case_ref']??''));
+                try{$result=aur_case_read($aurStore,$ref);}
+                catch(Throwable $ignored){}
+            }
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
         try {
@@ -354,10 +379,22 @@ if ($isAdmin) {
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 http_response_code(422);
                 header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['ok'=>false,'error'=>'rfq_dispatch_unavailable']);
+                echo json_encode(['ok'=>false,'error'=>
+                    str_starts_with($e->getMessage(),'pre_rfq_trade_review_')
+                        ?'destination_screening_required':'rfq_dispatch_unavailable']);
                 exit;
             }
-            aur_denied(422,'RFQ dispatch not completed; check saved draft statuses before retrying');
+            if(str_starts_with($e->getMessage(),'pre_rfq_trade_review_')) {
+                $ref=trim((string)($_POST['case_ref']??''));
+                $draftId=trim((string)($_POST['draft_id']??''));
+                if(preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref) &&
+                    preg_match('/^[a-f0-9]{24}$/D',$draftId)) {
+                    header('Location: /procurement/?case='.rawurlencode($ref).
+                        '&draft='.rawurlencode($draftId).'&trade_required=1#trade-review',true,303);
+                    exit;
+                }
+            }
+            aur_denied(422,'RFQ dispatch not completed; review the saved draft before retrying');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
         try {
