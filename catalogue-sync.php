@@ -54,54 +54,74 @@ function aur_catalogue_clean_snapshot(string $body): array {
 }
 
 function aur_catalogue_write_snapshot(string $body, string $directory): array {
-    [$clean, $count] = aur_catalogue_clean_snapshot($body);
-    $acceptedInput=$count;
+    [$clean, $acceptedInput] = aur_catalogue_clean_snapshot($body);
     $target = $directory . '/catalogue-public.json';
-    // Reconcile with the last published snapshot: missing items in a later scan
-    // must not silently erase previously known product identities.
-    if (is_file($target)) {
-        $old = @file_get_contents($target);
-        if (is_string($old) && $old !== '') {
-            try {
-                [$previous] = aur_catalogue_clean_snapshot($old);
-                $currentData = json_decode($clean, true, 512, JSON_THROW_ON_ERROR);
-                $previousData = json_decode($previous, true, 512, JSON_THROW_ON_ERROR);
-                $byId = [];
-                foreach ($previousData['items'] as $item) $byId[$item['canonical_id']] = $item;
-                foreach ($currentData['items'] as $item) {
-                    $id = $item['canonical_id'];
-                    if (isset($byId[$id])) {
-                        foreach (['sector','category'] as $field) {
-                            if ($item[$field] === '' && $byId[$id][$field] !== '') {
-                                $item[$field] = $byId[$id][$field];
-                            }
-                        }
-                    }
-                    $byId[$id] = $item;
-                }
-                $clean = json_encode(['schema'=>'aurenoeva-catalogue/1',
-                    'items'=>array_values($byId),
-                    'availability_notice'=>'Product identity only; no supplier stock or price is implied.'],
-                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-                $count = count($byId);
-            } catch (Throwable $ignoreCorruptedPrevious) {
-                // Do not let a corrupt prior snapshot block replacement with validated input.
-            }
-        }
-    }
-    $incoming = tempnam($directory, '.catalogue-incoming-');
-    if ($incoming === false) throw new RuntimeException('snapshot_temp_unavailable');
+    $lock=fopen($directory.'/.catalogue-merge.lock','c');
+    if(!$lock || !flock($lock,LOCK_EX))
+        throw new RuntimeException('catalogue_snapshot_write_lock_unavailable');
     try {
-        if (file_put_contents($incoming, $clean, LOCK_EX) !== strlen($clean))
-            throw new RuntimeException('snapshot_write_failed');
-        @chmod($incoming, 0600);
-        if (!rename($incoming, $target)) throw new RuntimeException('snapshot_replace_failed');
-        $incoming = '';
-        $digest = hash('sha256', $clean);
-        if (hash_file('sha256', $target) !== $digest) throw new RuntimeException('snapshot_readback');
-        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'accepted_input_records'=>$acceptedInput,'sha256'=>$digest,'source_sha256'=>hash('sha256', $body)];
+        // Decode previously sanitized products only once. The earlier repair
+        // decoded, sanitized, encoded, and decoded the entire accumulated
+        // snapshot on EVERY small batch, exhausting PHP memory as it grew.
+        $newData=json_decode($clean,true,512,JSON_THROW_ON_ERROR);
+        $byId=[];
+        if(is_file($target)) {
+            $old=@file_get_contents($target);
+            if(!is_string($old) || $old==='')
+                throw new RuntimeException('existing_catalogue_snapshot_unreadable');
+            $previous=json_decode($old,true,512,JSON_THROW_ON_ERROR);
+            if(($previous['schema']??'')!=='aurenoeva-catalogue/1' ||
+               !is_array($previous['items']??null))
+                throw new RuntimeException('existing_catalogue_schema_invalid');
+            foreach($previous['items'] as $item) {
+                if(!is_array($item))continue;
+                $id=(string)($item['canonical_id']??'');
+                if(!preg_match('/^AUR-P-[A-F0-9]{20}$/D',$id))continue;
+                $byId[$id]=$item;
+            }
+            unset($old,$previous);
+        }
+        foreach($newData['items'] as $item) {
+            $id=$item['canonical_id'];
+            if(isset($byId[$id])) {
+                foreach(['sector','category'] as $field) {
+                    if(($item[$field]??'')==='' &&
+                       ($byId[$id][$field]??'')!=='')
+                        $item[$field]=$byId[$id][$field];
+                }
+            }
+            $byId[$id]=$item;
+        }
+        unset($newData);
+        $count=count($byId);
+        if($count<$acceptedInput)
+            throw new RuntimeException('catalogue_merge_lost_input');
+        $normalized=json_encode(['schema'=>'aurenoeva-catalogue/1',
+             'items'=>array_values($byId),
+             'availability_notice'=>'Product identity only; no supplier stock or price is implied.'],
+             JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        unset($byId);
+        $incoming=tempnam($directory,'.catalogue-incoming-');
+        if($incoming===false)throw new RuntimeException('snapshot_temp_unavailable');
+        try {
+            if(file_put_contents($incoming,$normalized,LOCK_EX)!==strlen($normalized))
+                throw new RuntimeException('snapshot_write_failed');
+            @chmod($incoming,0600);
+            if(!rename($incoming,$target))
+                throw new RuntimeException('snapshot_replace_failed');
+            $incoming='';
+            $digest=hash('sha256',$normalized);
+            if(hash_file('sha256',$target)!==$digest)
+                throw new RuntimeException('snapshot_readback');
+            return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,
+                'accepted_input_records'=>$acceptedInput,'sha256'=>$digest,
+                'source_sha256'=>hash('sha256',$body)];
+        } finally {
+            if($incoming!=='' && is_file($incoming))@unlink($incoming);
+        }
     } finally {
-        if ($incoming !== '' && is_file($incoming)) @unlink($incoming);
+        flock($lock,LOCK_UN);
+        fclose($lock);
     }
 }
 
