@@ -437,7 +437,10 @@
       ],
       "follow_regex": "^/en/products/oscilloscopes(?:/[a-z0-9-]+){0,4}/?$",
       "max_depth": 3,
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.tek.com/en/sitemap.xml"
+      ]
     },
     {
       "id": "eaton-ups",
@@ -618,7 +621,10 @@
         "/en/product/",
         "/en/products"
       ],
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.agilent.com/sitemap.xml"
+      ]
     },
     {
       "id": "phoenix-contact-industrial",
@@ -633,12 +639,16 @@
         "https://www.phoenixcontact.com/en-pc/products/connectors",
         "https://www.phoenixcontact.com/en-pc/products/terminal-blocks",
         "https://www.phoenixcontact.com/en-pc/products/pcb-terminal-blocks-and-pcb-connectors",
-        "https://www.phoenixcontact.com/en-pc/products/plug-lp-25-5-1071716"
+        "https://www.phoenixcontact.com/en-pc/products/plug-lp-25-5-1071716",
+        "https://www.phoenixcontact.com/en-us/products/terminal-blocks"
       ],
       "follow_paths": [
         "/en-pc/products/"
       ],
-      "refresh_hours": 72
+      "refresh_hours": 72,
+      "sitemap_seeds": [
+        "https://www.phoenixcontact.com/crisp_sitemap_index.xml"
+      ]
     },
     {
       "id": "phoenix-contact-power",
@@ -704,14 +714,17 @@
       ],
       "seeds": [
         "https://www.wago.com/global/c/topjob-s",
-        "https://www.wago.com/global/rail-mount-terminal-blocks/double-deck-terminal-block/p/2002-2731"
+        "https://www.wago.com/global/rail-mount-terminal-blocks/double-deck-terminal-block/p/2002-2731",
+        "https://www.wago.com/global/c/rail-mount-terminal-blocks",
+        "https://www.wago.com/global/products/electrical-interconnections/double-deck-terminal-blocks-vertical"
       ],
       "follow_paths": [
         "/global/c/",
         "/global/rail-mount-terminal-blocks/",
         "/global/electrical-interconnections/",
         "/c/",
-        "/rail-mount-terminal-blocks/"
+        "/rail-mount-terminal-blocks/",
+        "/global/products/electrical-interconnections/"
       ],
       "follow_regex": "^/(?:global/)?[a-z0-9/-]+/p/[0-9][a-z0-9-]+/?$",
       "max_depth": 5,
@@ -738,7 +751,10 @@
       "max_depth": 5,
       "refresh_hours": 72,
       "sector": "test",
-      "category": "Signal sources / generators"
+      "category": "Signal sources / generators",
+      "sitemap_seeds": [
+        "https://www.keysight.com/aem-sitemap-index.xml"
+      ]
     }
   ]
 }
