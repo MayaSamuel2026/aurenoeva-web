@@ -24,8 +24,9 @@ RAW = f"https://raw.githubusercontent.com/{REPO}"
 APP = Path("/opt/aurenoeva")
 STATE = Path("/var/lib/aurenoeva")
 FILES = ("tools/catalogue_harvester.py", "tools/catalogue_publish.py",
-         "config/catalogue_harvester.json")
-TESTS = ("tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py")
+         "tools/catalogue_auto_update.py", "config/catalogue_harvester.json")
+TESTS = ("tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
+         "tests/test_catalogue_auto_update.py")
 SHA_PATTERN = re.compile(r"[a-f0-9]{40}\Z")
 
 
