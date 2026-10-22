@@ -540,6 +540,24 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-admin-tools>section.card{margin-top:13px}
 .aur-prepare-action{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid #e0e9e3}
 
+
+/* Short, visible sanctions/embargo gate before RFQ email release. */
+.aur-trade-review{border-color:#c7d8cc;background:#f7faf8}
+.aur-trade-review>summary{font-weight:750;font-size:15px}
+.aur-trade-content{padding:8px 2px 4px}
+.aur-trade-content>h3{font-size:17px;margin:12px 0 7px}
+.aur-trade-content p{margin:8px 0}
+.aur-source-links{display:flex;flex-wrap:wrap;gap:9px 18px;margin:14px 0}
+.aur-source-links a{font-size:12px}
+.aur-trade-reviewed,.aur-trade-hold{padding:10px 13px;border-radius:9px;margin:11px 0;font-size:13px}
+.aur-trade-reviewed{background:#e6f0e9;border:1px solid #b6d6c1}
+.aur-trade-hold{background:#fff5eb;border:1px solid #e6c7a4}
+.aur-trade-form{display:grid;gap:9px;margin-top:16px}
+.aur-trade-form>label:not(.aur-trade-field){display:flex;flex-direction:row;align-items:flex-start;gap:10px;font-size:13px;line-height:1.45;font-weight:450}
+.aur-trade-form input[type=checkbox]{flex:0 0 auto;width:17px;height:17px;margin-top:2px}
+.aur-trade-form textarea,.aur-trade-form select{width:100%;font:inherit;font-size:13px;padding:10px;border:1px solid #c5d2cd;border-radius:8px;background:#fff}
+.aur-trade-form button{justify-self:start}
+#aur-send-all-rfqs:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:700px){.card{padding:18px}.top{align-items:flex-start}input[type=file]{width:100%}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
@@ -609,8 +627,9 @@ catch(Throwable $e) {
 <nav class="aur-stepnav" aria-label="RFQ stages">
 <a href="#supplier-dashboard"><span>1</span> Select suppliers</a>
 <?php if(is_array($rfqPreview)):?><a href="#rfq-step-review"><span>2</span> Review emails</a>
-<a href="#aur-vendor-send-form"><span>3</span> Approve once</a>
-<?php else:?><a href="#supplier-history"><span>2</span> Review prepared draft</a><a href="#supplier-dashboard"><span>3</span> Approve once</a><?php endif;?>
+<a href="#trade-review"><span>3</span> Embargo screening</a>
+<a href="#aur-vendor-send-form"><span>4</span> Approve once</a>
+<?php else:?><a href="#supplier-history"><span>2</span> Open prepared draft</a><a href="#trade-review"><span>3</span> Destination screening</a><a href="#supplier-dashboard"><span>4</span> Approve once</a><?php endif;?>
 </nav>
 <p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·
 <b><?= (int)($result['line_count'] ?? 0) ?></b> entries ·
