@@ -10,6 +10,8 @@ on:
     paths:
       - '.github/workflows/publish.yml'
       - 'deployment/site/procurement/**'
+      - 'tests/test_procurement_worldwide_php.php'
+      - 'tests/test_procurement_smtp.php'
       - 'hotfix/v8.2.6.12/catalogue-sync.php'
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
       - 'hotfix/v8.2.6.11/catalogue-search.php'
