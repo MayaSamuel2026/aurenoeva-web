@@ -21,7 +21,8 @@ function aur_vendor_rfq_safe_error(Throwable $e):string {
       'destination_requires_sanctions_review','destination_changed_redraft_required',
       'commercial_draft_redraft_required','rfq_template_outdated_redraft_required',
       'rfq_smtp_not_configured','rfq_smtp_invalid_configuration',
-      'rfq_smtp_test_required','smtp_configuration_unavailable'
+      'rfq_smtp_test_required','smtp_configuration_unavailable',
+      'rfq_duplicate_risk_acknowledgement_required','rfq_recovery_not_available'
     ];
     return in_array($e->getMessage(),$allowed,true)?$e->getMessage() :
       ($e instanceof InvalidArgumentException?'invalid_supplier_selection':'private_rfq_storage_or_research_error');
@@ -438,6 +439,123 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         aur_vendor_rfq_write($path,$draft);
         return $draft;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
+/**
+ * Only the failed/unconfirmed legacy recipients, not the ten accepted ones,
+ * qualify for a single explicit recovery attempt. We retain the old result.
+ */
+function aur_vendor_rfq_recoverable_count(array $draft):int {
+    $count=0;
+    foreach(($draft['messages']??[]) as $message) {
+        if(($message['status']??'')==='TRANSPORT_FAILED_OR_UNCONFIRMED'
+            && !array_key_exists('recovery',$message))$count++;
+    }
+    return $count;
+}
+/**
+ * Owner-approved recovery of prior ambiguous attempts. This is NOT an
+ * automatic retry: a fresh human review and duplicate-risk acknowledgement
+ * are mandatory, and each historical recipient has at most ONE recovery
+ * attempt (including SMTP rejection or an interrupted HTTP request).
+ */
+function aur_vendor_rfq_recover(
+    string $store,array $case,string $draftId,
+    bool $manualComplianceReview,bool $duplicateRiskAcknowledged,
+    ?callable $sender=null,int $batchLimit=3
+):array {
+    aur_embargo_assert_dispatch_ready($case);
+    if(!$manualComplianceReview)
+        throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
+    if(!$duplicateRiskAcknowledged)
+        throw new InvalidArgumentException('rfq_duplicate_risk_acknowledgement_required');
+    if($batchLimit<1||$batchLimit>5)
+        throw new InvalidArgumentException('invalid_outbox_batch_size');
+    $path=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
+    try {
+        $draft=aur_vendor_rfq_read($store,$case,$draftId);
+        if(($draft['information_only']??false)!==true||
+           !is_array($draft['approval']??null)||
+           !in_array(($draft['status']??''),['PARTIAL_OR_FAILED','RECOVERY_DISPATCHING','RECOVERY_PARTIAL'],true))
+            throw new InvalidArgumentException('rfq_recovery_not_available');
+        $parts=explode('-',(string)$case['reference']);
+        $draftCountry=(string)($draft['destination_country']??($parts[1]??''));
+        if($draftCountry!==(string)($case['country']??''))
+            throw new InvalidArgumentException('destination_changed_redraft_required');
+        if(($draft['recovery_approval']['duplicate_risk_acknowledged']??false)===false) {
+            $draft['recovery_approval']=[
+                'approved_at'=>gmdate('c'),
+                'approved_by'=>'AUTHENTICATED_ADMIN',
+                'duplicate_risk_acknowledged'=>true,
+                'statement'=>'Prior SMTP outcomes are uncertain. A follow-up could be a duplicate. I have reviewed the destination and supplier restrictions and approve one additional attempt per failed/unconfirmed recipient.'
+            ];
+            aur_vendor_rfq_write($path,$draft);
+        }
+        if($sender===null&&aur_vendor_rfq_recoverable_count($draft)>0) {
+            aur_vendor_rfq_smtp_config();
+            if(!aur_vendor_rfq_mail_verified($store))
+                throw new RuntimeException('rfq_smtp_test_required');
+        }
+        $draft['status']='RECOVERY_DISPATCHING';
+        aur_vendor_rfq_write($path,$draft);
+        $processed=0;
+        foreach($draft['messages'] as $i=>$message) {
+            if(($message['status']??'')!=='TRANSPORT_FAILED_OR_UNCONFIRMED'
+               || array_key_exists('recovery',$message))continue;
+            if($processed>=$batchLimit)break;
+            $msgId=bin2hex(random_bytes(16)).'@aurenoeva.com';
+            // Preserve the historical result and mark in-flight BEFORE SMTP.
+            // A lost response will not cause a second email to this supplier.
+            $draft['messages'][$i]['recovery']=[
+                'attempted_at'=>gmdate('c'),
+                'status'=>'IN_FLIGHT',
+                'prior_status'=>(string)($message['status']??''),
+                'prior_attempted_at'=>$message['attempted_at']??null,
+                'prior_transport_result'=>$message['transport_result']??null,
+                'message_id'=>$msgId
+            ];
+            $draft['messages'][$i]['status']='IN_FLIGHT';
+            aur_vendor_rfq_write($path,$draft);
+            $subject='Follow-up (same enquiry) — '.(string)$message['subject'];
+            $body="DELIVERY CHECK — SAME RFQ REFERENCE, NOT A NEW REQUEST\n\n".
+                "We experienced an outbound mail problem. If you have already received this RFQ, please disregard this duplicate and respond only once. No second quotation is required.\n\n".
+                (string)$message['body'];
+            $detail=['transport'=>$sender?'TEST_INJECTED':'AUTHENTICATED_SMTP',
+                'accepted'=>false,'stage'=>'TRANSPORT_EXCEPTION','code'=>0,
+                'response'=>'transport_exception','outcome'=>'UNCERTAIN'];
+            try {
+                $detail=$sender
+                    ? ['transport'=>'TEST_INJECTED',
+                       'accepted'=>(bool)$sender($message['to'],$subject,$body),
+                       'stage'=>'INJECTED','code'=>0,'response'=>'test_sender',
+                       'outcome'=>'TEST_ONLY']
+                    : aur_vendor_rfq_send_transport_detail(
+                        (string)$message['to'],$subject,$body,$msgId);
+            } catch(Throwable $e) {
+                error_log('AURENOEVA RFQ recovery SMTP exception: '.get_class($e));
+            }
+            $ok=($detail['accepted']??false)===true;
+            $draft['messages'][$i]['recovery']['status']=$ok?'ACCEPTED_BY_MAIL_TRANSPORT':'FAILED_OR_UNCONFIRMED';
+            $draft['messages'][$i]['recovery']['finished_at']=gmdate('c');
+            $draft['messages'][$i]['recovery']['transport_result']=$detail;
+            $draft['messages'][$i]['status']=$ok
+                ?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
+            $draft['messages'][$i]['sent_at']=$ok?gmdate('c'):null;
+            $processed++;
+            aur_vendor_rfq_write($path,$draft);
+        }
+        $summary=aur_vendor_rfq_status_summary($draft);
+        $recoverable=aur_vendor_rfq_recoverable_count($draft);
+        $summary['recovery_remaining']=$recoverable;
+        $summary['processed_this_request']=$processed;
+        $draft['status']=$recoverable>0?'RECOVERY_DISPATCHING':
+            ($summary['accepted']===$summary['total']?'TRANSPORT_ACCEPTED':'RECOVERY_PARTIAL');
+        $draft['dispatch_progress']=$summary;
+        aur_vendor_rfq_write($path,$draft);
+        return $draft;
+    } finally {flock($lock,LOCK_UN);fclose($lock);}
 }
 
 /**
