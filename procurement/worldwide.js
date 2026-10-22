@@ -125,7 +125,7 @@
           ' vendor emails accepted by mail transport; ' + (p.remaining || 0) + ' pending.';
         if (result.status !== 'DISPATCHING') {
           window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
-            '&draft=' + encodeURIComponent(draftId) + '#supplier-history');
+            '&draft=' + encodeURIComponent(draftId) + '#rfq-step-review');
           return;
         }
         if (Number(p.processed_this_request || 0) === 0)
@@ -138,4 +138,22 @@
       sendButton.disabled = false;
     }
   });
+})();
+
+/* aur-reveal-workflow-anchor: simple native disclosure navigation. */
+(() => {
+  'use strict';
+  const reveal = hash => {
+    if (!hash || hash[0] !== '#') return;
+    const el = document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!el) return;
+    let d = el.matches('details') ? el : el.closest('details');
+    while (d) { d.open = true; d = d.parentElement?.closest('details') || null; }
+  };
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href^="#"]');
+    if (link) reveal(link.getAttribute('href'));
+  });
+  window.addEventListener('hashchange', () => reveal(window.location.hash));
+  reveal(window.location.hash);
 })();
