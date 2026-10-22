@@ -162,23 +162,33 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </section>
 <?php if(is_array($rfqPreview)): ?>
 <section style="padding:25px 0;border-top:1px solid #dae4e0">
-<h2>Review and send consolidated RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
-<p>Draft <?=aur_escape((string)$rfqPreview['draft_id'])?>. One consolidated email per vendor. Please review recipient, equipment and terms before dispatch.</p>
+<h2>Supplier RFQ dispatch — <?=aur_escape(aur_supplier_status_label((string)$rfqPreview['status']))?></h2>
+<p>Draft <?=aur_escape((string)$rfqPreview['draft_id'])?>. <strong>From: info@aurenoeva.com</strong>. Every supplier receives one tailored English message containing all relevant equipment. The requested response period is <strong>five working days after dispatch</strong>.</p>
+<?php if(($rfqPreview['status']??'')==='DRAFT_REVIEW'):?>
+<p class="muted">Review the complete recipients and draft emails below. Your approval releases this whole case-specific queue, without separate authorization for each supplier.</p>
+<?php else:?><p class="muted">Previously approved queue. Sending can continue without a second legal acknowledgement; the original authorization is saved with this draft.</p><?php endif;?>
 <?php foreach($rfqPreview['messages'] as $msg):?>
 <article style="border-bottom:1px solid #dae4e0;padding:16px 0">
-<h3><?=aur_escape((string)$msg['vendor_name'])?> — <?=aur_escape((string)$msg['status'])?></h3>
-<p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p><p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
+<h3><?=aur_escape((string)$msg['vendor_name'])?> — <?=aur_escape(aur_supplier_status_label((string)$msg['status']))?></h3>
+<p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p>
+<p><b>RFQ:</b> <?=aur_escape((string)($msg['rfq_reference']??'Legacy draft'))?> · <b>Equipment:</b> <?=count($msg['items']??[])?> line(s)
+<?php if(!empty($msg['response_due_on'])):?> · <b>Response due:</b> <?=aur_escape((string)$msg['response_due_on'])?><?php endif;?></p>
+<p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
 <pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:440px;overflow:auto;padding:16px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre>
 </article>
 <?php endforeach;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
+<form method="post" action="/procurement/" id="aur-vendor-send-form"
+ data-total="<?=count($rfqPreview['messages']??[])?>"
+ data-approved="<?=($rfqPreview['status']??'')==='DISPATCHING'?'1':'0'?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
-<label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed recipient identities, beneficial ownership where relevant, destination, end use, and applicable sanctions, embargoes, export controls and licensing. I authorize the listed non-binding RFQs and understand that intermediary status is not an exemption.</label>
-<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs">Send all approved supplier RFQs by email</button>
-<p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each email is recorded in the case outbox; duplicates are not resent automatically.</p>
+<?php if(($rfqPreview['status']??'')==='DRAFT_REVIEW'):?>
+<label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed all supplier recipient addresses, equipment, end use, destination, beneficial ownership where applicable, and trade-compliance requirements. I authorize one consolidated non-binding RFQ to each listed supplier, sent from info@aurenoeva.com. I understand this single approval releases the full saved queue.</label>
+<?php endif;?>
+<button name="<?=($rfqPreview['status']??'')==='DISPATCHING'?'continue_vendor_rfqs':'send_vendor_rfqs'?>" value="1" type="submit" id="aur-send-all-rfqs"><?=($rfqPreview['status']??'')==='DISPATCHING'?'Continue approved queue':'Approve once & send all supplier RFQs'?></button>
+<p role="status" id="aur-send-progress" class="muted">The complete queue will be processed automatically in bounded batches. Accepted messages are recorded under this enquiry and will not be resent automatically. A server-side scheduled worker can continue if your browser closes.</p>
 </form>
 <?php else: ?><p>Mail transport acceptance is recorded separately from confirmed delivery or a supplier reply. If a send failed, prepare a new draft after examining the recipient.</p><?php endif;?>
 </section>
