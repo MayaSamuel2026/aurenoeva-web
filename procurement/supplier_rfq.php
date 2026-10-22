@@ -236,11 +236,11 @@ function aur_vendor_rfq_smtp_ready():bool {
 }
 function aur_vendor_rfq_smtp_exchange($socket,?string $command,array $expected,string $stage):array {
     if($command!==null) {
-        $bytes=strlen($command)+2;
-        $sent=@fwrite($socket,$command."\r\n");
+        $wire=$command."\r\n";
+        $bytes=strlen($wire);
         $written=0;
         while($written<$bytes) {
-            $sent=@fwrite($socket,substr($command."\r\n",$written));
+            $sent=@fwrite($socket,substr($wire,$written));
             if($sent===false||$sent===0)
                 return ['ok'=>false,'stage'=>$stage,'code'=>0,'response'=>'socket_write_failed'];
             $written+=$sent;
@@ -258,11 +258,25 @@ function aur_vendor_rfq_smtp_exchange($socket,?string $command,array $expected,s
     return ['ok'=>in_array($code,$expected,true),'stage'=>$stage,'code'=>$code,
         'response'=>$clean!==''?$clean:'smtp_no_response'];
 }
+/**
+ * Every supplier RFQ has exactly two SMTP envelope recipients:
+ * the supplier and an invisible internal copy to info@aurenoeva.com.
+ * Self-addressed diagnostics still have just one envelope recipient.
+ */
+function aur_vendor_rfq_smtp_envelope_recipients(string $to):array {
+    if(filter_var($to,FILTER_VALIDATE_EMAIL)===false ||
+       strpbrk($to,"\r\n")!==false)throw new InvalidArgumentException('invalid_recipient');
+    $copy='info@aurenoeva.com';
+    return strcasecmp($to,$copy)===0?[$to]:[$to,$copy];
+}
+
 function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId=''):array {
     $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
-        'code'=>0,'response'=>'','outcome'=>'NOT_SENT'];
-    if(filter_var($to,FILTER_VALIDATE_EMAIL)===false||strpbrk($to,"\r\n")!==false)
-        return $base+['reason'=>'invalid_recipient'];
+        'code'=>0,'response'=>'','outcome'=>'NOT_SENT',
+        'archive_copy_address'=>'info@aurenoeva.com',
+        'archive_rcpt_accepted'=>false,'supplier_rcpt_accepted'=>false];
+    try {$recipients=aur_vendor_rfq_smtp_envelope_recipients($to);}
+    catch(InvalidArgumentException $e){$base['response']='invalid_recipient';return $base;}
     try {$cfg=aur_vendor_rfq_smtp_config();}
     catch(Throwable $e) {$base['response']=$e->getMessage();return $base;}
     if(!preg_match('/^[a-f0-9]{32}@aurenoeva\.com$/D',$messageId))
@@ -300,14 +314,26 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
             ['AUTH LOGIN',[334],'AUTH_START'],
             [base64_encode($cfg['user']),[334],'AUTH_USER'],
             [base64_encode($cfg['pass']),[235],'AUTH_PASSWORD'],
-            ['MAIL FROM:<info@aurenoeva.com>',[250],'MAIL_FROM'],
-            ['RCPT TO:<'.$to.'>',[250,251],'RCPT_TO'],
-            ['DATA',[354],'DATA']
+            ['MAIL FROM:<info@aurenoeva.com>',[250],'MAIL_FROM']
         ];
         foreach($commands as [$command,$codes,$stage]) {
             $r=aur_vendor_rfq_smtp_exchange($socket,$command,$codes,$stage);
             if(!$r['ok'])return array_merge($base,$r);
         }
+        // One SMTP DATA transaction for both envelope recipients. The
+        // copy address never appears in To/Cc/Bcc message headers.
+        // If the copy is rejected, do NOT transmit DATA to the supplier.
+        foreach($recipients as $recipient) {
+            $isCopy=strcasecmp($recipient,'info@aurenoeva.com')===0;
+            $stage=$isCopy?'RCPT_ARCHIVE':'RCPT_SUPPLIER';
+            $r=aur_vendor_rfq_smtp_exchange(
+                $socket,'RCPT TO:<'.$recipient.'>',[250,251],$stage);
+            if(!$r['ok'])return array_merge($base,$r);
+            if($isCopy)$base['archive_rcpt_accepted']=true;
+            else $base['supplier_rcpt_accepted']=true;
+        }
+        $r=aur_vendor_rfq_smtp_exchange($socket,'DATA',[354],'DATA');
+        if(!$r['ok'])return array_merge($base,$r);
         $headers=[
             'From: AURENOEVA Purchasing <info@aurenoeva.com>',
             'To: '.$to,
@@ -324,6 +350,7 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
         $r=aur_vendor_rfq_smtp_exchange($socket,$payload,[250],'DATA_ACCEPTANCE');
         $base=array_merge($base,$r);
         $base['accepted']=$r['ok'];
+        $base['archive_copy_submitted']=$r['ok'] && $base['archive_rcpt_accepted'];
         $base['outcome']=$r['ok']?'SMTP_ACCEPTED':
             ($r['code']>=400?'SMTP_REJECTED':'UNCERTAIN_AFTER_DATA');
         return $base;
