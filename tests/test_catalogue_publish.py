@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from catalogue_publish import normalized_snapshot, publish, publish_https, credentials
+from catalogue_publish import normalized_snapshot, product_batches, vendor_evidence_batches, publish, publish_https, credentials
 
 VALID = {
     "schema": "aurenoeva-catalogue/1",
@@ -117,6 +117,7 @@ class PublicationTests(unittest.TestCase):
             payload=request.data
             count=len(json.loads(payload)['items'])
             return FakeResponse({'ok':True,'status':'PUBLISHED','records':count,
+              'accepted_input_records':count,
               'source_sha256':hashlib.sha256(payload).hexdigest(),
               'sha256':'b'*64})
         with patch('catalogue_publish.urlopen', fake_open):
@@ -140,6 +141,95 @@ class PublicationTests(unittest.TestCase):
                 publish_https(self.source,self.root,
                     {'AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE':str(key)})
         self.assertFalse((self.root/'catalogue-pushed.sha256').exists())
+
+
+    def test_product_batches_keep_every_product_and_bound_payload(self):
+        doc=json.loads(self.source.read_text())
+        doc["items"]=[{**VALID["items"][0],
+             "canonical_id":"AUR-P-"+format(i,"020X"),
+             "model":"Medical model "+str(i)} for i in range(49)]
+        doc["vendor_products"]=[]
+        doc["vendor_leads"]=[]
+        self.source.write_text(json.dumps(doc))
+        output,count=normalized_snapshot(self.source)
+        batches=list(product_batches(output,max_records=7,max_bytes=2000))
+        combined=[p for b,_ in batches for p in json.loads(b)["items"]]
+        self.assertEqual(len(combined),count)
+        self.assertEqual(len({p["canonical_id"] for p in combined}),count)
+        self.assertGreater(len(batches),1)
+        self.assertTrue(all(len(b)<24000000 for b,_ in batches))
+
+    def test_combined_snapshot_larger_than_24mb_no_longer_blocks_product_export(self):
+        doc=json.loads(self.source.read_text())
+        # Real-world failure was total source size, not just product identities.
+        doc["unpublished_vendor_evidence_padding"]="x"*24500000
+        self.source.write_text(json.dumps(doc))
+        output,count=normalized_snapshot(self.source)
+        self.assertEqual(count,1)
+        self.assertLess(len(output),2000)
+        self.assertNotIn(b"unpublished_vendor_evidence_padding",output)
+
+    def test_vendor_evidence_delivered_separately_in_multiple_batches(self):
+        doc=json.loads(self.source.read_text())
+        doc["vendor_products"]=[{
+            "website":"www.mindray.com",
+            "product_id":"AUR-P-"+format(i,"020X"),
+            "source_url":f"https://www.mindray.com/product/{i}",
+            "manufacturer":"Mindray","model":"Model "+str(i),
+            "sector":"medical","category":"Equipment",
+            "evidence_type":"STRUCTURED_PRODUCT",
+            "last_seen":"2026-10-22T04:33:00Z"} for i in range(16)]
+        doc["vendor_leads"]=[{"website":"www.mindray.com",
+            "evidence_url":f"https://www.mindray.com/catalog/{i}",
+            "sector":"medical","category":"Equipment","checked":"SITE_FETCHED",
+            "email":"","phone":"","last_seen":"2026-10-22T04:33:00Z"}
+            for i in range(5)]
+        self.source.write_text(json.dumps(doc))
+        batches=list(vendor_evidence_batches(self.source,max_records=4))
+        self.assertEqual(sum(n for _,n in batches),21)
+        self.assertGreater(len(batches),1)
+        for data,n in batches:
+            parsed=json.loads(data)
+            self.assertEqual(parsed["schema"],"aurenoeva-vendor-evidence/1")
+            self.assertEqual(len(parsed["vendor_products"])+len(parsed["vendor_leads"]),n)
+
+    def test_https_push_produces_product_and_vendor_receipts(self):
+        doc=json.loads(self.source.read_text())
+        doc["vendor_products"]=[{
+            "website":"www.mindray.com",
+            "product_id":"AUR-P-"+"A"*20,
+            "source_url":"https://www.mindray.com/en/products/anesthesia/wato-ex-35",
+            "manufacturer":"Mindray","model":"WATO EX-35",
+            "sector":"medical","category":"Anesthesia",
+            "evidence_type":"STRUCTURED_PRODUCT","last_seen":"2026-10-22T04:33:00Z"}]
+        self.source.write_text(json.dumps(doc))
+        key=self.root/"catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        requests=[]
+        class Response:
+            status=200
+            def __init__(self,result):self.result=result
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,size):return json.dumps(self.result).encode()
+        def fake_open(request,timeout):
+            data=json.loads(request.data)
+            requests.append(request.full_url)
+            digest=hashlib.sha256(request.data).hexdigest()
+            if "?mode=vendors" in request.full_url:
+                self.assertEqual(data["schema"],"aurenoeva-vendor-evidence/1")
+                return Response({"ok":True,"status":"MERGED","source_sha256":digest})
+            return Response({"ok":True,"status":"PUBLISHED","records":1,
+                  "accepted_input_records":1,"sha256":"a"*64,
+                  "source_sha256":digest})
+        with patch("catalogue_publish.urlopen",fake_open):
+            result=publish_https(self.source,self.root,{
+               "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)})
+        self.assertEqual(result["status"],"PUBLISHED")
+        self.assertEqual(result["vendor_evidence_records"],1)
+        self.assertEqual(result["vendor_batches"],1)
+        self.assertEqual(len(requests),2)
+        self.assertTrue(requests[1].endswith("?mode=vendors"))
 
     def test_failed_upload_never_records_success_receipt(self):
         env = self.configured()
