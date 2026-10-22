@@ -100,7 +100,7 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
         $qty=$row['quantity']??null;
         $body.=($n+1).". Buyer item ".$number.($type==='ALTERNATIVE'?' (alternative)':'')."\n";
         $body.="   Description: ".$desc."\n";
-        $body.="   Requested quantity: ".($qty===null?'Not specified':(string)$qty)."\n\n";
+        $body.="   Quantity: ".($qty===null?'Not specified':(string)$qty)."\n\n";
     }
     $body.="Please provide factual supplier information only:\n";
     $body.="- Registered seller name, location, website and contact details\n";
