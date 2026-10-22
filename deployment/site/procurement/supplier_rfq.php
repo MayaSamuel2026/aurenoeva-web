@@ -104,7 +104,7 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
         $qty=$row['quantity']??null;
         $body.=($n+1).". Buyer item ".$number.($type==='ALTERNATIVE'?' (alternative option)':'')."\n";
         $body.="   Specification: ".$desc."\n";
-        $body.="   Requested quantity: ".($qty===null?'Not specified':(string)$qty)."\n\n";
+        $body.="   Quantity: ".($qty===null?'Not specified':(string)$qty)."\n\n";
     }
     $body.="PLEASE INCLUDE IN YOUR QUOTATION\n";
     $body.="1. Manufacturer, exact model/configuration and technical datasheet or product link; clearly describe any proposed substitute.\n";
