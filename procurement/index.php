@@ -357,6 +357,37 @@ if ($isAdmin) {
             }
             aur_denied(422,'RFQ dispatch not completed; check saved draft statuses before retrying');
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['recover_vendor_rfqs'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+            aur_embargo_assert_dispatch_ready($result);
+            $draftId=trim((string)($_POST['draft_id']??''));
+            $dispatch=aur_vendor_rfq_recover(
+                $aurStore,$result,$draftId,
+                ($_POST['manual_review']??'')==='1',
+                ($_POST['duplicate_risk_ack']??'')==='1'
+            );
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
+                    'progress'=>$dispatch['dispatch_progress']??null],JSON_THROW_ON_ERROR);
+                exit;
+            }
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).
+                '&draft='.rawurlencode($draftId).'#aur-rfq-approval',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA RFQ recovery: '.get_class($e).' '.
+                substr($e->getMessage(),0,120));
+            if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
+                http_response_code(422);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok'=>false,'error'=>aur_vendor_rfq_safe_error($e)]);
+                exit;
+            }
+            aur_denied(422,'RFQ recovery stopped; reload saved draft to review recipient history');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['discover_suppliers'])) {
         try {
             $caseRef=trim((string)($_POST['case_ref']??''));
