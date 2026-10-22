@@ -1,5 +1,12 @@
 name: AURENOEVA private procurement qualification
 on:
+  pull_request:
+    paths:
+      - 'deployment/site/procurement/**'
+      - 'tests/test_procurement_worldwide_php.php'
+      - 'tests/test_procurement_country_preflight.php'
+      - 'tests/test_procurement_country_preflight.php'
+      - '.github/workflows/procurement-private-qualification.yml'
   push:
     branches: [main]
     paths:
@@ -57,6 +64,7 @@ jobs:
           php -l deployment/crm/aurenoeva-v1/import.php
           php -l deployment/site/procurement/index.php
           php -l deployment/site/procurement/private_cases.php
+          php -l deployment/site/procurement/embargo_screen.php
           php -l deployment/site/procurement/supplier_intelligence.php
           php -l deployment/site/procurement/supplier_discovery.php
           php -l deployment/site/procurement/supplier_routes.php
@@ -69,6 +77,7 @@ jobs:
           php -l deployment/site/procurement/activate.php
           php tests/test_procurement_hostinger_php.php
           php tests/test_procurement_worldwide_php.php
+          php tests/test_procurement_country_preflight.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
           php -l hotfix/v8.2.6.11/catalogue-search.php
           php -l hotfix/v8.2.6.12/catalogue-sync.php
