@@ -159,7 +159,7 @@ try{
  require dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php';
  $page=(string)ob_get_clean();
  verify(str_contains($page,'Run worldwide discovery'),'supplier workspace must link to permanent search');
- verify(str_contains($page,'Prepare consolidated RFQs for selected suppliers'),'RFQ selection action missing');
+ verify(str_contains($page,'Prepare consolidated availability enquiries'),'RFQ selection action missing');
  verify(str_contains($page,'Mindray WATO EX-35'),'source equipment absent from render');
 
  // Regression: original 44-line case always takes priority over utility cards.
