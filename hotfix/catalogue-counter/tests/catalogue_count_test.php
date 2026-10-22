@@ -17,7 +17,8 @@ try {
     $json = json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$rows],
         JSON_THROW_ON_ERROR);
     file_put_contents($path,$json);
-    if (aur_catalogue_count_file($path) !== 2) throw new RuntimeException('first count');
+    $first = aur_catalogue_count_file($path);
+    if ($first !== 2) throw new RuntimeException('first count actual='.var_export($first,true).' header='.substr($json,0,120));
     if (aur_catalogue_count_file($path) !== 2) throw new RuntimeException('cached count');
     $rows[] = ['canonical_id'=>'AUR-P-'.str_repeat('3',20),'manufacturer'=>'Fixture',
         'model'=>'MODEL-3','source_ref'=>'https://example.org/3'];
