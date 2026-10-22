@@ -187,8 +187,17 @@ function aur_vendor_rfq_read(string $store,array $case,string $id):array {
  */
 function aur_vendor_rfq_smtp_config():array {
     $host=trim((string)(getenv('AURENOEVA_SMTP_HOST')?:'smtp.hostinger.com'));
-    $user=trim((string)(getenv('AURENOEVA_SMTP_USER')?:''));
+    $user=trim((string)(getenv('AURENOEVA_SMTP_USER')?:'info@aurenoeva.com'));
     $pass=(string)(getenv('AURENOEVA_SMTP_PASSWORD')?:'');
+    if($pass===''&&function_exists('aur_store_root')&&function_exists('aur_private_directory')) {
+        // Private hosting directory (outside public_html), never in source code.
+        $secret=aur_private_directory(aur_store_root(),'supplier-rfqs').'/smtp-credential.json';
+        if(is_file($secret)&&!is_link($secret)) {
+            $saved=json_decode((string)file_get_contents($secret),true);
+            if(is_array($saved)&&($saved['mailbox']??'')==='info@aurenoeva.com')
+                $pass=(string)($saved['password']??'');
+        }
+    }
     $port=(int)(getenv('AURENOEVA_SMTP_PORT')?:465);
     $security=strtolower(trim((string)(getenv('AURENOEVA_SMTP_SECURITY')?:($port===465?'ssl':'tls'))));
     if($user!=='info@aurenoeva.com'||$pass===''||$host==='')
@@ -197,6 +206,27 @@ function aur_vendor_rfq_smtp_config():array {
        !(($port===465&&$security==='ssl')||($port===587&&$security==='tls')))
         throw new RuntimeException('rfq_smtp_invalid_configuration');
     return ['host'=>$host,'user'=>$user,'pass'=>$pass,'port'=>$port,'security'=>$security];
+}
+/**
+ * One-time authenticated admin mailbox setup. The SMTP password is entered
+ * directly into the website, never passed through chat or committed to GitHub.
+ */
+function aur_vendor_rfq_store_smtp_password(string $store,string $password):void {
+    if($password===''||strlen($password)>512||strpbrk($password,"\r\n")!==false)
+        throw new InvalidArgumentException('invalid_smtp_password');
+    $dir=aur_private_directory($store,'supplier-rfqs');
+    $file=$dir.'/smtp-credential.json';
+    if(is_link($file))throw new RuntimeException('smtp_configuration_unavailable');
+    $payload=json_encode(['mailbox'=>'info@aurenoeva.com','password'=>$password],
+        JSON_THROW_ON_ERROR);
+    $tmp=$dir.'/.smtp-'.bin2hex(random_bytes(12));
+    if(file_put_contents($tmp,$payload,LOCK_EX)!==strlen($payload))
+        throw new RuntimeException('smtp_configuration_unavailable');
+    chmod($tmp,0600);
+    if(!rename($tmp,$file)) {
+        @unlink($tmp);
+        throw new RuntimeException('smtp_configuration_unavailable');
+    }
 }
 function aur_vendor_rfq_smtp_ready():bool {
     try {aur_vendor_rfq_smtp_config();return true;}
