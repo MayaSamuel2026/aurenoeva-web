@@ -27,6 +27,7 @@ require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
+require_once __DIR__ . '/supplier_case_report.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -109,6 +110,29 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
     header('Content-Length: '.strlen($body));
     echo $body;
     exit;
+}
+// Private, authenticated, case-owned customer report. Never publicly expose case files.
+if ($isAdmin && $_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['customer_report'])) {
+    try {
+        $ref=trim((string)$_GET['customer_report']);
+        $case=aur_case_read($aurStore,$ref);
+        try{$intel=aur_supplier_save($aurStore,$case);}
+        catch(Throwable $e) {
+            $intel=aur_supplier_read($aurStore,$ref,(string)$case['source_sha256']);
+            if(!is_array($intel))$intel=aur_supplier_preview($case);
+        }
+        try{$intel=aur_worldwide_attach_master($aurStore,$intel);}catch(Throwable $e){}
+        $saved=aur_supplier_report_save($aurStore,$case,$intel);
+        $pdf=@file_get_contents($saved['path']);
+        if(!is_string($pdf)||!str_starts_with($pdf,'%PDF-'))throw new RuntimeException('customer_pdf_unavailable');
+    }catch(Throwable $e) {
+        error_log('AURENOEVA customer report: '.get_class($e));
+        aur_denied(503,'customer report temporarily unavailable; original case preserved');
+    }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="'.$ref.'-CUSTOMER-SUPPLIER-REPORT.pdf"');
+    header('Content-Length: '.strlen($pdf));
+    echo $pdf; exit;
 }
 
 $result = null;
@@ -472,6 +496,7 @@ catch(Throwable $e) {
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original case RFQ draft</a>
+<a class="button" href="?customer_report=<?=rawurlencode((string)$result['reference'])?>">Download customer supplier report (PDF)</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
 <section aria-labelledby="original-equipment-heading" id="original-rfq-equipment">
