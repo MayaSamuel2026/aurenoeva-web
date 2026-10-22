@@ -169,9 +169,9 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <p><b>Step 2 of 2 · Approve dispatch.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Confirm the legal review, then the existing outbox will send in resumable batches. Each draft remains saved under the case reference <?=aur_escape((string)$result['reference'])?>.</p>
 
 <?php $pricingTemplateOutdated=(($rfqPreview['status']??'')==='DRAFT_REVIEW' &&
-    ($rfqPreview['template_version']??'')!=='pricing-rfq-v2'); ?>
+    ($rfqPreview['template_version']??'')!=='pricing-rfq-v3'); ?>
 <?php if($pricingTemplateOutdated):?>
-<p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the requested pricing and NOEVA legal signature. Please prepare a fresh consolidated RFQ above before sending.</p>
+<p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
 <?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
 <form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
