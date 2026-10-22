@@ -245,7 +245,7 @@ def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str], mode: st
             raise ConnectionError("site_connection_"+type(exc).__name__+":_"+str(exc)[:90]) from exc
         if (result.get("ok") is not True or
                 result.get("source_sha256")!=hashlib.sha256(body).hexdigest()):
-            raise ValueError("site_catalogue_batch_readback_failed")
+            raise RuntimeError("site_catalogue_batch_readback_failed")
         return result
     accepted=0
     batches=0
