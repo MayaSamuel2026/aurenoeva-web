@@ -364,7 +364,7 @@ try{
  $smoke=aur_vendor_rfq_send_smoke_test($store,
      static function($to,$subject,$body)use(&$testCalls):bool{
          $testCalls++;
-         verify($to==='fredericksamuel1965@gmail.com','dummy RFQ went to an unexpected recipient');
+         verify($to==='info@aurenoeva.com','internal SMTP test went to an unexpected recipient');
          verify(str_contains($subject,'TEST') && str_contains($body,'Quantity: 2 units')
              && str_contains($body,'Uzbekistan'),'dummy RFQ misses specification');
          return true;
