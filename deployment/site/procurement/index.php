@@ -607,7 +607,21 @@ try {
 <?php endif; ?>
 
 <section class="card">
-<h2>Email automation — dummy RFQ test</h2>
+<h2 id="aur-mail-settings">AURENOEVA supplier mailbox</h2>
+<p>Supplier enquiries must use authenticated Hostinger SMTP from <b>info@aurenoeva.com</b>. Mailbox credentials stay in the website's private hosting directory, never in the public catalogue or GitHub.</p>
+<p><b>Website SMTP configuration:</b> <?=aur_vendor_rfq_smtp_ready()?'Credentials present':'Not configured'?> · <b>Verified website test:</b> <?=aur_vendor_rfq_mail_verified($aurStore)?'PASS':'Required before supplier dispatch'?></p>
+<details><summary><?=aur_vendor_rfq_smtp_ready()?'Update mailbox SMTP password':'Connect mailbox SMTP password'?></summary>
+<form method="post" autocomplete="off">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<?php if(is_array($result)&&isset($result['reference'])):?><input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>"><?php endif;?>
+<?php if(isset($_GET['draft'])):?><input type="hidden" name="draft_id" value="<?=aur_escape((string)$_GET['draft'])?>"><?php endif;?>
+<label>SMTP password for info@aurenoeva.com
+<input type="password" name="smtp_password" autocomplete="new-password" required maxlength="512" style="display:block;max-width:370px;margin:8px 0"></label>
+<p class="muted">Enter the mailbox SMTP password directly here; do not send it in chat. The current password is never displayed.</p>
+<button type="submit" name="configure_rfq_smtp" value="1">Save mailbox connection</button>
+</form>
+</details>
+<h3>Email automation — internal RFQ test</h3>
 <p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to the <b>same AURENOEVA inbox</b> via authenticated SMTP. This does not contact suppliers or change enquiries. Supplier sending remains locked until the website test succeeds.</p>
 <form method="post">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
