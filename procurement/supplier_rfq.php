@@ -255,7 +255,6 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             $draft['messages'][$i]['status']='IN_FLIGHT';
             $sentAt=gmdate('c');
             $draft['messages'][$i]['attempted_at']=$sentAt;
-            $draft['messages'][$i]['response_due_on']=aur_vendor_rfq_due_date($sentAt);
             aur_vendor_rfq_write($path,$draft);
             $ok=false;
             try {
@@ -263,7 +262,8 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
                             : aur_vendor_rfq_send_transport($message['to'],$message['subject'],$message['body']);
             } catch(Throwable $e) {$ok=false;}
             $draft['messages'][$i]['status']=$ok?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
-            $draft['messages'][$i]['sent_at']=$ok?gmdate('c'):null;
+            $draft['messages'][$i]['sent_at']=$ok?$sentAt:null;
+            $draft['messages'][$i]['response_due_on']=$ok?aur_vendor_rfq_due_date($sentAt):null;
             $sentThisRequest++;
             aur_vendor_rfq_write($path,$draft);
         }
