@@ -149,3 +149,32 @@ are NOT proof that the Hostinger VPS harvester ran. Only service journal entries
 growing SQLite counters, successful authenticated vendor syncing and the live
 website readback establish the running state. Never invent product totals or
 claim stock, legally verified supply or completed RFQs from catalogue evidence.
+
+## Automatic qualified VPS updates — 22 October 2026
+
+The same existing `aurenoeva-catalogue.service` now checks for a qualified
+GitHub source revision **before each scheduled run** using
+`ExecStartPre=-+/usr/bin/python3 /opt/aurenoeva/tools/catalogue_auto_update.py`.
+No additional VPS timer, paid service, SSH endpoint, or catalogue database
+is introduced.
+
+One **one-time privileged bootstrap** is required to install this updater
+into the root-owned `/opt/aurenoeva` code directory and systemd unit.
+Run the existing `ops/activate-harvester-v4.sh` installer once after its
+GitHub qualification passes; it now installs and asserts the pre-run hook.
+Subsequently, ordinary GitHub crawler, publisher and source-configuration
+changes update unattended. They must be part of a complete successful
+`AURENOEVA private procurement qualification` workflow on the exact
+`main` commit. The VPS downloads source and offline tests pinned to that
+immutable SHA, reruns tests as the restricted `aurenoeva` user, backs up
+previous files and atomically replaces ONLY the three crawler/publisher/
+self-updater Python files and the catalogue source configuration.
+Code failures roll back and do not prevent the scheduled old-version crawl.
+SQLite products, exports, website data, RFQ cases, email and credentials
+are never replaced by this updater.
+
+Evidence: `journalctl -u aurenoeva-catalogue.service` shows
+`CATALOGUE_AUTO_UPDATE=INSTALLED sha=...`, or
+`CATALOGUE_AUTO_UPDATE=UNCHANGED` for a stable release.
+The existing timer remains 30 minutes. Changes to systemd unit semantics
+still require a privileged release; PHP website deployment remains separate.
