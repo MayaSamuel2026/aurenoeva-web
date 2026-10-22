@@ -22,6 +22,36 @@ try {
     $cfg=aur_vendor_rfq_smtp_config();
     assert_smtp($cfg['host']==='smtp.hostinger.com'&&$cfg['port']===465,'hostinger SMTP config not loaded');
     assert_smtp(aur_vendor_rfq_smtp_ready(),'configured SMTP not recognized');
+    // Exactly one supplier mail is sent to two SMTP envelope recipients:
+    // supplier + undisclosed internal archive. A self-addressed test remains
+    // one recipient. Never leak the internal copy in visible mail headers.
+    $rcpts=aur_vendor_rfq_smtp_envelope_recipients('purchasing@supplier.example');
+    assert_smtp($rcpts===['purchasing@supplier.example','info@aurenoeva.com'],
+        'supplier RFQ must have exactly one invisible internal copy');
+    assert_smtp(aur_vendor_rfq_smtp_envelope_recipients('INFO@AURENOEVA.COM')===
+        ['INFO@AURENOEVA.COM'],'internal self-test must not create duplicate recipients');
+    try {
+        aur_vendor_rfq_smtp_envelope_recipients("fraud@example.com\r\nBcc: another@example.com");
+        throw new RuntimeException('SMTP address header injection allowed');
+    } catch(InvalidArgumentException $e) {
+        assert_smtp($e->getMessage()==='invalid_recipient','invalid recipient error changed');
+    }
+    $source=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_rfq.php');
+    $smtpPart=substr($source,strpos($source,'function aur_vendor_rfq_send_transport_detail('),
+        strpos($source,'function aur_vendor_rfq_send_transport(')-
+        strpos($source,'function aur_vendor_rfq_send_transport_detail('));
+    assert_smtp(str_contains($smtpPart,'RCPT_ARCHIVE') &&
+        str_contains($smtpPart,'archive_copy_submitted') &&
+        str_contains($smtpPart,"'DATA',[354],'DATA'") &&
+        !str_contains($smtpPart,"'Bcc:") &&
+        !str_contains($smtpPart,"'Cc:"),
+        'internal copy must share original SMTP DATA and stay undisclosed to supplier');
+    $smtpExchange=substr($source,strpos($source,'function aur_vendor_rfq_smtp_exchange('),
+        strpos($source,'function aur_vendor_rfq_send_transport_detail(')-
+        strpos($source,'function aur_vendor_rfq_smtp_exchange('));
+    assert_smtp(substr_count($smtpExchange,'@fwrite(')===1,
+        'SMTP stage must write each command once (previous duplicate-write regression)');
+
     $invalid=aur_vendor_rfq_send_transport_detail("bad\nx",'test','test');
     assert_smtp($invalid['accepted']===false && $invalid['outcome']==='NOT_SENT','invalid recipient was not rejected before SMTP');
     putenv('AURENOEVA_SMTP_SECURITY=none');
