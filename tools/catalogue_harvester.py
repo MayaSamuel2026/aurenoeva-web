@@ -316,10 +316,34 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
-            rows=db.execute("""SELECT * FROM harvest_queue WHERE due<=?
-               ORDER BY CASE kind WHEN 'search' THEN 0 WHEN 'search_ddg' THEN 1
-                       WHEN 'sitemap' THEN 2 ELSE 3 END,failures,depth,due LIMIT ?""",
-                       (stamp(),left)).fetchall()
+            # Fair discovery: reserve most requests for existing product-detail
+            # leads, without starving fresh sitemaps and worldwide searches.
+            # The previous absolute search-first sort could repeatedly consume
+            # the run budget before an already-discovered product was fetched.
+            buckets=(("page", 65), ("sitemap", 20), ("search", 10),
+                     ("search_ddg", 5))
+            counts=[left*share//100 for _,share in buckets]
+            for i in range(left-sum(counts)):
+                counts[i%len(counts)]+=1
+            rows=[]
+            selected=set()
+            for (kind,_),limit in zip(buckets,counts):
+                if not limit:continue
+                found=db.execute("""SELECT * FROM harvest_queue
+                    WHERE due<=? AND kind=? ORDER BY failures,depth,due
+                    LIMIT ?""",(stamp(),kind,limit)).fetchall()
+                for record in found:
+                    if record["url"] not in selected:
+                        rows.append(record);selected.add(record["url"])
+            # Fill unused quota from any ready kind; no empty slots if a
+            # category has few pending URLs.
+            if len(rows)<left:
+                for record in db.execute("""SELECT * FROM harvest_queue
+                    WHERE due<=? ORDER BY failures,depth,due LIMIT ?""",
+                    (stamp(),left+len(rows))).fetchall():
+                    if record["url"] not in selected:
+                        rows.append(record);selected.add(record["url"])
+                        if len(rows)>=left:break
             if not rows:break
             batch=[dict(x) for x in rows]
             futures={pool.submit(fetcher,row["url"],row["kind"]):row for row in batch}
