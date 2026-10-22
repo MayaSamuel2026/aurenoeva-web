@@ -152,7 +152,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <?php foreach($approvedDrafts as $priorDraft):?>
 <tr><td><?=aur_escape($priorDraft['created_at'])?></td><td><?=(int)$priorDraft['vendors']?></td>
 <td><?=aur_escape($priorDraft['status'])?></td>
-<td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#supplier-history">Open RFQ ↗</a></td></tr>
+<td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#rfq-step-review">Open RFQ ↗</a></td></tr>
 <?php endforeach;?></tbody></table></div><?php endif;?>
 </details>
 <details id="supplier-dashboard" class="aur-disclosure aur-supplier-selection" <?=is_array($rfqPreview)?'':'open'?>>
