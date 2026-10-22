@@ -79,16 +79,17 @@ def product_batches(payload: bytes, max_records: int = 6500,
     """Bound each POST while keeping all historical products in the receiver."""
     doc = json.loads(payload)
     batch = []
+    batch_bytes = 100
     for item in doc["items"]:
-        batch.append(item)
-        # Preemptively flush to avoid web-host ingress/php memory limits.
-        candidate = json.dumps({"schema":SCHEMA,"items":batch},
-                               ensure_ascii=False,separators=(",",":")).encode("utf-8")
-        if len(batch) >= max_records or len(candidate) >= max_bytes:
-            if len(candidate)>15_000_000:
-                raise ValueError("single_product_batch_oversized")
-            yield candidate,len(batch)
+        encoded_len=len(json.dumps(item,ensure_ascii=False,separators=(",",":")).encode("utf-8"))
+        if batch and (len(batch)>=max_records or batch_bytes+encoded_len>max_bytes):
+            yield json.dumps({"schema":SCHEMA,"items":batch},
+                             ensure_ascii=False,separators=(",",":")).encode("utf-8"),len(batch)
             batch=[]
+            batch_bytes=100
+        if encoded_len+100>15_000_000:raise ValueError("single_product_oversized")
+        batch.append(item)
+        batch_bytes+=encoded_len+1
     if batch:
         yield json.dumps({"schema":SCHEMA,"items":batch},
                          ensure_ascii=False,separators=(",",":")).encode("utf-8"),len(batch)
