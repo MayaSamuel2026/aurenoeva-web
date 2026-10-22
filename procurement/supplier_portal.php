@@ -166,6 +166,7 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </section>
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
+<?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
 <section id="aur-rfq-approval" style="padding:25px 0;border-top:1px solid #dae4e0">
 <h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
 <p><b>Step 2 of 2 · Review stored dispatch outcome.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Statuses below are calculated from the saved per-recipient outbox, not browser progress. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Reload actual RFQ status ↻</a></p>
@@ -203,7 +204,36 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.</p>
 <p><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Refresh the saved recipient ledger</a> if progress stops or the page appears stale.</p>
 </form>
-<?php else: ?><p>Mail transport acceptance is recorded separately from confirmed delivery or a supplier reply. If a send failed, prepare a new draft after examining the recipient.</p><?php endif;?>
+<?php else: ?><p>Accepted messages remain recorded. The recovery controls below apply only to recipients from this original RFQ whose transport failed or was unconfirmed.</p><?php endif;?>
+<?php if($recoveryEligible>0 && in_array(($rfqPreview['status']??''),
+ ['PARTIAL_OR_FAILED','RECOVERY_DISPATCHING','RECOVERY_PARTIAL'],true)): ?>
+<section id="aur-rfq-recovery" style="padding:17px 19px;border:1px solid #b6c4bf;border-radius:10px;margin:18px 0">
+<h3>Recover <?= (int)$recoveryEligible ?> unresolved supplier enquiries</h3>
+<p>The original <?= (int)$mailLedger['accepted'] ?> accepted messages will <b>not</b> be resent. This sends one follow-up per previously failed/unconfirmed supplier, retaining the same RFQ reference and equipment lines. The introduction tells recipients to disregard it if they already received the first email.</p>
+<p role="alert"><b>Possible duplicates:</b> the old sending system did not save sufficient SMTP evidence. These <?= (int)$recoveryEligible ?> previous attempts might have reached suppliers. This controlled recovery therefore requires your explicit acknowledgement; there is no background or automatic retry.</p>
+<details><summary>See the unresolved recipients that qualify for one recovery attempt</summary>
+<div class="scroll"><table><thead><tr><th>Supplier</th><th>Email</th><th>Existing status</th></tr></thead><tbody>
+<?php foreach(($rfqPreview['messages']??[]) as $unresolved):
+  if(($unresolved['status']??'')!=='TRANSPORT_FAILED_OR_UNCONFIRMED'
+   || array_key_exists('recovery',$unresolved))continue; ?>
+<tr><td><?=aur_escape((string)($unresolved['vendor_name']??''))?></td><td><?=aur_escape((string)($unresolved['to']??''))?></td><td>Unconfirmed · one recovery available</td></tr>
+<?php endforeach;?>
+</tbody></table></div></details>
+<form method="post" action="/procurement/" id="aur-rfq-recover-form" data-total="<?=(int)$recoveryEligible?>">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
+<label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the suppliers, destination, intended use, sanctions and export-control restrictions. This is only a non-binding information enquiry.</label>
+<label style="display:block;margin:12px 0"><input type="checkbox" name="duplicate_risk_ack" value="1" required> I understand the original transport result is uncertain, and I authorize one clearly labelled follow-up to each of these unresolved suppliers, even if a duplicate is possible.</label>
+<button name="recover_vendor_rfqs" value="1" type="submit" id="aur-recover-rfqs" <?=(!aur_vendor_rfq_mail_verified($aurStore)||!empty($result['country_preflight']['enhanced_review']))?'disabled':''?>>Recover <?=(int)$recoveryEligible?> unresolved enquiries →</button>
+<?php if(!aur_vendor_rfq_mail_verified($aurStore)):?><p role="alert">Run a fresh successful internal website SMTP test in <a href="#aur-mail-settings">mailbox settings</a> to enable this action.</p><?php endif;?>
+<?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert">Sending remains on hold pending the documented destination/export-control review.</p><?php endif;?>
+<p id="aur-recover-progress" role="status" class="muted">Follow-ups will be sent in small persisted batches. Every supplier has a permanent one-attempt recovery limit.</p>
+</form>
+</section>
+<?php elseif(($rfqPreview['status']??'')==='RECOVERY_PARTIAL'):?>
+<p role="alert">The recovery attempt is complete, but some supplier transports remain uncertain. No further automatic resend is permitted; review each saved SMTP result before any manual follow-up.</p>
+<?php endif;?>
 <details id="aur-rfq-message-preview" class="aux-disclosure">
 <summary>Review <?=count($rfqPreview['messages']??[])?> individual recipient statuses and messages</summary>
 <div class="scroll"><table><thead><tr><th>Supplier</th><th>Recipient</th><th>Saved transport status</th></tr></thead><tbody>
@@ -213,7 +243,11 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <div class="muted">Transport: <?=aur_escape((string)($smtpResult['transport']??''))?> · Stage: <?=aur_escape((string)($smtpResult['stage']??''))?> · SMTP: <?= (int)($smtpResult['code']??0) ?></div>
 <div class="muted"><?=aur_escape((string)($smtpResult['response']??''))?></div>
 <?php if(!empty($smtpResult['message_id'])):?><div class="muted">Message ID: <?=aur_escape((string)$smtpResult['message_id'])?></div><?php endif;?>
-<?php else:?><div class="muted">Historical attempt · detailed SMTP evidence not recorded</div><?php endif;?></td></tr>
+<?php else:?><div class="muted">Historical attempt · detailed SMTP evidence not recorded</div><?php endif;?>
+<?php if(is_array($msg['recovery']??null)): $rec=$msg['recovery']; ?>
+<div class="muted"><b>Follow-up attempt:</b> <?=aur_escape((string)($rec['status']??''))?> · <?=aur_escape((string)($rec['attempted_at']??''))?></div>
+<div class="muted">SMTP <?= (int)($rec['transport_result']['code']??0) ?> · <?=aur_escape((string)($rec['transport_result']['response']??''))?></div>
+<?php endif;?></td></tr>
 <?php endforeach;?>
 </tbody></table></div>
 <?php foreach($rfqPreview['messages'] as $msg):?>
