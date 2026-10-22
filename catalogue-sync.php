@@ -8,6 +8,8 @@ declare(strict_types=1);
 header('Cache-Control: no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
 header('X-Content-Type-Options: nosniff');
+// Read-only version evidence for the repaired batch publisher preflight.
+header('X-Aurenoeva-Catalogue-UTF8: safe-cut-v1');
 
 /** Keep length limits in bytes without cutting through a UTF-8 code point. */
 function aur_catalogue_utf8_cut(string $value, int $maxBytes): string {
