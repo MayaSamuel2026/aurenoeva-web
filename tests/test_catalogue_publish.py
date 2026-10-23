@@ -1,6 +1,7 @@
 """Unattended private publication tests: never use network or real server credentials."""
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from catalogue_publish import normalized_snapshot, product_batches, vendor_evidence_batches, publish, publish_https, credentials
+from catalogue_publish import normalized_snapshot, product_batches, vendor_evidence_batches, publish, publish_https, credentials, make_full_database_export
 
 VALID = {
     "schema": "aurenoeva-catalogue/1",
@@ -149,6 +150,48 @@ class PublicationTests(unittest.TestCase):
                 publish_fast(self.source,self.root,{
                     "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)})
         self.assertFalse((self.root/"catalogue-products-pushed.sha256").exists())
+
+    def test_canonical_sqlite_repairs_stale_publisher_input_without_mutating_db(self):
+        db=self.root/"catalogue.sqlite3"
+        with sqlite3.connect(db) as conn:
+            conn.execute("""CREATE TABLE products (
+                product_id TEXT PRIMARY KEY, manufacturer TEXT, model TEXT,
+                description TEXT, source_url TEXT, sector TEXT,
+                category TEXT, last_seen TEXT)""")
+            for i in range(4):
+                conn.execute("INSERT INTO products VALUES(?,?,?,?,?,?,?,?)",
+                     ("AUR-P-"+format(i,"020X"),"Mindray","WATO-"+str(i),
+                      "Detail","https://example.org/p/"+str(i),
+                      "medical","Anesthesia","2026-10-23T11:00:00Z"))
+            conn.execute("INSERT INTO products VALUES(?,?,?,?,?,?,?,?)",
+                  ("AUR-P-"+"F"*20,"Mindray","Products","Generic",
+                   "https://example.org/generic","medical","Anesthesia",""))
+        self.source.write_text(json.dumps({
+            "schema":"aurenoeva-catalogue/1","items":[VALID["items"][0]]}))
+        dst=self.root/"fresh.json"
+        result=make_full_database_export(db,dst)
+        self.assertEqual(result["db_products"],5)
+        raw=json.loads(dst.read_text())
+        self.assertEqual(len(raw["items"]),5)
+        info={}
+        payload,count=normalized_snapshot(dst,info)
+        self.assertEqual(count,4)
+        pub=json.loads(payload)["public_stats"]
+        self.assertEqual(pub["db_products"],5)
+        self.assertEqual(pub["exported_products"],5)
+        self.assertEqual(pub["eligible_products"],4)
+        self.assertEqual(pub["excluded_generic"],1)
+        self.assertEqual(pub["excluded_products"],1)
+        self.assertEqual(json.loads(self.source.read_text())["items"],
+                         [VALID["items"][0]])
+        with sqlite3.connect(db) as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM products").fetchone()[0],5)
+
+    def test_canonical_sqlite_failure_never_uses_stale_export_as_success(self):
+        with self.assertRaisesRegex(RuntimeError,"canonical_catalogue_database_missing"):
+            make_full_database_export(self.root/"missing.sqlite3",
+                                      self.root/"fresh.json")
+        self.assertFalse((self.root/"fresh.json").exists())
 
     def test_reconciliation_explains_filtered_and_duplicate_records(self):
         doc=json.loads(self.source.read_text())
