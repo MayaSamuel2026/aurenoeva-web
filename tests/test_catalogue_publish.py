@@ -150,6 +150,34 @@ class PublicationTests(unittest.TestCase):
                     "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)})
         self.assertFalse((self.root/"catalogue-products-pushed.sha256").exists())
 
+    def test_reconciliation_explains_filtered_and_duplicate_records(self):
+        doc=json.loads(self.source.read_text())
+        good=dict(VALID["items"][0])
+        doc["items"]=[
+            good,
+            {**good, "canonical_id":"BAD"},
+            {**good, "canonical_id":"AUR-P-"+"A"*20, "manufacturer":""},
+            {**good, "canonical_id":"AUR-P-"+"B"*20, "model":""},
+            {**good, "canonical_id":"AUR-P-"+"C"*20, "model":"Products"},
+            {**good, "canonical_id":"AUR-P-"+"D"*20,
+             "source_ref":"http://unverified.example.net/products/1"},
+            good,
+            None,
+        ]
+        self.source.write_text(json.dumps(doc))
+        diag={}
+        payload,count=normalized_snapshot(self.source,diag)
+        self.assertEqual(count,1)
+        self.assertEqual(diag["exported_input_rows"],8)
+        self.assertEqual(diag["publishable_unique_records"],1)
+        self.assertEqual(diag["excluded_rows"],7)
+        self.assertEqual(diag["exclusion_reasons"],{
+            "non_product_record":1,"invalid_canonical_id":1,
+            "missing_manufacturer":1,"missing_model":1,
+            "generic_heading":1,"invalid_https_source":1,
+            "duplicate_canonical_id":1})
+        self.assertEqual(len(json.loads(payload)["items"]),1)
+
     def test_public_snapshot_drops_generic_and_supplier_private_fields(self):
         data, count = normalized_snapshot(self.source)
         parsed = json.loads(data)
