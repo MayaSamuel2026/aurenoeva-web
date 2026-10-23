@@ -13,7 +13,7 @@ header('X-Robots-Tag: noindex, nofollow, noarchive');
 function aur_browse_snapshot(string $path, string $sector, string $category = '', string $query = '', int $page = 0, int $limit = 12): array {
     $allowed = ['laboratory','test','medical','industrial','energy','marine','aviation'];
     if (!in_array($sector, $allowed, true)) throw new InvalidArgumentException('invalid_sector');
-    if (strlen($category) > 160 || strlen($query) > 120 || $page < 0 || $page > 200)
+    if (strlen($category) > 160 || strlen($query) > 120 || $page < 0 || $page > 100000)
         throw new InvalidArgumentException('invalid_filter');
     $limit = max(1, min(24, $limit));
     $size = @filesize($path);
@@ -28,7 +28,9 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
     $counts = [];
     $sectorTotal = 0; $matching = 0; $items = [];
     $start = $page * $limit;
-    $q = mb_strtolower(trim($query), 'UTF-8');
+    $lower = static fn(string $s): string => function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+    $clip = static fn(string $s, int $n): string => function_exists('mb_substr') ? mb_substr($s,0,$n,'UTF-8') : substr($s,0,$n);
+    $q = $lower(trim($query));
     foreach ($catalogue['items'] as $part) {
         if (!is_array($part) || ($part['sector'] ?? '') !== $sector) continue;
         $id = (string)($part['canonical_id'] ?? '');
@@ -41,14 +43,14 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
         ++$sectorTotal;
         if ($category !== '' && $category !== '__all' &&
             ($category === '__other' ? $cat !== '' : strcasecmp($cat, $category) !== 0)) continue;
-        if ($q !== '' && !str_contains(mb_strtolower($maker.' '.$model.' '.(string)($part['description'] ?? ''), 'UTF-8'), $q)) continue;
+        if ($q !== '' && !str_contains($lower($maker.' '.$model.' '.(string)($part['description'] ?? '')), $q)) continue;
         if ($matching >= $start && count($items) < $limit) {
             $source = (string)($part['source_ref'] ?? '');
             $items[] = [
                 'canonical_id' => $id,
-                'manufacturer' => mb_substr($maker, 0, 100, 'UTF-8'),
-                'model' => mb_substr($model, 0, 160, 'UTF-8'),
-                'description' => mb_substr((string)($part['description'] ?? ''), 0, 220, 'UTF-8'),
+                'manufacturer' => $clip($maker,100),
+                'model' => $clip($model,160),
+                'description' => $clip((string)($part['description'] ?? ''),220),
                 'sector' => $sector,
                 'category' => $cat,
                 'part_number' => '',
@@ -83,7 +85,7 @@ try {
     $category = trim((string)($_GET['category'] ?? ''));
     $q = trim((string)($_GET['q'] ?? ''));
     $page = filter_var($_GET['page'] ?? 0, FILTER_VALIDATE_INT);
-    if ($page === false || $page < 0 || $page > 200) throw new InvalidArgumentException('invalid_page');
+    if ($page === false || $page < 0 || $page > 100000) throw new InvalidArgumentException('invalid_page');
     $root = realpath(__DIR__);
     $privatePath = trim((string)(getenv('AURENOEVA_CATALOGUE_SNAPSHOT') ?: ''));
     if ($privatePath === '' && is_file(__DIR__ . '/procurement/private_cases.php')) {
