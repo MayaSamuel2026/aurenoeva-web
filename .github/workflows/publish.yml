@@ -16,6 +16,7 @@ on:
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
       - 'hotfix/v8.2.6.11/catalogue-search.php'
       - 'hotfix/v8.2.6.10/catalogue_local.php'
+      - 'hotfix/catalogue-browser/**'
 
 permissions:
   contents: write
@@ -323,6 +324,45 @@ jobs:
           # The English sales journey and unchanged business functions remain present.
           grep -q 'Find the right part. Even when it’s hard to source.' "$RUNNER_TEMP/source/site/index.html"
           grep -q 'function initRequirement' "$RUNNER_TEMP/source/site/assets/js/site.js" || grep -q 'const fields={mode:wizard' "$RUNNER_TEMP/source/site/assets/js/site.js"
+
+      - name: Install live catalogue browsing in sourcing Step 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp hotfix/catalogue-browser/catalogue-browse.php "$RUNNER_TEMP/source/site/catalogue-browse.php"
+          cp hotfix/catalogue-browser/catalogue-browser.js "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
+          cp hotfix/catalogue-browser/catalogue-browser.css "$RUNNER_TEMP/source/site/assets/css/catalogue-browser.css"
+          python3 - "$RUNNER_TEMP/source/site" <<'PY'
+          from pathlib import Path
+          import sys
+          site=Path(sys.argv[1])
+          script=site/'assets/js/site.js'
+          js=script.read_text(encoding='utf-8')
+          anchor="  function showMatchStatus(message,kind='neutral'){"
+          assert js.count(anchor)==1, "wizard selection integration changed"
+          handler="""  document.addEventListener('aur:add-catalogue-part', event=>{
+             const part=event.detail?.part;
+             if(!part || !part.canonical_id)return;
+             selectedParts=addSelectedPart(selectedParts,part);
+             renderSelected();
+             if(step>=3)renderBrief(step===4);
+           });
+          """
+          js=js.replace(anchor,handler+anchor,1)
+          script.write_text(js,encoding='utf-8')
+          page=site/'requirement.html'
+          html=page.read_text(encoding='utf-8')
+          assert html.count('</head>')==1 and html.count('</body>')==1
+          assert 'catalogue-browser.js' not in html
+          html=html.replace('</head>','<link rel="stylesheet" href="assets/css/catalogue-browser.css?v=1"></head>',1)
+          html=html.replace('</body>','<script defer src="assets/js/catalogue-browser.js?v=1"></script></body>',1)
+          page.write_text(html,encoding='utf-8')
+          PY
+          php hotfix/catalogue-browser/tests/catalogue_browser_test.php
+          php -l "$RUNNER_TEMP/source/site/catalogue-browse.php"
+          node --check "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
+          grep -q 'aur:add-catalogue-part' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'catalogue-browser.js?v=1' "$RUNNER_TEMP/source/site/requirement.html"
 
       - name: JavaScript syntax check
         shell: bash
