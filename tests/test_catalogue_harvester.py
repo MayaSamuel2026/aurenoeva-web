@@ -21,6 +21,21 @@ class Tests(unittest.TestCase):
         if kind=="search_ddg":return '<a href="https://www.mindray.com/en/products/anesthesia/wato-ex-35">Mindray</a>'
         if url.endswith("/wato-ex-35"):return PRODUCT
         raise TimeoutError("independent failure")
+    def test_lab_category_follows_product_evidence_not_search_phrase(self):
+        cases = [
+            ("Fritsch GmbH", "P-5 premium", "Planetary ball mill", "Sample preparation"),
+            ("YMC Europe", "YMC SEC (U)HPLC Säulen", "Separation column", "Chromatography / HPLC / GC"),
+            ("Sartorius", "Sartocheck 5 Plus", "Filter integrity testing", "General laboratory equipment"),
+            ("IKA", "INC 125 FS", "Incubation chamber", "Incubation / ovens / environmental"),
+        ]
+        for maker, model, desc, expected in cases:
+            page = "<html><title>"+desc+"</title><meta name='description' content='"+desc+"'>"
+            page += '<script type="application/ld+json">'+json.dumps({
+                "@type":"Product","brand":{"name":maker},"model":model})+"</script></html>"
+            parts,_,_=parse_page(page,"https://example.com/product/123",maker,
+                                  "laboratory","Chromatography / HPLC / GC")
+            self.assertEqual(parts[0]["category"],expected,model)
+
     def test_search_discovery_to_product_vendor_link(self):
         result=run(self.db,self.config,15,30,4,self.crawler)
         self.assertGreaterEqual(result["new_products"],1)
