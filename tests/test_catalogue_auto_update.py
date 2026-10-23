@@ -11,7 +11,7 @@ SHA="a"*40
 
 class AutomaticCatalogueUpdateTests(unittest.TestCase):
     def test_production_receipt_selects_qualified_source_without_actions_api(self):
-        receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\\n").encode()
+        receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         with patch.object(updater,"get_bytes",return_value=receipt) as read:
             with patch.object(updater,"get_json",side_effect=AssertionError("API must not be needed")):
                 self.assertEqual(updater.qualified_sha(),SHA)
