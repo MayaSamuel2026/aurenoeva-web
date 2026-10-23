@@ -15,10 +15,38 @@ header('X-Robots-Tag: noindex, nofollow, noarchive');
  * used by the crawler. Unknown categories stay unclassified rather than
  * appearing under a demonstrably unrelated technical sector.
  */
+/**
+ * Exclude unmistakable consumer/editorial noise introduced by broad web discovery.
+ * This only filters public catalogue results; the crawler's evidence is retained.
+ * General industrial suppliers, legacy parts and unfamiliar OEMs remain eligible.
+ */
+function aur_browse_relevant(array $part): bool {
+    $source = (string)($part['source_ref'] ?? '');
+    $host = strtolower((string)(parse_url($source, PHP_URL_HOST) ?: ''));
+    if (in_array($host, [
+        'de.pons.com','www.pons.com','pons.com','www.lidl.de','lidl.de',
+        'www.ep.de','ep.de','www.notebookcheck.com','notebookcheck.com',
+        'www.pcwelt.de','pcwelt.de','www.computerbild.de','computerbild.de',
+        'www.thisoldhouse.com','thisoldhouse.com'
+    ], true)) return false;
+    $sector = (string)($part['sector'] ?? '');
+    $model = (string)($part['model'] ?? '');
+    $path = strtolower((string)(parse_url($source, PHP_URL_PATH) ?: ''));
+    if ($sector === 'aviation' && preg_match('/geekom|mini[\s-]?pc|notebook/i', $model)
+        && !preg_match('/avionic|aircraft|ads[\s-]?b|transponder|flight control/i', $model))
+        return false;
+    if ($sector === 'marine' && (
+        preg_match('/\b(?:tacx|forerunner|smart garage)\b|^edge[®\s]/iu', $model)
+        || str_contains($path, '/fleet-optimisation/'))) return false;
+    if ($sector === 'test' && str_ends_with($host, 'ibm.com') &&
+        preg_match('/ns1 connect|watsonx|api connect/i', $model)) return false;
+    return true;
+}
+
 function aur_browse_category(array $part): string {
     $sector = (string)($part['sector'] ?? '');
     $cat = trim((string)($part['category'] ?? ''));
-    $allowed = [
+    static $allowed = [
         'laboratory' => ['Chromatography / HPLC / GC','Mass spectrometry','Spectroscopy',
             'Sample preparation','Balances & weighing','Incubation / ovens / environmental',
             'General laboratory equipment'],
@@ -41,6 +69,21 @@ function aur_browse_category(array $part): string {
             'Ground support / test equipment','Traceable specialist components']
     ];
     if (!isset($allowed[$sector])) return '';
+    if ($sector === 'medical') {
+        $evidence = (string)($part['model'] ?? '').' '.(string)($part['description'] ?? '').
+            ' '.(string)($part['source_ref'] ?? '');
+        if (preg_match('/intellivue|benevision|patient.monitor|vital.signs|pulse.oxim/i', $evidence))
+            return 'Patient monitoring';
+        if (preg_match('/anesth|anaesth|ventilat|\bwato\b/i', $evidence))
+            return 'Surgical / procedural';
+    }
+    if ($sector === 'test') {
+        $evidence = (string)($part['model'] ?? '').' '.(string)($part['source_ref'] ?? '');
+        if (preg_match('/multimeter|dmm7510|power.analy[sz]er/i', $evidence))
+            return 'Meters & power analyzers';
+        if (preg_match('/oscilloscop|mso[0-9]|mdo[0-9]/i', $evidence))
+            return 'Oscilloscopes';
+    }
     if ($sector !== 'laboratory') return in_array($cat, $allowed[$sector], true) ? $cat : '';
     $text = (string)($part['manufacturer'] ?? '').' '.(string)($part['model'] ?? '').
         ' '.(string)($part['description'] ?? '');
@@ -83,7 +126,7 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
     $clip = static fn(string $s, int $n): string => function_exists('mb_substr') ? mb_substr($s,0,$n,'UTF-8') : substr($s,0,$n);
     $q = $lower(trim($query));
     foreach ($catalogue['items'] as $part) {
-        if (!is_array($part) || ($part['sector'] ?? '') !== $sector) continue;
+        if (!is_array($part) || ($part['sector'] ?? '') !== $sector || !aur_browse_relevant($part)) continue;
         $id = (string)($part['canonical_id'] ?? '');
         $maker = trim((string)($part['manufacturer'] ?? ''));
         $model = trim((string)($part['model'] ?? ''));
