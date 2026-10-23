@@ -2,6 +2,25 @@
    Does not send vendor enquiries, edit credentials, or export customer data. */
 (() => {
   'use strict';
+  // The overview reads the same rendered, deduplicated supplier selection:
+  // no second query, new backend, or browser-side supplier count estimate.
+  const supplierSummary = document.getElementById('supplier-workspace');
+  const contactSummary = document.getElementById('aur-summary-contactable');
+  if (supplierSummary && contactSummary) {
+    contactSummary.textContent = supplierSummary.dataset.contactable || '0';
+  }
+  // Jump links must reveal their own native collapsible panels.
+  const openAnchorPanel = () => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    if (target.tagName === 'DETAILS') target.open = true;
+    const parent = target.closest('details');
+    if (parent) parent.open = true;
+  };
+  window.addEventListener('hashchange', openAnchorPanel);
+  openAnchorPanel();
   const button = document.getElementById('aur-worldwide-scan-all');
   if (!button) return;
   const form = document.getElementById('aur-worldwide-scan-form');

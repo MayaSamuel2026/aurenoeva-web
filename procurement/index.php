@@ -498,12 +498,24 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
             $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
         }
     }
-    if (isset($_GET['draft']) && is_string($_GET['draft'])) {
+    // Open the latest saved RFQ by default. A direct ?draft= link retains precedence.
+    // Read-only: never creates, approves or sends an enquiry.
+    $aurDraftToOpen=isset($_GET['draft']) && is_string($_GET['draft'])
+        ? (string)$_GET['draft'] : '';
+    if($aurDraftToOpen==='') {
         try {
-            $rfqPreview=aur_vendor_rfq_read($aurStore,$result,(string)$_GET['draft']);
-        } catch (Throwable $e) {
+            $aurRecentDrafts=aur_vendor_rfq_list($aurStore,$result);
+            $aurDraftToOpen=(string)($aurRecentDrafts[0]['id']??'');
+        } catch(Throwable $e) {
+            error_log('AURENOEVA latest RFQ read: '.get_class($e));
+        }
+    }
+    if($aurDraftToOpen!=='') {
+        try {
+            $rfqPreview=aur_vendor_rfq_read($aurStore,$result,$aurDraftToOpen);
+        } catch(Throwable $e) {
             error_log('AURENOEVA RFQ draft read: '.get_class($e));
-            $supplierResearchMode='The requested draft could not be opened; the underlying case remains available.';
+            $supplierResearchMode='The requested RFQ cannot be opened; the original case is preserved.';
         }
     }
 }
@@ -532,6 +544,23 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-mail-preview>summary{font-weight:600;cursor:pointer}
 #aur-prepare-rfqs,#aur-send-all-rfqs{font-size:16px;padding:15px 24px}
 #supplier-workspace .pill{margin:2px}
+.aur-guide{margin:22px 0 14px;padding:22px 24px;border:1px solid #d8e2dd;border-radius:18px;background:#fff}
+.aur-guide-head{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap}
+.aur-guide-head h2{margin:0 0 5px}.aur-guide-head p{margin:0 0 14px}
+.aur-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 0 18px}
+.aur-step{display:flex;gap:10px;align-items:center;text-decoration:none;color:#24423a;padding:12px 10px;border:1px solid #dce5e0;border-radius:10px;background:#fafcfb;min-width:0}
+.aur-step b{display:grid;place-items:center;flex:none;width:29px;height:29px;border-radius:50%;background:#e4eee8;font-size:13px}
+.aur-step span{font-size:13px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.aur-step.current{border-color:#174d40;background:#eaf3ed;box-shadow:inset 0 0 0 1px #174d40}
+.aur-step.current b{background:#174d40;color:white}.aur-step:hover{border-color:#174d40}
+.aur-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding-top:14px;border-top:1px solid #e6ece8}
+.aur-metric{display:flex;flex-direction:column;gap:2px}.aur-metric strong{font-size:25px;line-height:1.3;font-variant-numeric:tabular-nums}
+.aur-metric small{font-size:12px;color:#5c6a64}.aur-next{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px;padding:12px 15px;border-radius:9px;background:#f0f4f1}
+.aur-next p{margin:0;font-size:14px}.aur-next a{font-weight:700;text-decoration:underline}
+.aur-step-label{display:inline-block;color:#466055;font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+#aur-upload{border-color:#cadbd1}#aur-upload form{margin-top:16px}
+#destination-screen,#supplier-search-controls,#supplier-dashboard,#aur-rfq-approval,#aur-send-status{scroll-margin-top:18px}
+@media(max-width:760px){.aur-steps{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.aur-step{display:block;text-align:center;padding:10px 2px}.aur-step b{margin:0 auto 5px}.aur-step span{font-size:10px}.aur-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.aur-guide{padding:18px 14px}}
 @media(max-width:700px){.card{padding:18px}.top{align-items:flex-start}input[type=file]{width:100%}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
@@ -544,9 +573,61 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><label>Administrator password<input type="password" name="password" autocomplete="current-password" required></label>
 <p><button type="submit">Open procurement workspace</button></p></form></div>
 <?php else: ?>
-<h1>Customer enquiries</h1><p>Upload once. AURENOEVA stores one private sourcing case, preserves alternatives and prepares its legal review. No supplier RFQ is sent automatically.</p>
-<nav aria-label="Saved procurement cases" class="card" style="padding:14px 25px">
-<b>Saved customer enquiries</b>
+<h1>Procurement workspace</h1><p>One case · five clear steps · one saved record of every supplier email. Uploading or researching never sends supplier emails.</p>
+<?php
+$aurHasCase=is_array($result)&&isset($result['reference']);
+$aurHasDraft=is_array($rfqPreview);
+$aurEnhancedReview=$aurHasCase&&!empty($result['country_preflight']['enhanced_review']);
+$aurLedger=$aurHasDraft?aur_vendor_rfq_status_summary($rfqPreview):null;
+$aurProof=$aurHasDraft?aur_vendor_rfq_delivery_breakdown($rfqPreview):null;
+$aurDraftStatus=$aurHasDraft?(string)($rfqPreview['status']??''):'';
+$aurFocusStep=!$aurHasCase?1:($aurEnhancedReview?2:(!$aurHasDraft?3:($aurDraftStatus==='DRAFT_REVIEW'?4:5)));
+$aurStepLinks=[
+    ['Upload','#aur-upload'],
+    ['Screen',$aurHasCase?'#destination-screen':'#aur-upload'],
+    ['Find',$aurHasCase?'#supplier-search-controls':'#aur-upload'],
+    ['Approve',$aurHasDraft?'#aur-rfq-approval':($aurHasCase?'#supplier-dashboard':'#aur-upload')],
+    ['Send / status',$aurHasDraft?'#aur-send-status':($aurHasCase?'#supplier-dashboard':'#aur-upload')]
+];
+if(!$aurHasCase){$aurNext='Upload an enquiry';$aurNextLink='#aur-upload';}
+elseif($aurEnhancedReview){$aurNext='Review destination restrictions';$aurNextLink='#destination-screen';}
+elseif(!$aurHasDraft){$aurNext='Find suppliers and prepare enquiries';$aurNextLink='#supplier-dashboard';}
+elseif($aurDraftStatus==='DRAFT_REVIEW'){
+    $aurNext=aur_vendor_rfq_mail_verified($aurStore)?'Review and approve RFQs':'Complete internal mailbox test';
+    $aurNextLink=aur_vendor_rfq_mail_verified($aurStore)?'#aur-rfq-approval':'#aur-mail-settings';
+}else{$aurNext='Inspect saved sending status';$aurNextLink='#aur-send-status';}
+?>
+<nav id="aur-workflow" class="aur-guide" aria-label="RFQ workflow steps">
+<div class="aur-guide-head"><div><h2>Enquiry workflow</h2><p class="muted"><?= $aurHasCase?'Current case: '.aur_escape((string)$result['reference']):'Start with a customer file' ?> · Select any step to jump to its controls</p></div>
+<?php if($aurHasDraft): ?><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-send-status">Refresh actual mail status ↻</a><?php endif; ?>
+</div>
+<div class="aur-steps">
+<?php foreach($aurStepLinks as $index=>$aurStep): ?>
+<a class="aur-step <?=($index+1)===$aurFocusStep?'current':''?>" href="<?=aur_escape($aurStep[1])?>" <?=($index+1)===$aurFocusStep?'aria-current="step"':''?>><b><?=$index+1?></b><span><?=aur_escape($aurStep[0])?></span></a>
+<?php endforeach; ?>
+</div>
+<div class="aur-metrics" aria-label="Current case summary">
+<div class="aur-metric"><strong><?= $aurHasCase?(int)($result['line_count']??0):'—' ?></strong><small>Requested items</small></div>
+<div class="aur-metric"><strong id="aur-summary-contactable">—</strong><small>Suppliers with email</small></div>
+<div class="aur-metric"><strong><?= $aurHasDraft?(int)($aurLedger['total']??0):'—' ?></strong><small>RFQ recipients</small></div>
+<div class="aur-metric"><strong><?= $aurHasDraft?(int)($aurProof['smtp_250_confirmed']??0):'—' ?></strong><small>SMTP 250 confirmed</small></div>
+<div class="aur-metric"><strong><?= $aurHasDraft?(int)(($aurLedger['total']??0)-($aurLedger['accepted']??0)):'—' ?></strong><small>Not yet confirmed</small></div>
+</div>
+<div class="aur-next"><p><b>Next action:</b> <?=aur_escape($aurNext)?><?=($aurEnhancedReview?' · Supplier sending remains on hold.':'')?></p><a href="<?=aur_escape($aurNextLink)?>">Go to step →</a></div>
+<p class="muted" style="margin:10px 0 0">Mail figures come from the saved recipient ledger. SMTP acceptance confirms handoff to the mail server, not inbox delivery or a reply. The copy to info@aurenoeva.com is archived privately.</p>
+</nav>
+<section class="card" id="aur-upload"><span class="aur-step-label">Step 1 of 5 · Upload</span><h2>Import an Excel or CSV enquiry</h2><form method="post" enctype="multipart/form-data" class="inline">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<label>Initial destination country
+<select name="country" required style="padding:12px;border:1px solid #c5d2cd;border-radius:8px;max-width:250px">
+<?php foreach(aur_embargo_countries() as $code=>$name):?>
+<option value="<?=aur_escape($code)?>" <?=$code==='UZ'?'selected':''?>><?=aur_escape($name)?> (<?=aur_escape($code)?>)</option>
+<?php endforeach;?></select></label>
+<label>Customer sourcing list<input name="customer_file" type="file" accept=".xlsx,.csv" required></label>
+<button type="submit">Create procurement case</button></form>
+<p class="muted">Maximum 20 MB · Customer files and quotations stay private · Duplicate files reuse their existing case.</p></section>
+
+<details class="card aux-disclosure" id="saved-cases" <?=!$aurHasCase?'open':''?>><summary>Saved customer enquiries · open an earlier case</summary>
 <?php try { $savedCaseIndex=aur_case_list($aurStore); } catch(Throwable $e) { $savedCaseIndex=['cases'=>[]]; } ?>
 <?php if(!empty($savedCaseIndex['cases'])): ?>
 <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px">
@@ -555,7 +636,7 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <?php endforeach; ?></div>
 <?php else: ?><p class="muted">No saved enquiries available.</p><?php endif;?>
 <p class="muted">Enquiries persist independently of supplier research. Nothing is deleted when you upload another case, send a test email or run worldwide discovery.</p>
-</nav>
+</details>
 <?php
 try{$aurSupplierHistory=aur_worldwide_research_inventory($aurStore,false);}
 catch(Throwable $e) {
@@ -703,16 +784,6 @@ try {
 <?php endif;?>
 <p class="muted">A successful test is reused for 15 minutes; a failed test can be retried after correcting the configuration.</p>
 </section>
-<section class="card"><h2>Import Excel or CSV</h2><form method="post" enctype="multipart/form-data" class="inline">
-<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
-<label>Initial destination country
-<select name="country" required style="padding:12px;border:1px solid #c5d2cd;border-radius:8px;max-width:250px">
-<?php foreach(aur_embargo_countries() as $code=>$name):?>
-<option value="<?=aur_escape($code)?>" <?=$code==='UZ'?'selected':''?>><?=aur_escape($name)?> (<?=aur_escape($code)?>)</option>
-<?php endforeach;?></select></label>
-<label>Customer sourcing list<input name="customer_file" type="file" accept=".xlsx,.csv" required></label>
-<button type="submit">Create procurement case</button></form>
-<p class="muted">Maximum 20 MB · Customer files and quotations stay private · Duplicate files reuse their existing case.</p></section>
 <section class="card"><h2>Live product catalogue</h2>
 <p>Searchable products in the website's private catalogue: <strong><?= $catalogueSnapshotCount === null ? 'Not synchronized' : (int)$catalogueSnapshotCount ?></strong>.</p>
 <p class="muted">Snapshot updated: <?= aur_escape((string)($catalogueSnapshotUpdated ?? 'not yet synchronized')) ?>. Products: <?= (int)($catalogueSnapshotCount ?? 0) ?> · Manufacturers: <?= count($catalogueSnapshotManufacturers) ?>. Counts refer to searchable product identities, not stock.</p>
