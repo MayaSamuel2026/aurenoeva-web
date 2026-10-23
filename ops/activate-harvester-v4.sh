@@ -60,8 +60,7 @@ if [[ -s "$STATE/catalogue-sync-token" ]];then
   mkdir -p "/etc/systemd/system/$SERVICE.d"
   # Remove the previous '-' prefix that silently classified failed publication
   # as a successful service run. The database is already checkpointed safely.
-  printf '[Service]\\nExecStartPost=/usr/bin/python3 %s/tools/catalogue_publish.py\\n' "$APP" \\
-      > "/etc/systemd/system/$SERVICE.d/publish.conf"
+  printf '[Service]\nExecStartPost=/usr/bin/python3 %s/tools/catalogue_publish.py\n' "$APP" > "/etc/systemd/system/$SERVICE.d/publish.conf"
 fi
 # Preserve the existing timer; the one installed pre-run updater now handles
 # future qualified GitHub source changes without another root shell deployment.
