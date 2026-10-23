@@ -75,6 +75,15 @@ class PublicationTests(unittest.TestCase):
             def read(self, n): return json.dumps(self.data).encode()
         def fake_open(request, timeout):
             nonlocal digest
+            if "catalogue-count.php" in request.full_url:
+                actions.append("public_count")
+                return Response({"ok":True,"source":"published_catalogue_snapshot",
+                                 "searchable_parts":1800})
+            if "catalogue-search.php" in request.full_url:
+                actions.append("public_search")
+                item=json.loads(uploaded)["items"][-1]
+                return Response({"source":"AURENOEVA_OWNED_CATALOGUE",
+                                 "items":[item]})
             action = request.full_url.split("bulk-")[-1]
             actions.append(action)
             if action == "begin":
@@ -103,10 +112,43 @@ class PublicationTests(unittest.TestCase):
             })
         self.assertEqual(result["records"], 1800)
         self.assertEqual(actions[0], "begin")
-        self.assertEqual(actions[-1], "commit")
+        self.assertEqual(actions[-3:], ["commit", "public_count", "public_search"])
         self.assertGreater(actions.count("chunk"), 1)
         self.assertEqual((self.root/"catalogue-products-pushed.sha256")
                          .read_text().strip(), digest)
+
+    def test_fast_upload_never_records_success_without_public_readback(self):
+        from catalogue_publish import publish_fast
+        key=self.root/"catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        digest=None
+        class Response:
+            def __init__(self,record):self.record=record;self.status=200
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,n):return json.dumps(self.record).encode()
+        def fake_open(request,timeout):
+            nonlocal digest
+            if "catalogue-count.php" in request.full_url:
+                return Response({"ok":True,"source":"published_catalogue_snapshot",
+                                 "searchable_parts":999999})
+            action=request.full_url.split("bulk-")[-1]
+            if action=="begin":
+                digest=json.loads(request.data)["sha256"]
+                return Response({"ok":True,"status":"READY","offset":0,"sha256":digest})
+            if action=="chunk":
+                return Response({"ok":True,"status":"RECEIVED",
+                        "offset":len(request.data)+int(request.get_header(
+                        "X-aurenoeva-upload-offset")),"sha256":digest})
+            if action=="commit":
+                return Response({"ok":True,"status":"PUBLISHED","records":1,
+                                 "sha256":digest})
+            raise AssertionError("unexpected HTTP request")
+        with patch("catalogue_publish.urlopen",fake_open):
+            with self.assertRaisesRegex(RuntimeError,"live_website_count_readback_mismatch"):
+                publish_fast(self.source,self.root,{
+                    "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)})
+        self.assertFalse((self.root/"catalogue-products-pushed.sha256").exists())
 
     def test_public_snapshot_drops_generic_and_supplier_private_fields(self):
         data, count = normalized_snapshot(self.source)
