@@ -353,6 +353,19 @@ def seeds(db,config):
         maker=src.get("manufacturer","")
         for url in src.get("seeds",[]):enqueue(db,url,"page",sector,category,maker)
         for url in src.get("sitemap_seeds",[]):enqueue(db,url,"sitemap",sector,category,maker)
+        # Model hints are configured manufacturer part identities, not product proof.
+        # Search exact manufacturer/model pairs to discover independent suppliers;
+        # only fetched product pages can become catalogue records.
+        hints=src.get("model_hints") or {}
+        if maker and isinstance(hints,dict):
+            for model in set(hints.values()):
+                part=txt(model,100)
+                if len(part)<2 or part.casefold() in GENERIC:continue
+                query=f'"{maker}" "{part}" manufacturer product datasheet part number'
+                enqueue(db,"https://www.bing.com/search?"+urlencode({"q":query,"format":"rss"}),
+                        "search",sector,category)
+                enqueue(db,"https://lite.duckduckgo.com/lite/?"+urlencode({"q":query}),
+                        "search_ddg",sector,category)
     db.commit()
 def sitemap_urls(body):
     root=ET.fromstring(body);urls=[]
