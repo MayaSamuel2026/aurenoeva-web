@@ -55,3 +55,30 @@
 
 /* Translation runs automatically; never show the obsolete manual control. */
 #aur-translation-controls .aur-translate-button {display:none!important}
+
+/* Sourcing page: navigation stays in document flow, never obscures products
+   or appears midway through long-page captures. Homepage navigation unchanged. */
+#site-header.site-header{position:relative!important;top:auto!important;z-index:5}
+#aur-browse{position:relative;isolation:isolate;min-width:0}
+#aur-browse .aur-browse-products{align-items:stretch}
+#aur-browse .aur-browse-part{min-height:145px;gap:10px}
+#aur-browse .aur-browse-part-copy{min-width:0}
+#aur-browse .aur-browse-part-copy b{display:block;line-height:1.4;overflow-wrap:break-word;word-break:normal;hyphens:auto}
+#aur-browse .aur-browse-part-copy b .aur-browse-brand,
+#aur-browse .aur-browse-part-copy b .aur-browse-model{
+  display:inline;overflow:visible;-webkit-line-clamp:unset;
+  color:inherit;font-size:inherit;line-height:inherit;font-weight:inherit;
+  margin:0;overflow-wrap:anywhere
+}
+#aur-browse .aur-browse-part-copy>.aur-browse-description{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+  overflow:hidden;line-height:1.55;margin-top:6px;color:#657970;font-size:11px;
+  overflow-wrap:anywhere
+}
+#aur-browse .aur-browse-part .aur-browse-add{margin-top:auto}
+#aur-browse .aur-source-description{max-width:100%;min-width:0}
+#aur-browse .aur-source-description-text{overflow-wrap:anywhere}
+#aur-browse .aur-browse-refresh-note{font-size:11px;color:#35695a;margin:8px 0;line-height:1.45}
+@media(max-width:1040px){
+  #aur-browse .aur-browse-products{grid-template-columns:minmax(0,1fr)}
+}
