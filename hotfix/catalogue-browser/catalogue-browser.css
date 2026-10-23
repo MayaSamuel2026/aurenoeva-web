@@ -39,3 +39,16 @@
  .aur-browse-bar input{max-width:none}
  #aur-browse-result-count{margin-left:0}
 }
+
+/* On-device translation: explicit browser consent if a language model is not ready. */
+.aur-translation-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:-3px 0 17px}
+.aur-translate-button{font:inherit;font-size:11px;font-weight:750;padding:8px 12px;
+  color:#13483c;background:#f3f8f5;border:1px solid #bed4c7;border-radius:8px;cursor:pointer}
+.aur-translate-button:hover{background:#e6f2ec}
+.aur-translate-button[hidden]{display:none}
+.aur-translate-button:disabled{opacity:.6;cursor:progress}
+.aur-translation-status{font-size:10px;line-height:1.55;color:#61766d}
+.aur-source-description{margin-top:6px}
+.aur-source-description summary{cursor:pointer;font-size:10px;color:#35695a;line-height:1.4}
+.aur-source-description-text{white-space:pre-wrap!important;overflow:visible!important;
+ display:block!important;-webkit-line-clamp:unset!important;font-size:11px;color:#67796f;line-height:1.5}
