@@ -49,6 +49,65 @@ class PublicationTests(unittest.TestCase):
             "AURENOEVA_SFTP_KNOWN_HOSTS": str(known),
         }
 
+    def test_fast_publication_transfers_complete_snapshot_once(self):
+        from catalogue_publish import publish_fast
+        key = self.root / "catalogue-sync-token"
+        key.write_text("a"*64)
+        key.chmod(0o600)
+        # Produce more than one transport chunk, as with a growing catalogue.
+        doc = json.loads(self.source.read_text())
+        doc["items"] = [
+            {**VALID["items"][0], "canonical_id": "AUR-P-"+format(i,"020X"),
+             "model": "WATO-"+str(i),
+             "description": "P" * 360}
+            for i in range(1800)
+        ]
+        self.source.write_text(json.dumps(doc))
+        uploaded = bytearray()
+        actions = []
+        digest = None
+        class Response:
+            def __init__(self, data):
+                self.status = 200
+                self.data = data
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n): return json.dumps(self.data).encode()
+        def fake_open(request, timeout):
+            nonlocal digest
+            action = request.full_url.split("bulk-")[-1]
+            actions.append(action)
+            if action == "begin":
+                meta = json.loads(request.data)
+                digest = meta["sha256"]
+                uploaded.clear()
+                return Response({"ok": True, "status": "READY",
+                                 "offset": 0, "sha256": digest})
+            if action == "chunk":
+                offset = int(request.get_header("X-aurenoeva-upload-offset"))
+                self.assertEqual(offset, len(uploaded))
+                uploaded.extend(request.data)
+                return Response({"ok": True, "status": "RECEIVED",
+                                 "offset": len(uploaded), "sha256": digest})
+            if action == "commit":
+                meta = json.loads(request.data)
+                self.assertEqual(hashlib.sha256(uploaded).hexdigest(), digest)
+                self.assertEqual(meta["count"], 1800)
+                self.assertEqual(len(json.loads(uploaded)["items"]), 1800)
+                return Response({"ok": True, "status": "PUBLISHED",
+                                 "records": 1800, "sha256": digest})
+            self.fail("unexpected upload action")
+        with patch("catalogue_publish.urlopen", fake_open):
+            result = publish_fast(self.source, self.root, {
+                "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE": str(key)
+            })
+        self.assertEqual(result["records"], 1800)
+        self.assertEqual(actions[0], "begin")
+        self.assertEqual(actions[-1], "commit")
+        self.assertGreater(actions.count("chunk"), 1)
+        self.assertEqual((self.root/"catalogue-products-pushed.sha256")
+                         .read_text().strip(), digest)
+
     def test_public_snapshot_drops_generic_and_supplier_private_fields(self):
         data, count = normalized_snapshot(self.source)
         parsed = json.loads(data)
