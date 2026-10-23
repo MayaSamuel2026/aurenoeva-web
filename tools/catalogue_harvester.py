@@ -98,6 +98,30 @@ class Page(HTMLParser):
                 elif self.capture=="title":self.title.append(txt(v))
                 else:self.structured.append(v)
             self.capture="";self.buf=[]
+
+def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str) -> str:
+    """Evidence-first lab facet. A crawler search term is not product identity."""
+    if sector != "laboratory":
+        return category
+    text = " ".join((manufacturer, model, description)).casefold()
+    rules = (
+        ("Mass spectrometry", r"mass spectrom|massenspektrom|quadrupole mass|\bmaldi\b|\btof[\s-]?ms\b"),
+        ("Chromatography / HPLC / GC", r"chromatograph|\b(?:u?hplc|gpc|lc-ms)\b|separation column|chromatographiesäule"),
+        ("Spectroscopy", r"spectroscop|spectromet(?!ry)|\bftir\b|\braman\b|spektroskop"),
+        ("Balances & weighing", r"weigh|balance|waage|smartcheck|precision scale"),
+        ("Incubation / ovens / environmental", r"incubat|\binc\s*125\b|\boven\b|climate chamber|environmental chamber|brutschrank"),
+        ("Sample preparation", r"sample prepar|centrifug|grind|granulat|mill\b|milling|comminut|homogeni|pipett|p-[0-9]{1,2}\s+premium|fritsch.{0,80}\bp-[0-9]{1,2}\b"),
+    )
+    for proper, expression in rules:
+        if re.search(expression, text):
+            return proper
+    if category == "Chromatography / HPLC / GC":
+        return "General laboratory equipment"
+    valid = ("Mass spectrometry", "Spectroscopy", "Sample preparation",
+             "Balances & weighing", "Incubation / ovens / environmental",
+             "General laboratory equipment")
+    return category if category in valid else "General laboratory equipment"
+
 def parse_page(body,url,maker,sector,category):
     p=Page();p.feed(body);title=p.title[0] if p.title else ""
     heading=p.h1[0] if p.h1 else ""
@@ -146,9 +170,11 @@ def parse_page(body,url,maker,sector,category):
         model=txt(model,160)
         if not brand or len(model)<2 or model.casefold() in GENERIC or len(model.split())>16:continue
         if not any(c.isdigit() for c in model) and proof!="STRUCTURED_PRODUCT":continue
+        desc=txt(p.metas.get("description") or title or heading)
+        proper_category=refine_lab_category(sector,category,brand,model,desc)
         result.append({"product_id":pid(brand,model),"manufacturer":brand,"model":model,
-                       "description":txt(p.metas.get("description") or title or heading),
-                       "sector":sector,"category":category,"source_url":url,
+                       "description":desc,
+                       "sector":sector,"category":proper_category,"source_url":url,
                        "content_sha256":hashlib.sha256(body.encode()).hexdigest(),
                        "identity_evidence":proof})
     return list({x["product_id"]:x for x in result}.values()),[x[0] for x in p.links],title

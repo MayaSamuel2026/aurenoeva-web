@@ -35,6 +35,30 @@ GENERIC = {
 }
 
 
+
+def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str) -> str:
+    """Evidence-first lab facet. A crawler search term is not product identity."""
+    if sector != "laboratory":
+        return category
+    text = " ".join((manufacturer, model, description)).casefold()
+    rules = (
+        ("Mass spectrometry", r"mass spectrom|massenspektrom|quadrupole mass|\bmaldi\b|\btof[\s-]?ms\b"),
+        ("Chromatography / HPLC / GC", r"chromatograph|\b(?:u?hplc|gpc|lc-ms)\b|separation column|chromatographiesäule"),
+        ("Spectroscopy", r"spectroscop|spectromet(?!ry)|\bftir\b|\braman\b|spektroskop"),
+        ("Balances & weighing", r"weigh|balance|waage|smartcheck|precision scale"),
+        ("Incubation / ovens / environmental", r"incubat|\binc\s*125\b|\boven\b|climate chamber|environmental chamber|brutschrank"),
+        ("Sample preparation", r"sample prepar|centrifug|grind|granulat|mill\b|milling|comminut|homogeni|pipett|p-[0-9]{1,2}\s+premium|fritsch.{0,80}\bp-[0-9]{1,2}\b"),
+    )
+    for proper, expression in rules:
+        if re.search(expression, text):
+            return proper
+    if category == "Chromatography / HPLC / GC":
+        return "General laboratory equipment"
+    valid = ("Mass spectrometry", "Spectroscopy", "Sample preparation",
+             "Balances & weighing", "Incubation / ovens / environmental",
+             "General laboratory equipment")
+    return category if category in valid else "General laboratory equipment"
+
 def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[bytes, int]:
     """Produce publishable, source-backed identities and aggregate exclusions."""
     if not path.is_file() or path.stat().st_size > 512_000_000:
@@ -83,7 +107,9 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
             "model": model,
             "sector": str(value.get("sector", "")) if str(value.get("sector", "")) in (
                 "laboratory", "test", "medical", "industrial", "energy", "marine", "aviation") else "",
-            "category": str(value.get("category", ""))[:160],
+            "category": refine_lab_category(
+                str(value.get("sector", "")), str(value.get("category", ""))[:160],
+                maker, model, str(value.get("description", ""))[:240]),
             "description": str(value.get("description", ""))[:240],
             "source_ref": source,
             "lifecycle_status": "UNVERIFIED",
