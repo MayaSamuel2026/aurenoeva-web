@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from catalogue_publish import normalized_snapshot, product_batches, vendor_evidence_batches, publish, publish_https, credentials, make_full_database_export
+from catalogue_publish import normalized_snapshot, product_batches, vendor_evidence_batches, publish, publish_https, credentials, make_full_database_export, technical_product_relevance
 
 VALID = {
     "schema": "aurenoeva-catalogue/1",
@@ -49,6 +49,18 @@ class PublicationTests(unittest.TestCase):
             "AURENOEVA_SFTP_KEY": str(key),
             "AURENOEVA_SFTP_KNOWN_HOSTS": str(known),
         }
+
+    def test_nontechnical_consumer_records_do_not_enter_public_snapshot(self):
+        book=dict(VALID["items"][0],canonical_id="AUR-P-"+"D"*20,
+                  manufacturer="PONS",model="978-3-12-562482-5",
+                  sector="laboratory",category="Sample preparation",
+                  source_ref="https://de.pons.com/shop/deutsch/grammatik/book")
+        self.source.write_text(json.dumps({"schema":VALID["schema"],
+                                           "items":[VALID["items"][0],book]}))
+        raw,count=normalized_snapshot(self.source)
+        result=json.loads(raw)
+        self.assertEqual(count,1)
+        self.assertEqual(len(result["items"]),1)
 
     def test_publisher_repairs_legacy_lab_search_categories(self):
         original = dict(VALID["items"][0])
