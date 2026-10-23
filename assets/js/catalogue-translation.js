@@ -142,6 +142,31 @@
     }
     void detector().then(()=>render()).catch(()=>unavailable('permission'));
   }
+  async function translateEmbeddedScripts(text,target) {
+    // Source catalogues often mix English specifications with Japanese,
+    // Chinese or Korean fragments. Whole-text detection calls that English,
+    // leaving the foreign phrase untranslated. Convert only foreign runs.
+    const pattern=/[\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7a3][\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7a3\\d\\s()（）,，.:/-]{0,85}/g;
+    const runs=[...text.matchAll(pattern)].slice(0,8);
+    let result=text;
+    let translatedAny=false;
+    for(const match of runs){
+      const fragment=match[0].trim();
+      if(fragment.length<2)continue;
+      const source=/[\\u3040-\\u30ff]/.test(fragment)?'ja':
+        /[\\uac00-\\ud7a3]/.test(fragment)?'ko':'zh';
+      try{
+        const translator=await getTranslator(source,target);
+        const replacement=(await translator.translate(fragment)).trim();
+        if(replacement&&replacement!==fragment){
+          result=result.replace(fragment,replacement);
+          translatedAny=true;
+        }
+      }catch(_e){/* preserve the exact original when this pair is unavailable */}
+    }
+    return translatedAny?result:text;
+  }
+
   async function convert(el,run){
     const raw=original(el), target=targetLanguage();
     if(!raw || raw.length<9 || raw.length>1600)return;
@@ -163,9 +188,14 @@
       const languages=await d.detect(raw);
       const top=languages?.[0];
       const source=String(top?.detectedLanguage||'').split('-')[0].toLowerCase();
-      if(!source || source==='und' || (top.confidence||0)<0.45 || source===target)return;
-      const engine=await getTranslator(source,target);
-      const translated=(await engine.translate(raw)).trim();
+      if(!source || source==='und' || (top.confidence||0)<0.45)return;
+      let translated=raw;
+      if(source===target){
+        translated=await translateEmbeddedScripts(raw,target);
+      }else{
+        const engine=await getTranslator(source,target);
+        translated=(await engine.translate(raw)).trim();
+      }
       if(!translated || translated===raw)return;
       cache.set(target+'\u0000'+raw,{text:translated,source});
       if(run!==refreshId || !el.isConnected || el.dataset.aurTarget!==target)return;
