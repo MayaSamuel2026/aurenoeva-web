@@ -58,10 +58,10 @@ install -m 0644 "$WORK/ops/aurenoeva-catalogue.timer" "/etc/systemd/system/$TIME
 # The already paired private HTTPS token is not rotated or exposed.
 if [[ -s "$STATE/catalogue-sync-token" ]];then
   mkdir -p "/etc/systemd/system/$SERVICE.d"
-  if [[ ! -f "/etc/systemd/system/$SERVICE.d/publish.conf" ]];then
-    printf '[Service]\nExecStartPost=-/usr/bin/python3 %s/tools/catalogue_publish.py\n' "$APP" \
+  # Remove the previous '-' prefix that silently classified failed publication
+  # as a successful service run. The database is already checkpointed safely.
+  printf '[Service]\\nExecStartPost=/usr/bin/python3 %s/tools/catalogue_publish.py\\n' "$APP" \\
       > "/etc/systemd/system/$SERVICE.d/publish.conf"
-  fi
 fi
 # Preserve the existing timer; the one installed pre-run updater now handles
 # future qualified GitHub source changes without another root shell deployment.
