@@ -338,7 +338,7 @@ jobs:
           site=Path(sys.argv[1])
           script=site/'assets/js/site.js'
           js=script.read_text(encoding='utf-8')
-          anchor="  function showMatchStatus(message,kind='neutral'){"
+          anchor=" function showMatchStatus(message,kind='neutral'){"
           assert js.count(anchor)==1, "wizard selection integration changed"
           handler="""  document.addEventListener('aur:add-catalogue-part', event=>{
              const part=event.detail?.part;
