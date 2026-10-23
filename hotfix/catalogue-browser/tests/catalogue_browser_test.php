@@ -45,6 +45,41 @@ try {
     $industrial=aur_browse_snapshot($path,'industrial');
     if($industrial['sector_total']!==1||$industrial['items'][0]['model']!=='6ES7132')
        throw new RuntimeException('sector_isolation_wrong');
+    // Regression: a broad HPLC crawler search must not classify every lab
+    // discovery as chromatography, and unrelated sectors must not show it.
+    $mixed=[
+       ['canonical_id'=>'AUR-P-'.str_repeat('1',20),'manufacturer'=>'Fritsch GmbH',
+        'model'=>'P-5 premium','description'=>'Planetary ball mill sample preparation',
+        'sector'=>'laboratory','category'=>'Chromatography / HPLC / GC'],
+       ['canonical_id'=>'AUR-P-'.str_repeat('2',20),'manufacturer'=>'YMC Europe',
+        'model'=>'YMC SEC (U)HPLC Säulen','description'=>'Separation column',
+        'sector'=>'laboratory','category'=>'Chromatography / HPLC / GC'],
+       ['canonical_id'=>'AUR-P-'.str_repeat('3',20),'manufacturer'=>'Sartorius',
+        'model'=>'Sartocheck 5 Plus','description'=>'Automated filter integrity tester',
+        'sector'=>'laboratory','category'=>'Chromatography / HPLC / GC'],
+       ['canonical_id'=>'AUR-P-'.str_repeat('4',20),'manufacturer'=>'Example',
+        'model'=>'Fake aerospace part','description'=>'Chromatography',
+        'sector'=>'aviation','category'=>'Chromatography / HPLC / GC']
+    ];
+    file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$mixed],
+        JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    $lab=aur_browse_snapshot($path,'laboratory');
+    if($lab['sector_total']!==3 || $lab['total']!==3 ||
+       $lab['items'][0]['category']!=='Sample preparation' ||
+       $lab['items'][1]['category']!=='Chromatography / HPLC / GC' ||
+       $lab['items'][2]['category']!=='General laboratory equipment')
+       throw new RuntimeException('laboratory_evidence_mapping_wrong');
+    $avi=aur_browse_snapshot($path,'aviation');
+    if($avi['sector_total']!==1 || $avi['items'][0]['category']!=='' ||
+       $avi['categories'][0]['name']!=='__other')
+       throw new RuntimeException('cross_sector_category_leaked');
+    $hplc=aur_browse_snapshot($path,'laboratory','Chromatography / HPLC / GC');
+    if($hplc['total']!==1 || $hplc['items'][0]['model']!=='YMC SEC (U)HPLC Säulen')
+       throw new RuntimeException('chromatography_false_positive');
+    // Restore full fixture for the remaining assertions.
+    file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$items],
+        JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+
     foreach($filtered['items'] as $part)if(isset($part['stock'])||isset($part['price']))
        throw new RuntimeException('unverified_stock_leaked');
     try{
