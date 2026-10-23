@@ -110,8 +110,11 @@ def technical_product_relevance(sector: str, model: str, source: str) -> bool:
         "ep.de", "www.ep.de", "notebookcheck.com", "www.notebookcheck.com",
         "pcwelt.de", "www.pcwelt.de", "computerbild.de", "www.computerbild.de",
         "thisoldhouse.com", "www.thisoldhouse.com",
+        "langenscheidt.com", "www.langenscheidt.com",
     }
     if host in nontechnical_sources:
+        return False
+    if re.search(r"\bpons\b", model, re.I) and re.match(r"^97[89][-0-9]+$", model):
         return False
     if sector == "aviation" and re.search(r"geekom|mini[\s-]?pc|notebook", model, re.I):
         if not re.search(r"avionic|aircraft|ads[\s-]?b|transponder|flight control", model, re.I):
