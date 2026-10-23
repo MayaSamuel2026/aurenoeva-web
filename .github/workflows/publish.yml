@@ -221,6 +221,7 @@ jobs:
           cp hotfix/v8.2.6.10/catalogue_local.php "$RUNNER_TEMP/source/site/catalogue_local.php"
           cp hotfix/v8.2.6.11/catalogue-search.php "$RUNNER_TEMP/source/site/catalogue-search.php"
           cp hotfix/v8.2.6.12/catalogue-sync.php "$RUNNER_TEMP/source/site/catalogue-sync.php"
+          grep -q 'atomic-snapshot-v1' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'aur_catalogue_write_snapshot' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'accepted_input_records' "$RUNNER_TEMP/source/site/catalogue-sync.php"
           grep -q 'catalogue-merge.lock' "$RUNNER_TEMP/source/site/catalogue-sync.php"
@@ -573,7 +574,16 @@ jobs:
             HEADERS=$(curl --silent --show-error --max-time 12 -D - -o /dev/null \
               -H 'Cache-Control: no-cache' \
               "https://aurenoeva.com/catalogue-sync.php?release=${GITHUB_SHA}" || true)
-            if printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-utf8: safe-cut-v1$'; then
+            if printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-bulk: atomic-snapshot-v1
+              echo "AURENOEVA_LIVE_ATOMIC_CATALOGUE_RECEIVER=PASS"
+              exit 0
+            fi
+            echo "Hostinger receiver not yet updated (check $attempt/18)"
+            sleep 5
+          done
+          echo "::error::Hostinger has not served the qualified production receiver. GitHub publication alone is not live deployment."
+          exit 1
+; then
               echo "AURENOEVA_LIVE_UTF8_RECEIVER=PASS"
               exit 0
             fi
