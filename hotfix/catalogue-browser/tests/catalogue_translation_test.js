@@ -143,6 +143,38 @@ const path = require('node:path');
   await settle();
   assert.equal(title.textContent,'Software für die Serien 4, 5 und 6');
   assert.equal(title.getAttribute('data-aur-original'),modelName);
+  // Mixed English/Japanese and English/Korean specifications retain their
+  // model numbers and translate only the embedded foreign-language phrase.
+  const mixedAttrs={};
+  const mixedText='MSO54B oscilloscope, 4 analog and 最大32(オプション) digital channels';
+  const mixedNode={
+    textContent:mixedText,dataset:{},isConnected:true,lang:'',
+    hasAttribute:key=>Object.hasOwn(mixedAttrs,key),
+    getAttribute:key=>mixedAttrs[key],
+    setAttribute:(key,val)=>{mixedAttrs[key]=val;},
+    closest:()=>null
+  };
+  const mixedDoc={
+    readyState:'complete',documentElement:{lang:'en'},
+    querySelector:()=>null,querySelectorAll:()=>[mixedNode],addEventListener:()=>{}
+  };
+  const mixedWindow={
+    LanguageDetector:{create:async()=>({
+      detect:async()=>[{detectedLanguage:'en',confidence:0.95}]
+    })},
+    Translator:{create:async({sourceLanguage,targetLanguage})=>{
+      assert.equal(sourceLanguage,'ja');
+      assert.equal(targetLanguage,'en');
+      return {translate:async()=> 'up to 32 (optional)'};
+    }}
+  };
+  vm.runInNewContext(script,{document:mixedDoc,window:mixedWindow,MutationObserver,console},
+    {filename:'catalogue-translation.js'});
+  await settle();
+  assert.match(mixedNode.textContent,/MSO54B oscilloscope, 4 analog and/);
+  assert.match(mixedNode.textContent,/up to 32 \(optional\) digital channels/);
+  assert.equal(mixedNode.getAttribute('data-aur-original'),mixedText);
+  console.log('AURENOEVA_MIXED_LANGUAGE_MODEL_CODES_PRESERVED=PASS');
   console.log('AURENOEVA_MULTILINGUAL_PRODUCT_TITLES_EN_DE=PASS');
   console.log('AURENOEVA_AUTO_TRANSLATE_AFTER_ORDINARY_GESTURE=PASS');
   console.log('AURENOEVA_TRANSLATION_EN_DE_AND_ORIGINAL_PRESERVATION=PASS');
