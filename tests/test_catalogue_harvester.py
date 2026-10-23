@@ -212,6 +212,44 @@ class Tests(unittest.TestCase):
         run(self.db,config,2,20,2,sample)
         self.assertIn("search",called)
 
+    def test_new_products_trigger_automatic_mid_run_publication(self):
+        cfg={"categories":{},"sources":[{"id":"mindray","active":True,
+            "manufacturer":"Mindray","sector":"medical",
+            "category":"Surgical / procedural",
+            "seeds":["https://www.mindray.com/en/products/anesthesia/wato-ex-35"]}]}
+        calls=[]
+        output=run(self.db,cfg,1,20,1,self.crawler,
+                   progress=lambda: calls.append("publish") or True,
+                   progress_interval=0)
+        self.assertEqual(output["new_products"],1)
+        self.assertEqual(calls,["publish"])
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],1)
+
+    def test_failed_progress_publication_keeps_database_and_crawling(self):
+        cfg={"categories":{},"sources":[{"id":"mindray","active":True,
+            "manufacturer":"Mindray","sector":"medical",
+            "category":"Surgical / procedural",
+            "seeds":["https://www.mindray.com/en/products/anesthesia/wato-ex-35"]}]}
+        def broken_publisher():
+            raise TimeoutError("site temporarily unavailable")
+        output=run(self.db,cfg,1,20,1,self.crawler,
+                   progress=broken_publisher,progress_interval=0)
+        self.assertEqual(output["processed"],1)
+        self.assertEqual(output["new_products"],1)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],1)
+
+    def test_no_new_products_skips_progress_upload(self):
+        called=[]
+        cfg={"categories":{},"sources":[{"id":"directory","active":True,
+             "manufacturer":"","sector":"industrial","category":"Electronics",
+             "seeds":["https://example.com/catalog"]}]}
+        result=run(self.db,cfg,1,20,1,
+                   lambda url,kind: "<html><h1>Catalogue</h1></html>",
+                   progress=lambda: called.append("upload") or True,
+                   progress_interval=0)
+        self.assertEqual(result["new_products"],0)
+        self.assertEqual(called,[])
+
     def test_non_product_page_not_exported(self):
         products,_,_=parse_page("<h1>Our products</h1><title>Our products</title>",
                                 "https://www.mindray.com/en/products","Mindray","medical","Imaging")
