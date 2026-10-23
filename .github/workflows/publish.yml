@@ -340,7 +340,7 @@ jobs:
           cp hotfix/catalogue-browser/catalogue-translation.js "$RUNNER_TEMP/source/site/assets/js/catalogue-translation.js"
           python3 - "$RUNNER_TEMP/source/site" <<'PY'
           from pathlib import Path
-          import sys
+          import os,sys
           site=Path(sys.argv[1])
           script=site/'assets/js/site.js'
           js=script.read_text(encoding='utf-8')
@@ -369,8 +369,9 @@ jobs:
           html=page.read_text(encoding='utf-8')
           assert html.count('</head>')==1 and html.count('</body>')==1
           assert 'catalogue-browser.js' not in html
-          html=html.replace('</head>','<link rel="stylesheet" href="assets/css/catalogue-browser.css?v=2"></head>',1)
-          html=html.replace('</body>','<script defer src="assets/js/catalogue-browser.js?v=1"></script><script defer src="assets/js/catalogue-translation.js?v=2"></script></body>',1)
+          release=os.environ['GITHUB_SHA'][:12]
+          html=html.replace('</head>',f'<link rel="stylesheet" href="assets/css/catalogue-browser.css?v={release}"></head>',1)
+          html=html.replace('</body>',f'<script defer src="assets/js/catalogue-browser.js?v={release}"></script><script defer src="assets/js/catalogue-translation.js?v={release}"></script></body>',1)
           page.write_text(html,encoding='utf-8')
           PY
           php hotfix/catalogue-browser/tests/catalogue_browser_test.php
@@ -378,9 +379,9 @@ jobs:
           node --check "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
           node --check "$RUNNER_TEMP/source/site/assets/js/catalogue-translation.js"
           node hotfix/catalogue-browser/tests/catalogue_translation_test.js
-          grep -q 'catalogue-translation.js?v=2' "$RUNNER_TEMP/source/site/requirement.html"
+          grep -Fq "catalogue-translation.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
           grep -q 'aur:add-catalogue-part' "$RUNNER_TEMP/source/site/assets/js/site.js"
-          grep -q 'catalogue-browser.js?v=1' "$RUNNER_TEMP/source/site/requirement.html"
+          grep -Fq "catalogue-browser.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
 
       - name: JavaScript syntax check
         shell: bash
