@@ -37,7 +37,7 @@
     const total=wrap.querySelector('#aur-browse-total');
     const tally=wrap.querySelector('#aur-browse-result-count');
     let selected=category.value || '__all';
-    let page=0, current=null, seq=0, timer=null;
+    let page=0, current=null, seq=0, timer=null, liveSnapshot='';
     // The sourcing wizard may apply URL/sector presets programmatically after
     // this widget starts. A programmatic select.value change fires no event.
     let observedScope=sector.value+'\u0000'+category.value;
@@ -88,8 +88,9 @@
       const results=(Array.isArray(data.items)?data.items:[]);
       const html=results.map((p,i)=>
         '<article class="aur-browse-part"><div class="aur-browse-part-copy">'+
-        '<b>'+esc([p.manufacturer,p.model].filter(Boolean).join(' · '))+'</b>'+
-        '<span>'+esc(p.description||categoryText(p.category||'__other'))+'</span></div>'+
+        '<b><span class="aur-browse-brand">'+esc(p.manufacturer||'')+' · </span>'+
+        '<span class="aur-browse-model">'+esc(p.model||'')+'</span></b>'+
+        '<span class="aur-browse-description">'+esc(p.description||categoryText(p.category||'__other'))+'</span></div>'+
         '<button type="button" class="aur-browse-add" data-index="'+i+'">'+
         esc(label('+ Add to enquiry','+ Zur Anfrage hinzufügen'))+'</button></article>'
       ).join('');
@@ -182,6 +183,35 @@
       if(!wrap.isConnected){clearInterval(scopeWatch);return;}
       syncScope();
     },350);
+    // The VPS now publishes from SQLite automatically. A user who keeps
+    // sourcing open also gets the updated snapshot without a page reload.
+    // Never interrupt typing, paging, or an open selector.
+    async function checkPublishedSnapshot(){
+      if(!wrap.isConnected || document.visibilityState==='hidden' ||
+         filter===document.activeElement || !current)return;
+      try{
+        const response=await fetch('catalogue-count.php?refresh='+Date.now(),
+          {cache:'no-store',headers:{Accept:'application/json'}});
+        if(!response.ok)return;
+        const update=await response.json();
+        if(update.ok!==true || !update.snapshot_updated_at_utc)return;
+        if(!liveSnapshot){liveSnapshot=update.snapshot_updated_at_utc;return;}
+        if(liveSnapshot!==update.snapshot_updated_at_utc){
+          liveSnapshot=update.snapshot_updated_at_utc;
+          // The newest catalogue is loaded without touching the wizard's
+          // chosen manufacturer, product IDs or RFQ selections.
+          if(page===0)load(0);
+          else status.textContent=label(
+            'New catalogue products are available. The next filter or category selection refreshes results.',
+            'Neue Katalogteile sind verfügbar. Die nächste Filter- oder Kategorieauswahl aktualisiert die Liste.');
+        }
+      }catch(_e){/* background freshness is best-effort; normal browsing continues */}
+    }
+    const snapshotWatch=setInterval(()=>{
+      if(!wrap.isConnected){clearInterval(snapshotWatch);return;}
+      void checkPublishedSnapshot();
+    },120000);
+    void checkPublishedSnapshot();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
   else start();
