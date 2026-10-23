@@ -203,6 +203,93 @@ def publish(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     return {"status": "PUBLISHED", "records": count, "sha256": digest}
 
 
+
+def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
+    """Send the full searchable catalogue once; no per-batch PHP database merges.
+
+    The existing website keeps the previous snapshot until it verifies the new
+    checksum and switches the private file atomically. Supplier stock and prices
+    are deliberately outside the product publication process.
+    """
+    token_path = Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
+                              "/var/lib/aurenoeva/catalogue-sync-token"))
+    if not token_path.is_file():
+        return {"status": "SKIPPED_UNCONFIGURED"}
+    if token_path.stat().st_mode & 0o077:
+        raise ValueError("catalogue_push_key_permissions")
+    token = token_path.read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"[a-f0-9]{64}", token):
+        raise ValueError("catalogue_push_key_invalid")
+    payload, count = normalized_snapshot(snapshot)
+    digest = hashlib.sha256(payload).hexdigest()
+    manifest = json.dumps({"sha256": digest, "bytes": len(payload),
+                           "count": count}, separators=(",", ":")).encode()
+    root = "https://aurenoeva.com/catalogue-sync.php?mode=bulk-"
+
+    def post(action: str, body: bytes, offset: int = 0) -> dict:
+        headers = {
+            "User-Agent": "AurenoevaCataloguePublisher/3.0",
+            "X-Aurenoeva-Sync-Token": token,
+            "Content-Type": "application/octet-stream" if action == "chunk"
+                            else "application/json",
+        }
+        if action == "chunk":
+            headers["X-Aurenoeva-Upload-Sha256"] = digest
+            headers["X-Aurenoeva-Upload-Offset"] = str(offset)
+        for attempt in range(3):
+            req = Request(root + action, data=body, method="POST", headers=headers)
+            try:
+                with urlopen(req, timeout=75) as response:
+                    result = json.loads(response.read(16384).decode("utf-8"))
+                if result.get("ok") is not True or result.get("sha256") != digest:
+                    raise RuntimeError("bulk_site_acknowledgement_invalid")
+                return result
+            except HTTPError as exc:
+                reason = "http_" + str(exc.code)
+                try:
+                    detail = json.loads(exc.read(2048))
+                    reason += ":" + str(detail.get("reason_code", ""))[:90]
+                except (ValueError, UnicodeError):
+                    pass
+                if exc.code in (401, 403, 404, 422):
+                    raise RuntimeError("bulk_site_rejected_" + reason) from exc
+                if attempt == 2:
+                    raise RuntimeError("bulk_site_unavailable_" + reason) from exc
+            except (URLError, OSError, HTTPException, TimeoutError) as exc:
+                if attempt == 2:
+                    raise RuntimeError("bulk_transport_failed_" + type(exc).__name__) from exc
+            time.sleep(attempt + 1)
+        raise RuntimeError("bulk_transfer_unavailable")
+
+    start = post("begin", manifest)
+    if start.get("status") != "READY" or start.get("offset") != 0:
+        raise RuntimeError("bulk_site_not_ready")
+    print(json.dumps({"event": "CATALOGUE_UPLOAD_STARTED",
+                      "records": count, "bytes": len(payload)}), flush=True)
+
+    batches = 0
+    for offset in range(0, len(payload), 512 * 1024):
+        chunk = payload[offset:offset + 512 * 1024]
+        result = post("chunk", chunk, offset=offset)
+        if result.get("status") != "RECEIVED" or result.get("offset") != offset + len(chunk):
+            raise RuntimeError("bulk_chunk_readback_failed")
+        batches += 1
+
+    finished = post("commit", manifest)
+    if finished.get("status") != "PUBLISHED" or finished.get("records") != count:
+        raise RuntimeError("bulk_published_count_mismatch")
+    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    receipt = state_dir / "catalogue-products-pushed.sha256"
+    temp = receipt.with_suffix(".new")
+    temp.write_text(digest + "\n", encoding="ascii")
+    os.replace(temp, receipt)
+    print(json.dumps({"event": "PRODUCTS_PUBLISHED", "records": count,
+                      "bytes": len(payload), "batches": batches}), flush=True)
+    return {"status": "PRODUCTS_PUBLISHED", "records": count,
+            "submitted_products": count, "product_batches": batches,
+            "sha256": digest, "vendor_pending": True}
+
+
 def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str], mode: str = "all") -> dict:
     """Publish all products, then all vendor evidence in bounded HTTPS batches.
 
@@ -389,8 +476,11 @@ def main() -> int:
                 raise RuntimeError("ANOTHER_CATALOGUE_PUBLICATION_IN_PROGRESS")
             if Path(env.get("AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE",
                          "/var/lib/aurenoeva/catalogue-sync-token")).is_file():
-                mode="products" if args.products_only else ("vendors" if args.vendors_only else "all")
-                result=publish_https(args.snapshot,args.state_dir,env,mode=mode)
+                # Catalogue publication must never wait on RFQ vendor enrichment.
+                # Vendor evidence can still be transferred separately on demand.
+                result=(publish_https(args.snapshot,args.state_dir,env,mode="vendors")
+                        if args.vendors_only
+                        else publish_fast(args.snapshot,args.state_dir,env))
             else:
                 if args.products_only or args.vendors_only:
                     raise ValueError("split_stages_require_configured_https_token")
