@@ -15,6 +15,7 @@ from http.client import RemoteDisconnected, HTTPException
 import os
 from pathlib import Path
 import re
+import sqlite3
 import subprocess
 import tempfile
 from urllib.parse import urlsplit, urlencode
@@ -103,7 +104,59 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
         "items": [records[key] for key in sorted(records)],
         "availability_notice": "Product identity only; no supplier stock or price is implied.",
     }
+    source_stats = raw.get("source_catalogue_stats")
+    if isinstance(source_stats, dict):
+        db_count = source_stats.get("db_products")
+        if type(db_count) is int and 0 < db_count <= 10_000_000:
+            # Public aggregate metadata is created from the very SQLite
+            # snapshot uploaded here. No supplier/client/customer data.
+            payload["public_stats"] = {
+                "db_products": db_count,
+                "exported_products": len(raw["items"]),
+                "eligible_products": len(records),
+                "excluded_products": len(raw["items"]) - len(records),
+                "excluded_invalid_id": reasons["invalid_canonical_id"],
+                "excluded_generic": reasons["generic_heading"],
+                "excluded_missing_maker": reasons["missing_manufacturer"],
+                "excluded_missing_model": reasons["missing_model"],
+                "excluded_source": reasons["invalid_https_source"],
+                "excluded_duplicates": reasons["duplicate_canonical_id"],
+                "excluded_nonrecord": reasons["non_product_record"],
+            }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
+
+
+def make_full_database_export(db_path: Path, dest: Path) -> dict:
+    """Read all existing SQLite product identities; never mutate the database.
+
+    The products table is authoritative. This bypasses stale or incomplete
+    sidecar exports while preserving exact historical IDs and their evidence.
+    """
+    if not db_path.is_file():
+        raise RuntimeError("canonical_catalogue_database_missing")
+    try:
+        with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True,
+                             timeout=15) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = [dict(row) for row in conn.execute(
+                """SELECT product_id AS canonical_id,manufacturer,model,description,
+                          source_url AS source_ref,sector,category,last_seen
+                   FROM products ORDER BY manufacturer,model""")]
+    except sqlite3.Error as exc:
+        raise RuntimeError("canonical_catalogue_database_unreadable") from exc
+    if not rows:
+        raise RuntimeError("canonical_catalogue_database_empty")
+    data = {"schema": SCHEMA, "items": rows,
+            "source_catalogue_stats": {"db_products": len(rows)}}
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with dest.open("w", encoding="utf-8") as fp:
+        json.dump(data, fp, ensure_ascii=False, separators=(",", ":"))
+        fp.flush()
+        os.fsync(fp.fileno())
+    os.chmod(dest, 0o600)
+    return {"db_products": len(rows), "exported_products": len(rows)}
+
+
 
 
 def product_batches(payload: bytes, max_records: int = 600,
@@ -547,9 +600,21 @@ def main() -> int:
                          "/var/lib/aurenoeva/catalogue-sync-token")).is_file():
                 # Catalogue publication must never wait on RFQ vendor enrichment.
                 # Vendor evidence can still be transferred separately on demand.
-                result=(publish_https(args.snapshot,args.state_dir,env,mode="vendors")
-                        if args.vendors_only
-                        else publish_fast(args.snapshot,args.state_dir,env))
+                if args.vendors_only:
+                    result=publish_https(args.snapshot,args.state_dir,env,mode="vendors")
+                elif args.snapshot == Path("/var/lib/aurenoeva/catalogue-public.json"):
+                    # Site publishing always reconciles directly against the
+                    # canonical SQLite DB, even if a prior JSON export stalled.
+                    with tempfile.TemporaryDirectory(prefix="catalogue-full-",
+                            dir=args.state_dir) as work:
+                        fresh=Path(work)/"products-only.json"
+                        counts=make_full_database_export(
+                            args.state_dir/"catalogue.sqlite3",fresh)
+                        print(json.dumps({"event":"CATALOGUE_CANONICAL_DB_EXPORT",
+                            **counts}),flush=True)
+                        result=publish_fast(fresh,args.state_dir,env)
+                else:
+                    result=publish_fast(args.snapshot,args.state_dir,env)
             else:
                 if args.products_only or args.vendors_only:
                     raise ValueError("split_stages_require_configured_https_token")
