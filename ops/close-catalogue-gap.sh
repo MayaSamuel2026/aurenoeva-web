@@ -28,21 +28,18 @@ PY
  { echo "CANONICAL_PRODUCTS_NOT_READABLE"; exit 3; }
 echo "CANONICAL_SQLITE_PRODUCTS=$BEFORE_COUNT"
 
-# Read last successful private qualification, never unqualified branch HEAD.
+# The existing publish workflow writes this receipt ONLY after running the
+# catalogue and PHP qualification. Fetch it from GitHub's static CDN instead
+# of the anonymous Actions API, which may be rate-limited on this VPS.
 RELEASE_SHA=$(python3 - <<'PY'
-import json,urllib.request
-req=urllib.request.Request(
- "https://api.github.com/repos/MayaSamuel2026/aurenoeva-web/actions/runs?per_page=40",
- headers={"Accept":"application/vnd.github+json",
-          "User-Agent":"AurenoevaCatalogueGapRepair/1.0"})
+import re,urllib.request
+url="https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/production/VERSION.txt"
+req=urllib.request.Request(url,headers={"User-Agent":"AurenoevaCatalogueQualifiedRelease/1.0","Cache-Control":"no-cache"})
 with urllib.request.urlopen(req,timeout=25) as resp:
- runs=json.load(resp).get("workflow_runs",[])
-for run in runs:
- if (run.get("name")=="AURENOEVA private procurement qualification"
-     and run.get("status")=="completed" and run.get("conclusion")=="success"
-     and run.get("head_branch")=="main" and run.get("event")=="push"):
-  print(run["head_sha"]);break
-else:raise SystemExit("NO_QUALIFIED_CRAWLER_RELEASE")
+ data=resp.read(512).decode("utf-8","strict")
+match=re.fullmatch(r"Aurenoeva V[^\n]+ production ([a-f0-9]{40})\s*",data)
+if not match:raise SystemExit("NO_QUALIFIED_PRODUCTION_RELEASE_RECEIPT")
+print(match.group(1))
 PY
 )
 [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "INVALID_QUALIFIED_REVISION"; exit 3; }
