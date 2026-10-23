@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-import fcntl, gzip, hashlib, html, io, ipaddress, json, os, re, socket, sqlite3, time
+import fcntl, gzip, hashlib, html, io, ipaddress, json, os, re, socket, sqlite3, subprocess, time
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, urljoin, parse_qs, unquote
@@ -290,8 +290,11 @@ def sitemap_urls(body):
     for loc in root.iter():
         if loc.tag.rsplit("}",1)[-1]=="loc" and loc.text:urls.append(loc.text.strip())
     return urls
-def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
+def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
+        progress=None,progress_interval=300):
     seeds(db,config);started=time.monotonic();seen=stamp()
+    last_progress_at=started
+    last_published_new=0
     rid=db.execute("INSERT INTO harvest_runs(started) VALUES(?)",(seen,)).lastrowid
     db.commit()
     stats={"processed":0,"new_products":0,"new_urls":0,"vendor_leads":0,"failures":0}
@@ -442,6 +445,23 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch):
             db.execute("UPDATE harvest_runs SET pages=?,products=?,vendors=?,failed=? WHERE id=?",
                        (stats["processed"],stats["new_products"],stats["vendor_leads"],stats["failures"],rid))
             db.commit()
+            # Periodic publication during a long run, without another daemon
+            # or timer. The existing end-of-run publisher remains authoritative.
+            now=time.monotonic()
+            if (progress is not None and
+                stats["new_products"]>last_published_new and
+                now-last_progress_at>=progress_interval):
+                last_progress_at=now
+                try:
+                    if progress():
+                        last_published_new=stats["new_products"]
+                        print(json.dumps({"event":"CATALOGUE_PROGRESS_SYNC",
+                            "new_products":last_published_new,
+                            "status":"PUBLISHED"}),flush=True)
+                except Exception as exc:
+                    print(json.dumps({"event":"CATALOGUE_PROGRESS_SYNC",
+                        "status":"RETRY_NEXT_CHECKPOINT",
+                        "reason":type(exc).__name__}),flush=True)
     db.execute("UPDATE harvest_runs SET finished=? WHERE id=?",(stamp(),rid));db.commit()
     return stats
 def export(db,path):
@@ -513,7 +533,27 @@ def main():
                 prior=import_existing_rfq_vendors(db)
             except Exception as e:
                 prior={"status":"TEMPORARILY_UNAVAILABLE","detail":type(e).__name__,"seeded":0}
-            result=run(db,cfg,a.max_pages,a.max_seconds,a.workers)
+            def publish_progress():
+                # Publishing is only attempted when the existing authenticated
+                # site connection is configured; never expose private contacts.
+                if not Path("/var/lib/aurenoeva/catalogue-sync-token").is_file():
+                    return False
+                export(db,a.export)
+                command=["/usr/bin/python3",
+                         str(Path(__file__).with_name("catalogue_publish.py")),
+                         "--snapshot",str(a.export),"--products-only"]
+                response=subprocess.run(command,timeout=180,capture_output=True,
+                    text=True,check=False)
+                if response.returncode:
+                    print(json.dumps({"event":"CATALOGUE_CHECKPOINT_DELIVERY",
+                         "status":"FAILED","details":response.stdout[-300:]}),
+                         flush=True)
+                    return False
+                print(json.dumps({"event":"CATALOGUE_CHECKPOINT_DELIVERY",
+                     "status":"PASS"}),flush=True)
+                return True
+            result=run(db,cfg,a.max_pages,a.max_seconds,a.workers,
+                       progress=publish_progress,progress_interval=300)
             result["rfq_reuse"]=prior
             result["export"]=export(db,a.export)
             result["total_products"]=db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
