@@ -99,6 +99,51 @@ const path = require('node:path');
   await settle();
   assert.equal(delayedDescription.textContent,english);
   assert.doesNotMatch(script, /Translate descriptions to enable|buttonText\(/);
+  // A product's descriptive model title also receives the selected language.
+  // The underlying RFQ data is independent of this visible text.
+  const titleAttrs={};
+  const modelName='Logiciels des séries 4, 5 et 6';
+  const title={
+    textContent:modelName,dataset:{},isConnected:true,lang:'',
+    classList:{contains:part=>part==='aur-browse-model'},
+    hasAttribute:key=>Object.hasOwn(titleAttrs,key),
+    getAttribute:key=>titleAttrs[key],
+    setAttribute:(key,value)=>{titleAttrs[key]=value;},
+    closest:()=>null
+  };
+  const titleEvents={};
+  const titleDoc={
+    readyState:'complete',documentElement:{lang:'en'},
+    querySelector:()=>null,
+    querySelectorAll:()=>[title],
+    addEventListener:(name,fn)=>{titleEvents[name]=fn;}
+  };
+  const titleWindow={
+    LanguageDetector:{create:async()=>({
+      detect:async()=>[{detectedLanguage:'fr',confidence:0.98}]
+    })},
+    Translator:{
+      create:async({sourceLanguage,targetLanguage})=>{
+        assert.equal(sourceLanguage,'fr');
+        return {translate:async(value)=>{
+          assert.equal(value,modelName);
+          return targetLanguage==='de'?'Software für die Serien 4, 5 und 6':
+            'Software for Series 4, 5 and 6';
+        }};
+      }
+    }
+  };
+  vm.runInNewContext(script,{document:titleDoc,window:titleWindow,MutationObserver,console},
+    {filename:'catalogue-translation.js'});
+  await settle();
+  assert.equal(title.textContent,'Software for Series 4, 5 and 6');
+  assert.equal(title.getAttribute('data-aur-original'),modelName);
+  titleDoc.documentElement.lang='de';
+  titleEvents['aur:lang']();
+  await settle();
+  assert.equal(title.textContent,'Software für die Serien 4, 5 und 6');
+  assert.equal(title.getAttribute('data-aur-original'),modelName);
+  console.log('AURENOEVA_MULTILINGUAL_PRODUCT_TITLES_EN_DE=PASS');
   console.log('AURENOEVA_AUTO_TRANSLATE_AFTER_ORDINARY_GESTURE=PASS');
   console.log('AURENOEVA_TRANSLATION_EN_DE_AND_ORIGINAL_PRESERVATION=PASS');
 })().catch(err=>{console.error(err);process.exitCode=1;});
