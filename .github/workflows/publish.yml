@@ -583,12 +583,3 @@ jobs:
           done
           echo "::error::Hostinger has not served the qualified production receiver. GitHub publication alone is not live deployment."
           exit 1
-; then
-              echo "AURENOEVA_LIVE_UTF8_RECEIVER=PASS"
-              exit 0
-            fi
-            echo "Hostinger receiver not yet updated (check $attempt/18)"
-            sleep 5
-          done
-          echo "::error::Hostinger has not served the qualified production receiver. GitHub publication alone is not live deployment."
-          exit 1
