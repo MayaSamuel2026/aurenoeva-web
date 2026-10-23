@@ -17,6 +17,7 @@ on:
       - 'hotfix/v8.2.6.11/catalogue-search.php'
       - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/catalogue-browser/**'
+      - 'hotfix/catalogue-counter/**'
 
 permissions:
   contents: write
