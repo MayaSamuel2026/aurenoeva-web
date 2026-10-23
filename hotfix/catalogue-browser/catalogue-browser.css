@@ -52,3 +52,6 @@
 .aur-source-description summary{cursor:pointer;font-size:10px;color:#35695a;line-height:1.4}
 .aur-source-description-text{white-space:pre-wrap!important;overflow:visible!important;
  display:block!important;-webkit-line-clamp:unset!important;font-size:11px;color:#67796f;line-height:1.5}
+
+/* Translation runs automatically; never show the obsolete manual control. */
+#aur-translation-controls .aur-translate-button {display:none!important}
