@@ -611,7 +611,7 @@ elseif($aurDraftStatus==='DRAFT_REVIEW'){
 <div class="aur-metric"><strong id="aur-summary-contactable">—</strong><small>Suppliers with email</small></div>
 <div class="aur-metric"><strong><?= $aurHasDraft?(int)($aurLedger['total']??0):'—' ?></strong><small>RFQ recipients</small></div>
 <div class="aur-metric"><strong><?= $aurHasDraft?(int)($aurProof['smtp_250_confirmed']??0):'—' ?></strong><small>SMTP 250 confirmed</small></div>
-<div class="aur-metric"><strong><?= $aurHasDraft?(int)(($aurLedger['total']??0)-($aurLedger['accepted']??0)):'—' ?></strong><small>Not yet confirmed</small></div>
+<div class="aur-metric"><strong><?= $aurHasDraft?max(0,(int)($aurLedger['total']??0)-(int)($aurProof['smtp_250_confirmed']??0)):'—' ?></strong><small>Not yet confirmed</small></div>
 </div>
 <div class="aur-next"><p><b>Next action:</b> <?=aur_escape($aurNext)?><?=($aurEnhancedReview?' · Supplier sending remains on hold.':'')?></p><a href="<?=aur_escape($aurNextLink)?>">Go to step →</a></div>
 <p class="muted" style="margin:10px 0 0">Mail figures come from the saved recipient ledger. SMTP acceptance confirms handoff to the mail server, not inbox delivery or a reply. The copy to info@aurenoeva.com is archived privately.</p>
@@ -673,7 +673,7 @@ catch(Throwable $e) {
 <b><?= (int)($result['alternatives'] ?? 0) ?></b> alternative options ·
 <b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
 <section id="destination-screen" style="border:1px solid #cad7d1;background:#f1f5f2;border-radius:10px;padding:18px;margin:18px 0">
-<h3 style="margin:0 0 8px">Automatic destination / embargo preflight</h3>
+<span class="aur-step-label">Step 2 of 5 · Destination review</span><h3 style="margin:0 0 8px">Automatic destination / embargo preflight</h3>
 <form method="post" action="/procurement/" class="inline">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -714,7 +714,7 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <?php endforeach; ?></tbody></table></div>
 <p class="muted">Saved reference: <?=aur_escape((string)$result['reference'])?> · <a href="?case=<?=rawurlencode((string)$result['reference'])?>">Reload original enquiry</a></p>
 </details>
-<details id="supplier-search-controls" class="aux-disclosure" aria-label="Persistent worldwide supplier search"><summary>Find additional suppliers worldwide</summary>
+<details id="supplier-search-controls" class="aux-disclosure" aria-label="Persistent worldwide supplier search"><summary>Step 3 of 5 · Find additional suppliers worldwide</summary>
 <p>This search remains available alongside the original enquiry, even if supplier research is temporarily unavailable. Previously discovered source links are preserved independently of the uploaded customer specifications.</p>
 <form id="aur-worldwide-scan-form" method="post" action="/procurement/" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
