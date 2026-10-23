@@ -574,7 +574,7 @@ jobs:
             HEADERS=$(curl --silent --show-error --max-time 12 -D - -o /dev/null \
               -H 'Cache-Control: no-cache' \
               "https://aurenoeva.com/catalogue-sync.php?release=${GITHUB_SHA}" || true)
-            if printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-bulk: atomic-snapshot-v1
+            if printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-bulk: atomic-snapshot-v1$'; then
               echo "AURENOEVA_LIVE_ATOMIC_CATALOGUE_RECEIVER=PASS"
               exit 0
             fi
