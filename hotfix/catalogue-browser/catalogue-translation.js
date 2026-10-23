@@ -81,7 +81,10 @@
       const source=document.createElement('p');
       source.className='aur-source-description-text';
       details.append(summary,source);
-      el.insertAdjacentElement('afterend',details);
+      // Put model originals beneath the title, not inside its inline <b>.
+      // A block-level <details> nested inside the heading breaks card layout.
+      const anchor=kind==='model' ? (el.closest('b') || el) : el;
+      anchor.insertAdjacentElement('afterend',details);
     }
     details.querySelector('summary').textContent=kind==='model'
       ?localized('Show original model name','Originalbezeichnung anzeigen')
