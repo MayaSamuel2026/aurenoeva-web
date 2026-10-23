@@ -232,6 +232,117 @@ function aur_catalogue_merge_vendor_evidence(string $store,string $body):array {
        'product_links'=>array_sum(array_map(static fn($v):int=>count($v['catalogue_products']),$aggregate))];
 }
 
+
+/**
+ * Fast snapshot upload: a few HTTPS chunks, one verified atomic replacement.
+ * No full-catalogue merge on every chunk; no stock or supplier checks.
+ * Kept in the existing authenticated receiver and existing private directory.
+ */
+function aur_bulk_path(string $directory, string $sha): string {
+    if (!preg_match('/^[a-f0-9]{64}$/D', $sha))
+        throw new RuntimeException('bulk_invalid_digest');
+    return $directory . '/.catalogue-upload-' . $sha . '.part';
+}
+function aur_bulk_metadata(string $body): array {
+    $m=json_decode($body,true,512,JSON_THROW_ON_ERROR);
+    if(!is_array($m))throw new RuntimeException('bulk_invalid_metadata');
+    $sha=(string)($m['sha256']??'');
+    $bytes=$m['bytes']??null;
+    $count=$m['count']??null;
+    if(!preg_match('/^[a-f0-9]{64}$/D',$sha)
+       ||!is_int($bytes)||$bytes<100||$bytes>256000000
+       ||!is_int($count)||$count<1||$count>800000)
+        throw new RuntimeException('bulk_invalid_metadata');
+    return [$sha,$bytes,$count];
+}
+function aur_bulk_begin(string $directory,string $sha,int $bytes):array {
+    $file=aur_bulk_path($directory,$sha);
+    $fp=@fopen($file,'c+b');
+    if(!$fp)throw new RuntimeException('bulk_write_failed');
+    try {
+        if(!flock($fp,LOCK_EX)||!ftruncate($fp,0)||!fflush($fp))
+            throw new RuntimeException('bulk_write_failed');
+        @chmod($file,0600);
+    }finally {flock($fp,LOCK_UN);fclose($fp);}
+    return ['ok'=>true,'status'=>'READY','offset'=>0,'sha256'=>$sha];
+}
+function aur_bulk_chunk(string $directory,string $sha,int $offset,string $body):array {
+    $file=aur_bulk_path($directory,$sha);
+    if($offset<0||strlen($body)<1||strlen($body)>1048576)
+        throw new RuntimeException('bulk_invalid_chunk');
+    $fp=@fopen($file,'r+b');
+    if(!$fp)throw new RuntimeException('bulk_upload_not_started');
+    try {
+        if(!flock($fp,LOCK_EX))throw new RuntimeException('bulk_write_failed');
+        $st=fstat($fp);
+        $at=(int)($st['size']??-1);
+        $length=strlen($body);
+        if($at===$offset){
+            if(fseek($fp,0,SEEK_END)!==0||fwrite($fp,$body)!==$length||!fflush($fp))
+                throw new RuntimeException('bulk_write_failed');
+            $at+=$length;
+        }elseif($at===$offset+$length) {
+            // A request timed out after being stored; retry it without duplication.
+            if(fseek($fp,$offset)!==0||fread($fp,$length)!==$body)
+                throw new RuntimeException('bulk_offset_mismatch');
+        }else throw new RuntimeException('bulk_offset_mismatch');
+        return ['ok'=>true,'status'=>'RECEIVED','offset'=>$at,'sha256'=>$sha];
+    }finally {flock($fp,LOCK_UN);fclose($fp);}
+}
+function aur_bulk_count(string $file):int {
+    $fp=@fopen($file,'rb');
+    if(!$fp)throw new RuntimeException('bulk_snapshot_unreadable');
+    $count=0;$carry='';$read=0;
+    try {
+        while(!feof($fp)){
+            $chunk=fread($fp,65536);
+            if($chunk===false)throw new RuntimeException('bulk_snapshot_unreadable');
+            $buffer=$carry.$chunk;
+            preg_match_all('/"canonical_id"\s*:\s*"AUR-P-[A-F0-9]{20}"/',
+                $buffer,$found,PREG_OFFSET_CAPTURE);
+            foreach($found[0] as $match){
+                if($read-strlen($carry)+$match[1]+strlen($match[0])>$read)
+                    ++$count;
+            }
+            $read+=strlen($chunk);
+            $carry=substr($buffer,-128);
+        }
+    }finally{fclose($fp);}
+    return $count;
+}
+function aur_bulk_commit(string $directory,string $sha,int $bytes,int $count):array {
+    $file=aur_bulk_path($directory,$sha);
+    $target=$directory.'/catalogue-public.json';
+    $lock=@fopen($directory.'/.catalogue-merge.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('bulk_write_failed');
+    try {
+        // A duplicate commit following a lost HTTP response is also a success.
+        if(!is_file($file)&&is_file($target)
+           &&hash_file('sha256',$target)===$sha
+           &&aur_bulk_count($target)===$count)
+            return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$sha];
+        if(!is_file($file)||filesize($file)!==$bytes
+           ||hash_file('sha256',$file)!==$sha)
+            throw new RuntimeException('bulk_digest_mismatch');
+        $fp=@fopen($file,'rb');
+        if(!$fp)throw new RuntimeException('bulk_snapshot_unreadable');
+        $prefix=fread($fp,110);
+        fclose($fp);
+        if(!is_string($prefix)||
+           !str_starts_with($prefix,'{"schema":"aurenoeva-catalogue/1","items":['))
+            throw new RuntimeException('bulk_snapshot_schema');
+        if(aur_bulk_count($file)!==$count)
+            throw new RuntimeException('bulk_count_mismatch');
+        if(is_file($target)&&aur_bulk_count($target)>$count)
+            throw new RuntimeException('bulk_count_regression');
+        @chmod($file,0600);
+        if(!@rename($file,$target))
+            throw new RuntimeException('bulk_write_failed');
+        clearstatcache(true,$target);
+        return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$sha];
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
 // Tests exercise real private writes without an HTTP transport.
 if (defined('AUR_CATALOGUE_SYNC_LIBRARY_ONLY')) return;
 
@@ -306,7 +417,19 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 24000000) {
 try {
     $body = file_get_contents('php://input', false, null, 0, 24000001);
     $mode=(string)($_GET['mode']??'products');
-    if($mode==='vendors') {
+    if($mode==='bulk-begin') {
+        [$sha,$bytes,$count]=aur_bulk_metadata((string)$body);
+        $result=aur_bulk_begin($private,$sha,$bytes);
+    }elseif($mode==='bulk-chunk') {
+        $sha=(string)($_SERVER['HTTP_X_AURENOEVA_UPLOAD_SHA256']??'');
+        $offsetRaw=(string)($_SERVER['HTTP_X_AURENOEVA_UPLOAD_OFFSET']??'');
+        if(!preg_match('/^(0|[1-9][0-9]{0,8})$/D',$offsetRaw))
+            throw new RuntimeException('bulk_invalid_chunk');
+        $result=aur_bulk_chunk($private,$sha,(int)$offsetRaw,(string)$body);
+    }elseif($mode==='bulk-commit') {
+        [$sha,$bytes,$count]=aur_bulk_metadata((string)$body);
+        $result=aur_bulk_commit($private,$sha,$bytes,$count);
+    }elseif($mode==='vendors') {
         // Transfer vendor evidence separately, in small authenticated batches.
         // The product catalogue stays searchable even when vendor writes retry.
         $evidence=json_decode((string)$body,true,512,JSON_THROW_ON_ERROR);
@@ -334,6 +457,10 @@ try {
         'catalogue_merge_lost_input', 'snapshot_temp_unavailable',
         'snapshot_write_failed', 'snapshot_replace_failed',
         'snapshot_readback', 'invalid_vendor_evidence_batch',
+        'bulk_invalid_digest','bulk_invalid_metadata','bulk_invalid_chunk',
+        'bulk_upload_not_started','bulk_offset_mismatch','bulk_write_failed',
+        'bulk_snapshot_unreadable','bulk_digest_mismatch',
+        'bulk_snapshot_schema','bulk_count_mismatch','bulk_count_regression',
         'unsupported_sync_mode'
     ];
     $reason = $e->getMessage();
