@@ -36,8 +36,47 @@ GENERIC = {
 
 
 
-def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str) -> str:
-    """Evidence-first lab facet. A crawler search term is not product identity."""
+
+def technical_product_relevance(sector: str, model: str, source: str) -> bool:
+    """Reject clear search-result noise, not unfamiliar industrial OEM products."""
+    parsed = urlsplit(source)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path.lower()
+    nontechnical_sources = {
+        "de.pons.com", "pons.com", "www.pons.com", "lidl.de", "www.lidl.de",
+        "ep.de", "www.ep.de", "notebookcheck.com", "www.notebookcheck.com",
+        "pcwelt.de", "www.pcwelt.de", "computerbild.de", "www.computerbild.de",
+        "thisoldhouse.com", "www.thisoldhouse.com",
+    }
+    if host in nontechnical_sources:
+        return False
+    if sector == "aviation" and re.search(r"geekom|mini[\s-]?pc|notebook", model, re.I):
+        if not re.search(r"avionic|aircraft|ads[\s-]?b|transponder|flight control", model, re.I):
+            return False
+    if sector == "marine" and (
+        re.search(r"\b(?:tacx|forerunner|smart garage)\b|^edge[®\s]", model, re.I)
+        or "/fleet-optimisation/" in path
+    ):
+        return False
+    if sector == "test" and host.endswith("ibm.com") and re.search(
+        r"ns1 connect|watsonx|api connect", model, re.I
+    ):
+        return False
+    return True
+
+def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str, source: str = "") -> str:
+    """Resolve technical facets from model/description/source, not crawler queries."""
+    evidence = (model + " " + description + " " + source).casefold()
+    if sector == "medical":
+        if re.search(r"intellivue|benevision|patient.monitor|vital.signs|pulse.oxim", evidence):
+            return "Patient monitoring"
+        if re.search(r"anesth|anaesth|ventilat|\bwato\b", evidence):
+            return "Surgical / procedural"
+    if sector == "test":
+        if re.search(r"multimeter|dmm7510|power.analy[sz]er", evidence):
+            return "Meters & power analyzers"
+        if re.search(r"oscilloscop|mso[0-9]|mdo[0-9]", evidence):
+            return "Oscilloscopes"
     if sector != "laboratory":
         return category
     text = " ".join((manufacturer, model, description)).casefold()
@@ -70,7 +109,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
     reasons = {key: 0 for key in (
         "non_product_record", "invalid_canonical_id", "missing_manufacturer",
         "missing_model", "generic_heading", "invalid_https_source",
-        "duplicate_canonical_id")}
+        "duplicate_canonical_id", "nontechnical_catalogue_record")}
     for value in raw["items"]:
         if not isinstance(value, dict):
             reasons["non_product_record"] += 1
@@ -99,6 +138,9 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
         if not valid:
             reasons["invalid_https_source"] += 1
             continue
+        if not technical_product_relevance(str(value.get("sector", "")), model, source):
+            reasons["nontechnical_catalogue_record"] += 1
+            continue
         if ident in records:
             reasons["duplicate_canonical_id"] += 1
         records[ident] = {
@@ -109,7 +151,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "laboratory", "test", "medical", "industrial", "energy", "marine", "aviation") else "",
             "category": refine_lab_category(
                 str(value.get("sector", "")), str(value.get("category", ""))[:160],
-                maker, model, str(value.get("description", ""))[:240]),
+                maker, model, str(value.get("description", ""))[:240], source),
             "description": str(value.get("description", ""))[:240],
             "source_ref": source,
             "lifecycle_status": "UNVERIFIED",

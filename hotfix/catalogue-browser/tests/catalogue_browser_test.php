@@ -61,6 +61,14 @@ try {
         'model'=>'Fake aerospace part','description'=>'Chromatography',
         'sector'=>'aviation','category'=>'Chromatography / HPLC / GC']
     ];
+    $mixed[]=['canonical_id'=>'AUR-P-'.str_repeat('5',20),'manufacturer'=>'PONS',
+        'model'=>'978-3-12-562482-5','description'=>'German grammar book',
+        'sector'=>'laboratory','category'=>'Sample preparation',
+        'source_ref'=>'https://de.pons.com/shop/deutsch/grammatik/978-3-12-562482-5'];
+    $mixed[]=['canonical_id'=>'AUR-P-'.str_repeat('6',20),'manufacturer'=>'SILVERCREST',
+        'model'=>'100397202','description'=>'Kitchen cutting board',
+        'sector'=>'aviation','category'=>'Hydraulic / pneumatic',
+        'source_ref'=>'https://www.lidl.de/p/kitchen-board/p100397202'];
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$mixed],
         JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     $lab=aur_browse_snapshot($path,'laboratory');
@@ -76,6 +84,20 @@ try {
     $hplc=aur_browse_snapshot($path,'laboratory','Chromatography / HPLC / GC');
     if($hplc['total']!==1 || $hplc['items'][0]['model']!=='YMC SEC (U)HPLC Säulen')
        throw new RuntimeException('chromatography_false_positive');
+    $medical=['canonical_id'=>'AUR-P-'.str_repeat('7',20),
+        'manufacturer'=>'Mindray','model'=>'VS-600','description'=>'Vital signs monitor',
+        'sector'=>'medical','category'=>'Surgical / procedural',
+        'source_ref'=>'https://www.mindray.com/en/products/patient-monitoring/vital-signs-monitoring/vs-600'];
+    $meter=['canonical_id'=>'AUR-P-'.str_repeat('8',20),
+        'manufacturer'=>'Tektronix','model'=>'DMM7510','description'=>'Digital multimeter',
+        'sector'=>'test','category'=>'Oscilloscopes',
+        'source_ref'=>'https://www.tek.com/en/products/keithley/digital-multimeter/dmm7510'];
+    file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>[$medical,$meter]],
+        JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    if(aur_browse_snapshot($path,'medical')['items'][0]['category']!=='Patient monitoring')
+        throw new RuntimeException('medical_monitor_category_wrong');
+    if(aur_browse_snapshot($path,'test')['items'][0]['category']!=='Meters & power analyzers')
+        throw new RuntimeException('multimeter_category_wrong');
     // Restore full fixture for the remaining assertions.
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$items],
         JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));

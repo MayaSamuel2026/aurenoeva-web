@@ -2,7 +2,7 @@
 import json,sqlite3,tempfile,sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
-from catalogue_harvester import db_init,run,export,pid,parse_page,search_links
+from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance
 BING="""<?xml version="1.0"?><rss><channel><item>
 <title>WATO EX-35 - Mindray</title>
 <link>https://www.mindray.com/en/products/anesthesia/wato-ex-35</link>
@@ -21,6 +21,14 @@ class Tests(unittest.TestCase):
         if kind=="search_ddg":return '<a href="https://www.mindray.com/en/products/anesthesia/wato-ex-35">Mindray</a>'
         if url.endswith("/wato-ex-35"):return PRODUCT
         raise TimeoutError("independent failure")
+    def test_clear_consumer_noise_is_not_a_technical_product(self):
+        self.assertFalse(technical_product_relevance("laboratory","978-3-12-562482-5",
+                         "https://de.pons.com/shop/grammatik/978-3-12-562482-5"))
+        self.assertFalse(technical_product_relevance("aviation","100397202",
+                         "https://www.lidl.de/p/cutting-board/p100397202"))
+        self.assertTrue(technical_product_relevance("industrial","6ES7132",
+                        "https://www.ersaal.de/en/product/siemens-6es7132"))
+
     def test_lab_category_follows_product_evidence_not_search_phrase(self):
         cases = [
             ("Fritsch GmbH", "P-5 premium", "Planetary ball mill", "Sample preparation"),
