@@ -143,18 +143,17 @@
     void detector().then(()=>render()).catch(()=>unavailable('permission'));
   }
   async function translateEmbeddedScripts(text,target) {
-    // Source catalogues often mix English specifications with Japanese,
-    // Chinese or Korean fragments. Whole-text detection calls that English,
-    // leaving the foreign phrase untranslated. Convert only foreign runs.
-    const pattern=/[\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7a3][\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7a3\\d\\s()（）,，.:/-]{0,85}/g;
+    // Some supplier text mixes English model specifications with CJK phrases.
+    // Translate only the foreign-language runs, preserving surrounding codes.
+    const pattern=/[ぁ-ヿ㐀-鿿가-힣][ぁ-ヿ㐀-鿿가-힣0-9 ()（）,，.:-]{0,85}/g;
     const runs=[...text.matchAll(pattern)].slice(0,8);
     let result=text;
     let translatedAny=false;
     for(const match of runs){
       const fragment=match[0].trim();
       if(fragment.length<2)continue;
-      const source=/[\\u3040-\\u30ff]/.test(fragment)?'ja':
-        /[\\uac00-\\ud7a3]/.test(fragment)?'ko':'zh';
+      const source=/[ぁ-ヿ]/.test(fragment)?'ja':
+        /[가-힣]/.test(fragment)?'ko':'zh';
       try{
         const translator=await getTranslator(source,target);
         const replacement=(await translator.translate(fragment)).trim();
@@ -162,7 +161,7 @@
           result=result.replace(fragment,replacement);
           translatedAny=true;
         }
-      }catch(_e){/* preserve the exact original when this pair is unavailable */}
+      }catch(_e){/* retain the original if translation is unsupported */}
     }
     return translatedAny?result:text;
   }
@@ -172,7 +171,7 @@
     if(!raw || raw.length<9 || raw.length>1600)return;
     // Preserve opaque model identifiers (including RFQ reference numbers).
     if(el.classList?.contains('aur-browse-model') &&
-       /^[A-Z0-9][A-Z0-9.\\/_+–-]{2,}$/.test(raw))return;
+       /^[A-Z0-9][A-Z0-9._+–-]{2,}$/.test(raw))return;
     // Always start from original; a language toggle must never retranslate
     // an already translated sentence.
     el.dataset.aurTarget=target;
