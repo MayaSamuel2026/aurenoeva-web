@@ -12,7 +12,7 @@ foreach(range(0,29) as $i) {
         'canonical_id'=>'AUR-P-'.strtoupper(str_pad(dechex($i),20,'0',STR_PAD_LEFT)),
         'manufacturer'=>'Agilent',
         'model'=>'1260-'.$i,
-        'description'=>'Chromatography equipment '.$i,
+        'description'=>($i % 3 === 0 ? 'Mass spectrometry equipment ' : 'Chromatography equipment ').$i,
         'sector'=>'laboratory',
         'category'=>($i % 3 === 0 ? 'Mass spectrometry' : 'Chromatography / HPLC / GC'),
         'source_ref'=>'https://example.com/product/'.$i,
