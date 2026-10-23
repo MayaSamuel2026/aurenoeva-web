@@ -17,7 +17,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -204,6 +204,41 @@ def publish(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
 
 
 
+def verify_public_catalogue(payload: bytes, count: int, digest: str) -> None:
+    """Require actual public count and product search, not merely an upload ACK."""
+    root = "https://aurenoeva.com/"
+    query = urlencode({"verify": digest[:20]})
+    request = Request(root + "catalogue-count.php?" + query, headers={
+        "User-Agent": "AurenoevaCataloguePublisher/3.0",
+        "Cache-Control": "no-cache"})
+    with urlopen(request, timeout=40) as response:
+        status = json.loads(response.read(16_384))
+    if (status.get("ok") is not True
+        or status.get("source") != "published_catalogue_snapshot"
+        or status.get("searchable_parts") != count):
+        raise RuntimeError("live_website_count_readback_mismatch")
+    items = json.loads(payload)["items"]
+    candidate = next((p for p in reversed(items)
+        if 4 <= len(p["model"]) <= 90 and any(ch.isdigit() for ch in p["model"])
+        and len(p["manufacturer"] + " " + p["model"]) < 165), None)
+    if candidate is None:
+        raise RuntimeError("catalogue_search_probe_has_no_model")
+    product_query = urlencode({"q": candidate["manufacturer"] + " " + candidate["model"],
+                               "verify": digest[:20]})
+    request = Request(root + "catalogue-search.php?" + product_query,
+                      headers={"User-Agent": "AurenoevaCataloguePublisher/3.0",
+                               "Cache-Control": "no-cache"})
+    with urlopen(request, timeout=65) as response:
+        result = json.loads(response.read(250_000))
+    if (result.get("source") != "AURENOEVA_OWNED_CATALOGUE"
+        or not any(item.get("canonical_id") == candidate["canonical_id"]
+                   for item in result.get("items", []))):
+        raise RuntimeError("live_website_product_search_readback_mismatch")
+    print(json.dumps({"event": "LIVE_CATALOGUE_ACCEPTANCE",
+                      "status": "PASS", "website_records": count,
+                      "searched_model": candidate["model"]}), flush=True)
+
+
 def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     """Send the full searchable catalogue once; no per-batch PHP database merges.
 
@@ -278,6 +313,8 @@ def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     finished = post("commit", manifest)
     if finished.get("status") != "PUBLISHED" or finished.get("records") != count:
         raise RuntimeError("bulk_published_count_mismatch")
+    # Only after real public count AND search do we save a success receipt.
+    verify_public_catalogue(payload, count, digest)
     state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     receipt = state_dir / "catalogue-products-pushed.sha256"
     temp = receipt.with_suffix(".new")
