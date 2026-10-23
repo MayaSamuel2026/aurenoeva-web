@@ -373,6 +373,14 @@ jobs:
           html=html.replace('</head>',f'<link rel="stylesheet" href="assets/css/catalogue-browser.css?v={release}"></head>',1)
           html=html.replace('</body>',f'<script defer src="assets/js/catalogue-browser.js?v={release}"></script><script defer src="assets/js/catalogue-translation.js?v={release}"></script></body>',1)
           page.write_text(html,encoding='utf-8')
+          # Use a release-specific URL for the homepage → sourcing transition.
+          # This avoids reopening a previously cached HTML page with obsolete JS.
+          home=site/'index.html'
+          homepage=home.read_text(encoding='utf-8')
+          route='return "requirement.html?"+p.toString();'
+          assert homepage.count(route)==1, "homepage requirement route changed"
+          homepage=homepage.replace(route, f'p.set("rev","{release}");'+route,1)
+          home.write_text(homepage,encoding='utf-8')
           PY
           php hotfix/catalogue-browser/tests/catalogue_browser_test.php
           php -l "$RUNNER_TEMP/source/site/catalogue-browse.php"
