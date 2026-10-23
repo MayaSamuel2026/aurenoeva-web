@@ -349,6 +349,15 @@ jobs:
            });
           """
           js=js.replace(anchor,handler+anchor,1)
+          # The browsing scope must match the category saved in the enquiry.
+          cat_anchor="fields.category.innerHTML=industries[fields.industry.value].map("
+          assert js.count(cat_anchor)==1
+          js=js.replace(cat_anchor,
+              "fields.category.innerHTML="+chr(96)+"<option value=''>${lang==='de'?'Alle Kategorien':'All categories'}</option>"+chr(96)+"+industries[fields.industry.value].map(",1)
+          label_anchor="function categoryLabel(industry,value,lang){"
+          assert js.count(label_anchor)==1
+          js=js.replace(label_anchor,label_anchor+
+              "if(!value)return lang==='de'?'Alle Kategorien':'All categories';",1)
           script.write_text(js,encoding='utf-8')
           page=site/'requirement.html'
           html=page.read_text(encoding='utf-8')
