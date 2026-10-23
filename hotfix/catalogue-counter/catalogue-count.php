@@ -63,6 +63,33 @@ function aur_catalogue_count_file(string $path): ?int {
         fclose($fp);
     }
 }
+/** Aggregate reconciliation is embedded at the end of the published JSON.
+ * Reads only a bounded tail and never exposes inventory contents or contacts.
+ */
+function aur_catalogue_public_stats(string $path, int $publishedCount): ?array {
+    $size = @filesize($path);
+    if (!is_int($size) || $size < 40) return null;
+    $fp = @fopen($path,'rb');
+    if (!$fp) return null;
+    try {
+        if (fseek($fp, max(0,$size-4096), SEEK_SET) !== 0) return null;
+        $tail = stream_get_contents($fp, 4096);
+    } finally { fclose($fp); }
+    if (!is_string($tail) ||
+        !preg_match('/"public_stats"\\s*:\\s*(\\{[^{}]{1,3000}\\})\\s*\\}\\s*$/s',$tail,$m))
+        return null;
+    $v = json_decode($m[1],true);
+    if (!is_array($v) || ($v['eligible_products']??null)!==$publishedCount) return null;
+    foreach (['db_products','exported_products','eligible_products',
+              'excluded_products','excluded_invalid_id','excluded_generic',
+              'excluded_missing_maker','excluded_missing_model',
+              'excluded_source','excluded_duplicates','excluded_nonrecord'] as $key) {
+        if (!is_int($v[$key]??null) || $v[$key]<0) return null;
+    }
+    if ($v['db_products'] < $v['eligible_products']) return null;
+    return $v;
+}
+
 /** Snapshot modification time is a publication freshness signal, not a crawl timestamp. */
 function aur_catalogue_snapshot_updated_at(string $path): ?string {
     clearstatcache(true, $path);
@@ -92,10 +119,12 @@ try {
     }
     $count = aur_catalogue_count_file($real);
     if ($count === null) throw new RuntimeException('catalogue_unavailable');
-    echo json_encode(['ok'=>true,'searchable_parts'=>$count,
+    $payload=['ok'=>true,'searchable_parts'=>$count,
         'snapshot_updated_at_utc'=>aur_catalogue_snapshot_updated_at($real),
-        'stock_verified'=>false,'source'=>'published_catalogue_snapshot'],
-        JSON_THROW_ON_ERROR);
+        'stock_verified'=>false,'source'=>'published_catalogue_snapshot'];
+    $stats=aur_catalogue_public_stats($real,$count);
+    if ($stats!==null) $payload['reconciliation']=$stats;
+    echo json_encode($payload,JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
     http_response_code(503);
     echo '{"ok":false,"error":"catalogue_unavailable"}';
