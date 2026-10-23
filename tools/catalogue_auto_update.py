@@ -51,8 +51,19 @@ def get_json(url: str) -> dict:
 
 
 def qualified_sha() -> str | None:
-    # Use the most recent successfully tested revision. Documentation/UI
-    # commits may not trigger catalogue CI; never stall on untested HEAD.
+    # The production branch is written only after the existing publish workflow
+    # has completed its catalogue/unit/PHP qualification. Its VERSION.txt
+    # is a small, CDN-served release receipt that avoids anonymous GitHub
+    # Actions API rate limits on the shared Hostinger VPS.
+    try:
+        receipt = get_bytes(f"{RAW}/production/VERSION.txt", limit=512).decode("utf-8")
+        match = re.fullmatch(r"Aurenoeva V[^\\n]+ production ([a-f0-9]{40})\\s*", receipt)
+        if match:
+            return match.group(1)
+    except (OSError, UnicodeError, ValueError):
+        pass
+    # Preserve the historical Actions qualification lookup as a fallback.
+    # An unqualified main HEAD must never silently replace active crawler code.
     runs = get_json(f"{API}/actions/runs?per_page=100")
     for run in runs.get("workflow_runs", []):
         if (isinstance(run, dict)
