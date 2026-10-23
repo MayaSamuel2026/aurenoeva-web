@@ -14,8 +14,8 @@
   const translatorPromises = new Map();
   let detectorPromise = null;
   let enabled = false;
-  let button = null;
   let message = null;
+  const pendingPairs = new Set();
   let refreshId = 0;
 
   const targetLanguage = () => document.documentElement.lang?.toLowerCase().startsWith('de') ? 'de' : 'en';
@@ -26,51 +26,32 @@
   function status(text) {
     if (message) message.textContent = text;
   }
-  function buttonText() {
-    if (button) button.textContent = localized('Translate descriptions', 'Beschreibungen übersetzen');
-  }
-  function activationRequired(text) {
-    enabled = false;
-    if (button) {
-      button.hidden = !supported();
-      button.disabled = false;
-      buttonText();
-    }
-    status(text || localized(
-      'Translate supplier descriptions into English using your browser.',
-      'Lieferantenbeschreibungen im Browser automatisch auf Deutsch übersetzen.'
-    ));
-  }
   function makeControls() {
     const heading=document.querySelector('#aur-browse .aur-browse-head');
-    if (!heading || document.getElementById('aur-translation-controls')) return;
+    if(!heading || document.getElementById('aur-translation-controls')) return;
     const controls=document.createElement('div');
     controls.id='aur-translation-controls';
     controls.className='aur-translation-controls';
-    button=document.createElement('button');
-    button.type='button';
-    button.className='aur-translate-button';
-    buttonText();
     message=document.createElement('small');
     message.className='aur-translation-status';
     message.setAttribute('role','status');
     message.setAttribute('aria-live','polite');
-    controls.append(button,message);
+    controls.append(message);
     heading.insertAdjacentElement('afterend',controls);
-    if (!supported()) {
-      button.hidden=true;
-      status(localized('Original source descriptions shown. Automatic translation is not supported in this browser.',
-        'Originalbeschreibungen angezeigt. Dieser Browser unterstützt keine automatische Übersetzung.'));
+    status('');
+  }
+  function unavailable(reason) {
+    if(!supported()){
+      status(localized('Original supplier descriptions shown where automatic translation is not supported.',
+        'Originalbeschreibungen werden angezeigt, sofern der Browser keine automatische Übersetzung unterstützt.'));
+    } else if(reason === 'permission') {
+      status(localized('Translation will start automatically as you browse the catalogue.',
+        'Die Übersetzung startet automatisch beim Durchsuchen des Katalogs.'));
     } else {
-      activationRequired();
-      button.addEventListener('click',()=>{
-        button.disabled=true;
-        status(localized('Preparing on-device translation…','Lokale Übersetzung wird vorbereitet …'));
-        void begin(true);
-      });
+      status(localized('Original descriptions are shown for languages this device cannot translate.',
+        'Für nicht unterstützte Sprachen werden die Originalbeschreibungen angezeigt.'));
     }
   }
-
   function original(el) {
     if (!el.hasAttribute('data-aur-original'))
       el.setAttribute('data-aur-original',el.textContent?.trim() || '');
@@ -114,26 +95,41 @@
     }
     return detectorPromise;
   }
-  async function getTranslator(source,target){
+  function getTranslator(source,target) {
     const key=source+'>'+target;
     if(!translatorPromises.has(key)){
-      // The browser manages and downloads its own local language packs.
-      const start=async()=>{
-        const availability=await window.Translator.availability({sourceLanguage:source,targetLanguage:target});
-        if(!availability || availability==='unavailable')throw new Error('LANGUAGE_UNSUPPORTED');
-        return window.Translator.create({
-          sourceLanguage:source,targetLanguage:target,
-          monitor(m) {
-            m.addEventListener('downloadprogress', event => {
-              status(localized('Downloading local translation model…','Lokales Sprachmodell wird geladen …')+
-                ' '+Math.round(event.loaded*100)+'%');
-            });
-          }
-        });
-      };
-      translatorPromises.set(key,start().catch(e=>{translatorPromises.delete(key);throw e;}));
+      // Create synchronously while a normal page gesture is active. A first-time
+      // language-pack download may otherwise be rejected by the browser.
+      const promise=window.Translator.create({
+        sourceLanguage:source,targetLanguage:target,
+        monitor(m) {
+          m.addEventListener('downloadprogress', event=>{
+            status(localized('Preparing automatic translation…','Automatische Übersetzung wird vorbereitet …')+
+              ' '+Math.round(event.loaded*100)+'%');
+          });
+        }
+      }).then(instance=>{
+        pendingPairs.delete(key);
+        return instance;
+      }).catch(e=>{
+        translatorPromises.delete(key);
+        if(e?.name==='NotAllowedError'||e?.name==='SecurityError')
+          pendingPairs.add(key);
+        throw e;
+      });
+      translatorPromises.set(key,promise);
     }
     return translatorPromises.get(key);
+  }
+  function tryPendingOnNormalGesture() {
+    if(!supported())return;
+    // Called in the capture phase of the user's ordinary click, tap or typing.
+    // No translation-specific control or extra click is required.
+    for(const pair of [...pendingPairs]){
+      const [source,target]=pair.split('>');
+      if(source&&target)void getTranslator(source,target).then(()=>render()).catch(()=>{});
+    }
+    void detector().then(()=>render()).catch(()=>unavailable('permission'));
   }
   async function convert(el,run){
     const raw=original(el), target=targetLanguage();
@@ -164,49 +160,39 @@
       keepOriginal(el,raw,source);
     }catch(e) {
       if(e?.name==='NotAllowedError' || e?.name==='SecurityError'){
-        activationRequired(localized('Click Translate descriptions to enable translation on this device.',
-          'Klicken Sie auf „Beschreibungen übersetzen“, um die lokale Übersetzung zu aktivieren.'));
-      }else if(e?.message==='LANGUAGE_UNSUPPORTED') {
-        status(localized('Some source languages are not supported; original descriptions remain visible.',
-          'Einige Ausgangssprachen werden nicht unterstützt; Originaltexte bleiben sichtbar.'));
+        unavailable('permission');
       }else {
-        activationRequired(localized('Translation could not start. The original description is still available.',
-          'Übersetzung nicht verfügbar. Die Originalbeschreibung bleibt sichtbar.'));
+        unavailable('language');
       }
     }
   }
   async function render(){
-    if(!enabled)return;
+    if(!supported())return;
     const run=++refreshId;
     const nodes=[...examples()];
     if(!nodes.length)return;
-    status(localized('Translating descriptions…','Beschreibungen werden übersetzt …'));
+    status(localized('Translating catalogue descriptions…',
+      'Katalogbeschreibungen werden übersetzt …'));
     await Promise.all(nodes.map(node=>convert(node,run)));
-    if(run===refreshId && enabled)status(localized(
-      'Descriptions translated where supported; original text is available on each translated part.',
-      'Beschreibungen werden nach Möglichkeit übersetzt. Der Originaltext bleibt am Produkt abrufbar.'
-    ));
-  }
-  async function begin(fromClick){
-    if(!supported())return;
-    try{
-      await detector();
-      enabled=true;
-      if(button)button.hidden=true;
-      await render();
-    }catch(e) {
-      activationRequired(localized(
-        'Select Translate descriptions to enable your browser’s language model.',
-        'Bitte „Beschreibungen übersetzen“ auswählen, um das Sprachmodell zu aktivieren.'
-      ));
+    if(run===refreshId){
+      const untranslated=nodes.some(el=>el.lang!==targetLanguage());
+      status(untranslated?'':localized('Descriptions translated automatically · Originals available',
+        'Beschreibungen automatisch übersetzt · Originale verfügbar'));
     }
   }
   function start(){
     makeControls();
-    if(!supported())return;
-    // Cached browser models can often run without a prompt; the explicit
-    // activation button handles browsers requiring a user gesture.
-    void begin(false);
+    if(!supported()){
+      unavailable('language');
+      return;
+    }
+    // Models already cached by the browser can be used immediately.
+    // When first-time downloads require activation, any ordinary interaction
+    // with the existing sourcing form resumes translation automatically.
+    void detector().then(()=>render()).catch(()=>unavailable('permission'));
+    for(const eventName of ['pointerdown','keydown']){
+      document.addEventListener(eventName,tryPendingOnNormalGesture,{capture:true,passive:true});
+    }
     for(const selector of areas){
       const element=document.querySelector(selector);
       if(!element)continue;
@@ -216,17 +202,9 @@
       observer.observe(element,{childList:true});
     }
     document.addEventListener('aur:lang',()=>{
-      buttonText();
-      const run=++refreshId;
+      ++refreshId;
       for(const el of examples())restore(el);
-      if(enabled)void render();
-      else activationRequired();
-    });
-    // Help re-enable translations after a browser requested a gesture.
-    document.addEventListener('click', event=>{
-      if(!enabled && event.target?.closest?.('.lang button, .aur-browse-chip')){
-        void begin(true);
-      }
+      void detector().then(()=>render()).catch(()=>unavailable('permission'));
     });
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
