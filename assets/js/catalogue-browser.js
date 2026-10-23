@@ -38,6 +38,9 @@
     const tally=wrap.querySelector('#aur-browse-result-count');
     let selected=category.value || '__all';
     let page=0, current=null, seq=0, timer=null;
+    // The sourcing wizard may apply URL/sector presets programmatically after
+    // this widget starts. A programmatic select.value change fires no event.
+    let observedScope=sector.value+'\u0000'+category.value;
     function text() {
       wrap.querySelector('#aur-browse-eyebrow').textContent=label('DISCOVER THE CATALOGUE','KATALOG ENTDECKEN');
       wrap.querySelector('#aur-browse-title').textContent=label('Browse the parts in this sector','Teile in diesem Bereich entdecken');
@@ -110,24 +113,40 @@
           'Für diese Kategorie sind noch keine Teile erfasst. Wählen Sie Alle Kategorien oder beschreiben Sie Ihren Bedarf.');
       else status.textContent='';
     }
+    function syncScope() {
+      const scope=sector.value+'\u0000'+category.value;
+      if(scope===observedScope)return;
+      observedScope=scope;
+      selected=category.value||'__all';
+      filter.value='';
+      load(0);
+    }
     async function load(nextPage=0) {
       const ticket=++seq;
+      const requestedSector=sector.value;
+      const requestedCategory=selected;
       const append=nextPage>0;
       if(!append){list.innerHTML='';more.hidden=true}
       page=nextPage;
       status.textContent=label('Loading catalogue…','Katalog wird geladen …');
       status.dataset.state='loading';
       const url=new URL('catalogue-browse.php',location.href);
-      url.searchParams.set('sector',sector.value);
-      url.searchParams.set('category',selected);
+      url.searchParams.set('sector',requestedSector);
+      url.searchParams.set('category',requestedCategory);
       url.searchParams.set('page',String(nextPage));
       if(filter.value.trim())url.searchParams.set('q',filter.value.trim());
       try {
         const res=await fetch(url.toString(),{cache:'no-store',headers:{Accept:'application/json'}});
         const data=await res.json();
         if(ticket!==seq)return;
+        // Never paint stale laboratory results underneath a new sector label.
+        if(requestedSector!==sector.value || requestedCategory!==(category.value||'__all')) {
+          syncScope();return;
+        }
         if(!res.ok || data.ok!==true || !Array.isArray(data.categories) || !Array.isArray(data.items))
           throw new Error('catalogue_unavailable');
+        if(data.sector!==requestedSector || (data.category||'__all')!==requestedCategory)
+          throw new Error('catalogue_scope_mismatch');
         current=data;
         total.innerHTML='<strong>'+format(data.sector_total)+'</strong><small>'+
           esc(label('indexed products','erfasste Produkte'))+'</small>';
@@ -142,17 +161,8 @@
           'Die Katalogübersicht ist vorübergehend nicht erreichbar. Sie können Ihr Teil weiterhin beschreiben oder die Katalogsuche nutzen.');
       }
     }
-    sector.addEventListener('change',()=>{
-      // The established wizard fills the category dropdown first.
-      selected=category.value||'__all';
-      filter.value='';
-      load(0);
-    });
-    category.addEventListener('change',()=>{
-      selected=category.value||'__all';
-      filter.value='';
-      load(0);
-    });
+    sector.addEventListener('change',syncScope);
+    category.addEventListener('change',syncScope);
     filter.addEventListener('input',()=>{
       clearTimeout(timer);
       timer=setTimeout(()=>load(0),320);
@@ -166,6 +176,12 @@
     });
     text();
     load(0);
+    // Cheap consistency check catches wizard preset changes without events.
+    // Polling does not fetch unless the sector/category actually changed.
+    const scopeWatch=setInterval(()=>{
+      if(!wrap.isConnected){clearInterval(scopeWatch);return;}
+      syncScope();
+    },350);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
   else start();
