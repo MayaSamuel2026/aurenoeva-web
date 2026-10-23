@@ -60,5 +60,45 @@ const path = require('node:path');
   assert.equal(description.textContent,german);
   assert.equal(description.getAttribute('data-aur-original'),original);
   assert.equal(description.lang,'de');
+  // A fresh device may need a normal user interaction before Chrome installs
+  // its language model. No special "Translate" button must be necessary.
+  const delayedAttrs = {};
+  const delayedDescription = {
+    textContent: original, dataset:{}, isConnected:true, lang:'',
+    hasAttribute:key=>Object.hasOwn(delayedAttrs,key),
+    getAttribute:key=>delayedAttrs[key],
+    setAttribute:(key,val)=>{delayedAttrs[key]=val;},
+    closest:()=>null
+  };
+  const delayedEvents = {};
+  const delayedDocument = {
+    readyState:'complete',documentElement:{lang:'en'},
+    querySelector:()=>null,
+    querySelectorAll:()=>[delayedDescription],
+    addEventListener:(name,callback)=>{delayedEvents[name]=callback;}
+  };
+  let activated = false;
+  const delayedWindow = {
+    LanguageDetector: {create: async()=>{
+      if(!activated){
+        const denied=new Error('first-time model requires activation');
+        denied.name='NotAllowedError';
+        throw denied;
+      }
+      return {detect:async()=>[{detectedLanguage:'es',confidence:0.99}]};
+    }},
+    Translator: {create:async()=>({translate:async()=>english})}
+  };
+  vm.runInNewContext(script,{document:delayedDocument,window:delayedWindow,MutationObserver,console},
+    {filename:'catalogue-translation.js'});
+  await settle();
+  assert.equal(delayedDescription.textContent,original);
+  assert.ok(typeof delayedEvents.pointerdown==='function');
+  activated=true;
+  delayedEvents.pointerdown();
+  await settle();
+  assert.equal(delayedDescription.textContent,english);
+  assert.doesNotMatch(script, /Translate descriptions to enable|buttonText\(/);
+  console.log('AURENOEVA_AUTO_TRANSLATE_AFTER_ORDINARY_GESTURE=PASS');
   console.log('AURENOEVA_TRANSLATION_EN_DE_AND_ORIGINAL_PRESERVATION=PASS');
 })().catch(err=>{console.error(err);process.exitCode=1;});
