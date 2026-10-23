@@ -50,6 +50,19 @@ class PublicationTests(unittest.TestCase):
             "AURENOEVA_SFTP_KNOWN_HOSTS": str(known),
         }
 
+    def test_publisher_repairs_legacy_lab_search_categories(self):
+        original = dict(VALID["items"][0])
+        original.update(canonical_id="AUR-P-"+"C"*20,
+                        manufacturer="Fritsch GmbH",model="P-5 premium",
+                        sector="laboratory",category="Chromatography / HPLC / GC",
+                        description="Rapid milling and sample preparation")
+        self.source.write_text(json.dumps({"schema":VALID["schema"],"items":[original]}))
+        data,count=normalized_snapshot(self.source)
+        self.assertEqual(count,1)
+        item=json.loads(data)["items"][0]
+        self.assertEqual(item["category"],"Sample preparation")
+        self.assertEqual(item["sector"],"laboratory")
+
     def test_fast_publication_transfers_complete_snapshot_once(self):
         from catalogue_publish import publish_fast
         key = self.root / "catalogue-sync-token"
