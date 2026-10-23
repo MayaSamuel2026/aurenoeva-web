@@ -57,7 +57,7 @@ def qualified_sha() -> str | None:
     # Actions API rate limits on the shared Hostinger VPS.
     try:
         receipt = get_bytes(f"{RAW}/production/VERSION.txt", limit=512).decode("utf-8")
-        match = re.fullmatch(r"Aurenoeva V[^\\n]+ production ([a-f0-9]{40})\\s*", receipt)
+        match = re.fullmatch(r"Aurenoeva V[^\n]+ production ([a-f0-9]{40})\s*", receipt)
         if match:
             return match.group(1)
     except (OSError, UnicodeError, ValueError):
