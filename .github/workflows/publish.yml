@@ -21,6 +21,10 @@ on:
       - 'tests/test_catalogue_harvester.py'
       - 'tools/catalogue_harvester.py'
       - 'tools/catalogue_publish.py'
+      - 'tools/catalogue_auto_update.py'
+      - 'tests/test_catalogue_auto_update.py'
+      - 'config/catalogue_harvester.json'
+      - 'ops/close-catalogue-gap.sh'
       - 'hotfix/catalogue-counter/**'
 
 permissions:
