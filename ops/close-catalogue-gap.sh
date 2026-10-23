@@ -118,8 +118,19 @@ systemctl enable --now "$TIMER"
 
 echo "=== PUBLISH ALL ELIGIBLE IDENTITIES NOW; NO RECRAWL ==="
 LOG="$BACKUP/publication.log"
-if ! runuser -u aurenoeva -- /usr/bin/python3 \
+PUBLISHED=0
+# Retry a short-lived website outage or existing concurrent publication.
+for attempt in 1 2 3; do
+ if runuser -u aurenoeva -- /usr/bin/python3 \
  "$APP/tools/catalogue_publish.py" >"$LOG" 2>&1;then
+   PUBLISHED=1
+   break
+ fi
+ echo "PUBLICATION_ATTEMPT_${attempt}=FAILED"
+ tail -n 8 "$LOG"
+ if [[ "$attempt" -lt 3 ]];then sleep 12; fi
+done
+if [[ "$PUBLISHED" != 1 ]];then
  tail -n 45 "$LOG"
  echo "CATALOGUE_FULL_PUBLICATION=FAILED; preserved database and previous website snapshot"
  exit 5
