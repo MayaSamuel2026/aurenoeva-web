@@ -10,6 +10,13 @@ import catalogue_auto_update as updater
 SHA="a"*40
 
 class AutomaticCatalogueUpdateTests(unittest.TestCase):
+    def test_production_receipt_selects_qualified_source_without_actions_api(self):
+        receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\\n").encode()
+        with patch.object(updater,"get_bytes",return_value=receipt) as read:
+            with patch.object(updater,"get_json",side_effect=AssertionError("API must not be needed")):
+                self.assertEqual(updater.qualified_sha(),SHA)
+        self.assertIn("/production/VERSION.txt",read.call_args.args[0])
+
     def test_qualification_chooses_latest_successful_main_revision(self):
         sha_new = SHA
         sha_old = "b" * 40
@@ -26,13 +33,14 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
                  "head_sha":sha_old,"head_branch":"main","event":"push",
                  "status":"completed","conclusion":"success"}
             ]}
-        with patch.object(updater,"get_json",side_effect=good):
-            self.assertEqual(updater.qualified_sha(),sha_new)
-        with patch.object(updater,"get_json",return_value={
-            "workflow_runs":[{"name":"AURENOEVA private procurement qualification",
-                "head_sha":SHA,"head_branch":"other","event":"push",
-                "status":"completed","conclusion":"success"}]}):
-            self.assertIsNone(updater.qualified_sha())
+        with patch.object(updater,"get_bytes",side_effect=OSError("CDN unavailable")):
+            with patch.object(updater,"get_json",side_effect=good):
+                self.assertEqual(updater.qualified_sha(),sha_new)
+            with patch.object(updater,"get_json",return_value={
+                "workflow_runs":[{"name":"AURENOEVA private procurement qualification",
+                    "head_sha":SHA,"head_branch":"other","event":"push",
+                    "status":"completed","conclusion":"success"}]}):
+                self.assertIsNone(updater.qualified_sha())
 
     def test_install_preserves_database_and_previous_files(self):
         with tempfile.TemporaryDirectory() as temp:
