@@ -620,20 +620,26 @@ jobs:
             git push origin production
           fi
 
-      - name: Verify updated receiver is serving on Hostinger
+      - name: Verify exact website release and public catalogue status
         shell: bash
         run: |
           set -euo pipefail
           for attempt in {1..18}; do
+            VERSION=$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' \
+              "https://aurenoeva.com/VERSION.txt?release=${GITHUB_SHA}" || true)
+            STATUS=$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' \
+              "https://aurenoeva.com/catalogue-count.php?release=${GITHUB_SHA}" || true)
             HEADERS=$(curl --silent --show-error --max-time 12 -D - -o /dev/null \
               -H 'Cache-Control: no-cache' \
               "https://aurenoeva.com/catalogue-sync.php?release=${GITHUB_SHA}" || true)
-            if printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-bulk: atomic-snapshot-v1$'; then
-              echo "AURENOEVA_LIVE_ATOMIC_CATALOGUE_RECEIVER=PASS"
+            if [[ "$VERSION" == *"$GITHUB_SHA" ]] \
+              && printf '%s\n' "$HEADERS" | tr -d '\r' | grep -qi '^x-aurenoeva-catalogue-bulk: atomic-snapshot-v1$' \
+              && printf '%s' "$STATUS" | python3 -c 'import json,sys;d=json.load(sys.stdin);assert d.get("ok") is True and d.get("searchable_parts",0)>0 and d.get("snapshot_updated_at_utc")'; then
+              echo "AURENOEVA_EXACT_LIVE_RELEASE_AND_STATUS=PASS"
               exit 0
             fi
-            echo "Hostinger receiver not yet updated (check $attempt/18)"
+            echo "Website commit, PHP receiver or catalogue status not yet verified ($attempt/18)"
             sleep 5
           done
-          echo "::error::Hostinger has not served the qualified production receiver. GitHub publication alone is not live deployment."
+          echo "::error::GitHub production branch alone is insufficient. Verify live VERSION.txt SHA and PHP code serving catalogue-count.php with snapshot_updated_at_utc."
           exit 1
