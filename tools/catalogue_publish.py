@@ -34,47 +34,76 @@ GENERIC = {
 }
 
 
-def normalized_snapshot(path: Path) -> tuple[bytes, int]:
+def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[bytes, int]:
+    """Produce publishable, source-backed identities and aggregate exclusions."""
     if not path.is_file() or path.stat().st_size > 512_000_000:
         raise ValueError("missing_or_oversized_snapshot")
     raw = json.loads(path.read_text(encoding="utf-8"))
     if raw.get("schema") != SCHEMA or not isinstance(raw.get("items"), list):
         raise ValueError("invalid_snapshot_schema")
     records = {}
+    reasons = {key: 0 for key in (
+        "non_product_record", "invalid_canonical_id", "missing_manufacturer",
+        "missing_model", "generic_heading", "invalid_https_source",
+        "duplicate_canonical_id")}
     for value in raw["items"]:
         if not isinstance(value, dict):
+            reasons["non_product_record"] += 1
             continue
         ident = str(value.get("canonical_id", ""))
         maker = str(value.get("manufacturer", "")).strip()[:100]
         model = str(value.get("model", "")).strip()[:100]
         source = str(value.get("source_ref", "")).strip()[:500]
-        p = urlsplit(source)
-        if (not IDENTITY.fullmatch(ident) or not maker or not model
-                or model.casefold() in GENERIC
-                or p.scheme != "https" or not p.hostname or p.username or p.password):
+        if not IDENTITY.fullmatch(ident):
+            reasons["invalid_canonical_id"] += 1
             continue
+        if not maker:
+            reasons["missing_manufacturer"] += 1
+            continue
+        if not model:
+            reasons["missing_model"] += 1
+            continue
+        if model.casefold() in GENERIC:
+            reasons["generic_heading"] += 1
+            continue
+        try:
+            p = urlsplit(source)
+            valid = p.scheme == "https" and p.hostname and not p.username and not p.password
+        except ValueError:
+            valid = False
+        if not valid:
+            reasons["invalid_https_source"] += 1
+            continue
+        if ident in records:
+            reasons["duplicate_canonical_id"] += 1
         records[ident] = {
             "canonical_id": ident,
             "manufacturer": maker,
             "model": model,
-            "sector": str(value.get("sector", "")) if str(value.get("sector", "")) in ("laboratory", "test", "medical", "industrial", "energy", "marine", "aviation") else "",
+            "sector": str(value.get("sector", "")) if str(value.get("sector", "")) in (
+                "laboratory", "test", "medical", "industrial", "energy", "marine", "aviation") else "",
             "category": str(value.get("category", ""))[:160],
             "description": str(value.get("description", ""))[:240],
             "source_ref": source,
             "lifecycle_status": "UNVERIFIED",
             "last_seen": str(value.get("last_seen", ""))[:35],
         }
+    if diagnostics is not None:
+        diagnostics.update({
+            "exported_input_rows": len(raw["items"]),
+            "publishable_unique_records": len(records),
+            "excluded_rows": sum(reasons.values()),
+            "exclusion_reasons": reasons,
+        })
     if not records:
         raise ValueError("no_qualifying_catalogue_identities")
     # Product identities travel separately from private vendor evidence.
-    # A single combined JSON upload hit its 24 MB cap at ~27,000 products.
     payload = {
         "schema": SCHEMA,
         "items": [records[key] for key in sorted(records)],
         "availability_notice": "Product identity only; no supplier stock or price is implied.",
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
-
 
 
 def product_batches(payload: bytes, max_records: int = 600,
@@ -255,7 +284,10 @@ def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     token = token_path.read_text(encoding="ascii").strip()
     if not re.fullmatch(r"[a-f0-9]{64}", token):
         raise ValueError("catalogue_push_key_invalid")
-    payload, count = normalized_snapshot(snapshot)
+    diagnostics = {}
+    payload, count = normalized_snapshot(snapshot, diagnostics=diagnostics)
+    print(json.dumps({"event": "CATALOGUE_ELIGIBILITY_RECONCILIATION",
+                      **diagnostics}, sort_keys=True), flush=True)
     digest = hashlib.sha256(payload).hexdigest()
     manifest = json.dumps({"sha256": digest, "bytes": len(payload),
                            "count": count}, separators=(",", ":")).encode()
