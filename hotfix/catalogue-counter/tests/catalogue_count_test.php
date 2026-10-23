@@ -19,6 +19,9 @@ try {
     file_put_contents($path,$json);
     $first = aur_catalogue_count_file($path);
     if ($first !== 2) throw new RuntimeException('first count actual='.var_export($first,true).' header='.substr($json,0,120));
+    $time=aur_catalogue_snapshot_updated_at($path);
+    if (!is_string($time) || !preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/', $time))
+        throw new RuntimeException('snapshot_timestamp_missing');
     if (aur_catalogue_count_file($path) !== 2) throw new RuntimeException('cached count');
     $rows[] = ['canonical_id'=>'AUR-P-'.str_repeat('3',20),'manufacturer'=>'Fixture',
         'model'=>'MODEL-3','source_ref'=>'https://example.org/3'];
