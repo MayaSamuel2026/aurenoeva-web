@@ -17,6 +17,8 @@ on:
       - 'hotfix/v8.2.6.11/catalogue-search.php'
       - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/catalogue-browser/**'
+      - 'tests/test_catalogue_publish.py'
+      - 'tests/test_catalogue_harvester.py'
       - 'hotfix/catalogue-counter/**'
 
 permissions:
