@@ -67,12 +67,17 @@
         selected=name;
         filter.value='';
         // Keep the original enquiry's category selector in sync wherever possible.
-        const option=[...category.options].find(x=>x.value===name);
-        if(option) {
-          category.value=name;
+        if(name==='__all') {
+          category.value='';
           category.dispatchEvent(new Event('change',{bubbles:true}));
         } else {
-          load(0);
+          let option=[...category.options].find(x=>x.value===name);
+          if(!option) {
+            option=new Option(categoryText(name),name);
+            category.add(option);
+          }
+          category.value=name;
+          category.dispatchEvent(new Event('change',{bubbles:true}));
         }
       }));
     }
