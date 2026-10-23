@@ -63,6 +63,12 @@ function aur_catalogue_count_file(string $path): ?int {
         fclose($fp);
     }
 }
+/** Snapshot modification time is a publication freshness signal, not a crawl timestamp. */
+function aur_catalogue_snapshot_updated_at(string $path): ?string {
+    clearstatcache(true, $path);
+    $time = @filemtime($path);
+    return is_int($time) && $time > 0 ? gmdate('Y-m-d\\TH:i:s\\Z', $time) : null;
+}
 if (defined('AUR_CATALOGUE_COUNT_LIBRARY_ONLY')) return;
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=120');
@@ -87,6 +93,7 @@ try {
     $count = aur_catalogue_count_file($real);
     if ($count === null) throw new RuntimeException('catalogue_unavailable');
     echo json_encode(['ok'=>true,'searchable_parts'=>$count,
+        'snapshot_updated_at_utc'=>aur_catalogue_snapshot_updated_at($real),
         'stock_verified'=>false,'source'=>'published_catalogue_snapshot'],
         JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
