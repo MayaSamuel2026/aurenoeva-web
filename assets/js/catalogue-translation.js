@@ -5,7 +5,8 @@
 (function () {
   'use strict';
   const SELECTORS = [
-    '#aur-browse-products .aur-browse-part-copy span',
+    '#aur-browse-products .aur-browse-model',
+    '#aur-browse-products .aur-browse-description',
     '#req-matches .catalogue-match p',
     '#studio-matches .catalogue-match p'
   ];
@@ -61,23 +62,30 @@
     const raw=original(el);
     if(el.textContent!==raw)el.textContent=raw;
     el.lang='';
-    const details=el.closest('article')?.querySelector('.aur-source-description');
+    const kind=el.classList?.contains('aur-browse-model') ? 'model' : 'description';
+    const details=el.closest('article')?.querySelector(
+      '.aur-source-description[data-aur-kind="'+kind+'"]');
     if(details)details.remove();
   }
   function keepOriginal(el,raw,sourceLanguage) {
     const article=el.closest('article');
     if(!article)return;
-    let details=article.querySelector('.aur-source-description');
+    const kind=el.classList?.contains('aur-browse-model') ? 'model' : 'description';
+    let details=article.querySelector(
+      '.aur-source-description[data-aur-kind="'+kind+'"]');
     if(!details){
       details=document.createElement('details');
       details.className='aur-source-description';
+      details.setAttribute('data-aur-kind',kind);
       const summary=document.createElement('summary');
       const source=document.createElement('p');
       source.className='aur-source-description-text';
       details.append(summary,source);
       el.insertAdjacentElement('afterend',details);
     }
-    details.querySelector('summary').textContent=localized('Show original description','Originalbeschreibung anzeigen');
+    details.querySelector('summary').textContent=kind==='model'
+      ?localized('Show original model name','Originalbezeichnung anzeigen')
+      :localized('Show original description','Originalbeschreibung anzeigen');
     const source=details.querySelector('.aur-source-description-text');
     source.textContent=raw;
     if(sourceLanguage)source.lang=sourceLanguage;
@@ -133,7 +141,10 @@
   }
   async function convert(el,run){
     const raw=original(el), target=targetLanguage();
-    if(!raw || raw.length<18 || raw.length>1600)return;
+    if(!raw || raw.length<9 || raw.length>1600)return;
+    // Preserve opaque model identifiers (including RFQ reference numbers).
+    if(el.classList?.contains('aur-browse-model') &&
+       /^[A-Z0-9][A-Z0-9.\\/_+–-]{2,}$/.test(raw))return;
     // Always start from original; a language toggle must never retranslate
     // an already translated sentence.
     el.dataset.aurTarget=target;
@@ -171,13 +182,13 @@
     const run=++refreshId;
     const nodes=[...examples()];
     if(!nodes.length)return;
-    status(localized('Translating catalogue descriptions…',
-      'Katalogbeschreibungen werden übersetzt …'));
+    status(localized('Translating product titles and descriptions…',
+      'Produktbezeichnungen und Beschreibungen werden übersetzt …'));
     await Promise.all(nodes.map(node=>convert(node,run)));
     if(run===refreshId){
       const untranslated=nodes.some(el=>el.lang!==targetLanguage());
-      status(untranslated?'':localized('Descriptions translated automatically · Originals available',
-        'Beschreibungen automatisch übersetzt · Originale verfügbar'));
+      status(untranslated?'':localized('Product text translated automatically · Originals available',
+        'Produkttexte automatisch übersetzt · Originale verfügbar'));
     }
   }
   function start(){
