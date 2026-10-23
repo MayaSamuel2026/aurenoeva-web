@@ -127,8 +127,19 @@ def technical_product_relevance(sector: str, model: str, source: str) -> bool:
         return False
     return True
 
-def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str) -> str:
-    """Evidence-first lab facet. A crawler search term is not product identity."""
+def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str, source: str = "") -> str:
+    """Resolve technical facets from model/description/source, not crawler queries."""
+    evidence = (model + " " + description + " " + source).casefold()
+    if sector == "medical":
+        if re.search(r"intellivue|benevision|patient.monitor|vital.signs|pulse.oxim", evidence):
+            return "Patient monitoring"
+        if re.search(r"anesth|anaesth|ventilat|\bwato\b", evidence):
+            return "Surgical / procedural"
+    if sector == "test":
+        if re.search(r"multimeter|dmm7510|power.analy[sz]er", evidence):
+            return "Meters & power analyzers"
+        if re.search(r"oscilloscop|mso[0-9]|mdo[0-9]", evidence):
+            return "Oscilloscopes"
     if sector != "laboratory":
         return category
     text = " ".join((manufacturer, model, description)).casefold()
@@ -200,7 +211,7 @@ def parse_page(body,url,maker,sector,category):
         if not technical_product_relevance(sector,model,url):continue
         if not any(c.isdigit() for c in model) and proof!="STRUCTURED_PRODUCT":continue
         desc=txt(p.metas.get("description") or title or heading)
-        proper_category=refine_lab_category(sector,category,brand,model,desc)
+        proper_category=refine_lab_category(sector,category,brand,model,desc,url)
         result.append({"product_id":pid(brand,model),"manufacturer":brand,"model":model,
                        "description":desc,
                        "sector":sector,"category":proper_category,"source_url":url,
