@@ -64,8 +64,19 @@ def technical_product_relevance(sector: str, model: str, source: str) -> bool:
         return False
     return True
 
-def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str) -> str:
-    """Evidence-first lab facet. A crawler search term is not product identity."""
+def refine_lab_category(sector: str, category: str, manufacturer: str, model: str, description: str, source: str = "") -> str:
+    """Resolve technical facets from model/description/source, not crawler queries."""
+    evidence = (model + " " + description + " " + source).casefold()
+    if sector == "medical":
+        if re.search(r"intellivue|benevision|patient.monitor|vital.signs|pulse.oxim", evidence):
+            return "Patient monitoring"
+        if re.search(r"anesth|anaesth|ventilat|\bwato\b", evidence):
+            return "Surgical / procedural"
+    if sector == "test":
+        if re.search(r"multimeter|dmm7510|power.analy[sz]er", evidence):
+            return "Meters & power analyzers"
+        if re.search(r"oscilloscop|mso[0-9]|mdo[0-9]", evidence):
+            return "Oscilloscopes"
     if sector != "laboratory":
         return category
     text = " ".join((manufacturer, model, description)).casefold()
@@ -140,7 +151,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "laboratory", "test", "medical", "industrial", "energy", "marine", "aviation") else "",
             "category": refine_lab_category(
                 str(value.get("sector", "")), str(value.get("category", ""))[:160],
-                maker, model, str(value.get("description", ""))[:240]),
+                maker, model, str(value.get("description", ""))[:240], source),
             "description": str(value.get("description", ""))[:240],
             "source_ref": source,
             "lifecycle_status": "UNVERIFIED",
