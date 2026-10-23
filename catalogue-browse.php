@@ -27,10 +27,13 @@ function aur_browse_relevant(array $part): bool {
         'de.pons.com','www.pons.com','pons.com','www.lidl.de','lidl.de',
         'www.ep.de','ep.de','www.notebookcheck.com','notebookcheck.com',
         'www.pcwelt.de','pcwelt.de','www.computerbild.de','computerbild.de',
-        'www.thisoldhouse.com','thisoldhouse.com'
+        'www.thisoldhouse.com','thisoldhouse.com',
+        'www.langenscheidt.com','langenscheidt.com'
     ], true)) return false;
     $sector = (string)($part['sector'] ?? '');
     $model = (string)($part['model'] ?? '');
+    if (preg_match('/\bpons\b/i',(string)($part['manufacturer'] ?? '')) &&
+        preg_match('/^97[89][-0-9]+$/',$model)) return false;
     $path = strtolower((string)(parse_url($source, PHP_URL_PATH) ?: ''));
     if ($sector === 'aviation' && preg_match('/geekom|mini[\s-]?pc|notebook/i', $model)
         && !preg_match('/avionic|aircraft|ads[\s-]?b|transponder|flight control/i', $model))
