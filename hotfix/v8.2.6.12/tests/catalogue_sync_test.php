@@ -123,6 +123,55 @@ try {
     catch (RuntimeException $e) { /* Expected: preserve last good */ }
     if (hash_file('sha256', $private . '/catalogue-public.json') !== $digest)
         throw new RuntimeException('last_good_snapshot_overwritten');
+
+    // Fast whole-catalogue upload: append only the current chunk, then publish
+    // once with checksum/record count; no repeated merge of all prior products.
+    $whole=['schema'=>'aurenoeva-catalogue/1','items'=>[
+        ['canonical_id'=>'AUR-P-'.str_repeat('A',20),
+         'manufacturer'=>'Mindray','model'=>'WATO EX-35',
+         'source_ref'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35'],
+        ['canonical_id'=>'AUR-P-'.str_repeat('C',20),
+         'manufacturer'=>'Garmin','model'=>'GPSMAP 9217xsv',
+         'source_ref'=>'https://www.garmin.com/en-US/p/2001334/'],
+        ['canonical_id'=>'AUR-P-'.str_repeat('D',20),
+         'manufacturer'=>'Agilent','model'=>'1260 Infinity II',
+         'source_ref'=>'https://www.agilent.com/en/product/liquid-chromatography'],
+        ['canonical_id'=>'AUR-P-'.str_repeat('F',20),
+         'manufacturer'=>'Siemens','model'=>'MAGNETOM Lumina',
+         'source_ref'=>'https://www.siemens-healthineers.com/en-us/']
+    ]];
+    $packed=json_encode($whole,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    $hash=hash('sha256',$packed);
+    if(aur_bulk_begin($private,$hash,strlen($packed))['status']!=='READY')
+        throw new RuntimeException('bulk_not_ready');
+    $cut=round(strlen($packed)/2);
+    $first=substr($packed,0,(int)$cut);$second=substr($packed,(int)$cut);
+    if(aur_bulk_chunk($private,$hash,0,$first)['offset']!==strlen($first)
+       ||aur_bulk_chunk($private,$hash,strlen($first),$second)['offset']!==strlen($packed)
+       ||aur_bulk_chunk($private,$hash,strlen($first),$second)['offset']!==strlen($packed))
+        throw new RuntimeException('bulk_chunk_retry_not_idempotent');
+    $ack=aur_bulk_commit($private,$hash,strlen($packed),4);
+    if($ack['records']!==4
+       ||aur_bulk_commit($private,$hash,strlen($packed),4)['records']!==4
+       ||count(aur_catalogue_snapshot_search('MAGNETOM Lumina')??[])!==1)
+        throw new RuntimeException('bulk_catalogue_not_searchable');
+    if(hash_file('sha256',$private.'/catalogue-public.json')!==$hash)
+        throw new RuntimeException('bulk_catalogue_checksum_mismatch');
+    $smaller=['schema'=>'aurenoeva-catalogue/1','items'=>[$whole['items'][0]]];
+    $short=json_encode($smaller,JSON_UNESCAPED_SLASHES);
+    $shortHash=hash('sha256',$short);
+    aur_bulk_begin($private,$shortHash,strlen($short));
+    aur_bulk_chunk($private,$shortHash,0,$short);
+    try {
+        aur_bulk_commit($private,$shortHash,strlen($short),1);
+        throw new RuntimeException('bulk_catalogue_regression_accepted');
+    } catch(RuntimeException $e) {
+        if($e->getMessage()==='bulk_catalogue_regression_accepted') throw $e;
+    }
+    if(hash_file('sha256',$private.'/catalogue-public.json')!==$hash)
+        throw new RuntimeException('bulk_failure_overwrote_last_good');
+    @unlink(aur_bulk_path($private,$shortHash));
+
     echo "AURENOEVA_CATALOGUE_HTTPS_SYNC_AND_SEARCH=PASS\n";
 } finally {
     @unlink($private . '/catalogue-public.json');
