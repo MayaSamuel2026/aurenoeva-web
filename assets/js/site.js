@@ -242,6 +242,13 @@ function initRequirementWizard(){
  function evidenceValues(){const lang=getLang();return [...wizard.querySelectorAll('[data-evidence]:checked')].map(el=>lang==='de'?(el.dataset.deValue||el.value):el.value)}
  function evidenceText(){const values=evidenceValues();return values.length?values.join(', '):(getLang()==='de'?'Keine besonderen Nachweise ausgewählt':'No specific evidence requested')}
  function renderSelected(){renderSelectedPartTray(selectedTray,selectedParts,key=>{selectedParts=removeSelectedPart(selectedParts,key);renderSelected();if(step>=3)renderBrief(step===4)})}
+  document.addEventListener('aur:add-catalogue-part', event=>{
+   const part=event.detail?.part;
+   if(!part || !part.canonical_id)return;
+   selectedParts=addSelectedPart(selectedParts,part);
+   renderSelected();
+   if(step>=3)renderBrief(step===4);
+ });
  function showMatchStatus(message,kind='neutral'){if(!matchPanel||!matchStatus)return;matchPanel.hidden=false;matchStatus.className=`catalogue-match-status ${kind}`;matchStatus.textContent=message}
  async function performSearch(){
   const q=fields.query.value.trim(),lang=getLang();if(q.length<2){if(matchPanel)matchPanel.hidden=true;if(matches)matches.innerHTML='';return}
