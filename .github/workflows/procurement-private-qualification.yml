@@ -21,6 +21,7 @@ on:
       - 'hotfix/v8.2.6.12/tests/**'
       - 'ops/upgrade-catalogue-sectors.sh'
       - 'ops/activate-harvester-v4.sh'
+      - 'ops/close-catalogue-gap.sh'
       - 'ops/aurenoeva-catalogue.service'
       - 'ops/aurenoeva-catalogue.timer'
       - 'config/catalogue_harvester.json'
@@ -49,7 +50,7 @@ jobs:
           python3 -m compileall -q tools/procurement_intake.py tools/procurement_rfq.py tools/procurement_inbox.py tools/procurement_case_store.py tools/procurement_sanctions.py tools/procurement_hostinger_worker.py
           python3 -m unittest discover -s tests -p 'test_procurement_*.py' -v
       - name: Catalogue VPS upgrade script syntax
-        run: bash -n ops/upgrade-catalogue-sectors.sh ops/activate-harvester-v4.sh
+        run: bash -n ops/upgrade-catalogue-sectors.sh ops/activate-harvester-v4.sh ops/close-catalogue-gap.sh
       - name: Catalogue crawler and private SSH publisher regression tests
         run: |
           python3 -m compileall -q tools/catalogue_worker.py tools/catalogue_harvester.py tools/catalogue_publish.py tools/catalogue_auto_update.py
