@@ -22,6 +22,22 @@ try {
     $time=aur_catalogue_snapshot_updated_at($path);
     if (!is_string($time) || !preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/', $time))
         throw new RuntimeException('snapshot_timestamp_missing');
+    $stats=['db_products'=>5,'exported_products'=>5,'eligible_products'=>2,
+        'excluded_products'=>3,'excluded_invalid_id'=>1,
+        'excluded_generic'=>1,'excluded_missing_maker'=>0,
+        'excluded_missing_model'=>0,'excluded_source'=>1,
+        'excluded_duplicates'=>0,'excluded_nonrecord'=>0];
+    $withStats=['schema'=>'aurenoeva-catalogue/1','items'=>$rows,
+        'availability_notice'=>'Product identity only',
+        'public_stats'=>$stats];
+    file_put_contents($path,json_encode($withStats,JSON_THROW_ON_ERROR));
+    clearstatcache(true,$path);
+    $readStats=aur_catalogue_public_stats($path,2);
+    if ($readStats===null || $readStats['db_products']!==5 ||
+        $readStats['excluded_source']!==1)
+        throw new RuntimeException('reconciliation_stats_missing');
+    if (aur_catalogue_public_stats($path,3)!==null)
+        throw new RuntimeException('stale_stats_accepted');
     if (aur_catalogue_count_file($path) !== 2) throw new RuntimeException('cached count');
     $rows[] = ['canonical_id'=>'AUR-P-'.str_repeat('3',20),'manufacturer'=>'Fixture',
         'model'=>'MODEL-3','source_ref'=>'https://example.org/3'];
