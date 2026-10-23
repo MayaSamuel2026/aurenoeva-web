@@ -1,8 +1,9 @@
 """Offline integration checks for AURENOEVA's replacement seven-sector harvester."""
 import json,sqlite3,tempfile,sys,unittest
+from urllib.parse import parse_qs,urlsplit
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
-from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance
+from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds
 BING="""<?xml version="1.0"?><rss><channel><item>
 <title>WATO EX-35 - Mindray</title>
 <link>https://www.mindray.com/en/products/anesthesia/wato-ex-35</link>
@@ -160,6 +161,43 @@ class Tests(unittest.TestCase):
                      any(__import__("urllib.parse",fromlist=["urlsplit"]).urlsplit(u).hostname==h
                          for u in entry["seeds"])
                      for entry in sources) for h in ("www.ersaal.de","www.labx.com")))
+
+    def test_every_configured_model_hint_seeds_exact_part_search(self):
+        # Catch source configuration that exists on disk but is ignored by V4.
+        cfg=json.loads((Path(__file__).resolve().parents[1]/
+            "config/catalogue_harvester.json").read_text())
+        only_sources={"categories":{},"sources":cfg["sources"]}
+        seeds(self.db,only_sources)
+        queries={parse_qs(urlsplit(row["url"]).query).get("q",[""])[0]
+                 for row in self.db.execute(
+                     "SELECT url FROM harvest_queue WHERE kind='search'")}
+        checked=0
+        for source in cfg["sources"]:
+            if not source.get("active",True):continue
+            for part in set(source.get("model_hints",{}).values()):
+                expected=(f'"{source["manufacturer"]}" "{part}" '
+                          "manufacturer product datasheet part number")
+                self.assertIn(expected,queries,source["id"])
+                checked+=1
+        self.assertGreater(checked,10)
+
+    def test_manufacturer_follow_path_discovers_nonstandard_model_url(self):
+        cfg={"categories":{},"sources":[{
+            "id":"nonstandard-oem","manufacturer":"Example OEM",
+            "sector":"industrial","category":"Sensors / instrumentation",
+            "seeds":["https://www.example.com/overview"],
+            "follow_paths":["/gb/en/a/"]}]}
+        pages={
+            "https://www.example.com/overview":
+                '<html><a href="/gb/en/a/AB123">AB123</a></html>',
+            "https://www.example.com/gb/en/a/AB123":
+                '<html><script type="application/ld+json">'
+                '{"@type":"Product","brand":"Example OEM","mpn":"AB123"}'
+                '</script></html>'}
+        output=run(self.db,cfg,4,30,1,lambda url,kind:pages[url])
+        self.assertEqual(output["new_products"],1)
+        self.assertEqual(self.db.execute(
+            "SELECT model FROM products").fetchone()[0],"AB123")
 
     def test_oem_follow_regex_discovers_non_generic_product_route(self):
         cfg={"categories":{},"sources":[{"id":"factory","manufacturer":"Example OEM",

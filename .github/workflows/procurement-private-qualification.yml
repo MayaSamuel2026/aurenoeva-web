@@ -2,6 +2,9 @@ name: AURENOEVA private procurement qualification
 on:
   pull_request:
     paths:
+      - 'tools/catalogue_*.py'
+      - 'config/catalogue_harvester.json'
+      - 'tests/test_catalogue_*.py'
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_worldwide_php.php'
       - 'tests/test_procurement_country_preflight.php'
