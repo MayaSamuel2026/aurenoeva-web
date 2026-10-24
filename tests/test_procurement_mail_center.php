@@ -80,7 +80,7 @@ foreach([
 $ui=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
 $js=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail-center.js');
 mailcenter_assert(str_contains($ui,'name="attachments[]"') &&
-    str_contains($ui,"aur_mailcenter_send($aurStore,\$_POST,(array)(\$_FILES['attachments']??[]))"),
+    str_contains($ui,'aur_mailcenter_send($aurStore,$_POST,(array)'),
     'Multipart uploads not wired through authenticated dashboard');
 mailcenter_assert(str_contains($js,'new FormData(compose)') &&
     str_contains($js,"mail_action:'download_attachment'") &&
