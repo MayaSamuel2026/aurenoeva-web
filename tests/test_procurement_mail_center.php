@@ -203,6 +203,11 @@ mailcenter_assert(count($rfqSent)===1&&
 $rfqRead=aur_mailcenter_read($caseStore,'INBOX.Sent',$rfqSent[0]['uid']);
 mailcenter_assert($rfqRead['message']['body']==='Existing quotation schedule',
     'Original sent RFQ body inaccessible');
+mailcenter_assert(str_contains($ui,"img-src 'self'") &&
+    str_contains($ui,"default-src 'none'") &&
+    str_contains($ui,"script-src 'self'") &&
+    str_contains($ui,'src="/procurement/aurenoeva-logo.png?v=2"'),
+    'Approved same-origin logo image must be permitted while strict CSP remains active');
 mailcenter_assert(str_contains($ui,'id="aur-mail-rich-editor"') &&
     str_contains($ui,'id="aur-mail-normal"') &&
     str_contains($ui,'id="aur-mail-bold"') &&
