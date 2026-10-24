@@ -183,6 +183,7 @@ function aur_mailcenter_local_summary(array $entry):array {
         'preview'=>substr(preg_replace('/\s+/u',' ',(string)($entry['body']??''))??'',0,180),
         'unread'=>false,'has_attachments'=>!empty($entry['attachments']),
         'message_id'=>(string)($entry['smtp_message_id']??''),
+        'imap_sent_archive'=>(string)($entry['imap_sent_archive']??''),
         'status'=>(string)($entry['status']??'IN_FLIGHT'),
         'reference'=>preg_match('/AUR-[A-Z]{2}-[A-F0-9]{16}/',$subject,$m)?$m[0]:null
     ];
