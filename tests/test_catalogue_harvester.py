@@ -315,4 +315,58 @@ class Tests(unittest.TestCase):
         products,_,_=parse_page("<h1>Our products</h1><title>Our products</title>",
                                 "https://www.mindray.com/en/products","Mindray","medical","Imaging")
         self.assertEqual(products,[])
+
+    def test_onergys_german_oem_part_keeps_maker_and_retailer_separate(self):
+        page=('<html><title>Ölfiltereinsatz MWM 12284663 Original</title>'
+              '<h1>Ölfiltereinsatz MWM 12284663 Original</h1>'
+              '<p>Artikelnummer: 30002123</p><p>Hersteller: MWM</p></html>')
+        url="https://www.onergys.de/motorentechnik/filter/oelfilter/mwm-12284663.html"
+        parts,_,_=parse_page(page,url,"","energy","Turbine / plant components")
+        self.assertEqual(len(parts),1)
+        self.assertEqual(parts[0]["manufacturer"],"MWM")
+        self.assertEqual(parts[0]["model"],"12284663")
+        self.assertIn("30002123",parts[0]["description"])
+        self.assertEqual(parts[0]["identity_evidence"],"SUPPLIER_PART_PAGE")
+
+    def test_onergys_own_product_is_not_misattributed_to_engine_oem(self):
+        page=('<html><h1>Ventildeckeldichtung ONE4245 - MAN 51039050135</h1>'
+              '<p>Artikelnummer: 30004245</p><p>Hersteller: ONERGYS</p></html>')
+        url="https://www.onergys.de/motorentechnik/dichtungen/one4245.html"
+        parts,_,_=parse_page(page,url,"","energy","Turbine / plant components")
+        self.assertEqual([(x["manufacturer"],x["model"]) for x in parts],
+                         [("ONERGYS","ONE4245")])
+        self.assertIn("MAN 51039050135",parts[0]["description"])
+
+    def test_powergaskets_detail_uses_own_part_not_oem_crossreference(self):
+        page=('<html><title>KUBOTA CYLINDER HEAD GASKET</title><h1>Products</h1>'
+              '<ul><li><p>Power Gaskets No</p><p>80.24.155</p></li>'
+              '<li><p>Oem No</p><p>16394-03310,1639403310</p></li>'
+              '<li><p>Product Group</p><p>KUBOTA CYLINDER HEAD GASKET</p></li>'
+              '<li><p>Application</p><p>V1505 / 4D78 - MLS</p></li></ul>'
+              '<span>Add to Cart</span></html>')
+        url="https://www.powergaskets.com/en/1413/cylinder-head-gasket/16394-03310.html"
+        parts,_,_=parse_page(page,url,"","industrial","Machine / process equipment")
+        self.assertEqual(len(parts),1)
+        self.assertEqual(parts[0]["manufacturer"],"Power Gaskets")
+        self.assertEqual(parts[0]["model"],"80.24.155")
+        self.assertIn("16394-03310",parts[0]["description"])
+        self.assertEqual(parts[0]["identity_evidence"],"MANUFACTURER_PART_PAGE")
+        listing=page.replace("<h1>Products</h1>","<h1>All Brands</h1>")
+        self.assertEqual(parse_page(listing,
+            "https://www.powergaskets.com/en/all-brands/gaskets/0/0/1.php",
+            "","industrial","Machine / process equipment")[0],[])
+
+    def test_two_requested_sources_are_seeded_for_same_existing_crawler(self):
+        config=json.loads((Path(__file__).resolve().parents[1]/
+            "config/catalogue_harvester.json").read_text())
+        entries={src["id"]:src for src in config["sources"]}
+        self.assertIn("onergys-de-spare-parts",entries)
+        self.assertIn("power-gaskets-contasan",entries)
+        self.assertIn("https://www.onergys.de/",entries["onergys-de-spare-parts"]["seeds"])
+        self.assertEqual(entries["power-gaskets-contasan"]["role"],"manufacturer")
+        self.assertTrue(all(x.startswith("https://www.powergaskets.com/en/")
+                     for x in entries["power-gaskets-contasan"]["seeds"]))
+        self.assertFalse(any("gf-power.net" in x for x in
+                          entries["power-gaskets-contasan"]["seeds"]))
+
 if __name__=="__main__":unittest.main()
