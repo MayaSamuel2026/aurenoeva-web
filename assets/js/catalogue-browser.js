@@ -29,10 +29,13 @@
       '<p class="aur-browse-disclaimer" id="aur-browse-disclaimer"></p>';
     const field=category.closest('.field');
     field?.insertAdjacentElement('afterend',wrap);
-    // Use the wizard's real enquiry tray, directly below the catalogue;
-    // it is the same element used for validation and RFQ submission.
+    // One real enquiry tray for the wizard, positioned above the long list
+    // so selections are clearly visible without scrolling to the page bottom.
     const enquiryTray=wizard.querySelector('#req-selected-parts');
-    if(enquiryTray)wrap.insertAdjacentElement('afterend',enquiryTray);
+    if(enquiryTray){
+      wrap.querySelector('.aur-browse-head').insertAdjacentElement('afterend',enquiryTray);
+      enquiryTray.setAttribute('aria-live','polite');
+    }
     const chips=wrap.querySelector('#aur-browse-categories');
     const list=wrap.querySelector('#aur-browse-products');
     const filter=wrap.querySelector('#aur-browse-filter');
@@ -120,6 +123,7 @@
           if(!part)return;
           // The wizard must acknowledge the transfer before showing success.
           // Previously this button said Added even when no RFQ part existed.
+          const firstSelection=chosenIds().size===0;
           const request={part,accepted:false};
           document.dispatchEvent(new CustomEvent('aur:add-catalogue-part',{detail:request}));
           if(!request.accepted){
@@ -132,6 +136,9 @@
           status.textContent='';
           event.currentTarget.textContent=label('✓ Added','✓ Übernommen');
           event.currentTarget.disabled=true;
+          if(firstSelection && enquiryTray && !enquiryTray.hidden){
+            enquiryTray.scrollIntoView({behavior:'smooth',block:'center'});
+          }
         });
       });
       refreshButtons();
