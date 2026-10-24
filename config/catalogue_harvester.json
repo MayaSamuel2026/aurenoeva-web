@@ -771,7 +771,10 @@
         "https://www.onergys.com/en/",
         "https://www.onergys.com/en/engine-technology/",
         "https://www.onergys.com/en/engine-technology/filters/oil-filters/oil-filter-element-mwm-12284663-original.html",
-        "https://www.onergys.com/en/engine-technology/spark-plugs-ignition-system/spark-plugs/prechamber-spark-plug-one470-mwm-12453562-biogas.html"
+        "https://www.onergys.com/en/engine-technology/spark-plugs-ignition-system/spark-plugs/prechamber-spark-plug-one470-mwm-12453562-biogas.html",
+        "https://www.onergys.de/motortechnik/dichtungen-dichtsaetze/",
+        "https://www.onergys.de/motortechnik/dichtungen-dichtsaetze/dichtungen/",
+        "https://www.onergys.de/motortechnik/dichtungen-dichtsaetze/dichtungen/ventildeckeldichtung-one4245-man-51039050135.html"
       ],
       "follow_paths": [
         "/motortechnik/",
@@ -786,7 +789,8 @@
       "max_depth": 5,
       "refresh_hours": 24,
       "sector": "energy",
-      "category": "Turbine / plant components"
+      "category": "Turbine / plant components",
+      "priority": true
     },
     {
       "id": "power-gaskets-contasan",
@@ -797,6 +801,8 @@
         "www.powergaskets.com"
       ],
       "seeds": [
+        "https://www.powergaskets.com/en/1413/cylinder-head-gasket/16394-03310.html",
+        "https://www.powergaskets.com/en/1663/repair-kit/991/00147.html",
         "https://www.powergaskets.com/en/all-brands/gaskets/0/0/1.php",
         "https://www.powergaskets.com/en/all-brands/gaskets/0/0/15.php",
         "https://www.powergaskets.com/en/all-brands/gaskets/0/0/30.php",
@@ -812,7 +818,8 @@
       "max_depth": 5,
       "refresh_hours": 72,
       "sector": "industrial",
-      "category": "Machine / process equipment"
+      "category": "Machine / process equipment",
+      "priority": true
     }
   ]
 }
