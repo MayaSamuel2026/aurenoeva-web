@@ -31,6 +31,7 @@ require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/supplier_inbox.php';
+require_once __DIR__ . '/mail_center.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -97,6 +98,41 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['password']) && !$isAdmi
 }
 if (!$isAdmin && $_SERVER['REQUEST_METHOD']==='POST' && !isset($_POST['password'])) {
     aur_denied(401,'authentication required');
+}
+
+
+/* Staff Mail Center. Same authenticated signed cookie and CSRF as RFQ actions. */
+if(isset($_GET['mail_action'])||isset($_POST['mail_action'])){
+    header('Cache-Control: private, no-store, max-age=0');
+    if(!$isAdmin){http_response_code(401);header('Content-Type: application/json; charset=utf-8');echo '{"ok":false,"error":"authentication_required"}';exit;}
+    $action=(string)($_POST['mail_action']??$_GET['mail_action']??'');
+    $folder=(string)($_GET['folder']??'INBOX');
+    $uid=(string)($_GET['uid']??'');
+    try{
+        if($action==='download'&&$_SERVER['REQUEST_METHOD']==='GET'){
+            $source=aur_mailcenter_source($folder,aur_mailcenter_uid($uid));
+            header('Content-Type: message/rfc822');
+            header('Content-Disposition: attachment; filename="aurenoeva-message-'.(int)$uid.'.eml"');
+            header('X-Content-Type-Options: nosniff');
+            echo $source;exit;
+        }
+        if($action==='send'&&$_SERVER['REQUEST_METHOD']==='POST'){
+            $response=aur_mailcenter_send($aurStore,$_POST);
+        }elseif($action==='list'&&$_SERVER['REQUEST_METHOD']==='GET'){
+            $response=aur_mailcenter_list($aurStore,$folder,(int)($_GET['page']??1));
+        }elseif($action==='read'&&$_SERVER['REQUEST_METHOD']==='GET'){
+            $response=aur_mailcenter_read($aurStore,$folder,$uid);
+        }else{throw new InvalidArgumentException('invalid_mail_action');}
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($response,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }catch(Throwable $e){
+        error_log('AURENOEVA Mail Center: '.get_class($e));
+        http_response_code($e instanceof InvalidArgumentException?422:503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok'=>false,'error'=>$e instanceof InvalidArgumentException?$e->getMessage():'mailbox_operation_unavailable']);
+        exit;
+    }
 }
 
 /* Live readback: private, authenticated, read-only persisted RFQ ledger.
@@ -608,6 +644,41 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-tabs-enabled #supplier-workspace,.aur-tabs-enabled #aur-rfq-approval,.aur-tabs-enabled #supplier-replies{margin-top:14px!important;border:1px solid #e0e7e4!important;padding:24px!important}
 .aur-panel{scroll-margin-top:80px}
 @media(max-width:760px){.aur-switcher button{flex:0 0 auto;padding:10px 12px;font-size:13px}.aur-tabs-enabled .aur-guide{padding:16px}.aur-tabs-enabled .aur-panel .card{padding:16px}.aur-quick-actions a{flex:1 1 42%;text-align:center}.aur-tabs-enabled .aur-guide .aur-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Native Mail Center: compact, accessible, responsive and isolated from RFQ UI. */
+.aur-mail-shell{display:grid;grid-template-columns:132px minmax(0,1fr);gap:20px;margin-top:18px;min-height:420px}
+.aur-mail-folders{display:flex;flex-direction:column;gap:7px;align-items:stretch}
+.aur-mail-folders button{width:100%;text-align:left;background:#f1f5f3;color:#23463d;border:1px solid #e1e9e4;padding:10px 12px}
+.aur-mail-folders button[aria-pressed="true"]{background:#173f37;color:#fff}
+.aur-mail-main{min-width:0}
+.aur-mail-toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.aur-mail-toolbar h3{margin:0 auto 0 0}
+.aur-mail-toolbar input{max-width:240px;width:100%}
+.aur-mail-row{display:block;width:100%;padding:14px 12px;border:0;border-bottom:1px solid #e1e9e4;border-radius:0;background:#fff;color:#172f29;text-align:left}
+.aur-mail-row:hover,.aur-mail-row:focus-visible{background:#f1f6f3;color:#172f29}
+.aur-mail-row.unread{border-left:3px solid #1f6151}
+.aur-mail-row-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.aur-mail-row-top strong{font-size:13px;overflow-wrap:anywhere}
+.aur-mail-row-top time{font-size:11px;color:#64716b;white-space:nowrap}
+.aur-mail-row b{display:block;font-size:14px;padding:5px 0;overflow-wrap:anywhere}
+.aur-mail-row small{display:block;font-size:12px;color:#64716b;overflow:hidden;max-height:34px}
+.aur-mail-reference{display:inline-block;margin-top:6px;padding:3px 7px;border-radius:5px;background:#eaf2ee;font-size:11px}
+.aur-mail-warning{display:inline-block;color:#a0442d;font-size:12px;margin-top:5px}
+.aur-mail-detail-bar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
+#aur-mail-detail h3{font-size:19px;margin:12px 0;overflow-wrap:anywhere}
+.aur-mail-meta{border-bottom:1px solid #e1e9e4;padding-bottom:10px;font-size:12px;color:#586b62;overflow-wrap:anywhere}
+.aur-mail-meta p{margin:6px 0}
+#aur-mail-detail pre{font:14px/1.65 inherit;white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;padding:12px 0;max-height:680px;overflow:auto}
+.aur-mail-download{display:inline-block;margin-top:12px}
+#aur-mail-compose{display:grid;gap:14px}
+#aur-mail-compose[hidden],#aur-mail-detail[hidden],#aur-mail-list[hidden]{display:none}
+#aur-mail-compose label{display:grid;gap:6px}
+#aur-mail-compose input,#aur-mail-compose textarea{width:100%;max-width:100%;box-sizing:border-box}
+#aur-mail-compose textarea{border:1px solid #c5d2cd;border-radius:8px;padding:12px;font:inherit;resize:vertical;min-height:180px}
+#aur-mail-feedback{margin:12px 0;font-size:12px;color:#426357;min-height:18px}
+#aur-mail-feedback.is-error{color:#a0442d}
+.aur-mail-pagination{display:flex;align-items:center;gap:9px;margin-top:14px}
+@media(max-width:700px){.aur-mail-shell{grid-template-columns:1fr;gap:12px}.aur-mail-folders{flex-direction:row;overflow-x:auto}.aur-mail-folders button{width:auto;white-space:nowrap}.aur-mail-toolbar input{max-width:none;order:5}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
 </header>
@@ -648,6 +719,7 @@ elseif($aurDraftStatus==='DRAFT_REVIEW'){
 <button type="button" role="tab" data-aur-tab="enquiry" id="aur-tab-enquiry" aria-controls="aur-panel-enquiry">Enquiry</button>
 <button type="button" role="tab" data-aur-tab="suppliers" id="aur-tab-suppliers" aria-controls="aur-panel-suppliers">Suppliers</button>
 <button type="button" role="tab" data-aur-tab="rfq" id="aur-tab-rfq" aria-controls="aur-panel-rfq">RFQ &amp; replies</button>
+<button type="button" role="tab" data-aur-tab="mail" id="aur-tab-mail" aria-controls="aur-panel-mail">Mail Center</button>
 <button type="button" role="tab" data-aur-tab="settings" id="aur-tab-settings" aria-controls="aur-panel-settings">Administration</button>
 </nav>
 <nav id="aur-workflow" class="aur-guide" aria-label="RFQ status overview">
@@ -831,6 +903,47 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 </tbody></table></div></section>
 <?php endif; ?>
 
+
+<section class="card" id="aur-mail-center" aria-label="AURENOEVA Mail Center">
+<h2>Mail Center <small style="font-size:13px;font-weight:500;color:#67766e">info@aurenoeva.com · Hostinger</small></h2>
+<p class="muted">Read supplier emails, reply and send messages without leaving procurement. Existing RFQ automation continues independently.</p>
+<div class="aur-mail-shell">
+<nav class="aur-mail-folders" aria-label="Mail folders">
+<button type="button" data-mail-folder="INBOX">Inbox</button>
+<button type="button" data-mail-folder="INBOX.Sent">Sent</button>
+<button type="button" data-mail-folder="INBOX.Drafts">Drafts</button>
+<button type="button" data-mail-folder="INBOX.Junk">Junk</button>
+<button type="button" data-mail-folder="INBOX.Trash">Trash</button>
+</nav>
+<div class="aur-mail-main">
+<div class="aur-mail-toolbar">
+<h3 id="aur-mail-folder-name">Inbox</h3>
+<button type="button" id="aur-mail-new">+ Compose</button>
+<button type="button" class="ghost" id="aur-mail-reload">Refresh ↻</button>
+<input type="search" id="aur-mail-search" aria-label="Filter loaded messages" placeholder="Search this page">
+</div>
+<p id="aur-mail-feedback" role="status" aria-live="polite">Choose Inbox to load the live mailbox.</p>
+<div id="aur-mail-list"><p class="muted">Select a mail folder.</p></div>
+<div id="aur-mail-detail" hidden></div>
+<form id="aur-mail-compose" hidden>
+<h3 id="aur-mail-compose-heading">New message</h3>
+<input type="hidden" name="send_key" value="">
+<label>To <input name="to" type="email" required maxlength="254" autocomplete="email"></label>
+<label>Subject <input name="subject" required maxlength="250"></label>
+<label>Message <textarea name="body" required maxlength="50000" rows="10"></textarea></label>
+<div class="aur-mail-detail-bar">
+<button type="submit">Send email</button>
+<button type="button" class="ghost" id="aur-mail-cancel">Cancel</button>
+</div>
+<p class="muted">Each message is sent manually using AURENOEVA SMTP. The server acceptance is recorded in Sent; inbox delivery cannot be guaranteed. Attachments are available in downloaded original messages.</p>
+</form>
+<div class="aur-mail-pagination">
+<button type="button" class="ghost" id="aur-mail-prev" disabled>← Previous</button>
+<button type="button" class="ghost" id="aur-mail-next" disabled>Next →</button>
+</div>
+</div></div>
+</section>
+
 <section class="card">
 <h2 id="aur-mail-settings">AURENOEVA supplier mailbox</h2>
 <p>Supplier enquiries must use authenticated Hostinger SMTP from <b>info@aurenoeva.com</b>. Mailbox credentials stay in the website's private hosting directory, never in the public catalogue or GitHub.</p>
@@ -906,4 +1019,4 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=1"></script><?php endif; ?></body></html>
