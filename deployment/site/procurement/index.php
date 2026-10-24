@@ -30,6 +30,7 @@ require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/supplier_quality.php';
+require_once __DIR__ . '/supplier_inbox.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -128,6 +129,21 @@ if ($_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['rfq_status'])) {
         echo json_encode(['ok'=>false,'error'=>'rfq_readback_unavailable']);
         exit;
     }
+}
+
+/* Signed-in CSRF-protected inbox synchronization. Never sends supplier emails. */
+if($_SERVER['REQUEST_METHOD']==='POST'&&isset($_POST['sync_supplier_inbox'])){
+    if(!$isAdmin)aur_denied(401,'authentication required');
+    header('Content-Type: application/json; charset=utf-8');
+    try{
+        $sync=aur_mail_sync($aurStore,20);
+        echo json_encode($sync,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    }catch(Throwable $e){
+        error_log('AURENOEVA inbox sync: '.$e->getMessage());
+        http_response_code(503);
+        echo json_encode(['ok'=>false,'error'=>$e->getMessage()],JSON_THROW_ON_ERROR);
+    }
+    exit;
 }
 
 /* RFQ exports are generated only after staff authentication, never public URLs. */
@@ -890,4 +906,4 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><?php endif; ?></body></html>

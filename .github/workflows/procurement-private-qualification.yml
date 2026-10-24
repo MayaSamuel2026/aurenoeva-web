@@ -7,6 +7,7 @@ on:
       - 'tests/test_catalogue_*.py'
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_worldwide_php.php'
+      - 'tests/test_procurement_inbox.php'
       - 'tests/test_procurement_country_preflight.php'
       - 'tests/test_procurement_country_preflight.php'
       - '.github/workflows/procurement-private-qualification.yml'
@@ -77,6 +78,11 @@ jobs:
           php -l deployment/site/procurement/supplier_worldwide.php
           php -l deployment/site/procurement/supplier_rfq.php
           php -l deployment/site/procurement/supplier_replies.php
+          php -l deployment/site/procurement/supplier_inbox_mime.php
+          php -l deployment/site/procurement/supplier_inbox_store.php
+          php -l deployment/site/procurement/supplier_inbox_curl.php
+          php -l deployment/site/procurement/supplier_inbox.php
+          php -l deployment/site/procurement/supplier-inbox-cli.php
           php -l deployment/site/procurement/supplier_portal.php
           php -l deployment/site/procurement/staff_auth.php
           php -l deployment/site/procurement/supplier-refresh-cli.php
@@ -86,6 +92,7 @@ jobs:
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
+          php tests/test_procurement_inbox.php
           php tests/test_procurement_smtp.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
           php -l hotfix/v8.2.6.11/catalogue-search.php
