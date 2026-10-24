@@ -443,6 +443,16 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     # A configured manufacturer pattern is a discovery route, not a product claim.
     patterns_by_host={host:[re.compile(p,re.I) for p in patterns]
                       for host,patterns in patterns_by_host.items()}
+    # Give newly approved supplier catalogues a bounded share of each run.
+    # An established, much larger backlog must not starve their first import.
+    # Remaining page capacity stays available to every existing source.
+    priority_hosts=sorted({
+        host.lower() for src in config.get("sources",[])
+        if src.get("active",True) and src.get("priority")
+        for host in src.get("allowed_hosts",[])
+        if isinstance(host,str) and re.fullmatch(r"[a-zA-Z0-9.-]+",host)
+    })
+    priority_remaining=max(1,max_pages//3) if priority_hosts else 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
@@ -458,6 +468,19 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             rows=[]
             selected=set()
             for (kind,_),limit in zip(buckets,counts):
+                if not limit:continue
+                if kind=="page" and priority_remaining:
+                    host_where=" OR ".join("url LIKE ?" for _ in priority_hosts)
+                    host_params=tuple("https://"+h+"/%" for h in priority_hosts)
+                    favored=db.execute("""SELECT * FROM harvest_queue
+                        WHERE due<=? AND kind=? AND ("""+host_where+""")
+                        ORDER BY failures,depth,due LIMIT ?""",
+                        (stamp(),kind,*host_params,min(limit,priority_remaining))).fetchall()
+                    for record in favored:
+                        if record["url"] not in selected:
+                            rows.append(record);selected.add(record["url"])
+                    priority_remaining-=len(favored)
+                    limit-=len(favored)
                 if not limit:continue
                 found=db.execute("""SELECT * FROM harvest_queue
                     WHERE due<=? AND kind=? ORDER BY failures,depth,due
