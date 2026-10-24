@@ -762,23 +762,27 @@
       "manufacturer": "",
       "role": "supplier",
       "allowed_hosts": [
-        "www.onergys.de"
+        "www.onergys.de",
+        "www.onergys.com"
       ],
       "seeds": [
         "https://www.onergys.de/",
-        "https://www.onergys.de/motorentechnik/",
-        "https://www.onergys.de/anlagentechnik/",
-        "https://www.onergys.de/elektrotechnik/",
-        "https://www.onergys.de/aktionen/neu-im-shop/",
-        "https://www.onergys.de/aktionen/alternativteile/"
+        "https://www.onergys.de/motortechnik/filter/zubehoer-ersatzteile/",
+        "https://www.onergys.com/en/",
+        "https://www.onergys.com/en/engine-technology/",
+        "https://www.onergys.com/en/engine-technology/filters/oil-filters/oil-filter-element-mwm-12284663-original.html",
+        "https://www.onergys.com/en/engine-technology/spark-plugs-ignition-system/spark-plugs/prechamber-spark-plug-one470-mwm-12453562-biogas.html"
       ],
       "follow_paths": [
-        "/motorentechnik/",
+        "/motortechnik/",
         "/anlagentechnik/",
         "/elektrotechnik/",
-        "/aktionen/"
+        "/aktionen/",
+        "/en/engine-technology/",
+        "/en/plant-technology/",
+        "/en/electrical-engineering/"
       ],
-      "follow_regex": "^/(?:motorentechnik|anlagentechnik|elektrotechnik|aktionen)/.*\\.html$",
+      "follow_regex": "^/(?:motortechnik|anlagentechnik|elektrotechnik|aktionen|en/engine-technology|en/plant-technology|en/electrical-engineering)/.*\\.html$",
       "max_depth": 5,
       "refresh_hours": 24,
       "sector": "energy",
