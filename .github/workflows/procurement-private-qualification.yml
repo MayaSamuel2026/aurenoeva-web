@@ -82,6 +82,7 @@ jobs:
           php -l deployment/site/procurement/supplier_inbox_store.php
           php -l deployment/site/procurement/supplier_inbox_curl.php
           php -l deployment/site/procurement/supplier_inbox.php
+          php -l deployment/site/procurement/mail_branding.php
           php -l deployment/site/procurement/mail_center.php
           node --check deployment/site/procurement/mail-center.js
           php -l deployment/site/procurement/supplier-inbox-cli.php
