@@ -372,9 +372,14 @@ jobs:
              selectedParts=addSelectedPart(selectedParts,part);
              renderSelected();
              if(step>=3)renderBrief(step===4);
+             // Report success only when the enquiry contains this exact part.
+             event.detail.accepted=selectedParts.some(p=>partKey(p)===partKey(part));
            });
           """
           js=js.replace(anchor,handler+anchor,1)
+          tray_anchor="function renderSelected(){renderSelectedPartTray(selectedTray,selectedParts,key=>{selectedParts=removeSelectedPart(selectedParts,key);renderSelected();if(step>=3)renderBrief(step===4)})}"
+          assert js.count(tray_anchor)==1, "wizard selection tray changed"
+          js=js.replace(tray_anchor,tray_anchor[:-1]+";document.dispatchEvent(new Event('aur:selection-changed'))}",1)
           # The browsing scope must match the category saved in the enquiry.
           cat_anchor="fields.category.innerHTML=industries[fields.industry.value].map("
           assert js.count(cat_anchor)==1
@@ -390,6 +395,10 @@ jobs:
           assert html.count('</head>')==1 and html.count('</body>')==1
           assert 'catalogue-browser.js' not in html
           release=os.environ['GITHUB_SHA'][:12]
+          # The earlier fixed version cached a wizard without the catalogue listener.
+          old='assets/js/site.js?v=8.2.6.8'
+          assert html.count(old)==1, 'requirement wizard script version changed'
+          html=html.replace(old,f'assets/js/site.js?v={release}',1)
           html=html.replace('</head>',f'<link rel="stylesheet" href="assets/css/catalogue-browser.css?v={release}"></head>',1)
           html=html.replace('</body>',f'<script defer src="assets/js/catalogue-browser.js?v={release}"></script><script defer src="assets/js/catalogue-translation.js?v={release}"></script></body>',1)
           page.write_text(html,encoding='utf-8')
@@ -409,6 +418,11 @@ jobs:
           node hotfix/catalogue-browser/tests/catalogue_translation_test.js
           grep -Fq "catalogue-translation.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
           grep -q 'aur:add-catalogue-part' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'event.detail.accepted=selectedParts.some' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -q 'aur:selection-changed' "$RUNNER_TEMP/source/site/assets/js/site.js"
+          grep -Fq "assets/js/site.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
+          grep -q 'if(!request.accepted)' "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
+          grep -q "insertAdjacentElement('afterend',enquiryTray)" "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
           grep -Fq "catalogue-browser.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
 
       - name: JavaScript syntax check
