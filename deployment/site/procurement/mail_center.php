@@ -355,9 +355,7 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $attachmentMetadata=array_map(static fn($part)=>[
             'name'=>$part['name'],'size'=>$part['size'],'type'=>$part['type']
         ],$attached);
-        $logoFile=__DIR__.'/aurenoeva-logo.png';
-        if(!is_file($logoFile)||is_link($logoFile))
-            throw new RuntimeException('mail_logo_asset_unavailable');
+        $logoFile=aur_mailcenter_logo_file($store);
         $plain=$send['body']."\n\n".aur_mailcenter_signature_plain();
         $formatted=aur_mailcenter_html_document($send['body_html']);
         $smtpId=$id.'@aurenoeva.com';
