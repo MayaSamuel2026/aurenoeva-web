@@ -50,7 +50,7 @@ function aur_rfq_quality_report(array $case):array {
         // become duplicate products merely because their wording is similar.
         $tokens=aur_rfq_quality_tokens($description);
         $hasModel=false;
-        foreach($tokens as $t)if(preg_match('/\d/',$t)){$hasModel=true;break;}
+        foreach($tokens as $t)if(preg_match('/\d/',(string)$t)){$hasModel=true;break;}
         if($hasModel && count($tokens)>=2) {
             $signature=implode('|',$tokens);
             if(isset($seen[$signature]) && $seen[$signature]['number']!==$number) {
