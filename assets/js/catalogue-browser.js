@@ -29,6 +29,10 @@
       '<p class="aur-browse-disclaimer" id="aur-browse-disclaimer"></p>';
     const field=category.closest('.field');
     field?.insertAdjacentElement('afterend',wrap);
+    // Use the wizard's real enquiry tray, directly below the catalogue;
+    // it is the same element used for validation and RFQ submission.
+    const enquiryTray=wizard.querySelector('#req-selected-parts');
+    if(enquiryTray)wrap.insertAdjacentElement('afterend',enquiryTray);
     const chips=wrap.querySelector('#aur-browse-categories');
     const list=wrap.querySelector('#aur-browse-products');
     const filter=wrap.querySelector('#aur-browse-filter');
@@ -84,6 +88,20 @@
         }
       }));
     }
+    function chosenIds() {
+      try {
+        const parts=JSON.parse(localStorage.getItem('aur_selected_parts_v1')||'[]');
+        return new Set(Array.isArray(parts)?parts.map(p=>String(p.canonical_id||'').toLowerCase()):[]);
+      }catch(_e){return new Set()}
+    }
+    function refreshButtons() {
+      const chosen=chosenIds();
+      list.querySelectorAll('.aur-browse-add').forEach(button=>{
+        const added=chosen.has(String(button.dataset.partId||'').toLowerCase());
+        button.disabled=added;
+        button.textContent=added?label('✓ Added','✓ Übernommen'):label('+ Add to enquiry','+ Zur Anfrage hinzufügen');
+      });
+    }
     function drawParts(data,append) {
       const results=(Array.isArray(data.items)?data.items:[]);
       const html=results.map((p,i)=>
@@ -91,7 +109,7 @@
         '<b><span class="aur-browse-brand">'+esc(p.manufacturer||'')+' · </span>'+
         '<span class="aur-browse-model">'+esc(p.model||'')+'</span></b>'+
         '<span class="aur-browse-description">'+esc(p.description||categoryText(p.category||'__other'))+'</span></div>'+
-        '<button type="button" class="aur-browse-add" data-index="'+i+'">'+
+        '<button type="button" class="aur-browse-add" data-part-id="'+esc(p.canonical_id||'')+'" data-index="'+i+'">'+
         esc(label('+ Add to enquiry','+ Zur Anfrage hinzufügen'))+'</button></article>'
       ).join('');
       if(append)list.insertAdjacentHTML('beforeend',html);else list.innerHTML=html;
@@ -100,11 +118,23 @@
         card.querySelector('button')?.addEventListener('click',event=>{
           const part=results[i];
           if(!part)return;
-          document.dispatchEvent(new CustomEvent('aur:add-catalogue-part',{detail:{part}}));
+          // The wizard must acknowledge the transfer before showing success.
+          // Previously this button said Added even when no RFQ part existed.
+          const request={part,accepted:false};
+          document.dispatchEvent(new CustomEvent('aur:add-catalogue-part',{detail:request}));
+          if(!request.accepted){
+            status.dataset.state='error';
+            status.textContent=label('Unable to add this part to the enquiry. Please refresh and try again.',
+              'Dieses Teil konnte nicht übernommen werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.');
+            return;
+          }
+          status.dataset.state='';
+          status.textContent='';
           event.currentTarget.textContent=label('✓ Added','✓ Übernommen');
           event.currentTarget.disabled=true;
         });
       });
+      refreshButtons();
       more.hidden=!data.has_more;
       tally.textContent=label(format(data.total)+' matching parts',format(data.total)+' passende Teile');
       if(!data.total)status.textContent=filter.value.trim()
@@ -169,11 +199,12 @@
       timer=setTimeout(()=>load(0),320);
     });
     more.addEventListener('click',()=>{if(current?.has_more)load(page+1)});
+    document.addEventListener('aur:selection-changed',refreshButtons);
     document.addEventListener('aur:lang',()=>{
       text();
       if(current){drawCategories(current);tally.textContent=label(format(current.total)+' matching parts',format(current.total)+' passende Teile')}
       // Update part labels without losing selections or triggering another API call.
-      list.querySelectorAll('.aur-browse-add:not(:disabled)').forEach(b=>b.textContent=label('+ Add to enquiry','+ Zur Anfrage hinzufügen'));
+      refreshButtons();
     });
     text();
     load(0);
