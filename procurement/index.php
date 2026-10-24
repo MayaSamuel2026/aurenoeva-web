@@ -684,7 +684,20 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 #aur-mail-compose input,#aur-mail-compose textarea{width:100%;max-width:100%;box-sizing:border-box}
 #aur-mail-selected-files{margin:0;overflow-wrap:anywhere}
 #aur-mail-compose input[type=file]{padding:9px;background:#fbfcfb}
-#aur-mail-compose textarea{border:1px solid #c5d2cd;border-radius:8px;padding:12px;font:inherit;resize:vertical;min-height:180px}
+#aur-mail-compose .aur-mail-paper{border:1px solid #cbd9d3;border-radius:10px;background:#fff;padding:22px 25px;box-shadow:0 4px 17px rgba(20,40,34,.045);font:normal 11pt/1.55 Arial,Helvetica,sans-serif;color:#1f2b2a}
+#aur-mail-compose .aur-mail-brand{display:block;width:215px;max-width:100%;height:auto;object-fit:contain;margin:0 0 22px}
+#aur-mail-compose .aur-mail-formatbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:6px 0 0}
+#aur-mail-compose .aur-mail-formatbar button{background:#fff;color:#243b35;border:1px solid #cbd9d3;border-radius:7px;padding:7px 13px;font:normal 12px Arial,Helvetica,sans-serif}
+#aur-mail-compose .aur-mail-formatbar button:focus-visible,#aur-mail-compose .aur-mail-formatbar button:hover{border-color:#245e50;background:#eef4f0}
+#aur-mail-compose .aur-mail-formatbar button[aria-pressed="true"]{background:#1e483f;color:#fff}
+#aur-mail-compose .aur-mail-formatbar .aur-mail-font{margin-left:auto;font:normal 12px Arial,Helvetica,sans-serif;color:#65776f}
+#aur-mail-compose .aur-mail-rich{min-height:215px;outline:none;white-space:pre-wrap;overflow-wrap:anywhere;font:normal 11pt/1.55 Arial,Helvetica,sans-serif;color:#1f2b2a}
+#aur-mail-compose .aur-mail-rich:empty:before{content:attr(data-placeholder);color:#98a6a0;pointer-events:none}
+#aur-mail-compose .aur-mail-rich:focus{box-shadow:inset 0 -2px #2b6b59}
+#aur-mail-compose .aur-mail-signature{font:normal 11pt/1.55 Arial,Helvetica,sans-serif;padding-top:22px;color:#263a33}
+#aur-mail-compose .aur-mail-signature strong{font-weight:700}
+#aur-mail-compose .aur-mail-editor-note{font:normal 12px Arial,Helvetica,sans-serif;color:#66776f;margin:5px 0}
+@media(max-width:700px){#aur-mail-compose .aur-mail-paper{padding:16px}#aur-mail-compose .aur-mail-formatbar .aur-mail-font{margin-left:0}}
 #aur-mail-feedback{margin:12px 0;font-size:12px;color:#426357;min-height:18px}
 #aur-mail-feedback.is-error{color:#a0442d}
 .aur-mail-pagination{display:flex;align-items:center;gap:9px;margin-top:14px}
@@ -942,12 +955,33 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <label>Attachments <input id="aur-mail-attachments" name="attachments[]" type="file" multiple aria-describedby="aur-mail-attachment-hint"></label>
 <p id="aur-mail-attachment-hint" class="muted">Up to 5 files · maximum 8 MB each · 10 MB total. PDF, spreadsheets, images and other common file types.</p>
 <p id="aur-mail-selected-files" class="muted" role="status" aria-live="polite"></p>
-<label>Message <textarea name="body" required maxlength="50000" rows="10"></textarea></label>
+<div class="aur-mail-formatbar" role="toolbar" aria-label="Message formatting">
+<button type="button" id="aur-mail-normal" aria-label="Remove bold formatting">Normal</button>
+<button type="button" id="aur-mail-bold" aria-label="Bold selected text" aria-pressed="false"><strong>Bold</strong></button>
+<span class="aur-mail-font">Arial · 11 pt · black</span>
+</div>
+<div class="aur-mail-paper">
+<img class="aur-mail-brand" src="/assets/img/brand/aurenoeva-logo-approved.png" alt="AURENOEVA — Procurement · Components · Intelligence" width="215" height="54">
+<label for="aur-mail-rich-editor" style="font-size:12px;font-weight:600;margin-bottom:7px">Message</label>
+<div id="aur-mail-rich-editor" class="aur-mail-rich" contenteditable="true"
+  role="textbox" aria-label="Email message, 11 point Arial, normal by default"
+  aria-multiline="true" spellcheck="true" data-placeholder="Write your message…"></div>
+<div class="aur-mail-signature" aria-label="Fixed signature">
+Kind regards,<br><br><strong>AURENOEVA Purchasing</strong><br>
+Operated by NOEVA Systems e.K.<br>
+Marienburger Straße 16 | 56112 Lahnstein | Germany<br>
+info@aurenoeva.com | https://aurenoeva.com<br>
+Registered with Amtsgericht Koblenz | HRA 23554
+</div>
+</div>
+<input type="hidden" name="body" value="">
+<input type="hidden" name="body_html" value="">
+<p class="aur-mail-editor-note">Pasted text is automatically cleaned. Select text and choose <strong>Bold</strong> when needed. The logo and signature are added to the outgoing email automatically.</p>
 <div class="aur-mail-detail-bar">
 <button type="submit">Send email</button>
 <button type="button" class="ghost" id="aur-mail-cancel">Cancel</button>
 </div>
-<p class="muted">Each message is sent manually using AURENOEVA SMTP. The server acceptance is recorded in Sent; inbox delivery cannot be guaranteed. Sent attachments remain available for download in the private mailbox.</p>
+<p class="muted">The Mail Center stores each outgoing message, attachments and SMTP result in its private Sent history. A second copy is saved in the Hostinger Sent folder when supported; its archive status is recorded separately. SMTP acceptance does not guarantee inbox delivery.</p>
 </form>
 <div class="aur-mail-pagination">
 <button type="button" class="ghost" id="aur-mail-prev" disabled>← Previous</button>
@@ -1031,4 +1065,4 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=2"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=3"></script><?php endif; ?></body></html>

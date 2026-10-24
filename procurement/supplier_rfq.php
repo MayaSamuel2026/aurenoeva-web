@@ -354,7 +354,7 @@ function aur_vendor_rfq_smtp_envelope_recipients(string $to):array {
  * Preserve the existing text-only RFQ MIME bytes. Only manually composed
  * Mail Center messages can supply an attachment array.
  */
-function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,string $messageId,array $attachments=[]):string {
+function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,string $messageId,array $attachments=[],?string $htmlBody=null):string {
     $headers=[
         'From: AURENOEVA Purchasing <info@aurenoeva.com>',
         'To: '.$to,
@@ -364,6 +364,26 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
         'Message-ID: <'.$messageId.'>',
         'MIME-Version: 1.0',
     ];
+    // Manual Mail Center messages may contain safe strong-only formatted HTML.
+    // Existing RFQ/outbox emails remain strictly text/plain byte-for-byte.
+    $alternative='';
+    if($htmlBody!==null) {
+        if($htmlBody===''||strlen($htmlBody)>180000)throw new InvalidArgumentException('invalid_mail_format');
+        $inner='aur_alt_'.bin2hex(random_bytes(12));
+        $alternative='--'.$inner."\r\n".
+            "Content-Type: text/plain; charset=UTF-8\r\n".
+            "Content-Transfer-Encoding: base64\r\n\r\n".
+            chunk_split(base64_encode($body),76,"\r\n").
+            '--'.$inner."\r\n".
+            "Content-Type: text/html; charset=UTF-8\r\n".
+            "Content-Transfer-Encoding: base64\r\n\r\n".
+            chunk_split(base64_encode($htmlBody),76,"\r\n").
+            '--'.$inner."--\r\n";
+        if(!$attachments) {
+            $headers[]='Content-Type: multipart/alternative; boundary="'.$inner.'"';
+            return implode("\r\n",$headers)."\r\n\r\n".$alternative.'.';
+        }
+    }
     if(!$attachments){
         $headers[]='Content-Type: text/plain; charset=UTF-8';
         $headers[]='Content-Transfer-Encoding: base64';
@@ -373,10 +393,14 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
     if(count($attachments)>5)throw new InvalidArgumentException('too_many_mail_attachments');
     $boundary='AURENOEVA_'.bin2hex(random_bytes(18));
     $headers[]='Content-Type: multipart/mixed; boundary="'.$boundary.'"';
-    $mime='--'.$boundary."\r\n".
-        "Content-Type: text/plain; charset=UTF-8\r\n".
-        "Content-Transfer-Encoding: base64\r\n\r\n".
-        chunk_split(base64_encode($body),76,"\r\n");
+    $mime=$htmlBody!==null
+        ? '--'.$boundary."\r\n".
+          'Content-Type: multipart/alternative; boundary="'.$inner.'"'."\r\n\r\n".
+          $alternative
+        : '--'.$boundary."\r\n".
+          "Content-Type: text/plain; charset=UTF-8\r\n".
+          "Content-Transfer-Encoding: base64\r\n\r\n".
+          chunk_split(base64_encode($body),76,"\r\n");
     foreach($attachments as $index=>$attachment){
         $name=(string)($attachment['name']??'');
         $type=(string)($attachment['type']??'application/octet-stream');
@@ -401,7 +425,7 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
     return implode("\r\n",$headers)."\r\n\r\n".$mime.'.';
 }
 
-function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[]):array {
+function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[],?string $htmlBody=null):array {
     $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
         'code'=>0,'response'=>'','outcome'=>'NOT_SENT',
         'archive_copy_address'=>'info@aurenoeva.com',
@@ -465,7 +489,7 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
         }
         $r=aur_vendor_rfq_smtp_exchange($socket,'DATA',[354],'DATA');
         if(!$r['ok'])return array_merge($base,$r);
-        $payload=aur_vendor_rfq_smtp_payload($to,$subject,$body,$messageId,$attachments);
+        $payload=aur_vendor_rfq_smtp_payload($to,$subject,$body,$messageId,$attachments,$htmlBody);
         $r=aur_vendor_rfq_smtp_exchange($socket,$payload,[250],'DATA_ACCEPTANCE');
         $base=array_merge($base,$r);
         $base['accepted']=$r['ok'];
