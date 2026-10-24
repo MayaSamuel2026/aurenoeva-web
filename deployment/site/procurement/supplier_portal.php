@@ -312,10 +312,38 @@ $replyChoices=is_array($rfqPreview)?aur_reply_choices($rfqPreview):[];
 $replyByRow=[];
 foreach($savedReplies as $reply)if(is_array($reply))$replyByRow[(int)($reply['source_row']??0)][]=$reply;
 $quotedItemCount=count($replyByRow);
+$mailEvents=aur_mail_case_events($aurStore,(string)$result['reference']);
+$mailState=aur_mail_state($aurStore);
+$mailCounts=['QUOTE_RECEIVED'=>0,'CLARIFICATION_REQUIRED'=>0,'DELIVERY_FAILED'=>0,'ALTERNATIVE_OFFERED'=>0];
+foreach($mailEvents as $ev)if(isset($mailCounts[$ev['classification']??'']))$mailCounts[$ev['classification']]++;
 ?>
 <section id="supplier-replies" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
-<h3>Supplier quotation dashboard</h3>
-<p class="muted">Compare quotations against original equipment item numbers. Replies are recorded manually until inbox synchronization is connected.</p>
+<h3>Supplier quotations & incoming messages</h3>
+<p class="muted">Incoming Hostinger emails are classified and reconciled against actual sent supplier enquiries. Only an unambiguous quote for an explicitly numbered buyer item is entered automatically; all original email evidence remains private.</p>
+<div id="aur-inbox-live-status" role="status" class="muted">
+Mailbox sync: <strong><?=aur_escape((string)($mailState['status']??'NOT_SYNCED'))?></strong>
+· Checked <?=aur_escape((string)($mailState['checked_at']??'never'))?> UTC
+<?php if(($mailState['status']??'')==='ERROR'):?> · <?=aur_escape((string)($mailState['last_error']??'Connection issue'))?><?php endif;?>
+</div>
+<p>
+<span class="pill"><b><?=count($mailEvents)?></b> matched emails</span>
+<span class="pill"><b><?=$mailCounts['CLARIFICATION_REQUIRED']?></b> clarification requests</span>
+<span class="pill"><b><?=$mailCounts['DELIVERY_FAILED']?></b> delivery failures</span>
+<span class="pill"><b><?=$mailCounts['QUOTE_RECEIVED']?></b> quotations</span>
+</p>
+<?php if($mailEvents):?>
+<details class="aux-disclosure" open>
+<summary>Incoming supplier messages · <?=count($mailEvents)?> matched</summary>
+<div class="scroll"><table><thead><tr><th>Supplier / received</th><th>Classification</th><th>Original message summary</th></tr></thead><tbody>
+<?php foreach($mailEvents as $ev):?>
+<tr><td><b><?=aur_escape((string)($ev['supplier']?:$ev['supplier_email']))?></b>
+<div class="muted"><?=aur_escape((string)($ev['received_at']??''))?></div></td>
+<td><b><?=aur_escape(str_replace('_',' ',(string)$ev['classification']))?></b>
+<?php if(!empty($ev['quote_recorded'])):?><div class="muted">Recorded against original buyer item</div><?php endif;?>
+<?php if(!empty($ev['buyer_items'])):?><div class="muted">Buyer item(s): <?=aur_escape(implode(', ',array_map('strval',$ev['buyer_items'])))?></div><?php endif;?></td>
+<td><b><?=aur_escape((string)$ev['subject'])?></b><div class="muted"><?=aur_escape((string)$ev['preview'])?></div></td></tr>
+<?php endforeach;?></tbody></table></div></details>
+<?php endif;?>
 <p>
 <span class="pill"><b><?=count($savedReplies)?></b> supplier-item responses recorded</span>
 <span class="pill"><b><?=$quotedItemCount?></b> equipment items with replies</span>
