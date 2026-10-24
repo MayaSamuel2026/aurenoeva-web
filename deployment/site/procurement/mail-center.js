@@ -71,7 +71,7 @@
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     function cleanMailHtml() {
       function visit(node) {
-        if (node.nodeType === Node.TEXT_NODE) return escapeMailText(node.nodeValue || '');
+        if (node.nodeType === Node.TEXT_NODE) return escapeMailText(node.nodeValue || '').replace(/\r\n?|\n/g,'<br>');
         if (node.nodeType !== Node.ELEMENT_NODE) return '';
         const tag = node.tagName.toUpperCase();
         if (['SCRIPT','STYLE','SVG','IMG','IFRAME','OBJECT'].includes(tag)) return '';
@@ -223,6 +223,7 @@
         meta.appendChild(text('p', 'To: ' + mail.to));
         meta.appendChild(text('p', 'Date: ' + mail.date));
         if (mail.status) meta.appendChild(text('p', 'Sending status: ' + mail.status));
+        if (mail.imap_sent_archive) meta.appendChild(text('p', 'Hostinger Sent folder: ' + (mail.imap_sent_archive === 'ARCHIVED' ? 'Archived' : 'Not confirmed (Mail Center record retained)')));
         detail.appendChild(meta);
         if (mail.reference) {
           const link = document.createElement('a');
