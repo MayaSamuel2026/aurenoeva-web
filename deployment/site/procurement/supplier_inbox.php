@@ -2,6 +2,7 @@
 declare(strict_types=1);
 /** Hostinger mailbox poller, using standard PHP IMAP extension. */
 require_once __DIR__.'/supplier_inbox_store.php';
+require_once __DIR__.'/supplier_inbox_curl.php';
 function aur_mail_sync(string $store,int $limit=20):array {
     $limit=max(1,min(30,$limit));
     $mutex=fopen(aur_mail_dir($store).'/sync.lock','c');
@@ -9,7 +10,7 @@ function aur_mail_sync(string $store,int $limit=20):array {
         return ['ok'=>true,'busy'=>true,'processed'=>0,'matched'=>0,'quotes_saved'=>0];
     $mailbox=null;
     try {
-        if(!function_exists('imap_open'))throw new RuntimeException('php_imap_extension_unavailable');
+        if(!function_exists('imap_open'))return aur_mail_sync_curl($store,$limit);
         $cfg=aur_vendor_rfq_smtp_config();
         $mailbox=@imap_open('{imap.hostinger.com:993/imap/ssl/validate-cert}INBOX',
             $cfg['user'],$cfg['pass'],OP_READONLY,1);
