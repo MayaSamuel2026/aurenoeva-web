@@ -326,7 +326,8 @@ function aur_mailcenter_read(string $store,string $folder,string $uid):array {
         foreach(aur_mailcenter_local($store) as $entry) {
             if('local-'.($entry['id']??'')!==$uid)continue;
             return ['ok'=>true,'message'=>array_merge(aur_mailcenter_local_summary($entry),[
-                'body'=>(string)($entry['body']??''),'download'=>false,
+                'body'=>(string)($entry['body']??''),
+                'body_html'=>(string)($entry['body_html']??''),'download'=>false,
                 'attachments'=>is_array($entry['attachments']??null)?$entry['attachments']:[]
             ])];
         }
@@ -358,7 +359,7 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $formatted=aur_mailcenter_html_document($send['body_html']);
         $smtpId=$id.'@aurenoeva.com';
         $entry=['id'=>$id,'to'=>$send['to'],'subject'=>$send['subject'],
-            'body'=>$plain,'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
+            'body'=>$plain,'body_html'=>$formatted,'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
             'smtp_message_id'=>$smtpId,'logo'=>aur_mailcenter_logo_url(),
             'font'=>'Arial, Helvetica, sans-serif','font_size'=>'11pt',
             'attachments'=>$attachmentMetadata];
