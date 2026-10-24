@@ -363,6 +363,9 @@ class Tests(unittest.TestCase):
         self.assertIn("onergys-de-spare-parts",entries)
         self.assertIn("power-gaskets-contasan",entries)
         self.assertIn("https://www.onergys.de/",entries["onergys-de-spare-parts"]["seeds"])
+        self.assertIn("www.onergys.com",entries["onergys-de-spare-parts"]["allowed_hosts"])
+        self.assertTrue(any("/en/engine-technology/" in u for u in
+                            entries["onergys-de-spare-parts"]["seeds"]))
         self.assertEqual(entries["power-gaskets-contasan"]["role"],"manufacturer")
         self.assertTrue(all(x.startswith("https://www.powergaskets.com/en/")
                      for x in entries["power-gaskets-contasan"]["seeds"]))
