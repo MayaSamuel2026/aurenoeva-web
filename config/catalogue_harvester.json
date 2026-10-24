@@ -755,6 +755,60 @@
       "sitemap_seeds": [
         "https://www.keysight.com/aem-sitemap-index.xml"
       ]
+    },
+    {
+      "id": "onergys-de-spare-parts",
+      "active": true,
+      "manufacturer": "",
+      "role": "supplier",
+      "allowed_hosts": [
+        "www.onergys.de"
+      ],
+      "seeds": [
+        "https://www.onergys.de/",
+        "https://www.onergys.de/motorentechnik/",
+        "https://www.onergys.de/anlagentechnik/",
+        "https://www.onergys.de/elektrotechnik/",
+        "https://www.onergys.de/aktionen/neu-im-shop/",
+        "https://www.onergys.de/aktionen/alternativteile/"
+      ],
+      "follow_paths": [
+        "/motorentechnik/",
+        "/anlagentechnik/",
+        "/elektrotechnik/",
+        "/aktionen/"
+      ],
+      "follow_regex": "^/(?:motorentechnik|anlagentechnik|elektrotechnik|aktionen)/.*\\.html$",
+      "max_depth": 5,
+      "refresh_hours": 24,
+      "sector": "energy",
+      "category": "Turbine / plant components"
+    },
+    {
+      "id": "power-gaskets-contasan",
+      "active": true,
+      "manufacturer": "",
+      "role": "manufacturer",
+      "allowed_hosts": [
+        "www.powergaskets.com"
+      ],
+      "seeds": [
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/1.php",
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/15.php",
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/30.php",
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/45.php",
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/60.php",
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/75.php",
+        "https://www.powergaskets.com/en/all-brands/gaskets/0/0/92.php"
+      ],
+      "follow_paths": [
+        "/en/all-brands/gaskets/0/0/"
+      ],
+      "follow_regex": "^/en/[0-9]+/(?:[^?#]+/)*[^/?#]+\\.html$",
+      "max_depth": 5,
+      "refresh_hours": 72,
+      "sector": "industrial",
+      "category": "Machine / process equipment"
     }
   ]
 }
