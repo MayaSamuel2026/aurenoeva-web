@@ -355,6 +355,9 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $attachmentMetadata=array_map(static fn($part)=>[
             'name'=>$part['name'],'size'=>$part['size'],'type'=>$part['type']
         ],$attached);
+        $logoFile=__DIR__.'/aurenoeva-logo.png';
+        if(!is_file($logoFile)||is_link($logoFile))
+            throw new RuntimeException('mail_logo_asset_unavailable');
         $plain=$send['body']."\n\n".aur_mailcenter_signature_plain();
         $formatted=aur_mailcenter_html_document($send['body_html']);
         $smtpId=$id.'@aurenoeva.com';
@@ -366,7 +369,7 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $entries[]=$entry;
         aur_mailcenter_write_local($store,$entries); // durable before SMTP
         $transport=aur_vendor_rfq_send_transport_detail(
-            $send['to'],$send['subject'],$plain,$smtpId,$attached,$formatted);
+            $send['to'],$send['subject'],$plain,$smtpId,$attached,$formatted,$logoFile);
         $entry['status']=($transport['accepted']??false)===true?'SMTP_ACCEPTED':'DELIVERY_UNCONFIRMED';
         $entry['smtp_code']=(int)($transport['code']??0);
         $entry['smtp_stage']=(string)($transport['stage']??'');
@@ -377,7 +380,7 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         if($entry['status']==='SMTP_ACCEPTED'){
             try{
                 $mime=aur_vendor_rfq_smtp_payload($send['to'],$send['subject'],$plain,
-                    $smtpId,$attached,$formatted);
+                    $smtpId,$attached,$formatted,$logoFile);
                 $entry['imap_sent_archive']=aur_mailcenter_archive_imap(substr($mime,0,-1));
             }catch(Throwable $e){
                 $entry['imap_sent_archive']='NOT_ARCHIVED';
