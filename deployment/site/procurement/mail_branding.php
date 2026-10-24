@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/mail_logo_data.php';
 /**
  * Minimal email formatting: plain 11 pt Arial, optional strong emphasis, a
  * verified public logo and one fixed AURENOEVA Purchasing signature.
@@ -11,6 +12,23 @@ function aur_mailcenter_signature_plain():string {
         "Marienburger Straße 16 | 56112 Lahnstein | Germany\n".
         "info@aurenoeva.com | https://aurenoeva.com\n".
         "Registered with Amtsgericht Koblenz | HRA 23554";
+}
+/** Cache approved source bytes only in the private Mail Center store.
+ * This also makes outgoing CID image MIME independent of a static PNG URL.
+ */
+function aur_mailcenter_logo_file(string $store):string {
+    $dir=aur_private_directory($store,'mail-center');
+    $path=$dir.'/approved-mail-logo.png';
+    $bytes=aur_mailcenter_approved_logo_bytes();
+    if(is_link($path))throw new RuntimeException('unsafe_mail_logo_path');
+    if(is_file($path)&&filesize($path)===strlen($bytes)
+       &&hash_file('sha256',$path)===hash('sha256',$bytes))return $path;
+    $temp=$dir.'/.approved-mail-logo-'.bin2hex(random_bytes(8));
+    if(file_put_contents($temp,$bytes,LOCK_EX)!==strlen($bytes))
+        throw new RuntimeException('mail_logo_write_failed');
+    @chmod($temp,0600);
+    if(!rename($temp,$path)){@unlink($temp);throw new RuntimeException('mail_logo_commit_failed');}
+    return $path;
 }
 function aur_mailcenter_logo_url():string {
     return 'https://aurenoeva.com/procurement/aurenoeva-logo.png';
