@@ -12,8 +12,15 @@ if (PHP_SAPI !== 'cli') {http_response_code(403);exit('Forbidden');}
 require __DIR__.'/private_cases.php';
 require __DIR__.'/supplier_intelligence.php';
 require __DIR__.'/supplier_discovery.php';
+require __DIR__.'/supplier_inbox.php';
 try {
     $store=aur_store_root();
+    // Reuse the existing scheduled Hostinger job; mailbox failures must not block supplier research.
+    $mail=['status'=>'NOT_RUN'];
+    try{$mail=aur_mail_sync($store,30);}catch(Throwable $e){
+        $mail=['ok'=>false,'error'=>$e->getMessage()];
+        error_log('AURENOEVA scheduled inbox: '.$e->getMessage());
+    }
     $listing=aur_case_list($store);
     $out=[];$total=0;
     foreach (array_slice($listing['cases']??[],0,25) as $row) {
@@ -27,7 +34,7 @@ try {
             'provider_failures'=>$result['provider_failures']];
     }
     echo json_encode(['ok'=>true,'checked'=>$total,'cases'=>$out,'supplier_emails_sent'=>0,
-        'legal_clearances_granted'=>0],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
+        'legal_clearances_granted'=>0,'inbox'=>$mail],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $e) {
     fwrite(STDERR,"AURENOEVA supplier refresh failed: ".get_class($e)."\n");
     exit(1);
