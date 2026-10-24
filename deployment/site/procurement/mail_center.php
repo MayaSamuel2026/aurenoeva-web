@@ -35,6 +35,88 @@ function aur_mailcenter_validate_send(array $input):array {
         throw new InvalidArgumentException('invalid_mail_body');
     return ['to'=>$to,'subject'=>$subject,'body'=>$body,'send_key'=>$key];
 }
+
+/** Mail attachments are stored privately by the immutable send key, not publicly accessible. */
+function aur_mailcenter_attachments_dir(string $store,string $id):string {
+    if(!preg_match('/^[a-f0-9]{32}$/D',$id))throw new InvalidArgumentException('invalid_mail_send_key');
+    $dir=aur_private_directory($store,'mail-center').'/attachments';
+    if(is_link($dir)||(!is_dir($dir)&&!@mkdir($dir,0700)))
+        throw new RuntimeException('mail_attachment_storage_unavailable');
+    $destination=$dir.'/'.$id;
+    if(is_link($destination)||(!is_dir($destination)&&!@mkdir($destination,0700)))
+        throw new RuntimeException('mail_attachment_storage_unavailable');
+    return $destination;
+}
+function aur_mailcenter_validate_uploads(array $files,bool $uploaded=true):array {
+    if(!$files)return [];
+    if(!isset($files['name'],$files['error'],$files['size'],$files['tmp_name'])
+        ||!is_array($files['name'])||!is_array($files['error'])||
+        !is_array($files['size'])||!is_array($files['tmp_name']))
+        throw new InvalidArgumentException('invalid_mail_attachment');
+    $count=count($files['name']);
+    if($count>5)throw new InvalidArgumentException('too_many_mail_attachments');
+    $out=[];$total=0;
+    foreach($files['name'] as $index=>$original) {
+        if(!is_int($index)||!array_key_exists($index,$files['error'])
+           ||!array_key_exists($index,$files['size'])
+           ||!array_key_exists($index,$files['tmp_name']))
+            throw new InvalidArgumentException('invalid_mail_attachment');
+        $error=(int)$files['error'][$index];
+        if($error===UPLOAD_ERR_NO_FILE)continue;
+        if($error!==UPLOAD_ERR_OK)throw new InvalidArgumentException('mail_attachment_upload_failed');
+        if(!is_string($original)||!is_string($files['tmp_name'][$index]))
+            throw new InvalidArgumentException('invalid_mail_attachment');
+        $name=trim((string)preg_replace('/[\x00-\x1f\x7f\/\\\\]+/u','_',str_replace('\\','/',$original)));
+        $size=(int)$files['size'][$index];
+        $path=$files['tmp_name'][$index];
+        if($name===''||$name==='.'||$name==='..'||strlen($name)>200
+           ||$size<1||$size>8388608||!is_file($path)||is_link($path)
+           ||filesize($path)!==$size||($uploaded&&!is_uploaded_file($path)))
+            throw new InvalidArgumentException('invalid_mail_attachment');
+        $total+=$size;
+        if($total>10485760)throw new InvalidArgumentException('mail_attachments_too_large');
+        $out[]=['name'=>$name,'size'=>$size,'tmp_name'=>$path];
+    }
+    return $out;
+}
+function aur_mailcenter_store_uploads(string $store,string $id,array $files):array {
+    $uploads=aur_mailcenter_validate_uploads($files);
+    if(!$uploads)return [];
+    $dir=aur_mailcenter_attachments_dir($store,$id);
+    $stored=[];
+    foreach($uploads as $index=>$upload) {
+        $path=$dir.'/'.$index.'.bin';
+        if(is_file($path)||is_link($path))throw new RuntimeException('mail_attachment_conflict');
+        if(!move_uploaded_file($upload['tmp_name'],$path))throw new RuntimeException('mail_attachment_store_failed');
+        @chmod($path,0600);
+        $type='application/octet-stream';
+        if(class_exists('finfo')){
+            $detected=(new finfo(FILEINFO_MIME_TYPE))->file($path);
+            if(is_string($detected)&&preg_match('~^[a-z0-9.+-]+/[a-z0-9.+-]+$~iD',$detected))
+                $type=$detected;
+        }
+        $stored[]=['name'=>$upload['name'],'size'=>$upload['size'],'type'=>$type,'path'=>$path];
+    }
+    return $stored;
+}
+function aur_mailcenter_sent_attachment(string $store,string $uid,int $index):array {
+    $uid=aur_mailcenter_uid($uid);
+    if(!str_starts_with($uid,'local-')||$index<0||$index>4)
+        throw new InvalidArgumentException('invalid_mail_attachment');
+    $id=substr($uid,6);
+    foreach(aur_mailcenter_local($store) as $entry) {
+        if(($entry['id']??'')!==$id)continue;
+        $attachment=$entry['attachments'][$index]??null;
+        if(!is_array($attachment))throw new InvalidArgumentException('mail_attachment_not_found');
+        $path=aur_mailcenter_attachments_dir($store,$id).'/'.$index.'.bin';
+        if(is_link($path)||!is_file($path)||filesize($path)!==(int)($attachment['size']??-1))
+            throw new RuntimeException('mail_attachment_not_available');
+        return ['path'=>$path,'name'=>(string)$attachment['name'],
+            'size'=>(int)$attachment['size'],'type'=>(string)$attachment['type']];
+    }
+    throw new InvalidArgumentException('mail_not_found');
+}
+
 function aur_mailcenter_local_path(string $store):string {
     return aur_private_directory($store,'mail-center').'/sent.json';
 }
@@ -94,7 +176,7 @@ function aur_mailcenter_local_summary(array $entry):array {
         'from'=>'info@aurenoeva.com','to'=>(string)($entry['to']??''),
         'date'=>(string)($entry['created_at']??''),'subject'=>$subject,
         'preview'=>substr(preg_replace('/\s+/u',' ',(string)($entry['body']??''))??'',0,180),
-        'unread'=>false,'has_attachments'=>false,
+        'unread'=>false,'has_attachments'=>!empty($entry['attachments']),
         'status'=>(string)($entry['status']??'IN_FLIGHT'),
         'reference'=>preg_match('/AUR-[A-Z]{2}-[A-F0-9]{16}/',$subject,$m)?$m[0]:null
     ];
@@ -141,7 +223,8 @@ function aur_mailcenter_read(string $store,string $folder,string $uid):array {
         foreach(aur_mailcenter_local($store) as $entry) {
             if('local-'.($entry['id']??'')!==$uid)continue;
             return ['ok'=>true,'message'=>array_merge(aur_mailcenter_local_summary($entry),[
-                'body'=>(string)($entry['body']??''),'download'=>false
+                'body'=>(string)($entry['body']??''),'download'=>false,
+                'attachments'=>is_array($entry['attachments']??null)?$entry['attachments']:[]
             ])];
         }
         throw new InvalidArgumentException('mail_not_found');
@@ -153,7 +236,7 @@ function aur_mailcenter_read(string $store,string $folder,string $uid):array {
     $item['download']=true;
     return ['ok'=>true,'message'=>$item];
 }
-function aur_mailcenter_send(string $store,array $input):array {
+function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
     $send=aur_mailcenter_validate_send($input);
     $id=$send['send_key'];
     $dir=aur_private_directory($store,'mail-center');
@@ -164,12 +247,17 @@ function aur_mailcenter_send(string $store,array $input):array {
         foreach($entries as $entry)if(($entry['id']??'')===$id)
             return ['ok'=>($entry['status']??'')==='SMTP_ACCEPTED',
                 'status'=>$entry['status'],'duplicate_request'=>true];
+        $attached=aur_mailcenter_store_uploads($store,$id,$files);
+        $attachmentMetadata=array_map(static fn($part)=>[
+            'name'=>$part['name'],'size'=>$part['size'],'type'=>$part['type']
+        ],$attached);
         $entry=['id'=>$id,'to'=>$send['to'],'subject'=>$send['subject'],
-            'body'=>$send['body'],'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT'];
+            'body'=>$send['body'],'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
+            'attachments'=>$attachmentMetadata];
         $entries[]=$entry;
         aur_mailcenter_write_local($store,$entries); // durable before SMTP
         $transport=aur_vendor_rfq_send_transport_detail(
-            $send['to'],$send['subject'],$send['body'], $id.'@aurenoeva.com');
+            $send['to'],$send['subject'],$send['body'], $id.'@aurenoeva.com',$attached);
         $entry['status']=($transport['accepted']??false)===true?'SMTP_ACCEPTED':'DELIVERY_UNCONFIRMED';
         $entry['smtp_code']=(int)($transport['code']??0);
         $entry['smtp_stage']=(string)($transport['stage']??'');
