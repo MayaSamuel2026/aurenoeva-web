@@ -117,7 +117,8 @@ $htmlMail=aur_vendor_rfq_smtp_payload(
     'abcd1234@aurenoeva.com',[],$document);
 mailcenter_assert(str_contains($htmlMail,'multipart/alternative') &&
     str_contains($htmlMail,'Content-Type: text/html; charset=UTF-8') &&
-    str_contains($htmlMail,base64_encode($document)) &&
+    preg_match('/Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)\r\n--/',$htmlMail,$htmlMatch) &&
+    base64_decode($htmlMatch[1])===$document &&
     str_contains($htmlMail,base64_encode("Dear Shaun,\nThe item is confirmed.")),
     'Outgoing rich alternative missing either MIME part');
 $attachedMail=aur_vendor_rfq_smtp_payload(
