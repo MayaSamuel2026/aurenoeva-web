@@ -184,6 +184,51 @@ def parse_page(body,url,maker,sector,category):
     for x in p.structured[:20]:
         try:walk(json.loads(x))
         except (ValueError,TypeError,RecursionError):continue
+    # These two verified catalogues expose part numbers in HTML instead of
+    # consistent Product JSON-LD. Require a product-detail URL and a labelled
+    # part number; navigation and listing pages must not become products.
+    special_description=""
+    path=urlsplit(url).path
+    host=hostof(url)
+    if ((host=="www.powergaskets.com" or host=="powergaskets.com")
+            and re.fullmatch(r"/en/\d+/(?:[^?#]+/)*[^/?#]+\.html",path,re.I)):
+        visible=" ".join(html.unescape(re.sub(r"<[^>]*>"," ",re.sub(
+            r"<(script|style)\b[^>]*>.*?</\1>"," ",body,flags=re.I|re.S))).split())
+        number=re.search(r"\bPower Gaskets No\s+([A-Za-z0-9][A-Za-z0-9./_-]{2,})\b",
+                         visible,re.I)
+        if number and any(ch.isdigit() for ch in number.group(1)):
+            group=re.search(r"\bProduct Group\s+(.{1,110}?)\s+Application\b",visible,re.I)
+            oem=re.search(r"\bOem No\s+(.{1,180}?)\s+Product Group\b",visible,re.I)
+            app=re.search(r"\bApplication\s+(.{1,90}?)\s+(?:Add to Cart|Add\b|Categories\b)",
+                          visible,re.I)
+            special_description=txt("; ".join(x for x in (
+                group.group(1) if group else "Gasket / engine sealing part",
+                "OEM references: "+oem.group(1) if oem else "",
+                "Application: "+app.group(1) if app else "") if x),240)
+            products=[("Power Gaskets",number.group(1),"MANUFACTURER_PART_PAGE")]
+    elif (host in ("www.onergys.de","onergys.de","www.onergys.com","onergys.com")
+          and path.endswith(".html") and heading):
+        visible=" ".join(html.unescape(re.sub(r"<[^>]*>"," ",re.sub(
+            r"<(script|style)\b[^>]*>.*?</\1>"," ",body,flags=re.I|re.S))).split())
+        # ONERGYS is the distributor; OEM cross-references (e.g. 'MAN 510...')
+        # on its ONE-line products are not the manufacturer of that product.
+        sku=re.search(r"\b(?:Artikelnummer|Product number)\s*:\s*(\d{5,12})\b",
+                      visible,re.I)
+        brand=re.search(r"\b(?:Hersteller|Manufacturer)\s*:\s*([A-Za-z][A-Za-z0-9&.+-]*"
+                        r"(?:\s+(?:Penta|Mogul))?)",visible,re.I)
+        if sku and brand:
+            maker_name=txt(brand.group(1),100)
+            own=re.search(r"\b(ONE\d{3,})\b",heading,re.I)
+            if own:
+                maker_name="ONERGYS"
+                model=own.group(1).upper()
+            else:
+                part=re.search(r"\b"+re.escape(maker_name)+
+                    r"\s+([A-Z0-9][A-Z0-9./_-]*\d[A-Z0-9./_-]*)",
+                    heading,re.I)
+                model=part.group(1) if part else "ONERGYS-"+sku.group(1)
+            special_description=txt(heading+"; ONERGYS article: "+sku.group(1),240)
+            products=[(maker_name,model,"SUPPLIER_PART_PAGE")]
     # On ERSAAL the seller is not the manufacturer. Extract an exact MPN
     # only from a product-detail page where the brand and MPN are both
     # explicitly visible in the title/heading; do not invent ERSAAL as OEM.
@@ -213,7 +258,7 @@ def parse_page(body,url,maker,sector,category):
         if not brand or len(model)<2 or model.casefold() in GENERIC or len(model.split())>16:continue
         if not technical_product_relevance(sector,model,url):continue
         if not any(c.isdigit() for c in model) and proof!="STRUCTURED_PRODUCT":continue
-        desc=txt(p.metas.get("description") or title or heading)
+        desc=txt(special_description or p.metas.get("description") or title or heading)
         proper_category=refine_lab_category(sector,category,brand,model,desc,url)
         result.append({"product_id":pid(brand,model),"manufacturer":brand,"model":model,
                        "description":desc,
