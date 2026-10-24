@@ -10,7 +10,7 @@
     const list = root.querySelector('#aur-mail-list');
     const detail = root.querySelector('#aur-mail-detail');
     const compose = root.querySelector('#aur-mail-compose');
-    const editor = root.querySelector('#aur-mail-editor');
+    const editor = root.querySelector('#aur-mail-compose');
     const status = root.querySelector('#aur-mail-feedback');
     const search = root.querySelector('#aur-mail-search');
     const previous = root.querySelector('#aur-mail-prev');
