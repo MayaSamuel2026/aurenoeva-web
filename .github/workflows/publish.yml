@@ -279,6 +279,11 @@ jobs:
           for name in index.php private_cases.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_replies.php supplier_quality.php supplier_inbox_mime.php supplier_inbox_store.php supplier_inbox_curl.php supplier_inbox.php mail_branding.php mail_center.php supplier-inbox-cli.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js workspace-tabs.js inbox-sync.js mail-center.js .htaccess; do
             cp "deployment/site/procurement/$name" "$RUNNER_TEMP/source/site/procurement/$name"
           done
+          # Deploy a dedicated, release-verified logo from the exact approved brand asset.
+          # This avoids dependency on a possibly stale site-wide /assets rewrite.
+          cp "$RUNNER_TEMP/source/site/assets/img/brand/aurenoeva-logo-approved.png" "$RUNNER_TEMP/source/site/procurement/aurenoeva-logo.png"
+          test -s "$RUNNER_TEMP/source/site/procurement/aurenoeva-logo.png"
+          cmp "$RUNNER_TEMP/source/site/procurement/aurenoeva-logo.png" "$RUNNER_TEMP/source/site/assets/img/brand/aurenoeva-logo-approved.png"
           # Preserve the public index.html as default while allowing subdirectory PHP index.
           sed -i 's/^DirectoryIndex index.html$/DirectoryIndex index.html index.php/' "$RUNNER_TEMP/source/site/.htaccess"
           grep -q '^DirectoryIndex index.html index.php$' "$RUNNER_TEMP/source/site/.htaccess"
