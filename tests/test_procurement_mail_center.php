@@ -38,4 +38,53 @@ mailcenter_assert($summary['reference']==='AUR-UZ-1A04A7909185FACD'&&
     'Supplier message not linked safely to case');
 mailcenter_assert(!array_key_exists('body',$summary)&&strlen($summary['preview'])<=180,
     'Mailbox overview must expose a short preview, not a full body field');
+
+$example=aur_vendor_rfq_smtp_payload('buyer@example.com','Simple','Hello','abc@aurenoeva.com');
+mailcenter_assert(!str_contains($example,'multipart/mixed')&&
+    str_contains($example,'Content-Type: text/plain; charset=UTF-8')&&
+    str_contains($example,base64_encode('Hello')),
+    'Existing text-only RFQ email MIME format must remain unchanged');
+$tmp=tempnam(sys_get_temp_dir(),'aur-attach-');
+file_put_contents($tmp,"%PDF-1.4\nExample attachment\n");
+$fixture=['name'=>['technical specification.pdf'],'error'=>[UPLOAD_ERR_OK],
+    'size'=>[filesize($tmp)],'tmp_name'=>[$tmp]];
+$parts=aur_mailcenter_validate_uploads($fixture,false);
+$mailcenterBadName=aur_mailcenter_validate_uploads(array_merge($fixture,['name'=>["../unsafe\r\nfile.pdf"]]),false);
+mailcenter_assert(!str_contains($mailcenterBadName[0]['name'],"\r") && !str_contains($mailcenterBadName[0]['name'],'/'),
+    'Unsafe attachment filename characters must be sanitized');
+mailcenter_assert(count($parts)===1&&$parts[0]['name']==='technical specification.pdf',
+    'Normal outgoing attachment should validate');
+$mime=aur_vendor_rfq_smtp_payload('buyer@example.com','Quotation','Please see attached',
+    'abcd1234@aurenoeva.com',[[
+    'name'=>'technical specification.pdf','type'=>'application/pdf',
+    'size'=>filesize($tmp),'path'=>$tmp
+]]);
+mailcenter_assert(str_contains($mime,'multipart/mixed; boundary=') &&
+    str_contains($mime,'filename*=UTF-8'.chr(39).chr(39).'technical%20specification.pdf') &&
+    str_contains($mime,base64_encode("%PDF-1.4\nExample attachment\n")) &&
+    !str_contains($mime,'Bcc:'),
+    'MIME attachment content or encoding is incorrect');
+foreach([
+    array_merge($fixture,['error'=>[UPLOAD_ERR_INI_SIZE]]),
+    array_merge($fixture,['size'=>[9000000]]),
+    array_merge($fixture,['name'=>array_fill(0,6,'file.pdf'),
+                          'error'=>array_fill(0,6,UPLOAD_ERR_OK),
+                          'size'=>array_fill(0,6,1),
+                          'tmp_name'=>array_fill(0,6,$tmp)]),
+] as $unsafe){
+    try{aur_mailcenter_validate_uploads($unsafe,false);
+        throw new RuntimeException('Unsafe outgoing upload accepted');}
+    catch(InvalidArgumentException $e){}
+}
+@unlink($tmp);
+$ui=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
+$js=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail-center.js');
+mailcenter_assert(str_contains($ui,'name="attachments[]"') &&
+    str_contains($ui,'aur_mailcenter_send($aurStore,$_POST,(array)'),
+    'Multipart uploads not wired through authenticated dashboard');
+mailcenter_assert(str_contains($js,'new FormData(compose)') &&
+    str_contains($js,"mail_action:'download_attachment'") &&
+    !str_contains($ui,'data-mail-folder="INBOX.Drafts"'),
+    'Client attachment upload / download unavailable or unwanted Drafts tab retained');
+
 echo "AURENOEVA_MAIL_CENTER=PASS\n";

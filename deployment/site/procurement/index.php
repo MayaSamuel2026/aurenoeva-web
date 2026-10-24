@@ -109,6 +109,14 @@ if(isset($_GET['mail_action'])||isset($_POST['mail_action'])){
     $folder=(string)($_GET['folder']??'INBOX');
     $uid=(string)($_GET['uid']??'');
     try{
+        if($action==='download_attachment'&&$_SERVER['REQUEST_METHOD']==='GET'){
+            $attachment=aur_mailcenter_sent_attachment($aurStore,$uid,(int)($_GET['attachment_index']??-1));
+            header('Content-Type: '.$attachment['type']);
+            header('Content-Length: '.$attachment['size']);
+            header('Content-Disposition: attachment; filename="attachment"; filename*=UTF-8'.chr(39).chr(39).rawurlencode($attachment['name']));
+            header('X-Content-Type-Options: nosniff');
+            readfile($attachment['path']);exit;
+        }
         if($action==='download'&&$_SERVER['REQUEST_METHOD']==='GET'){
             $source=aur_mailcenter_source($folder,aur_mailcenter_uid($uid));
             header('Content-Type: message/rfc822');
@@ -117,7 +125,7 @@ if(isset($_GET['mail_action'])||isset($_POST['mail_action'])){
             echo $source;exit;
         }
         if($action==='send'&&$_SERVER['REQUEST_METHOD']==='POST'){
-            $response=aur_mailcenter_send($aurStore,$_POST);
+            $response=aur_mailcenter_send($aurStore,$_POST,(array)($_FILES['attachments']??[]));
         }elseif($action==='list'&&$_SERVER['REQUEST_METHOD']==='GET'){
             $response=aur_mailcenter_list($aurStore,$folder,(int)($_GET['page']??1));
         }elseif($action==='read'&&$_SERVER['REQUEST_METHOD']==='GET'){
@@ -674,6 +682,8 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 #aur-mail-compose[hidden],#aur-mail-detail[hidden],#aur-mail-list[hidden]{display:none}
 #aur-mail-compose label{display:grid;gap:6px}
 #aur-mail-compose input,#aur-mail-compose textarea{width:100%;max-width:100%;box-sizing:border-box}
+#aur-mail-selected-files{margin:0;overflow-wrap:anywhere}
+#aur-mail-compose input[type=file]{padding:9px;background:#fbfcfb}
 #aur-mail-compose textarea{border:1px solid #c5d2cd;border-radius:8px;padding:12px;font:inherit;resize:vertical;min-height:180px}
 #aur-mail-feedback{margin:12px 0;font-size:12px;color:#426357;min-height:18px}
 #aur-mail-feedback.is-error{color:#a0442d}
@@ -911,7 +921,6 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <nav class="aur-mail-folders" aria-label="Mail folders">
 <button type="button" data-mail-folder="INBOX">Inbox</button>
 <button type="button" data-mail-folder="INBOX.Sent">Sent</button>
-<button type="button" data-mail-folder="INBOX.Drafts">Drafts</button>
 <button type="button" data-mail-folder="INBOX.Junk">Junk</button>
 <button type="button" data-mail-folder="INBOX.Trash">Trash</button>
 </nav>
@@ -930,12 +939,15 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <input type="hidden" name="send_key" value="">
 <label>To <input name="to" type="email" required maxlength="254" autocomplete="email"></label>
 <label>Subject <input name="subject" required maxlength="250"></label>
+<label>Attachments <input id="aur-mail-attachments" name="attachments[]" type="file" multiple aria-describedby="aur-mail-attachment-hint"></label>
+<p id="aur-mail-attachment-hint" class="muted">Up to 5 files · maximum 8 MB each · 10 MB total. PDF, spreadsheets, images and other common file types.</p>
+<p id="aur-mail-selected-files" class="muted" role="status" aria-live="polite"></p>
 <label>Message <textarea name="body" required maxlength="50000" rows="10"></textarea></label>
 <div class="aur-mail-detail-bar">
 <button type="submit">Send email</button>
 <button type="button" class="ghost" id="aur-mail-cancel">Cancel</button>
 </div>
-<p class="muted">Each message is sent manually using AURENOEVA SMTP. The server acceptance is recorded in Sent; inbox delivery cannot be guaranteed. Attachments are available in downloaded original messages.</p>
+<p class="muted">Each message is sent manually using AURENOEVA SMTP. The server acceptance is recorded in Sent; inbox delivery cannot be guaranteed. Sent attachments remain available for download in the private mailbox.</p>
 </form>
 <div class="aur-mail-pagination">
 <button type="button" class="ghost" id="aur-mail-prev" disabled>← Previous</button>
@@ -1019,4 +1031,4 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=1"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=2"></script><?php endif; ?></body></html>

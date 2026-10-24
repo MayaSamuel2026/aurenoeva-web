@@ -16,12 +16,14 @@
     const previous = root.querySelector('#aur-mail-prev');
     const next = root.querySelector('#aur-mail-next');
     const heading = root.querySelector('#aur-mail-folder-name');
+    const attachmentsInput = root.querySelector('#aur-mail-attachments');
+    const attachedNames = root.querySelector('#aur-mail-selected-files');
     const csrf = document.querySelector('input[name="csrf"]')?.value;
     let folder = 'INBOX', page = 1, current = null, messages = [], more = false;
 
     const label = name => ({
       'INBOX': 'Inbox', 'INBOX.Sent': 'Sent',
-      'INBOX.Drafts': 'Drafts', 'INBOX.Junk': 'Junk', 'INBOX.Trash': 'Trash'
+      'INBOX.Junk': 'Junk', 'INBOX.Trash': 'Trash'
     })[name] || name;
     const notice = (message, error = false) => {
       status.textContent = message;
@@ -39,8 +41,14 @@
       const options = {credentials: 'same-origin', cache: 'no-store'};
       if (data) {
         options.method = 'POST';
-        options.headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'};
-        options.body = new URLSearchParams({...data, csrf}).toString();
+        if (data instanceof FormData) {
+          data.set('csrf', csrf);
+          options.headers = {'Accept': 'application/json'};
+          options.body = data;
+        } else {
+          options.headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'};
+          options.body = new URLSearchParams({...data, csrf}).toString();
+        }
       }
       const response = await fetch(url, options);
       const result = await response.json();
@@ -120,6 +128,7 @@
       list.hidden = true;
       editor.hidden = false;
       compose.reset();
+      attachmentsInput.setCustomValidity('');
       root.querySelector('#aur-mail-compose-heading').textContent = reply ? 'Reply' : 'New message';
       if (reply) {
         const from = String(reply.from || '');
@@ -128,6 +137,7 @@
         compose.elements.subject.value = /^Re:/i.test(reply.subject) ? reply.subject : 'Re: ' + reply.subject;
       }
       compose.elements.send_key.value = keyForSend();
+      attachedNames.textContent = '';
       compose.elements.to.focus();
       notice('Write your message. Sending requires your explicit confirmation.');
     }
@@ -165,6 +175,23 @@
           detail.appendChild(link);
         }
         detail.appendChild(text('pre', mail.body || '(No plain-text message content available.)'));
+        if (Array.isArray(mail.attachments) && mail.attachments.length) {
+          const box = document.createElement('div');
+          box.className = 'aur-mail-sent-attachments';
+          box.appendChild(text('strong', 'Sent attachments'));
+          mail.attachments.forEach((attachment, index) => {
+            const link = document.createElement('a');
+            const url = new URL('/procurement/', location.origin);
+            for (const [key,value] of Object.entries({
+              mail_action:'download_attachment',folder,uid,attachment_index:index
+            })) url.searchParams.set(key,value);
+            link.href = url.toString();
+            link.textContent = String(attachment.name || 'Attachment') + ' (' +
+              Math.ceil(Number(attachment.size || 0)/1024) + ' KB)';
+            box.appendChild(link);
+          });
+          detail.appendChild(box);
+        }
         if (mail.download) {
           const link = document.createElement('a');
           const url = new URL('/procurement/', location.origin);
@@ -191,6 +218,18 @@
     previous.addEventListener('click', () => {page = Math.max(1, page-1);refresh();});
     next.addEventListener('click', () => {page++;refresh();});
     search.addEventListener('input', renderList);
+    attachmentsInput.addEventListener('change', () => {
+      const files = [...attachmentsInput.files];
+      const size = files.reduce((total, file) => total + file.size, 0);
+      const invalid = files.length > 5 || files.some(file => file.size < 1 || file.size > 8388608)
+        || size > 10485760;
+      attachedNames.textContent = files.length
+        ? files.map(file => file.name + ' (' + Math.ceil(file.size / 1024) + ' KB)').join(' · ')
+        : 'No attachments selected.';
+      if (invalid) attachedNames.textContent += ' — Too many or too large; choose smaller files.';
+      attachmentsInput.setCustomValidity(invalid ? 'Up to 5 files, 8 MB each, 10 MB total.' : '');
+      if (invalid) attachmentsInput.reportValidity();
+    });
 
     compose.addEventListener('submit', async event => {
       event.preventDefault();
@@ -198,8 +237,9 @@
       sendButton.disabled = true;
       notice('Submitting to Hostinger SMTP…');
       try {
-        const data = Object.fromEntries(new FormData(compose).entries());
-        const result = await api({mail_action:'send'}, {...data, mail_action:'send'});
+        const data = new FormData(compose);
+        data.set('mail_action','send');
+        const result = await api({mail_action:'send'}, data);
         notice(result.status === 'SMTP_ACCEPTED'
           ? 'Hostinger accepted the message. This does not guarantee recipient inbox delivery.'
           : 'Delivery not confirmed. Inspect the Sent history before considering another send.',
