@@ -18,6 +18,9 @@
     const heading = root.querySelector('#aur-mail-folder-name');
     const attachmentsInput = root.querySelector('#aur-mail-attachments');
     const attachedNames = root.querySelector('#aur-mail-selected-files');
+    const richEditor = root.querySelector('#aur-mail-rich-editor');
+    const normalButton = root.querySelector('#aur-mail-normal');
+    const boldButton = root.querySelector('#aur-mail-bold');
     const csrf = document.querySelector('input[name="csrf"]')?.value;
     let folder = 'INBOX', page = 1, current = null, messages = [], more = false;
 
@@ -60,6 +63,57 @@
       crypto.getRandomValues(bytes);
       return [...bytes].map(n => n.toString(16).padStart(2, '0')).join('');
     };
+
+    // Browser rich text is never sent unfiltered. Only escaped characters,
+    // line breaks and explicitly selected strong emphasis leave the editor.
+    const escapeMailText = value => String(value)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    function cleanMailHtml() {
+      function visit(node) {
+        if (node.nodeType === Node.TEXT_NODE) return escapeMailText(node.nodeValue || '');
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+        const tag = node.tagName.toUpperCase();
+        if (['SCRIPT','STYLE','SVG','IMG','IFRAME','OBJECT'].includes(tag)) return '';
+        if (tag === 'BR') return '<br>';
+        const children = Array.from(node.childNodes).map(visit).join('');
+        if (['B','STRONG'].includes(tag)
+          || (tag === 'SPAN' && (/^(bold|[6-9]00)$/i.test(node.style.fontWeight || ''))))
+          return children ? '<strong>' + children + '</strong>' : '';
+        if (['DIV','P','LI'].includes(tag)) return children + '<br>';
+        return children;
+      }
+      let html = Array.from(richEditor.childNodes).map(visit).join('');
+      // Whitespace outside meaningful content is not part of the RFQ message.
+      html = html.replace(/(?:<br>)+$/g,'');
+      // Decode entities for the text/plain MIME alternative.
+      const decoder = document.createElement('textarea');
+      decoder.innerHTML = html.replace(/<br>/g,'\n').replace(/<\/?strong>/g,'');
+      return {html, plain: decoder.value.trim()};
+    }
+    // Pasting from ChatGPT, Word or email must NOT transport external styles,
+    // fonts, links, images or arbitrary HTML to suppliers.
+    richEditor.addEventListener('paste', event => {
+      const pasted = event.clipboardData?.getData('text/plain');
+      if (typeof pasted !== 'string') return;
+      event.preventDefault();
+      richEditor.focus();
+      document.execCommand('insertText',false,pasted.replace(/\r\n?/g,'\n'));
+    });
+    const syncBoldState = () => {
+      try {boldButton.setAttribute('aria-pressed',String(document.queryCommandState('bold')));}
+      catch (error) {boldButton.setAttribute('aria-pressed','false');}
+    };
+    for (const button of [normalButton,boldButton])
+      button.addEventListener('mousedown',event => event.preventDefault());
+    normalButton.addEventListener('click',() => {
+      richEditor.focus();document.execCommand('removeFormat',false,null);syncBoldState();
+    });
+    boldButton.addEventListener('click',() => {
+      richEditor.focus();document.execCommand('bold',false,null);syncBoldState();
+    });
+    richEditor.addEventListener('keyup',syncBoldState);
+    richEditor.addEventListener('mouseup',syncBoldState);
 
     function showList() {
       editor.hidden = true;
@@ -128,6 +182,8 @@
       list.hidden = true;
       editor.hidden = false;
       compose.reset();
+      richEditor.replaceChildren();
+      boldButton.setAttribute('aria-pressed','false');
       attachmentsInput.setCustomValidity('');
       root.querySelector('#aur-mail-compose-heading').textContent = reply ? 'Reply' : 'New message';
       if (reply) {
@@ -233,6 +289,13 @@
 
     compose.addEventListener('submit', async event => {
       event.preventDefault();
+      const normalized = cleanMailHtml();
+      if (!normalized.plain || normalized.plain.length > 50000) {
+        notice('Enter a message of up to 50,000 characters before sending.',true);
+        richEditor.focus();return;
+      }
+      compose.elements.body.value = normalized.plain;
+      compose.elements.body_html.value = normalized.html;
       const sendButton = compose.querySelector('button[type="submit"]');
       sendButton.disabled = true;
       notice('Submitting to Hostinger SMTP…');
@@ -247,6 +310,12 @@
         folder = 'INBOX.Sent';page = 1;
         folderButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mailFolder === folder)));
         await refresh();
+        notice(result.status === 'SMTP_ACCEPTED'
+          ? (result.imap_sent_archive === 'ARCHIVED'
+            ? 'SMTP accepted · saved in Mail Center and Hostinger Sent.'
+            : 'SMTP accepted · saved in Mail Center Sent (Hostinger Sent copy not confirmed).')
+          : 'Sending not confirmed. Review your Mail Center Sent history; do not resend automatically.',
+          result.status !== 'SMTP_ACCEPTED');
       } catch (error) {
         notice('Sending could not be confirmed. Check Sent before retrying; do not send a duplicate.', true);
       } finally {
