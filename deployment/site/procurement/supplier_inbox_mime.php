@@ -75,7 +75,7 @@ function aur_mail_classify(array $mail):array {
     if(!$isBounce&&preg_match_all('/\b(?:buyer\s+)?items?\s*(?:nos?\.?\s*)?#?\s*(\d{1,4})\b/iu',$new,$m))
         foreach($m[1] as $item)$items[(int)$item]=true;
     $price='';$currency='';
-    if(!$isBounce&&preg_match('/\b(?:(EUR|USD|GBP|AED)\s*([0-9]{1,9}(?:[.,][0-9]{1,4})?)|([0-9]{1,9}(?:[.,][0-9]{1,4})?)\s*(EUR|USD|GBP|AED))\b/iu',$new,$p)){
+    if(!$isBounce&&preg_match('/\b(?:unit\s*price|price\s*per\s*unit|each)\s*[:=\-]?\s*(?:(EUR|USD|GBP|AED)\s*([0-9]{1,9}(?:[.,][0-9]{1,4})?)|([0-9]{1,9}(?:[.,][0-9]{1,4})?)\s*(EUR|USD|GBP|AED))\b/iu',$new,$p)){
         $currency=strtoupper(($p[1]??'')?:($p[4]??''));
         $price=str_replace(',','.',($p[2]??'')?:($p[3]??''));
     }
