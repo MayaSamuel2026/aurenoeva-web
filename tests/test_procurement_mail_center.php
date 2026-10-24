@@ -49,6 +49,9 @@ file_put_contents($tmp,"%PDF-1.4\nExample attachment\n");
 $fixture=['name'=>['technical specification.pdf'],'error'=>[UPLOAD_ERR_OK],
     'size'=>[filesize($tmp)],'tmp_name'=>[$tmp]];
 $parts=aur_mailcenter_validate_uploads($fixture,false);
+$mailcenterBadName=aur_mailcenter_validate_uploads(array_merge($fixture,['name'=>["../unsafe\r\nfile.pdf"]]),false);
+mailcenter_assert(!str_contains($mailcenterBadName[0]['name'],"\r") && !str_contains($mailcenterBadName[0]['name'],'/'),
+    'Unsafe attachment filename characters must be sanitized');
 mailcenter_assert(count($parts)===1&&$parts[0]['name']==='technical specification.pdf',
     'Normal outgoing attachment should validate');
 $mime=aur_vendor_rfq_smtp_payload('buyer@example.com','Quotation','Please see attached',
@@ -64,7 +67,6 @@ mailcenter_assert(str_contains($mime,'multipart/mixed; boundary=') &&
 foreach([
     array_merge($fixture,['error'=>[UPLOAD_ERR_INI_SIZE]]),
     array_merge($fixture,['size'=>[9000000]]),
-    array_merge($fixture,['name'=>["\r\nBcc: eve@example.com"]]),
     array_merge($fixture,['name'=>array_fill(0,6,'file.pdf'),
                           'error'=>array_fill(0,6,UPLOAD_ERR_OK),
                           'size'=>array_fill(0,6,1),
