@@ -372,4 +372,31 @@ class Tests(unittest.TestCase):
         self.assertFalse(any("gf-power.net" in x for x in
                           entries["power-gaskets-contasan"]["seeds"]))
 
+
+    def test_approved_catalogue_seeds_are_not_starved_by_old_search_backlog(self):
+        from catalogue_harvester import enqueue
+        cfg={"categories":{},"sources":[{
+            "id":"power-gaskets-test","active":True,"priority":True,
+            "manufacturer":"","allowed_hosts":["www.powergaskets.com"],
+            "sector":"industrial","category":"Machine / process equipment",
+            "seeds":["https://www.powergaskets.com/en/1413/cylinder-head-gasket/16394-03310.html"]
+        }]}
+        # Simulate a previously queued ordinary source at the same depth.
+        old="https://www.example.com/product/old-100"
+        enqueue(self.db,old,"page","industrial","Machine / process equipment")
+        self.db.commit()
+        called=[]
+        def retrieve(url,kind):
+            called.append(url)
+            if "powergaskets.com" in url:
+                return ('<html><h1>Products</h1>'
+                        '<p>Power Gaskets No</p><p>80.24.155</p>'
+                        '<p>Oem No</p><p>16394-03310</p>'
+                        '<p>Product Group</p><p>KUBOTA Cylinder Head Gasket</p>'
+                        '<p>Application</p><p>V1505</p>Add to Cart</html>')
+            return "<html><title>Old listing</title></html>"
+        result=run(self.db,cfg,1,30,1,retrieve)
+        self.assertEqual(result["new_products"],1)
+        self.assertEqual(called[0],cfg["sources"][0]["seeds"][0])
+
 if __name__=="__main__":unittest.main()
