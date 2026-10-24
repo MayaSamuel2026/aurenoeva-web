@@ -350,7 +350,58 @@ function aur_vendor_rfq_smtp_envelope_recipients(string $to):array {
     return strcasecmp($to,$copy)===0?[$to]:[$to,$copy];
 }
 
-function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId=''):array {
+/**
+ * Preserve the existing text-only RFQ MIME bytes. Only manually composed
+ * Mail Center messages can supply an attachment array.
+ */
+function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,string $messageId,array $attachments=[]):string {
+    $headers=[
+        'From: AURENOEVA Purchasing <info@aurenoeva.com>',
+        'To: '.$to,
+        'Reply-To: info@aurenoeva.com',
+        'Subject: =?UTF-8?B?'.base64_encode($subject).'?=',
+        'Date: '.date(DATE_RFC2822),
+        'Message-ID: <'.$messageId.'>',
+        'MIME-Version: 1.0',
+    ];
+    if(!$attachments){
+        $headers[]='Content-Type: text/plain; charset=UTF-8';
+        $headers[]='Content-Transfer-Encoding: base64';
+        return implode("\r\n",$headers)."\r\n\r\n".
+            chunk_split(base64_encode($body),76,"\r\n").'.';
+    }
+    if(count($attachments)>5)throw new InvalidArgumentException('too_many_mail_attachments');
+    $boundary='AURENOEVA_'.bin2hex(random_bytes(18));
+    $headers[]='Content-Type: multipart/mixed; boundary="'.$boundary.'"';
+    $mime='--'.$boundary."\r\n".
+        "Content-Type: text/plain; charset=UTF-8\r\n".
+        "Content-Transfer-Encoding: base64\r\n\r\n".
+        chunk_split(base64_encode($body),76,"\r\n");
+    foreach($attachments as $index=>$attachment){
+        $name=(string)($attachment['name']??'');
+        $type=(string)($attachment['type']??'application/octet-stream');
+        $path=(string)($attachment['path']??'');
+        $size=(int)($attachment['size']??0);
+        if($name===''||strlen($name)>240||preg_match('/[\x00-\x1f\x7f\/\\\\]/',$name)
+           ||!preg_match('~^[a-z0-9.+-]+/[a-z0-9.+-]+$~iD',$type)
+           ||!is_file($path)||is_link($path)||$size<1||$size>8388608
+           ||filesize($path)!==$size)
+            throw new InvalidArgumentException('invalid_mail_attachment');
+        $contents=file_get_contents($path);
+        if($contents===false||strlen($contents)!==$size)
+            throw new RuntimeException('mail_attachment_read_failed');
+        $fallback='attachment-'.((int)$index+1);
+        $mime.='--'.$boundary."\r\n".
+            'Content-Type: '.$type."\r\n".
+            'Content-Disposition: attachment; filename="'.$fallback.'"; filename*=UTF-8'.chr(39).chr(39).rawurlencode($name)."\r\n".
+            "Content-Transfer-Encoding: base64\r\n\r\n".
+            chunk_split(base64_encode($contents),76,"\r\n");
+    }
+    $mime.='--'.$boundary."--\r\n";
+    return implode("\r\n",$headers)."\r\n\r\n".$mime.'.';
+}
+
+function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[]):array {
     $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
         'code'=>0,'response'=>'','outcome'=>'NOT_SENT',
         'archive_copy_address'=>'info@aurenoeva.com',
@@ -414,19 +465,7 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
         }
         $r=aur_vendor_rfq_smtp_exchange($socket,'DATA',[354],'DATA');
         if(!$r['ok'])return array_merge($base,$r);
-        $headers=[
-            'From: AURENOEVA Purchasing <info@aurenoeva.com>',
-            'To: '.$to,
-            'Reply-To: info@aurenoeva.com',
-            'Subject: =?UTF-8?B?'.base64_encode($subject).'?=',
-            'Date: '.date(DATE_RFC2822),
-            'Message-ID: <'.$messageId.'>',
-            'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=UTF-8',
-            'Content-Transfer-Encoding: base64'
-        ];
-        $payload=implode("\r\n",$headers)."\r\n\r\n".
-            chunk_split(base64_encode($body),76,"\r\n").'.';
+        $payload=aur_vendor_rfq_smtp_payload($to,$subject,$body,$messageId,$attachments);
         $r=aur_vendor_rfq_smtp_exchange($socket,$payload,[250],'DATA_ACCEPTANCE');
         $base=array_merge($base,$r);
         $base['accepted']=$r['ok'];
