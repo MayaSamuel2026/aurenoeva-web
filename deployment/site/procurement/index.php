@@ -29,6 +29,7 @@ require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/supplier_replies.php';
+require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
@@ -708,6 +709,26 @@ catch(Throwable $e) {
 <b><?= (int)($result['line_count'] ?? 0) ?></b> entries ·
 <b><?= (int)($result['alternatives'] ?? 0) ?></b> alternative options ·
 <b><?=aur_escape((string)($result['country'] ?? ''))?></b> destination</p>
+<?php $aurQuality=aur_rfq_quality_report($result); $aurQualityCounts=$aurQuality['counts']; ?>
+<details id="aur-rfq-quality" class="aux-disclosure" <?=!empty($aurQuality['issues'])?'open':''?>>
+<summary>Automatic RFQ quality check · <?=count($aurQuality['issues'])?> observations</summary>
+<p>
+<span class="pill"><b><?=(int)$aurQualityCounts['possible_duplicates']?></b> possible duplicate specifications</span>
+<span class="pill"><b><?=(int)$aurQualityCounts['open_specifications']?></b> open specifications</span>
+<span class="pill"><b><?=(int)$aurQualityCounts['numbering_gaps']?></b> numbering gaps</span>
+<span class="pill"><b><?=(int)$aurQualityCounts['missing_quantities']?></b> missing requested quantities</span>
+</p>
+<?php if(empty($aurQuality['issues'])): ?>
+<p>No rule-based quality warnings found. This is not certification of technical accuracy.</p>
+<?php else: ?>
+<div class="scroll"><table><thead><tr><th>Finding</th><th>Interpretation</th></tr></thead><tbody>
+<?php foreach($aurQuality['issues'] as $issue):?>
+<tr><td><b><?=aur_escape((string)$issue['label'])?></b></td>
+<td><?=aur_escape((string)$issue['detail'])?></td></tr>
+<?php endforeach;?></tbody></table></div>
+<?php endif;?>
+<p class="muted">Read-only checks of the original buyer requirements, not an assertion of error. Alternatives are kept as options under their buyer item. Existing sent RFQs and supplier correspondence are never rewritten.</p>
+</details>
 <section id="destination-screen" style="border:1px solid #cad7d1;background:#f1f5f2;border-radius:10px;padding:18px;margin:18px 0">
 <span class="aur-step-label">Step 2 of 5 · Destination review</span><h3 style="margin:0 0 8px">Automatic destination / embargo preflight</h3>
 <form method="post" action="/procurement/" class="inline">
