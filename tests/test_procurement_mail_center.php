@@ -89,7 +89,7 @@ mailcenter_assert(str_contains($js,'new FormData(compose)') &&
 
 
 /* Branded 11pt composer, strong-only formatting and unchanged RFQ semantics. */
-mailcenter_assert(str_contains(aur_mailcenter_logo_url(),'aurenoeva-logo-approved.png'),
+mailcenter_assert(str_contains(aur_mailcenter_logo_url(),'/procurement/aurenoeva-logo.png'),
     'Approved AURENOEVA logo URL missing');
 mailcenter_assert(str_contains(aur_mailcenter_signature_plain(),'AURENOEVA Purchasing') &&
     str_contains(aur_mailcenter_signature_plain(),'NOEVA Systems e.K.'),
@@ -103,10 +103,44 @@ mailcenter_assert($rich['body_html']==='Dear Shaun,<br>The item is <strong>confi
 $document=aur_mailcenter_html_document($rich['body_html']);
 mailcenter_assert(str_contains($document,'font-size:11pt') &&
     str_contains($document,'Arial,Helvetica,sans-serif') &&
-    str_contains($document,'aurenoeva-logo-approved.png') &&
+    str_contains($document,'cid:aurenoeva-logo@aurenoeva.com') &&
     str_contains($document,'<strong>confirmed</strong>') &&
-    str_contains($document,'Kind regards,'),
+    !str_contains($document,'Kind regards,'),
     'Brand, 11pt sans-serif, bold or signature missing from outgoing HTML');
+mailcenter_assert(!str_contains(aur_mailcenter_signature_plain(),'Kind regards') &&
+    str_starts_with(aur_mailcenter_signature_plain(),'AURENOEVA Purchasing'),
+    'Permanent address section must not duplicate the editable courtesy closing');
+mailcenter_assert(str_contains($ui,'src="/procurement/aurenoeva-logo.png?v=2"') &&
+    !str_contains($ui,'Kind regards,<br><br><strong>AURENOEVA Purchasing'),
+    'Editor preview still references old logo or duplicated courtesy closing');
+$logoTestPath=tempnam(sys_get_temp_dir(),'aur-logo-');
+$logoTestBytes=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9W1iANgAAAAASUVORK5CYII=',true);
+mailcenter_assert(is_string($logoTestBytes),'Logo MIME fixture could not decode');
+file_put_contents($logoTestPath,$logoTestBytes);
+$inlineMail=aur_vendor_rfq_smtp_payload(
+    'supplier@example.org','Reply','Hello','abcd1234@aurenoeva.com',[],
+    $document,$logoTestPath);
+mailcenter_assert(str_contains($inlineMail,'multipart/related') &&
+    str_contains($inlineMail,'multipart/alternative') &&
+    str_contains($inlineMail,'Content-ID: <aurenoeva-logo@aurenoeva.com>') &&
+    str_contains($inlineMail,'Content-Type: image/png'),
+    'Outgoing branded mail must carry the logo inline as a related image');
+$inlineAttached=aur_vendor_rfq_smtp_payload(
+    'supplier@example.org','Reply','Hello','abcd1234@aurenoeva.com',[[
+        'name'=>'test.pdf','type'=>'application/pdf','size'=>4,
+        'path'=>(function(){
+            $name=tempnam(sys_get_temp_dir(),'aur-test-pdf-');
+            file_put_contents($name,'PDF!');
+            return $name;
+        })()
+    ]],$document,$logoTestPath);
+mailcenter_assert(str_contains($inlineAttached,'multipart/mixed') &&
+    str_contains($inlineAttached,'multipart/related') &&
+    str_contains($inlineAttached,'Content-ID: <aurenoeva-logo@aurenoeva.com>') &&
+    str_contains($inlineAttached,'Content-Disposition: attachment'),
+    'MIME with attachment must preserve embedded logo and the supplier attachment');
+@unlink($logoTestPath);
+
 $plainMail=aur_vendor_rfq_smtp_payload(
     'supplier@example.org','RFQ original','Plain RFQ','abcd1234@aurenoeva.com');
 mailcenter_assert(str_contains($plainMail,'Content-Type: text/plain; charset=UTF-8') &&
