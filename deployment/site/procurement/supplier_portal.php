@@ -74,7 +74,7 @@ try {
 ?>
 <section id="supplier-workspace" data-contactable="<?= (int)$contactableCount ?>" data-leads="<?=count($dashboard)?>" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
 <h2>Worldwide supplier quotations and availability</h2>
-<p>Research suppliers worldwide and identify seller contacts and stated product availability. One supplier receives at most one consolidated, non-binding request for prices and availability. Every future supplier RFQ also sends one private archival copy to info@aurenoeva.com in the same SMTP transaction; suppliers cannot see the copy address. A catalogue listing does not establish current stock or lawful export. AURENOEVA does not participate in sales or purchasing.</p>
+<p>Find and select worldwide suppliers, then prepare one consolidated non-binding request per recipient. Preparing a request never sends an email.</p>
 <p>
 <span class="pill"><b><?=count($researchRows)?></b> requested lines</span>
 <span class="pill"><b><?=count($dashboard)?></b> supplier/manufacturer leads</span>
@@ -187,10 +187,12 @@ try {
     'attempted'=>(($rfqPreview['status']??'')!=='DRAFT_REVIEW')
 ]))?></h2>
 <p><b>Steps 4–5 of 5 · Approve, then check the saved email ledger.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Statuses below are calculated from the saved per-recipient outbox, not browser progress. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Reload actual RFQ status ↻</a></p>
-<?php if(aur_vendor_rfq_smtp_ready()&&!aur_vendor_rfq_mail_verified($aurStore)):?>
+<?php if(aur_vendor_rfq_smtp_ready()&&!aur_vendor_rfq_mail_verified($aurStore)
+   && in_array(($rfqPreview['status']??''),['DRAFT_REVIEW','DISPATCHING'],true)):?>
 <p role="alert"><b>Internal mail test required.</b> The website has mailbox credentials but must prove a real authenticated SMTP send to the AURENOEVA inbox before supplier sending unlocks. <a href="#aur-mail-settings">Go to mail settings</a>.</p>
 <?php endif;?>
-<?php if(!aur_vendor_rfq_smtp_ready()):?>
+<?php if(!aur_vendor_rfq_smtp_ready()
+   && in_array(($rfqPreview['status']??''),['DRAFT_REVIEW','DISPATCHING'],true)):?>
 <p role="alert"><b>Supplier sending paused:</b> the website has no verified authenticated SMTP configuration for info@aurenoeva.com. No RFQs will be sent through PHP mail(). <a href="#aur-mail-settings">Connect the mailbox in the staff workspace</a>, then run the internal test before approving supplier outreach.</p>
 <?php endif;?>
 <span id="aur-send-status" class="aur-step-label">Step 5 of 5 · Sending and confirmation</span>
@@ -313,7 +315,7 @@ $quotedItemCount=count($replyByRow);
 ?>
 <section id="supplier-replies" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
 <h3>Supplier quotation dashboard</h3>
-<p class="muted">Supplier prices are matched to the original customer equipment item number, not guessed from a product description. New replies are recorded manually until the AURENOEVA incoming mailbox is connected. Different currencies are not automatically converted.</p>
+<p class="muted">Compare quotations against original equipment item numbers. Replies are recorded manually until inbox synchronization is connected.</p>
 <p>
 <span class="pill"><b><?=count($savedReplies)?></b> supplier-item responses recorded</span>
 <span class="pill"><b><?=$quotedItemCount?></b> equipment items with replies</span>

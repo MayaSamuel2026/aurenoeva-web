@@ -274,7 +274,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/source/site/procurement"
           # Copy the complete canonical procurement application, not a stale hardcoded subset.
           # New supplier and RFQ modules must ship in the SAME release as index.php.
-          for name in index.php private_cases.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_replies.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js .htaccess; do
+          for name in index.php private_cases.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_replies.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js workspace-tabs.js .htaccess; do
             cp "deployment/site/procurement/$name" "$RUNNER_TEMP/source/site/procurement/$name"
           done
           # Preserve the public index.html as default while allowing subdirectory PHP index.
@@ -315,6 +315,8 @@ jobs:
           test -s "$RUNNER_TEMP/source/site/procurement/supplier_rfq.php"
           node --check "$RUNNER_TEMP/source/site/procurement/discover.js"
           node --check "$RUNNER_TEMP/source/site/procurement/worldwide.js"
+          node --check "$RUNNER_TEMP/source/site/procurement/workspace-tabs.js"
+          php tests/test_procurement_tabs.php
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
