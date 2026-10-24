@@ -80,6 +80,7 @@ jobs:
           php -l deployment/site/procurement/supplier_replies.php
           php -l deployment/site/procurement/supplier_inbox_mime.php
           php -l deployment/site/procurement/supplier_inbox_store.php
+          php -l deployment/site/procurement/supplier_inbox_curl.php
           php -l deployment/site/procurement/supplier_inbox.php
           php -l deployment/site/procurement/supplier-inbox-cli.php
           php -l deployment/site/procurement/supplier_portal.php
