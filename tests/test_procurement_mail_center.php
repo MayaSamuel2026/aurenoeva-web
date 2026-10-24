@@ -36,6 +36,6 @@ $summary=aur_mailcenter_summary('INBOX','14',$raw,true);
 mailcenter_assert($summary['reference']==='AUR-UZ-1A04A7909185FACD'&&
     $summary['unread']===true&&$summary['folder']==='INBOX',
     'Supplier message not linked safely to case');
-mailcenter_assert(!str_contains(json_encode($summary), 'We can supply the requested items.'),
-    'Email list must not expose full message body');
+mailcenter_assert(!array_key_exists('body',$summary)&&strlen($summary['preview'])<=180,
+    'Mailbox overview must expose a short preview, not a full body field');
 echo "AURENOEVA_MAIL_CENTER=PASS\n";
