@@ -65,8 +65,12 @@ uasort($dashboard,static function($a,$b):int{
 });
 $contactableCount=count(array_filter($dashboard,static fn($s)=>$s['contactable']));
 $approvedDrafts=[];
-try{$approvedDrafts=aur_vendor_rfq_list($aurStore,$result);}
-catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
+$unsentToClean=0;
+try {
+    $primaryRfq=aur_vendor_rfq_primary($aurStore,$result);
+    if($primaryRfq!==null)$approvedDrafts=[$primaryRfq];
+    $unsentToClean=aur_vendor_rfq_cleanup_unsent($aurStore,$result,false);
+} catch(Throwable $e){error_log('AURENOEVA RFQ housekeeping register: '.get_class($e));}
 ?>
 <section id="supplier-workspace" data-contactable="<?= (int)$contactableCount ?>" data-leads="<?=count($dashboard)?>" style="border-top:1px solid #dbe4df;margin-top:24px;padding-top:20px">
 <h2>Worldwide supplier quotations and availability</h2>
@@ -80,20 +84,29 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 </p>
 <?php if(!empty($supplierResearchMode)):?><p class="muted" role="status"><?=aur_escape((string)$supplierResearchMode)?></p><?php endif;?>
 <?php if(!empty($supplierDiscoveryMessage)):?><p role="status"><?=aur_escape((string)$supplierDiscoveryMessage)?></p><?php endif;?>
-<p><a href="#supplier-search-controls">↑ Run worldwide discovery</a> · <a href="#supplier-history">Previous RFQ drafts</a> · <a href="#item-sources">Research by equipment item</a></p>
+<p><a href="#supplier-search-controls">↑ Run worldwide discovery</a> · <a href="#supplier-history">Saved supplier RFQ</a> · <a href="#item-sources">Research by equipment item</a></p>
 <section style="background:#f1f5f2;padding:14px 18px;border-radius:8px;margin:16px 0">
 <h3 style="margin:0 0 8px">Export control, sanctions and embargo review</h3>
 <p style="margin:0">Preliminary destination status: <b><?=aur_escape((string)($result['country_preflight']['status']??'NOT_SCREENED'))?></b>. The country warning above is automatic; it is not live sanctions-list screening. Counterparties, beneficial owners, goods, end users, end use and applicable export laws still require a separate review. Supplier search remains worldwide, regardless of destination. An information-only service does not bypass sanctions rules.</p>
 </section>
 <details id="supplier-history" class="aux-disclosure">
-<summary>Previous supplier enquiries (<?=count($approvedDrafts)?>)</summary>
-<?php if(!$approvedDrafts):?><p class="muted">No drafts yet. Prepared and sent RFQs will remain selectable here.</p>
-<?php else: ?><div class="scroll"><table><thead><tr><th>Created (UTC)</th><th>Suppliers</th><th>Status</th><th>Review</th></tr></thead><tbody>
+<summary>Saved supplier RFQ (one primary version)</summary>
+<?php if(!$approvedDrafts):?><p class="muted">No supplier RFQ has been prepared yet.</p>
+<?php else: ?><div class="scroll"><table><thead><tr><th>Created (UTC)</th><th>Recipients</th><th>Actual status</th><th>Review</th></tr></thead><tbody>
 <?php foreach($approvedDrafts as $priorDraft):?>
 <tr><td><?=aur_escape($priorDraft['created_at'])?></td><td><?=(int)$priorDraft['vendors']?></td>
-<td><?=aur_escape($priorDraft['status'])?></td>
-<td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#supplier-history">Open RFQ ↗</a></td></tr>
+<td><?=aur_escape(aur_vendor_rfq_public_status($priorDraft))?></td>
+<td><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode($priorDraft['id'])?>#aur-send-status">Open RFQ ↗</a></td></tr>
 <?php endforeach;?></tbody></table></div><?php endif;?>
+<?php if(isset($_GET['cleaned'])):?><p role="status"><?= (int)$_GET['cleaned']?> unused, never-sent RFQ version(s) removed. Supplier send records and original customer enquiry retained.</p><?php endif;?>
+<?php if($unsentToClean>0):?>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<p><button type="submit" name="cleanup_unsent_rfqs" value="1">Remove <?= (int)$unsentToClean?> unused test/unsent RFQ version(s)</button></p>
+<p class="muted">Only never-approved, never-attempted RFQ versions can be removed. Actual sending evidence, follow-ups, replies and this case are retained.</p>
+</form>
+<?php endif;?>
 </details>
 <section id="supplier-dashboard">
 <h3>Consolidated supplier selection</h3>
@@ -169,7 +182,10 @@ catch(Throwable $e){error_log('AURENOEVA draft register: '.get_class($e));}
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
 <?php $mailProof=aur_vendor_rfq_delivery_breakdown($rfqPreview); ?>
 <section id="aur-rfq-approval" data-case-ref="<?=aur_escape((string)$result['reference'])?>" data-draft-id="<?=aur_escape((string)$rfqPreview['draft_id'])?>" data-accepted="<?=(int)$mailLedger['accepted']?>" data-confirmed="<?=(int)$mailProof['smtp_250_confirmed']?>" data-open="<?=(int)($mailLedger['total']-$mailLedger['accepted'])?>" style="padding:25px 0;border-top:1px solid #dae4e0">
-<h2>Review supplier price and availability RFQs — <?=aur_escape((string)$rfqPreview['status'])?></h2>
+<h2>Supplier quotation request — <?=aur_escape(aur_vendor_rfq_public_status([
+    'accepted'=>$mailLedger['accepted'],'total'=>$mailLedger['total'],
+    'attempted'=>(($rfqPreview['status']??'')!=='DRAFT_REVIEW')
+]))?></h2>
 <p><b>Steps 4–5 of 5 · Approve, then check the saved email ledger.</b> <?=count($rfqPreview['messages']??[])?> deduplicated recipient(s). Statuses below are calculated from the saved per-recipient outbox, not browser progress. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Reload actual RFQ status ↻</a></p>
 <?php if(aur_vendor_rfq_smtp_ready()&&!aur_vendor_rfq_mail_verified($aurStore)):?>
 <p role="alert"><b>Internal mail test required.</b> The website has mailbox credentials but must prove a real authenticated SMTP send to the AURENOEVA inbox before supplier sending unlocks. <a href="#aur-mail-settings">Go to mail settings</a>.</p>

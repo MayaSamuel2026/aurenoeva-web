@@ -268,6 +268,17 @@ if ($isAdmin) {
             $supplierDiscoveryMessage='Supplier quotation not saved. Check the selected sent RFQ, original equipment item, price/currency and source reference.';
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}catch(Throwable $ignored){}
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_unsent_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $count=aur_vendor_rfq_cleanup_unsent($aurStore,$case,true);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&cleaned='.(int)$count.'#supplier-history',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA unused RFQ cleanup: '.get_class($e));
+            aur_denied(503,'Unused RFQ cleanup could not be completed. Sent email evidence is preserved.');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_rfq'])) {
         try {
             $testStatus=aur_vendor_rfq_send_smoke_test($aurStore);
@@ -498,16 +509,16 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
             $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
         }
     }
-    // Open the latest saved RFQ by default. A direct ?draft= link retains precedence.
-    // Read-only: never creates, approves or sends an enquiry.
+    // Prefer the RFQ with actual mail transport evidence, not the newest
+    // saved unsent test version. An explicit deep link can still inspect history.
     $aurDraftToOpen=isset($_GET['draft']) && is_string($_GET['draft'])
         ? (string)$_GET['draft'] : '';
     if($aurDraftToOpen==='') {
         try {
-            $aurRecentDrafts=aur_vendor_rfq_list($aurStore,$result);
-            $aurDraftToOpen=(string)($aurRecentDrafts[0]['id']??'');
+            $primary=aur_vendor_rfq_primary($aurStore,$result);
+            $aurDraftToOpen=(string)($primary['id']??'');
         } catch(Throwable $e) {
-            error_log('AURENOEVA latest RFQ read: '.get_class($e));
+            error_log('AURENOEVA primary RFQ read: '.get_class($e));
         }
     }
     if($aurDraftToOpen!=='') {
@@ -746,7 +757,15 @@ try {
 <?php elseif (is_array($result) && isset($result['cases'])): ?>
 <section class="card"><h2>Existing enquiries</h2><div class="scroll"><table><thead><tr><th>Case reference</th><th>Country</th><th>Items</th><th>Received (UTC)</th><th>RFQ</th></tr></thead><tbody>
 <?php foreach ($result['cases'] as $case): ?><tr><td><a href="?case=<?=rawurlencode((string)$case['reference'])?>"><?=aur_escape((string)$case['reference'])?></a></td>
-<td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td><td><a href="?rfq=<?=rawurlencode((string)$case['reference'])?>">Draft</a></td></tr><?php endforeach; ?>
+<td><?=aur_escape((string)$case['country'])?></td><td><?= (int)$case['line_count']?></td><td><?=aur_escape((string)$case['created_at'])?></td>
+<?php
+$caseRfq=null;
+try{$caseRfq=aur_vendor_rfq_primary($aurStore,aur_case_read($aurStore,(string)$case['reference']));}
+catch(Throwable $e){error_log('AURENOEVA case mail summary: '.get_class($e));}
+$caseRfqUrl='?case='.rawurlencode((string)$case['reference']);
+if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'#aur-send-status';
+?>
+<td><a href="<?=aur_escape($caseRfqUrl)?>"><?=aur_escape(aur_vendor_rfq_public_status($caseRfq))?></a></td></tr><?php endforeach; ?>
 </tbody></table></div></section>
 <?php endif; ?>
 
@@ -765,6 +784,7 @@ try {
 <button type="submit" name="configure_rfq_smtp" value="1">Save mailbox connection</button>
 </form>
 </details>
+<details class="aux-disclosure"><summary>Mail diagnostics and internal test (administration only)</summary>
 <h3>Email automation — internal RFQ test</h3>
 <p>Send one clearly marked sample RFQ from <b>info@aurenoeva.com</b> to the <b>same AURENOEVA inbox</b> via authenticated SMTP. This does not contact suppliers or change enquiries. Supplier sending remains locked until the website test succeeds.</p>
 <form method="post">
@@ -783,6 +803,7 @@ try {
 <p class="muted">SMTP stage: <?=aur_escape((string)($tr['stage']??''))?> · Code: <?=(int)($tr['code']??0)?> · <?=aur_escape((string)($tr['response']??''))?></p>
 <?php endif;?>
 <p class="muted">A successful test is reused for 15 minutes; a failed test can be retried after correcting the configuration.</p>
+</details>
 </section>
 <section class="card"><h2>Live product catalogue</h2>
 <p>Searchable products in the website's private catalogue: <strong><?= $catalogueSnapshotCount === null ? 'Not synchronized' : (int)$catalogueSnapshotCount ?></strong>.</p>

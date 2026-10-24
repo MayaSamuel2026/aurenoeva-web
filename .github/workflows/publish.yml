@@ -12,6 +12,7 @@ on:
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_worldwide_php.php'
       - 'tests/test_procurement_smtp.php'
+      - 'tests/test_procurement_housekeeping.php'
       - 'hotfix/v8.2.6.12/catalogue-sync.php'
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
       - 'hotfix/v8.2.6.11/catalogue-search.php'
@@ -318,6 +319,7 @@ jobs:
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
           php tests/test_procurement_smtp.php
+          php tests/test_procurement_housekeeping.php
           grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
 
       - name: Refine natural German website copy
