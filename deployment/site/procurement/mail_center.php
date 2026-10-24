@@ -9,6 +9,7 @@ declare(strict_types=1);
  * No mailbox password, mail body or token is exposed to unauthenticated routes.
  */
 require_once __DIR__.'/supplier_inbox_curl.php';
+require_once __DIR__.'/mail_branding.php';
 
 function aur_mailcenter_folder(string $folder):string {
     if(!in_array($folder,['INBOX','INBOX.Sent','INBOX.Drafts','INBOX.Trash','INBOX.Junk'],true))
@@ -16,7 +17,7 @@ function aur_mailcenter_folder(string $folder):string {
     return $folder;
 }
 function aur_mailcenter_uid(string $uid):string {
-    if(!preg_match('/^(?:[1-9][0-9]{0,11}|local-[a-f0-9]{32})$/D',$uid))
+    if(!preg_match('/^(?:[1-9][0-9]{0,11}|local-[a-f0-9]{32}|rfq-[a-f0-9]{32})$/D',$uid))
         throw new InvalidArgumentException('invalid_mail_uid');
     return $uid;
 }
@@ -33,7 +34,10 @@ function aur_mailcenter_validate_send(array $input):array {
         throw new InvalidArgumentException('invalid_mail_subject');
     if($body===''||strlen($body)>50000||str_contains($body,"\0"))
         throw new InvalidArgumentException('invalid_mail_body');
-    return ['to'=>$to,'subject'=>$subject,'body'=>$body,'send_key'=>$key];
+    $rich=trim((string)($input['body_html']??''));
+    $safeRich=$rich!==''?aur_mailcenter_clean_rich_text($rich,$body)
+        :nl2br(htmlspecialchars($body,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'),false);
+    return ['to'=>$to,'subject'=>$subject,'body'=>$body,'body_html'=>$safeRich,'send_key'=>$key];
 }
 
 /** Mail attachments are stored privately by the immutable send key, not publicly accessible. */
@@ -165,6 +169,7 @@ function aur_mailcenter_summary(string $folder,string $uid,string $raw,bool $unr
         'subject'=>(string)($mail['subject']?:'(No subject)'),
         'preview'=>substr(preg_replace('/\s+/u',' ',$text)??$text,0,180),
         'unread'=>$unread,
+        'message_id'=>(string)($headers['message-id']??''),
         'has_attachments'=>(bool)preg_match('/^Content-Disposition:\s*attachment/im',$raw),
         'reference'=>preg_match('/AUR-[A-Z]{2}-[A-F0-9]{16}/',(string)$mail['subject'],$m)?$m[0]:null
     ];
@@ -177,10 +182,86 @@ function aur_mailcenter_local_summary(array $entry):array {
         'date'=>(string)($entry['created_at']??''),'subject'=>$subject,
         'preview'=>substr(preg_replace('/\s+/u',' ',(string)($entry['body']??''))??'',0,180),
         'unread'=>false,'has_attachments'=>!empty($entry['attachments']),
+        'message_id'=>(string)($entry['smtp_message_id']??''),
         'status'=>(string)($entry['status']??'IN_FLIGHT'),
         'reference'=>preg_match('/AUR-[A-Z]{2}-[A-F0-9]{16}/',$subject,$m)?$m[0]:null
     ];
 }
+
+/**
+ * Read existing approved RFQ dispatch ledger into the same Sent screen.
+ * No duplicate persistence, new database or modification to RFQ dispatch.
+ */
+function aur_mailcenter_rfq_sent(string $store):array {
+    $found=[];
+    foreach(aur_case_list($store)['cases']??[] as $summary){
+        try{
+            $case=aur_case_read($store,(string)$summary['reference']);
+            foreach(aur_vendor_rfq_list($store,$case) as $draftInfo){
+                $draft=aur_vendor_rfq_read($store,$case,(string)$draftInfo['id']);
+                foreach(($draft['messages']??[]) as $i=>$message) {
+                    if(!is_array($message))continue;
+                    $status=(string)($message['status']??'DRAFT');
+                    if(!in_array($status,['ACCEPTED_BY_MAIL_TRANSPORT',
+                          'TRANSPORT_FAILED_OR_UNCONFIRMED','IN_FLIGHT'],true))continue;
+                    if(empty($message['attempted_at'])&&empty($message['sent_at'])
+                       &&empty($message['transport_result']))continue;
+                    $uid='rfq-'.substr(hash('sha256',$case['reference'].'|'.$draftInfo['id'].'|'.$i),0,32);
+                    $date=(string)($message['sent_at']??$message['attempted_at']??$draft['created_at']??'');
+                    $confirmed=$status==='ACCEPTED_BY_MAIL_TRANSPORT';
+                    $entry=['uid'=>$uid,'folder'=>'INBOX.Sent',
+                        'from'=>'info@aurenoeva.com','to'=>(string)($message['to']??''),
+                        'date'=>$date,'subject'=>(string)($message['subject']??''),
+                        'body'=>(string)($message['body']??''),'preview'=>substr(
+                            preg_replace('/\s+/u',' ',(string)($message['body']??''))??'',0,180),
+                        'unread'=>false,'has_attachments'=>false,'reference'=>$case['reference'],
+                        'status'=>$confirmed?'SMTP_ACCEPTED':'DELIVERY_UNCONFIRMED',
+                        'message_id'=>(string)($message['smtp_message_id']??''),
+                        'source'=>'APPROVED_RFQ_LEDGER'];
+                    $found[$uid]=$entry;
+                }
+            }
+        }catch(Throwable $e){
+            error_log('AURENOEVA Mail Center RFQ history: '.get_class($e));
+        }
+    }
+    return array_values($found);
+}
+/** Append an RFC822 copy to the same Hostinger mailbox's Sent folder.
+ * Archive failure never causes a second SMTP send or overwrites local evidence.
+ */
+function aur_mailcenter_archive_imap(string $raw):string {
+    if(strlen($raw)>14000000)return 'TOO_LARGE_FOR_SENT_ARCHIVE';
+    $cfg=aur_vendor_rfq_smtp_config();
+    $folder='{imap.hostinger.com:993/imap/ssl/validate-cert}INBOX.Sent';
+    if(function_exists('imap_open')&&function_exists('imap_append')){
+        $mail=@imap_open($folder,$cfg['user'],$cfg['pass'],0,1);
+        if($mail){
+            try{return @imap_append($mail,$folder,$raw)?'ARCHIVED':'NOT_ARCHIVED';}
+            finally{imap_close($mail);}
+        }
+    }
+    if(!function_exists('curl_init'))return 'IMAP_APPEND_NOT_AVAILABLE';
+    $fp=fopen('php://temp','w+b');
+    if(!$fp)return 'IMAP_APPEND_NOT_AVAILABLE';
+    try{
+        fwrite($fp,$raw);rewind($fp);
+        $curl=curl_init('imaps://imap.hostinger.com/INBOX.Sent');
+        if(!$curl)return 'IMAP_APPEND_NOT_AVAILABLE';
+        try{
+            curl_setopt_array($curl,[
+                CURLOPT_USERNAME=>$cfg['user'],CURLOPT_PASSWORD=>$cfg['pass'],
+                CURLOPT_UPLOAD=>true,CURLOPT_INFILE=>$fp,
+                CURLOPT_INFILESIZE=>strlen($raw),
+                CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,
+                CURLOPT_TIMEOUT=>25,CURLOPT_SSL_VERIFYPEER=>true,
+                CURLOPT_SSL_VERIFYHOST=>2,
+            ]);
+            return curl_exec($curl)!==false?'ARCHIVED':'NOT_ARCHIVED';
+        }finally{curl_close($curl);}
+    }finally{fclose($fp);}
+}
+
 function aur_mailcenter_list(string $store,string $folder,int $page):array {
     $folder=aur_mailcenter_folder($folder);
     $page=max(1,min(100,$page));$pageSize=20;
@@ -189,6 +270,7 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
         $entries=aur_mailcenter_local($store);
         foreach(array_reverse($entries) as $entry)
             if(is_array($entry))$local[]=aur_mailcenter_local_summary($entry);
+        foreach(aur_mailcenter_rfq_sent($store) as $entry)$local[]=$entry;
     }
     $error=null;$server=[];
     try{
@@ -206,6 +288,18 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
     }
     // Locally sent messages are visible even if IMAP Sent does not store
     // copies of messages submitted through this site's authenticated SMTP.
+    // Deduplicate IMAP copies against the retained local/RFQ Message-ID.
+    if($folder==='INBOX.Sent'){
+        $ids=[];
+        foreach($local as $entry){
+            $mid=strtolower(trim((string)($entry['message_id']??''),'<> \t\r\n'));
+            if($mid!=='')$ids[$mid]=true;
+        }
+        $server=array_values(array_filter($server,static function($entry)use($ids):bool{
+            $mid=strtolower(trim((string)($entry['message_id']??''),'<> \t\r\n'));
+            return $mid===''||!isset($ids[$mid]);
+        }));
+    }
     $items=$folder==='INBOX.Sent' ? array_merge(array_slice($local,($page-1)*$pageSize,$pageSize),$server) : $server;
     if($folder==='INBOX.Sent') {
         usort($items,static function($a,$b):int {
@@ -218,6 +312,14 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
 }
 function aur_mailcenter_read(string $store,string $folder,string $uid):array {
     $folder=aur_mailcenter_folder($folder);$uid=aur_mailcenter_uid($uid);
+    if(str_starts_with($uid,'rfq-')){
+        if($folder!=='INBOX.Sent')throw new InvalidArgumentException('invalid_mail_folder');
+        foreach(aur_mailcenter_rfq_sent($store) as $entry){
+            if($entry['uid']!==$uid)continue;
+            return ['ok'=>true,'message'=>array_merge($entry,['download'=>false,'attachments'=>[]])];
+        }
+        throw new InvalidArgumentException('mail_not_found');
+    }
     if(str_starts_with($uid,'local-')){
         if($folder!=='INBOX.Sent')throw new InvalidArgumentException('invalid_mail_folder');
         foreach(aur_mailcenter_local($store) as $entry) {
@@ -251,20 +353,39 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $attachmentMetadata=array_map(static fn($part)=>[
             'name'=>$part['name'],'size'=>$part['size'],'type'=>$part['type']
         ],$attached);
+        $plain=$send['body']."\n\n".aur_mailcenter_signature_plain();
+        $formatted=aur_mailcenter_html_document($send['body_html']);
+        $smtpId=$id.'@aurenoeva.com';
         $entry=['id'=>$id,'to'=>$send['to'],'subject'=>$send['subject'],
-            'body'=>$send['body'],'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
+            'body'=>$plain,'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
+            'smtp_message_id'=>$smtpId,'logo'=>aur_mailcenter_logo_url(),
+            'font'=>'Arial, Helvetica, sans-serif','font_size'=>'11pt',
             'attachments'=>$attachmentMetadata];
         $entries[]=$entry;
         aur_mailcenter_write_local($store,$entries); // durable before SMTP
         $transport=aur_vendor_rfq_send_transport_detail(
-            $send['to'],$send['subject'],$send['body'], $id.'@aurenoeva.com',$attached);
+            $send['to'],$send['subject'],$plain,$smtpId,$attached,$formatted);
         $entry['status']=($transport['accepted']??false)===true?'SMTP_ACCEPTED':'DELIVERY_UNCONFIRMED';
         $entry['smtp_code']=(int)($transport['code']??0);
         $entry['smtp_stage']=(string)($transport['stage']??'');
         $entry['smtp_outcome']=(string)($transport['outcome']??'');
+        // Mail Center local record is authoritative even when Hostinger's Sent
+        // folder cannot accept an IMAP copy. Never repeat a supplier send.
+        $entry['imap_sent_archive']='NOT_ATTEMPTED';
+        if($entry['status']==='SMTP_ACCEPTED'){
+            try{
+                $mime=aur_vendor_rfq_smtp_payload($send['to'],$send['subject'],$plain,
+                    $smtpId,$attached,$formatted);
+                $entry['imap_sent_archive']=aur_mailcenter_archive_imap(substr($mime,0,-1));
+            }catch(Throwable $e){
+                $entry['imap_sent_archive']='NOT_ARCHIVED';
+                error_log('AURENOEVA IMAP Sent archive: '.get_class($e));
+            }
+        }
         $entries[count($entries)-1]=$entry;
         aur_mailcenter_write_local($store,$entries);
         return ['ok'=>$entry['status']==='SMTP_ACCEPTED','status'=>$entry['status'],
+            'imap_sent_archive'=>$entry['imap_sent_archive'],
             'smtp_code'=>$entry['smtp_code'],'smtp_stage'=>$entry['smtp_stage']];
     }finally {
         flock($lock,LOCK_UN);fclose($lock);
