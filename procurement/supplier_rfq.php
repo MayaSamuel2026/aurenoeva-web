@@ -354,7 +354,7 @@ function aur_vendor_rfq_smtp_envelope_recipients(string $to):array {
  * Preserve the existing text-only RFQ MIME bytes. Only manually composed
  * Mail Center messages can supply an attachment array.
  */
-function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,string $messageId,array $attachments=[],?string $htmlBody=null):string {
+function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,string $messageId,array $attachments=[],?string $htmlBody=null,?string $inlineLogoFile=null):string {
     $headers=[
         'From: AURENOEVA Purchasing <info@aurenoeva.com>',
         'To: '.$to,
@@ -379,9 +379,32 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
             "Content-Transfer-Encoding: base64\r\n\r\n".
             chunk_split(base64_encode($htmlBody),76,"\r\n").
             '--'.$inner."--\r\n";
+        $related='';
+        if($inlineLogoFile!==null) {
+            if(!is_file($inlineLogoFile)||is_link($inlineLogoFile)||
+               filesize($inlineLogoFile)<8||filesize($inlineLogoFile)>500000)
+                throw new RuntimeException('mail_logo_asset_unavailable');
+            $logo=file_get_contents($inlineLogoFile);
+            if(!is_string($logo)||substr($logo,0,8)!=="\x89PNG\r\n\x1a\n")
+                throw new RuntimeException('mail_logo_invalid_png');
+            $relatedBoundary='aur_related_'.bin2hex(random_bytes(12));
+            $related='--'.$relatedBoundary."\r\n".
+                'Content-Type: multipart/alternative; boundary="'.$inner.'"'."\r\n\r\n".
+                $alternative.
+                '--'.$relatedBoundary."\r\n".
+                "Content-Type: image/png\r\n".
+                "Content-ID: <aurenoeva-logo@aurenoeva.com>\r\n".
+                "Content-Disposition: inline\r\n".
+                "Content-Transfer-Encoding: base64\r\n\r\n".
+                chunk_split(base64_encode($logo),76,"\r\n").
+                '--'.$relatedBoundary."--\r\n";
+        }
         if(!$attachments) {
-            $headers[]='Content-Type: multipart/alternative; boundary="'.$inner.'"';
-            return implode("\r\n",$headers)."\r\n\r\n".$alternative.'.';
+            $headers[]=$inlineLogoFile!==null
+                ? 'Content-Type: multipart/related; boundary="'.$relatedBoundary.'"'
+                : 'Content-Type: multipart/alternative; boundary="'.$inner.'"';
+            return implode("\r\n",$headers)."\r\n\r\n".
+                ($inlineLogoFile!==null?$related:$alternative).'.';
         }
     }
     if(!$attachments){
@@ -395,8 +418,10 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
     $headers[]='Content-Type: multipart/mixed; boundary="'.$boundary.'"';
     $mime=$htmlBody!==null
         ? '--'.$boundary."\r\n".
-          'Content-Type: multipart/alternative; boundary="'.$inner.'"'."\r\n\r\n".
-          $alternative
+          ($inlineLogoFile!==null
+             ? 'Content-Type: multipart/related; boundary="'.$relatedBoundary.'"'
+             : 'Content-Type: multipart/alternative; boundary="'.$inner.'"')."\r\n\r\n".
+          ($inlineLogoFile!==null?$related:$alternative)
         : '--'.$boundary."\r\n".
           "Content-Type: text/plain; charset=UTF-8\r\n".
           "Content-Transfer-Encoding: base64\r\n\r\n".
@@ -425,7 +450,7 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
     return implode("\r\n",$headers)."\r\n\r\n".$mime.'.';
 }
 
-function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[],?string $htmlBody=null):array {
+function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[],?string $htmlBody=null,?string $inlineLogoFile=null):array {
     $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
         'code'=>0,'response'=>'','outcome'=>'NOT_SENT',
         'archive_copy_address'=>'info@aurenoeva.com',
@@ -489,7 +514,7 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
         }
         $r=aur_vendor_rfq_smtp_exchange($socket,'DATA',[354],'DATA');
         if(!$r['ok'])return array_merge($base,$r);
-        $payload=aur_vendor_rfq_smtp_payload($to,$subject,$body,$messageId,$attachments,$htmlBody);
+        $payload=aur_vendor_rfq_smtp_payload($to,$subject,$body,$messageId,$attachments,$htmlBody,$inlineLogoFile);
         $r=aur_vendor_rfq_smtp_exchange($socket,$payload,[250],'DATA_ACCEPTANCE');
         $base=array_merge($base,$r);
         $base['accepted']=$r['ok'];

@@ -961,13 +961,13 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <span class="aur-mail-font">Arial · 11 pt · black</span>
 </div>
 <div class="aur-mail-paper">
-<img class="aur-mail-brand" src="/assets/img/brand/aurenoeva-logo-approved.png" alt="AURENOEVA — Procurement · Components · Intelligence" width="215" height="54">
+<img class="aur-mail-brand" src="/procurement/aurenoeva-logo.png?v=2" alt="AURENOEVA — Procurement · Components · Intelligence" width="215" height="54">
 <label for="aur-mail-rich-editor" style="font-size:12px;font-weight:600;margin-bottom:7px">Message</label>
 <div id="aur-mail-rich-editor" class="aur-mail-rich" contenteditable="true"
   role="textbox" aria-label="Email message, 11 point Arial, normal by default"
   aria-multiline="true" spellcheck="true" data-placeholder="Write your message…"></div>
 <div class="aur-mail-signature" aria-label="Fixed signature">
-Kind regards,<br><br><strong>AURENOEVA Purchasing</strong><br>
+<strong>AURENOEVA Purchasing</strong><br>
 Operated by NOEVA Systems e.K.<br>
 Marienburger Straße 16 | 56112 Lahnstein | Germany<br>
 info@aurenoeva.com | https://aurenoeva.com<br>

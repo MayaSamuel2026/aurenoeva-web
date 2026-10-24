@@ -6,14 +6,14 @@ declare(strict_types=1);
  * The rich text editor never supplies arbitrary outbound HTML.
  */
 function aur_mailcenter_signature_plain():string {
-    return "Kind regards,\n\nAURENOEVA Purchasing\n".
+    return "AURENOEVA Purchasing\n".
         "Operated by NOEVA Systems e.K.\n".
         "Marienburger Straße 16 | 56112 Lahnstein | Germany\n".
         "info@aurenoeva.com | https://aurenoeva.com\n".
         "Registered with Amtsgericht Koblenz | HRA 23554";
 }
 function aur_mailcenter_logo_url():string {
-    return 'https://aurenoeva.com/assets/img/brand/aurenoeva-logo-approved.png';
+    return 'https://aurenoeva.com/procurement/aurenoeva-logo.png';
 }
 function aur_mailcenter_clean_rich_text(string $html,string $plain):string {
     if($html===''||strlen($html)>150000)throw new InvalidArgumentException('invalid_mail_format');
@@ -38,7 +38,7 @@ function aur_mailcenter_clean_rich_text(string $html,string $plain):string {
     return $clean;
 }
 function aur_mailcenter_html_document(string $safeRichText):string {
-    $logo=htmlspecialchars(aur_mailcenter_logo_url(),ENT_QUOTES,'UTF-8');
+    $logo='cid:aurenoeva-logo@aurenoeva.com';
     return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'.
         '<body style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;color:#202b2b;margin:0;padding:0">'.
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:740px;border-collapse:collapse">'.
@@ -48,7 +48,7 @@ function aur_mailcenter_html_document(string $safeRichText):string {
         '<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;white-space:normal">'.
         $safeRichText.'</td></tr>'.
         '<tr><td style="padding-top:24px;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55">'.
-        'Kind regards,<br><br><strong>AURENOEVA Purchasing</strong><br>'.
+        '<strong>AURENOEVA Purchasing</strong><br>'.
         'Operated by NOEVA Systems e.K.<br>'.
         'Marienburger Straße 16 | 56112 Lahnstein | Germany<br>'.
         '<a href="mailto:info@aurenoeva.com" style="color:#19493f">info@aurenoeva.com</a> | '.
