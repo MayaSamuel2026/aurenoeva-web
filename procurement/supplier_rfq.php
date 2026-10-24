@@ -87,7 +87,87 @@ function aur_vendor_rfq_list(string $store,array $case):array {
         } catch(Throwable $e) {continue;}
     }
     usort($drafts,static fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));
-    return array_slice($drafts,0,100);
+    return array_slice($drafts,0,1000);
+}
+/**
+ * The primary RFQ is selected from saved email evidence, not from its age.
+ * A sent batch remains primary even if later abandoned drafts were created.
+ */
+function aur_vendor_rfq_primary(string $store,array $case):?array {
+    $best=null;$bestScore=-1;
+    foreach(aur_vendor_rfq_list($store,$case) as $row) {
+        $draft=aur_vendor_rfq_read($store,$case,(string)$row['id']);
+        $summary=aur_vendor_rfq_status_summary($draft);
+        $proof=aur_vendor_rfq_delivery_breakdown($draft);
+        $attempted=false;
+        foreach(($draft['messages']??[]) as $message) {
+            if(!is_array($message))continue;
+            if(!empty($message['attempted_at'])||!empty($message['sent_at'])
+                ||!empty($message['transport_result'])||!empty($message['recovery'])
+                ||in_array(($message['status']??''),['IN_FLIGHT','TRANSPORT_FAILED_OR_UNCONFIRMED','ACCEPTED_BY_MAIL_TRANSPORT'],true)) {
+                $attempted=true;break;
+            }
+        }
+        // Priority: real SMTP evidence > historically accepted > attempted > unsent.
+        $score=$proof['smtp_250_confirmed']>0?4000000+$proof['smtp_250_confirmed']:
+            ($summary['accepted']>0?3000000+$summary['accepted']:
+            ($attempted?2000000:1000000));
+        if($score>$bestScore) {
+            $bestScore=$score;
+            $best=$row+['accepted'=>$summary['accepted'],'total'=>$summary['total'],
+                'smtp_250_confirmed'=>$proof['smtp_250_confirmed'],
+                'attempted'=>$attempted];
+        }
+    }
+    return $best;
+}
+function aur_vendor_rfq_public_status(?array $primary):string {
+    if($primary===null)return 'Not prepared';
+    $accepted=(int)($primary['accepted']??0);$total=(int)($primary['total']??0);
+    if($accepted>0) {
+        return $accepted===$total?'Sent to mail server ('.$accepted.'/'.$total.')':
+            'Partially sent ('.$accepted.'/'.$total.')';
+    }
+    return !empty($primary['attempted'])?'Sending unconfirmed · review':'Not sent';
+}
+/** An unsent version is disposable only if it has no approval, dispatch,
+ * recipient attempt, recovery, or reply records. The real ledger is immutable.
+ */
+function aur_vendor_rfq_is_unused(array $draft):bool {
+    if(($draft['status']??'')!=='DRAFT_REVIEW' || !empty($draft['approval']) || !empty($draft['dispatch_progress']))return false;
+    foreach(($draft['messages']??[]) as $message) {
+        if(!is_array($message) || ($message['status']??'')!=='DRAFT'
+            || !empty($message['sent_at']) || !empty($message['attempted_at'])
+            || !empty($message['transport_result']) || !empty($message['smtp_message_id'])
+            || !empty($message['recovery']))return false;
+    }
+    return true;
+}
+function aur_vendor_rfq_cleanup_unsent(string $store,array $case,bool $delete=false):int {
+    $primary=aur_vendor_rfq_primary($store,$case);
+    $keep=(string)($primary['id']??'');
+    $removed=0;
+    foreach(aur_vendor_rfq_list($store,$case) as $row) {
+        $id=(string)$row['id'];
+        if($id===$keep)continue;
+        $path=aur_vendor_rfq_path($store,(string)$case['reference'],$id);
+        // Replies can only be recorded for accepted messages; those are never
+        // eligible for cleanup. Do not modify the case-wide response register.
+        $lock=null;
+        try {
+            $lock=@fopen($path.'.lock','c');
+            if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))continue;
+            $fresh=aur_vendor_rfq_read($store,$case,$id);
+            if(!aur_vendor_rfq_is_unused($fresh))continue;
+            if($delete) {
+                if(!unlink($path))throw new RuntimeException('unsent_rfq_cleanup_failed');
+            }
+            $removed++;
+        } finally {
+            if(is_resource($lock)){flock($lock,LOCK_UN);fclose($lock);}
+        }
+    }
+    return $removed;
 }
 function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     $ref=(string)$case['reference'];
