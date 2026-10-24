@@ -7,7 +7,7 @@
     const tabs = document.getElementById('aur-tabs');
     const guide = document.getElementById('aur-workflow');
     if (!tabs || !guide) return;
-    const keys = ['overview', 'enquiry', 'suppliers', 'rfq', 'settings'];
+    const keys = ['overview', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'];
     const panels = {};
     for (const key of keys) {
       const panel = document.createElement('section');
@@ -68,6 +68,7 @@
       panels.rfq.innerHTML = '<div class="card"><h2>RFQ & replies</h2><p>No supplier RFQ is available for this enquiry yet.</p></div>';
 
     // Diagnostics, catalogue administration and historical counts stay separate.
+    move(document.getElementById('aur-mail-center'), panels.mail);
     move(document.getElementById('aur-mail-settings')?.closest('.card'), panels.settings);
     move(cardWithTitle('Live product catalogue'), panels.settings);
     move(document.getElementById('supplier-history-counts'), panels.settings);

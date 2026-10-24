@@ -82,6 +82,8 @@ jobs:
           php -l deployment/site/procurement/supplier_inbox_store.php
           php -l deployment/site/procurement/supplier_inbox_curl.php
           php -l deployment/site/procurement/supplier_inbox.php
+          php -l deployment/site/procurement/mail_center.php
+          node --check deployment/site/procurement/mail-center.js
           php -l deployment/site/procurement/supplier-inbox-cli.php
           php -l deployment/site/procurement/supplier_portal.php
           php -l deployment/site/procurement/staff_auth.php
@@ -93,6 +95,7 @@ jobs:
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
           php tests/test_procurement_inbox.php
+          php tests/test_procurement_mail_center.php
           php tests/test_procurement_smtp.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
           php -l hotfix/v8.2.6.11/catalogue-search.php
