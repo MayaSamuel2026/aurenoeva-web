@@ -423,6 +423,7 @@ jobs:
           grep -Fq "assets/js/site.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
           grep -q 'if(!request.accepted)' "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
           grep -q "insertAdjacentElement('afterend',enquiryTray)" "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
+          grep -q "enquiryTray.scrollIntoView" "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
           grep -Fq "catalogue-browser.js?v=${GITHUB_SHA:0:12}" "$RUNNER_TEMP/source/site/requirement.html"
 
       - name: JavaScript syntax check
