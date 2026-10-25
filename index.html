@@ -612,6 +612,57 @@ footer{background:#082D28;color:#fff;padding:25px 0}
   .footer-brand{grid-column:auto}
 }
 
+
+/* Unified sector-led sourcing: one functional start instead of two competing sections */
+.engine-shell{grid-template-columns:minmax(0,1fr);gap:12px}
+.engine-main{padding:clamp(18px,2.5vw,30px)}
+#sectors{scroll-margin-top:105px}
+.sector-feature-intro{display:flex;justify-content:space-between;align-items:end;gap:28px;margin:1px 0 18px}
+.sector-feature-intro h3{font-size:clamp(25px,2.5vw,36px);line-height:1.08;letter-spacing:-.03em;max-width:540px;margin:0}
+.sector-feature-intro p{max-width:440px;margin:0;color:#62756e;font-size:13px;line-height:1.6}
+.engine-main .card-grid{margin:0}
+.engine-main .sector-card{font:inherit;color:var(--ink);text-align:left;transition:border-color .15s,box-shadow .15s,transform .15s;cursor:pointer}
+.engine-main .sector-card.active,.engine-main .sector-card[aria-pressed="true"]{border-color:#286e5d;box-shadow:0 0 0 1px #286e5d,0 8px 24px rgba(14,58,51,.07)}
+.engine-main .sector-card:hover{transform:translateY(-2px);border-color:#7ba89a}
+.engine-main .sector-card .card-link{margin-top:14px}
+.engine-main .sector-card .arrow-btn{font-weight:700}
+.engine-side{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,265px);gap:12px;align-items:center;padding:15px 20px}
+.engine-side .side-top{grid-column:1/-1;margin:0;min-height:18px}
+.engine-side .summary-card{display:grid;grid-template-columns:175px minmax(0,1fr)}
+.engine-side .summary-head{grid-template-columns:48px 1fr;gap:9px;padding:9px 11px;border-bottom:0;border-right:1px solid var(--line)}
+.engine-side .summary-image{width:46px;height:46px}
+.engine-side .summary-image img{width:44px;height:44px}
+.engine-side .summary-head b{font-size:13px}
+.engine-side .summary-rows{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;padding:4px 8px}
+.engine-side .summary-row{display:block;min-width:0;padding:8px;border:0}
+.engine-side .summary-row span{display:block;font-size:9px;margin-bottom:5px}
+.engine-side .summary-row b{display:block;font-size:11px;overflow-wrap:anywhere}
+.engine-side .guidance,.engine-side .side-foot{display:none}
+.engine-side .side-cta{min-height:75px;align-self:stretch}
+.intelligence-lens{padding:12px 0 36px}
+.intelligence-lens .lens{margin:0}
+#sectors.optional-sector .stage-help::after{content:" — optional";font-style:italic}
+@media(max-width:1050px){
+  .sector-feature-intro{display:block}
+  .sector-feature-intro p{margin-top:10px;max-width:700px}
+  .engine-side{grid-template-columns:1fr}
+  .engine-side .side-cta{min-height:50px}
+}
+@media(max-width:760px){
+  .engine-main{padding:15px}
+  .engine-main .card-grid{grid-template-columns:1fr}
+  .engine-main .sector-card,.engine-main .sector-card:nth-child(n+5){grid-column:span 1;min-height:134px;padding:10px}
+  .engine-main .card-inner{grid-template-columns:98px minmax(0,1fr) 24px;gap:10px;padding:0}
+  .engine-main .object-stage{height:108px}
+  .engine-main .object-stage img{height:105px}
+  .engine-main .card-copy h3{font-size:14px}
+  .engine-main .card-copy p{font-size:11.5px}
+  .engine-main .arrow-btn{display:grid;width:25px;height:25px}
+  .engine-side .summary-card{grid-template-columns:1fr}
+  .engine-side .summary-head{border-right:0;border-bottom:1px solid var(--line)}
+  .engine-side .summary-rows{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 </style>
 <script defer src="assets/js/catalogue-counter.js?v=4"></script>
 </head>
@@ -745,20 +796,24 @@ footer{background:#082D28;color:#fff;padding:25px 0}
 
         <div class="divider"></div>
 
-        <div class="stage-row">
+        <div class="stage-row" id="sectors">
           <div class="stage-label"><span class="stage-no">02</span><span class="stage-title" data-en="Select a technical sector" data-de="Fachbereich auswählen"></span></div>
           <div class="stage-help" data-en="Narrow the context to get more relevant results." data-de="So finden wir schneller passende Produkte und Lieferanten."></div>
         </div>
 
-        <div class="sector-mini">
-          <button class="active" data-sector="Laboratory" data-sector-de="Labor & Analytik"><div class="visual"><img src="assets/img/v8264/sector-lab.webp" alt=""></div><span data-en="Laboratory" data-de="Labor & Analytik"></span></button>
-          <button data-sector="Test & Measurement" data-sector-de="Mess- & Prüftechnik"><div class="visual"><img src="assets/img/v8264/sector-test.webp" alt=""></div><span data-en="Test & Measurement" data-de="Mess- & Prüftechnik"></span></button>
-          <button data-sector="Medical" data-sector-de="Medizintechnik"><div class="visual"><img src="assets/img/v8264/sector-medical.webp" alt=""></div><span data-en="Medical" data-de="Medizintechnik"></span></button>
-          <button data-sector="Industrial" data-sector-de="Industrie & Automation"><div class="visual"><img src="assets/img/v8264/sector-industrial.webp" alt=""></div><span data-en="Industrial" data-de="Industrie & Automation"></span></button>
-          <button data-sector="Energy" data-sector-de="Energie"><div class="visual"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><span data-en="Energy" data-de="Energie"></span></button>
-          <button data-sector="Marine" data-sector-de="Marine"><div class="visual"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><span data-en="Marine" data-de="Marine"></span></button>
-          <button data-sector="Aviation" data-sector-de="Luftfahrt"><div class="visual"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><span data-en="Aviation" data-de="Luftfahrt"></span></button>
+        <div class="sector-feature-intro">
+          <h3 data-en="Start with the technical world you know." data-de="Wählen Sie den Fachbereich, der zu Ihrem Bedarf passt."></h3>
+          <p data-en="Every sector has its own standards and suppliers. Select a sector to refine the catalogue, or search directly by an exact part number." data-de="Jeder Bereich hat eigene Standards und Lieferanten. Wählen Sie einen Bereich, um den Katalog einzugrenzen – oder suchen Sie direkt nach einer exakten Teilenummer."></p>
         </div>
+    <div class="card-grid">
+      <button type="button" class="sector-card active" data-sector="Laboratory" aria-pressed="true"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-lab.webp" alt=""></div><div class="card-copy"><h3 data-en="Laboratory" data-de="Labor & Analytik"></h3><p data-en="Analytical and scientific systems." data-de="Analyse- und Laborsysteme."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+      <button type="button" class="sector-card" data-sector="Test & Measurement" aria-pressed="false"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-test.webp" alt=""></div><div class="card-copy"><h3 data-en="Test & Measurement" data-de="Mess- & Prüftechnik"></h3><p data-en="Precision instruments and calibration." data-de="Präzisionsmesstechnik und Kalibrierung."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+      <button type="button" class="sector-card" data-sector="Medical" aria-pressed="false"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-medical.webp" alt=""></div><div class="card-copy"><h3 data-en="Medical" data-de="Medizintechnik"></h3><p data-en="Regulated technical equipment." data-de="Medizinische Geräte und Systeme."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+      <button type="button" class="sector-card" data-sector="Industrial" aria-pressed="false"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-industrial.webp" alt=""></div><div class="card-copy"><h3 data-en="Industrial" data-de="Industrie & Automation"></h3><p data-en="Automation and process equipment." data-de="Automatisierungs- und Prozesskomponenten."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+      <button type="button" class="sector-card" data-sector="Energy" aria-pressed="false"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><div class="card-copy"><h3 data-en="Energy" data-de="Energie"></h3><p data-en="Power and generation assets." data-de="Komponenten für Energieanlagen und Stromversorgung."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+      <button type="button" class="sector-card" data-sector="Marine" aria-pressed="false"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><div class="card-copy"><h3 data-en="Marine" data-de="Marine"></h3><p data-en="Engines, pumps and ship systems." data-de="Motoren, Pumpen und Schiffssysteme."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+      <button type="button" class="sector-card" data-sector="Aviation" aria-pressed="false"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><div class="card-copy"><h3 data-en="Aviation" data-de="Luftfahrt"></h3><p data-en="Traceability-sensitive aerospace assets." data-de="Luftfahrtteile mit dokumentierter Herkunft."></p><div class="card-link" data-en="Select sector" data-de="Bereich wählen"></div></div><div class="arrow-btn">→</div></div></button>
+    </div>
 
         <div class="divider"></div>
 
@@ -840,23 +895,8 @@ footer{background:#082D28;color:#fff;padding:25px 0}
   </div>
 </section>
 
-<section class="sectors" id="sectors">
+<section class="intelligence-lens" aria-label="Requirement Lens">
   <div class="wrap">
-    <div class="sector-head">
-      <div><div class="eyebrow" data-en="Sectors" data-de="Fachbereiche"></div><h2 data-en="Start with the technical world you know." data-de="Wählen Sie den Fachbereich, der zu Ihrem Bedarf passt."></h2></div>
-      <p data-en="Every sector has its own standards, suppliers and constraints. Aurenoeva brings them together in one structured view so that the search begins in the right technical context." data-de="Jede Branche stellt andere Anforderungen an Produkte, Lieferanten und Nachweise. Wir berücksichtigen diese Unterschiede von Anfang an."></p>
-    </div>
-
-    <div class="card-grid">
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-lab.webp" alt=""></div><div class="card-copy"><h3 data-en="Laboratory" data-de="Labor & Analytik"></h3><p data-en="Analytical and scientific systems." data-de="Analyse- und Laborsysteme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-test.webp" alt=""></div><div class="card-copy"><h3 data-en="Test & Measurement" data-de="Mess- & Prüftechnik"></h3><p data-en="Precision instruments and calibration." data-de="Präzisionsmesstechnik und Kalibrierung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-medical.webp" alt=""></div><div class="card-copy"><h3 data-en="Medical" data-de="Medizintechnik"></h3><p data-en="Regulated technical equipment." data-de="Medizinische Geräte und Systeme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-industrial.webp" alt=""></div><div class="card-copy"><h3 data-en="Industrial" data-de="Industrie & Automation"></h3><p data-en="Automation and process equipment." data-de="Automatisierungs- und Prozesskomponenten."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-energy.webp" alt=""></div><div class="card-copy"><h3 data-en="Energy" data-de="Energie"></h3><p data-en="Power and generation assets." data-de="Komponenten für Energieanlagen und Stromversorgung."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-marine.webp" alt=""></div><div class="card-copy"><h3 data-en="Marine" data-de="Marine"></h3><p data-en="Engines, pumps and ship systems." data-de="Motoren, Pumpen und Schiffssysteme."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-      <article class="sector-card"><div class="card-inner"><div class="object-stage"><img src="assets/img/v8264/sector-aviation.webp" alt=""></div><div class="card-copy"><h3 data-en="Aviation" data-de="Luftfahrt"></h3><p data-en="Traceability-sensitive aerospace assets." data-de="Luftfahrtteile mit dokumentierter Herkunft."></p><div class="card-link" data-en="Explore sector" data-de="Bereich ansehen"></div></div><div class="arrow-btn">→</div></div></article>
-    </div>
-
     <div class="lens">
       <div class="lens-copy">
         <div class="eyebrow" data-en="Aurenoeva intelligence layer" data-de="Aurenoeva Intelligence Layer"></div>
@@ -963,7 +1003,7 @@ footer{background:#082D28;color:#fff;padding:25px 0}
     <div class="footer-bottom">
       <span>© 2026 Aurenoeva · NOEVA Systems e.K.</span>
       <span>PROCUREMENT · COMPONENTS · INTELLIGENCE</span>
-      <span><a href="/procurement/" style="font-size:12px;color:#C9D8D3" data-en="Staff procurement" data-de="Interner Einkauf">Staff procurement</a></span>
+      <span><a href="/procurement/" style="font-size:12px;color:#C9D8D3" data-en="Staff procurement" data-de="Interne Beschaffung">Staff procurement</a></span>
     </div>
   </div>
 </footer>
@@ -972,7 +1012,7 @@ footer{background:#082D28;color:#fff;padding:25px 0}
 const assets={
   Laboratory:"assets/img/v8264/sector-lab.webp","Test & Measurement":"assets/img/v8264/sector-test.webp",Medical:"assets/img/v8264/sector-medical.webp",Industrial:"assets/img/v8264/sector-industrial.webp",Energy:"assets/img/v8264/sector-energy.webp",Marine:"assets/img/v8264/sector-marine.webp",Aviation:"assets/img/v8264/sector-aviation.webp"
 };
-const state={lang:"en",mode:"category",sector:"Laboratory"};
+const state={lang:"en",mode:"category",sector:"Laboratory",sectorExplicit:false};
 const modeText={
   exact:{en:"Exact part / model",de:"Teil / Modell bekannt"},
   category:{en:"Browse by category",de:"Kategorie wählen"},
@@ -1052,10 +1092,16 @@ const sectorCategories={
     {v:"Traceable specialist components",en:"Traceable specialist components",de:"Rückverfolgbare Spezialkomponenten"}
   ]
 };
-function activeIndustry(){return sectorKeys[state.sector]||"laboratory"}
+function activeIndustry(){return sectorKeys[state.sector]||""}
 function populateCategories(reset=false){
   const select=document.getElementById("categorySelect");
   if(!select)return;
+  if(!state.sector){
+    select.innerHTML='<option value="">'+(state.lang==="de"?"Alle Kategorien":"All categories")+'</option>';
+    select.disabled=true;
+    return;
+  }
+  select.disabled=false;
   const items=sectorCategories[activeIndustry()]||sectorCategories.laboratory;
   const previous=reset?"":select.value;
   select.innerHTML=items.map(item=>`<option value="${item.v.replaceAll("&","&amp;").replaceAll('"',"&quot;")}">${item[state.lang]||item.en}</option>`).join("");
@@ -1117,14 +1163,15 @@ function translate(){
 function updateSummary(){
   const q=document.getElementById("queryInput").value.trim();
   document.getElementById("summaryMode").textContent=modeText[state.mode][state.lang];
-  document.getElementById("summarySector").textContent=
-    state.lang==="de"
-      ? document.querySelector(`.sector-mini button[data-sector="${state.sector}"]`).dataset.sectorDe
-      : state.sector;
-  document.getElementById("summaryImg").src=assets[state.sector];
+  const chosenCard=[...document.querySelectorAll(".card-grid .sector-card")].find(el=>el.dataset.sector===state.sector);
+  document.getElementById("summarySector").textContent=state.sector
+    ? (state.lang==="de" ? (chosenCard?.querySelector("h3")?.dataset.de||state.sector) : state.sector)
+    : (state.lang==="de"?"Alle Bereiche":"Any sector");
+  document.querySelector(".summary-image").hidden=!state.sector;
+  if(state.sector)document.getElementById("summaryImg").src=assets[state.sector];
   document.getElementById("summaryQuery").textContent=q || (state.lang==="de"?"Nicht angegeben":"Not specified");
   const category=document.getElementById("categorySelect");
-  document.getElementById("summaryCategory").textContent=category.options[category.selectedIndex]?.text || category.value;
+  document.getElementById("summaryCategory").textContent=category.options[category.selectedIndex]?.text || category.value || (state.lang==="de"?"Alle Kategorien":"All categories");
   document.getElementById("summaryCondition").textContent=document.getElementById("conditionSelect").options[document.getElementById("conditionSelect").selectedIndex].text;
   const input=document.getElementById("queryInput");
   input.placeholder=
@@ -1145,13 +1192,24 @@ homeNav?.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{
   homeNav.classList.remove("open");
   homeMenu?.setAttribute("aria-expanded","false");
 }));
+function refreshSectorCards(){
+  document.querySelectorAll(".card-grid .sector-card").forEach(b=>{
+    const active=!!state.sector&&b.dataset.sector===state.sector;
+    b.classList.toggle("active",active);
+    b.setAttribute("aria-pressed",active?"true":"false");
+  });
+  document.getElementById("sectors")?.classList.toggle("optional-sector",state.mode==="exact");
+}
 document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".mode").forEach(x=>x.classList.remove("active"));
-  b.classList.add("active");state.mode=b.dataset.mode;updateSummary()
+  b.classList.add("active");
+  state.mode=b.dataset.mode;
+  if(!state.sectorExplicit)state.sector=state.mode==="exact"?"":"Laboratory";
+  populateCategories(true);refreshSectorCards();updateSummary();
 });
-document.querySelectorAll(".sector-mini button").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll(".sector-mini button").forEach(x=>x.classList.remove("active"));
-  b.classList.add("active");state.sector=b.dataset.sector;populateCategories(true);updateSummary()
+document.querySelectorAll(".card-grid .sector-card").forEach(b=>b.onclick=()=>{
+  state.sector=b.dataset.sector;state.sectorExplicit=true;
+  populateCategories(true);refreshSectorCards();updateSummary();
 });
 document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{document.getElementById("queryInput").value=b.textContent;updateSummary()});
 document.getElementById("queryInput").addEventListener("input",updateSummary);
@@ -1160,9 +1218,9 @@ document.getElementById("conditionSelect").addEventListener("change",updateSumma
 document.getElementById("clearBtn").onclick=()=>{
   document.getElementById("queryInput").value="";
   document.getElementById("conditionSelect").value="any";
-  state.mode="category";state.sector="Laboratory";
+  state.mode="category";state.sector="Laboratory";state.sectorExplicit=false;
   document.querySelectorAll(".mode").forEach(x=>x.classList.toggle("active",x.dataset.mode==="category"));
-  document.querySelectorAll(".sector-mini button").forEach(x=>x.classList.toggle("active",x.dataset.sector==="Laboratory"));
+  refreshSectorCards();
   populateCategories(true);
   translate()
 };
@@ -1177,32 +1235,15 @@ document.querySelectorAll(".decision-track button").forEach(btn=>btn.onclick=()=
   document.getElementById("dState").textContent=s.state;
 });
 populateCategories(true);
+refreshSectorCards();
 translate();
 </script>
 
 <script>
 /* V8.2.6.8 compact sectors + cache-safe unified navigation + requirement mail: keep the approved checkpoint UI while reconnecting live production journeys. */
 (function(){
-  const sectorRoutes=[
-    "industries.html#laboratory",
-    "industries.html#test",
-    "industries.html#medical",
-    "industries.html#industrial",
-    "industries.html#energy",
-    "industries.html#marine",
-    "industries.html#aviation"
-  ];
-  document.querySelectorAll(".sector-card").forEach((card,i)=>{
-    const href=sectorRoutes[i];
-    if(!href)return;
-    card.setAttribute("role","link");
-    card.setAttribute("tabindex","0");
-    card.dataset.href=href;
-    card.addEventListener("click",()=>{location.href=href});
-    card.addEventListener("keydown",e=>{
-      if(e.key==="Enter"||e.key===" "){e.preventDefault();location.href=href}
-    });
-  });
+  // Premium cards now choose the sourcing sector in place, rather than
+  // sending visitors to a competing second journey.
 
   const industryMap={
     "Laboratory":"laboratory",
@@ -1216,20 +1257,20 @@ translate();
     const conditionValues=["any","new","refurbished","used"];
 
   function requirementURL(){
-    const industry=industryMap[state.sector]||"laboratory";
+    const industry=industryMap[state.sector]||"";
     const categoryEl=document.getElementById("categorySelect");
     const conditionEl=document.getElementById("conditionSelect");
     const input=document.getElementById("queryInput");
     const p=new URLSearchParams({
       mode:state.mode||"category",
-      industry,
       condition:conditionEl?.value||conditionValues[conditionEl?.selectedIndex||0]||"any"
     });
     const category=categoryEl?.value||"";
-    if(category)p.set("category",category);
+    if(industry)p.set("industry",industry);
+    if(industry&&category)p.set("category",category);
     const q=(input?.value||"").trim();
     if(q)p.set("q",q);
-    p.set("rev","b43460c4ec51");return "requirement.html?"+p.toString();
+    p.set("rev","54f2518450f8");return "requirement.html?"+p.toString();
   }
 
   const go=document.querySelector(".search-go");
