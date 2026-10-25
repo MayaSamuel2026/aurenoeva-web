@@ -174,6 +174,45 @@ const path = require('node:path');
   assert.match(mixedNode.textContent,/MSO54B oscilloscope, 4 analog and/);
   assert.match(mixedNode.textContent,/up to 32 \(optional\) digital channels/);
   assert.equal(mixedNode.getAttribute('data-aur-original'),mixedText);
+  // Firefox/Safari and other browsers without Chrome's Translator API:
+  // the website-side translation endpoint provides English/German text.
+  const plainAttrs={};
+  const plainNode={
+    textContent:original,dataset:{},isConnected:true,lang:'',
+    hasAttribute:key=>Object.hasOwn(plainAttrs,key),
+    getAttribute:key=>plainAttrs[key],
+    setAttribute:(key,value)=>{plainAttrs[key]=value;},
+    closest:()=>null
+  };
+  const fallbackEvents={};
+  const fallbackDoc={
+    readyState:'complete',documentElement:{lang:'en'},
+    querySelector:()=>null,querySelectorAll:()=>[plainNode],
+    addEventListener:(name,fn)=>{fallbackEvents[name]=fn;}
+  };
+  const requested=[];
+  const fallbackWindow={
+    fetch:async(url,options)=>{
+      assert.equal(url,'catalogue-translate.php');
+      assert.equal(options.method,'POST');
+      const request=JSON.parse(options.body);
+      requested.push(request);
+      assert.equal(request.text,original);
+      return {ok:true,json:async()=>({ok:true,
+        text:request.target==='de'?german:english})};
+    }
+  };
+  vm.runInNewContext(script,{document:fallbackDoc,window:fallbackWindow,MutationObserver,console},
+    {filename:'catalogue-translation.js'});
+  await settle();
+  assert.equal(plainNode.textContent,english);
+  assert.equal(plainNode.getAttribute('data-aur-original'),original);
+  fallbackDoc.documentElement.lang='de';
+  fallbackEvents['aur:lang']();
+  await settle();
+  assert.equal(plainNode.textContent,german);
+  assert.deepEqual(requested.map(r=>r.target),['en','de']);
+  console.log('AURENOEVA_BROWSER_INDEPENDENT_TRANSLATION_FALLBACK=PASS');
   console.log('AURENOEVA_MIXED_LANGUAGE_MODEL_CODES_PRESERVED=PASS');
   console.log('AURENOEVA_MULTILINGUAL_PRODUCT_TITLES_EN_DE=PASS');
   console.log('AURENOEVA_AUTO_TRANSLATE_AFTER_ORDINARY_GESTURE=PASS');
