@@ -30,9 +30,16 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
     $clip = static fn(string $s, int $n): string => function_exists('mb_substr') ? mb_substr($s, 0, $n, 'UTF-8') : substr($s, 0, $n);
     $q = $norm($query);
     if ($q === '') return [];
+    // Keep public exact search and the sector browser on the same eligibility rule.
+    // The browser library never handles an HTTP request when included this way.
+    if (!function_exists('aur_browse_relevant') && is_file(__DIR__.'/catalogue-browse.php')) {
+        if (!defined('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY')) define('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY', true);
+        require_once __DIR__.'/catalogue-browse.php';
+    }
     $ranked = [];
     foreach ($data['items'] as $p) {
         if (!is_array($p)) continue;
+        if (function_exists('aur_browse_relevant') && !aur_browse_relevant($p)) continue;
         $maker = trim((string)($p['manufacturer'] ?? ''));
         $model = trim((string)($p['model'] ?? ''));
         $id = trim((string)($p['canonical_id'] ?? ''));

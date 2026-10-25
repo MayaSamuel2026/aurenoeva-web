@@ -166,6 +166,25 @@
     return translatedAny?result:text;
   }
 
+  async function serverFallback(el,raw,target,run) {
+    if(typeof window.fetch!=='function')return false;
+    try {
+      const response=await window.fetch('catalogue-translate.php',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:raw,target})
+      });
+      if(!response.ok)return false;
+      const data=await response.json();
+      const translated=String(data?.text||'').trim();
+      if(!data?.ok || !translated || translated===raw)return false;
+      if(run!==refreshId || !el.isConnected || el.dataset.aurTarget!==target)return false;
+      el.textContent=translated;
+      el.lang=target;
+      keepOriginal(el,raw,'auto');
+      return true;
+    }catch(_e){return false;}
+  }
+
   async function convert(el,run){
     const raw=original(el), target=targetLanguage();
     if(!raw || raw.length<9 || raw.length>1600)return;
@@ -180,6 +199,10 @@
       if(run===refreshId && el.isConnected && el.dataset.aurTarget===target){
         el.textContent=cached.text;el.lang=target;keepOriginal(el,raw,cached.source);
       }
+      return;
+    }
+    if(!supported()){
+      if(!await serverFallback(el,raw,target,run))unavailable('language');
       return;
     }
     try{
@@ -202,15 +225,12 @@
       el.lang=target;
       keepOriginal(el,raw,source);
     }catch(e) {
-      if(e?.name==='NotAllowedError' || e?.name==='SecurityError'){
-        unavailable('permission');
-      }else {
-        unavailable('language');
+      if(!await serverFallback(el,raw,target,run)) {
+        unavailable(e?.name==='NotAllowedError' || e?.name==='SecurityError'?'permission':'language');
       }
     }
   }
   async function render(){
-    if(!supported())return;
     const run=++refreshId;
     const nodes=[...examples()];
     if(!nodes.length)return;
@@ -225,14 +245,10 @@
   }
   function start(){
     makeControls();
-    if(!supported()){
-      unavailable('language');
-      return;
-    }
-    // Models already cached by the browser can be used immediately.
-    // When first-time downloads require activation, any ordinary interaction
-    // with the existing sourcing form resumes translation automatically.
-    void detector().then(()=>render()).catch(()=>unavailable('permission'));
+    // Use local models when available; otherwise use the public-text server
+    // fallback on every browser, without asking visitors to enable translation.
+    if(supported()) void detector().then(()=>render()).catch(()=>{void render();});
+    else void render();
     for(const eventName of ['pointerdown','keydown']){
       document.addEventListener(eventName,tryPendingOnNormalGesture,{capture:true,passive:true});
     }
@@ -247,7 +263,8 @@
     document.addEventListener('aur:lang',()=>{
       ++refreshId;
       for(const el of examples())restore(el);
-      void detector().then(()=>render()).catch(()=>unavailable('permission'));
+      if(supported()) void detector().then(()=>render()).catch(()=>{void render();});
+      else void render();
     });
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
