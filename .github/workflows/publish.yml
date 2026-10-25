@@ -716,6 +716,16 @@ jobs:
               exit 0
             fi
             echo "Website commit, PHP receiver or catalogue status not yet verified ($attempt/60)"
+            # Hostinger sometimes fails a shallow Git checkout while its own deployment
+            # is running. Re-announce the SAME verified payload after the first
+            # unsuccessful window; never change website or catalogue data.
+            if [[ "$attempt" == 18 || "$attempt" == 39 ]]; then
+              git -C "$RUNNER_TEMP/aurenoeva-production" -c user.name='github-actions[bot]' \
+                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                commit --allow-empty -qm "Retry Hostinger checkout for ${GITHUB_SHA:0:12} (#$attempt)"
+              git -C "$RUNNER_TEMP/aurenoeva-production" push origin production
+              echo "AURENOEVA_HOSTINGER_REDEPLOY_RETRY=$attempt"
+            fi
             sleep 5
           done
           echo "::error::GitHub production branch alone is insufficient. Verify live VERSION.txt SHA and PHP code serving catalogue-count.php with snapshot_updated_at_utc."

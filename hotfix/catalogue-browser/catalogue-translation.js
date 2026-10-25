@@ -178,6 +178,7 @@
       const translated=String(data?.text||'').trim();
       if(!data?.ok || !translated || translated===raw)return false;
       if(run!==refreshId || !el.isConnected || el.dataset.aurTarget!==target)return false;
+      cache.set(target+'\u0000'+raw,{text:translated,source:'auto'});
       el.textContent=translated;
       el.lang=target;
       keepOriginal(el,raw,'auto');
@@ -210,7 +211,10 @@
       const languages=await d.detect(raw);
       const top=languages?.[0];
       const source=String(top?.detectedLanguage||'').split('-')[0].toLowerCase();
-      if(!source || source==='und' || (top.confidence||0)<0.45)return;
+      if(!source || source==='und' || (top.confidence||0)<0.45){
+        await serverFallback(el,raw,target,run);
+        return;
+      }
       let translated=raw;
       if(source===target){
         translated=await translateEmbeddedScripts(raw,target);
@@ -218,7 +222,10 @@
         const engine=await getTranslator(source,target);
         translated=(await engine.translate(raw)).trim();
       }
-      if(!translated || translated===raw)return;
+      if(!translated || translated===raw){
+        await serverFallback(el,raw,target,run);
+        return;
+      }
       cache.set(target+'\u0000'+raw,{text:translated,source});
       if(run!==refreshId || !el.isConnected || el.dataset.aurTarget!==target)return;
       el.textContent=translated;

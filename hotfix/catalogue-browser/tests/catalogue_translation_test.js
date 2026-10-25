@@ -212,6 +212,32 @@ const path = require('node:path');
   await settle();
   assert.equal(plainNode.textContent,german);
   assert.deepEqual(requested.map(r=>r.target),['en','de']);
+  // Even browsers offering local translation must use the server fallback when
+  // their detector reports an unsupported or low-confidence language.
+  const uncertainAttributes={};
+  const uncertainNode={
+    textContent:original,dataset:{},isConnected:true,lang:'',
+    hasAttribute:k=>Object.hasOwn(uncertainAttributes,k),
+    getAttribute:k=>uncertainAttributes[k],
+    setAttribute:(k,v)=>{uncertainAttributes[k]=v;},
+    closest:()=>null
+  };
+  let serverCalls=0;
+  const uncertainWindow={
+    LanguageDetector:{create:async()=>({detect:async()=>[
+      {detectedLanguage:'und',confidence:0.10}]})},
+    Translator:{create:async()=>{throw new Error('local should not be used');}},
+    fetch:async()=>{serverCalls++;return {ok:true,json:async()=>({ok:true,text:english})};}
+  };
+  vm.runInNewContext(script,{document:{
+    readyState:'complete',documentElement:{lang:'en'},
+    querySelector:()=>null,querySelectorAll:()=>[uncertainNode],addEventListener:()=>{}
+  },window:uncertainWindow,MutationObserver,console},
+  {filename:'catalogue-translation.js'});
+  await settle();
+  assert.equal(serverCalls,1);
+  assert.equal(uncertainNode.textContent,english);
+  console.log('AURENOEVA_UNCERTAIN_LANGUAGE_SERVER_FALLBACK=PASS');
   console.log('AURENOEVA_BROWSER_INDEPENDENT_TRANSLATION_FALLBACK=PASS');
   console.log('AURENOEVA_MIXED_LANGUAGE_MODEL_CODES_PRESERVED=PASS');
   console.log('AURENOEVA_MULTILINGUAL_PRODUCT_TITLES_EN_DE=PASS');
