@@ -20,13 +20,17 @@ try {
         'description'=>'Anaesthesia workstation',
         'source_ref'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35'],
     ];
+    $fixture[]=['canonical_id'=>'AUR-P-'.str_repeat('4',20),'manufacturer'=>'Tribesigns',
+        'model'=>'207556','sector'=>'laboratory','category'=>'Spectroscopy',
+        'description'=>'Bartisch 160 cm',
+        'source_ref'=>'https://luxus-kollektion.de/products/tribesigns-bartisch-207556'];
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$fixture],
         JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
     $raw=aur_catalogue_count_file($path);
     $visible=aur_catalogue_visible_count_file($path,(int)$raw);
     $browsed=aur_browse_snapshot($path,'laboratory')['sector_total']
             +aur_browse_snapshot($path,'medical')['sector_total'];
-    if ($raw!==3 || $visible!==2 || $browsed!==2)
+    if ($raw!==4 || $visible!==2 || $browsed!==2)
         throw new RuntimeException("count_not_reconciled:$raw/$visible/$browsed");
     if(aur_browse_snapshot($path,'laboratory','', 'Tribesigns')['total']!==0)
         throw new RuntimeException('consumer_furniture_visible');

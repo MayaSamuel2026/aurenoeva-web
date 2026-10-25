@@ -32,6 +32,7 @@ function aur_browse_relevant(array $part): bool {
         'tribesigns.de','www.tribesigns.de'
     ], true)) return false;
     $sector = (string)($part['sector'] ?? '');
+    if (strcasecmp(trim((string)($part['manufacturer'] ?? '')), 'Tribesigns') === 0) return false;
     $model = (string)($part['model'] ?? '');
     if (preg_match('/\bpons\b/i',(string)($part['manufacturer'] ?? '')) &&
         preg_match('/^97[89][-0-9]+$/',$model)) return false;
