@@ -730,3 +730,47 @@ jobs:
           done
           echo "::error::GitHub production branch alone is insufficient. Verify live VERSION.txt SHA and PHP code serving catalogue-count.php with snapshot_updated_at_utc."
           exit 1
+
+      - name: Verify live catalogue counts and translation transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json, urllib.request, urllib.parse
+          base = "https://aurenoeva.com/"
+          def get(path):
+              request = urllib.request.Request(base + path, headers={"Cache-Control":"no-cache"})
+              with urllib.request.urlopen(request, timeout=25) as response:
+                  return json.load(response)
+          status = get("catalogue-count.php?acceptance=${GITHUB_SHA}")
+          assert status["ok"] is True, status
+          sectors = ("laboratory","test","medical","industrial","energy","marine","aviation")
+          breakdown = {}
+          for sector in sectors:
+              data = get("catalogue-browse.php?" + urllib.parse.urlencode({
+                  "sector":sector,"acceptance":"${GITHUB_SHA}"}))
+              assert data["ok"] is True and data["sector"] == sector, data
+              assert sum(c["count"] for c in data["categories"]) == data["sector_total"]
+              breakdown[sector] = data["sector_total"]
+          assert sum(breakdown.values()) == status["searchable_parts"], {
+              "public_counter":status["searchable_parts"],"browsed":sum(breakdown.values())}
+          assert status["published_parts"] >= status["searchable_parts"], status
+          furniture = get("catalogue-browse.php?sector=laboratory&q=Tribesigns&acceptance=${GITHUB_SHA}")
+          assert furniture["total"] == 0, furniture["total"]
+          print("AURENOEVA_LIVE_SEVEN_SECTORS_AND_VISIBLE_COUNT=PASS",breakdown)
+          print("AURENOEVA_LIVE_NONTECHNICAL_FURNITURE_EXCLUDED=PASS")
+          payload=json.dumps({"text":"La bomba funciona correctamente.","target":"en"}).encode()
+          request=urllib.request.Request(base+"catalogue-translate.php",
+              data=payload,headers={"Content-Type":"application/json","Accept":"application/json"},
+              method="POST")
+          try:
+              with urllib.request.urlopen(request,timeout=20) as response:
+                  result=json.load(response)
+              assert result.get("ok") and result.get("text") and result["text"]!="La bomba funciona correctamente.",result
+              print("AURENOEVA_LIVE_SERVER_TRANSLATION=PASS")
+          except Exception as exc:
+              # The free upstream translator has no uptime SLA; do not turn an
+              # otherwise healthy catalogue code release into an outage.
+              print("::warning::AURENOEVA_LIVE_SERVER_TRANSLATION=UNAVAILABLE "
+                    +type(exc).__name__+": "+str(exc)[:160])
+          PY
