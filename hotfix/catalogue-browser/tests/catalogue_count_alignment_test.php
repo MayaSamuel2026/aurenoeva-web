@@ -27,6 +27,12 @@ try {
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$fixture],
         JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
     $raw=aur_catalogue_count_file($path);
+    // A prior release can leave an older count for an unchanged snapshot.
+    // A changed classification checksum must cause recomputation.
+    $st=stat($path);
+    file_put_contents($dir.'/catalogue-visible-count-cache.json',json_encode([
+        'size'=>$st['size'],'mtime'=>$st['mtime'],'inode'=>$st['ino'],
+        'filter_sha256'=>str_repeat('a',64),'count'=>3],JSON_THROW_ON_ERROR));
     $visible=aur_catalogue_visible_count_file($path,(int)$raw);
     $browsed=aur_browse_snapshot($path,'laboratory')['sector_total']
             +aur_browse_snapshot($path,'medical')['sector_total'];

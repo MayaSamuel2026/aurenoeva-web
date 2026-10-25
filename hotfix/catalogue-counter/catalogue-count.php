@@ -76,11 +76,16 @@ function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
     }
     $stat=@stat($path);
     if (!$stat || ($stat['size'] ?? 0)>256000000) return null;
+    // Invalidate a visible-count cache if the browse classification code
+    // changes, even while the same atomic catalogue snapshot is published.
+    $filterSha=@hash_file('sha256',__DIR__.'/catalogue-browse.php');
+    if (!is_string($filterSha)) return null;
     $cache=dirname($path).'/catalogue-visible-count-cache.json';
     $cached=@file_get_contents($cache);
     if (is_string($cached) && strlen($cached)<512) {
         $v=json_decode($cached,true);
-        if (is_array($v) && ($v['size']??-1)===$stat['size']
+        if (is_array($v) && ($v['filter_sha256']??null)===$filterSha
+            && ($v['size']??-1)===$stat['size']
             && ($v['mtime']??-1)===$stat['mtime'] && ($v['inode']??-1)===$stat['ino']
             && is_int($v['count']??null) && $v['count']>=0 && $v['count']<=$rawCount)
             return $v['count'];
@@ -104,7 +109,8 @@ function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
     $tmp=@tempnam(dirname($path),'.visible-count-');
     if ($tmp!==false) {
         @chmod($tmp,0600);
-        $value=json_encode(['size'=>$stat['size'],'mtime'=>$stat['mtime'],
+        $value=json_encode(['filter_sha256'=>$filterSha,
+            'size'=>$stat['size'],'mtime'=>$stat['mtime'],
             'inode'=>$stat['ino'],'count'=>$count],JSON_THROW_ON_ERROR);
         if (@file_put_contents($tmp,$value,LOCK_EX)!==false) @rename($tmp,$cache);
         if (is_file($tmp)) @unlink($tmp);
