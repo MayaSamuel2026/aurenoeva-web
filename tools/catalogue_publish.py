@@ -48,6 +48,7 @@ def technical_product_relevance(sector: str, model: str, source: str) -> bool:
         "pcwelt.de", "www.pcwelt.de", "computerbild.de", "www.computerbild.de",
         "thisoldhouse.com", "www.thisoldhouse.com",
         "langenscheidt.com", "www.langenscheidt.com",
+        "tribesigns.de", "www.tribesigns.de",
     }
     if host in nontechnical_sources:
         return False

@@ -361,6 +361,7 @@ jobs:
           cp hotfix/catalogue-browser/catalogue-browser.js "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
           cp hotfix/catalogue-browser/catalogue-browser.css "$RUNNER_TEMP/source/site/assets/css/catalogue-browser.css"
           cp hotfix/catalogue-browser/catalogue-translation.js "$RUNNER_TEMP/source/site/assets/js/catalogue-translation.js"
+          cp hotfix/catalogue-browser/catalogue-translate.php "$RUNNER_TEMP/source/site/catalogue-translate.php"
           python3 - "$RUNNER_TEMP/source/site" <<'PY'
           from pathlib import Path
           import os,sys
@@ -415,6 +416,8 @@ jobs:
           home.write_text(homepage,encoding='utf-8')
           PY
           php hotfix/catalogue-browser/tests/catalogue_browser_test.php
+          php hotfix/catalogue-browser/tests/catalogue_count_alignment_test.php
+          php -l "$RUNNER_TEMP/source/site/catalogue-translate.php"
           php -l "$RUNNER_TEMP/source/site/catalogue-browse.php"
           node --check "$RUNNER_TEMP/source/site/assets/js/catalogue-browser.js"
           node --check "$RUNNER_TEMP/source/site/assets/js/catalogue-translation.js"
@@ -696,7 +699,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in {1..18}; do
+          # Allow Hostinger's independent Git auto-deployment a realistic rollout window.
+          # Never report success until the exact website SHA and public catalogue read back.
+          for attempt in {1..60}; do
             VERSION=$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' \
               "https://aurenoeva.com/VERSION.txt?release=${GITHUB_SHA}" || true)
             STATUS=$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' \
@@ -710,7 +715,7 @@ jobs:
               echo "AURENOEVA_EXACT_LIVE_RELEASE_AND_STATUS=PASS"
               exit 0
             fi
-            echo "Website commit, PHP receiver or catalogue status not yet verified ($attempt/18)"
+            echo "Website commit, PHP receiver or catalogue status not yet verified ($attempt/60)"
             sleep 5
           done
           echo "::error::GitHub production branch alone is insufficient. Verify live VERSION.txt SHA and PHP code serving catalogue-count.php with snapshot_updated_at_utc."

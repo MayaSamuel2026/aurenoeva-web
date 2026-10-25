@@ -103,6 +103,14 @@ jobs:
           php -l hotfix/v8.2.6.12/catalogue-sync.php
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
           php hotfix/v8.2.6.12/tests/catalogue_sync_test.php
+          php -l hotfix/catalogue-browser/catalogue-browse.php
+          php -l hotfix/catalogue-browser/catalogue-translate.php
+          php -l hotfix/catalogue-counter/catalogue-count.php
+          php hotfix/catalogue-browser/tests/catalogue_browser_test.php
+          php hotfix/catalogue-browser/tests/catalogue_count_alignment_test.php
+          php hotfix/catalogue-counter/tests/catalogue_count_test.php
+          node --check hotfix/catalogue-browser/catalogue-translation.js
+          node hotfix/catalogue-browser/tests/catalogue_translation_test.js
           bash -n ops/connect-catalogue-search.sh
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh

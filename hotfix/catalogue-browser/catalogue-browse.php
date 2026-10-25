@@ -28,7 +28,8 @@ function aur_browse_relevant(array $part): bool {
         'www.ep.de','ep.de','www.notebookcheck.com','notebookcheck.com',
         'www.pcwelt.de','pcwelt.de','www.computerbild.de','computerbild.de',
         'www.thisoldhouse.com','thisoldhouse.com',
-        'www.langenscheidt.com','langenscheidt.com'
+        'www.langenscheidt.com','langenscheidt.com',
+        'tribesigns.de','www.tribesigns.de'
     ], true)) return false;
     $sector = (string)($part['sector'] ?? '');
     $model = (string)($part['model'] ?? '');
