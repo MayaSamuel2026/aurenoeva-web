@@ -142,7 +142,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
         if not valid:
             reasons["invalid_https_source"] += 1
             continue
-        if not technical_product_relevance(str(value.get("sector", "")), model, source):
+        if maker.casefold() == "tribesigns" or not technical_product_relevance(str(value.get("sector", "")), model, source):
             reasons["nontechnical_catalogue_record"] += 1
             continue
         if ident in records:
