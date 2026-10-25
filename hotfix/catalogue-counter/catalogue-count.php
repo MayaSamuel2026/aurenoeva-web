@@ -78,7 +78,8 @@ function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
     if (!$stat || ($stat['size'] ?? 0)>256000000) return null;
     // Invalidate a visible-count cache if the browse classification code
     // changes, even while the same atomic catalogue snapshot is published.
-    $filterSha=@hash_file('sha256',__DIR__.'/catalogue-browse.php');
+    $filterFile=(new ReflectionFunction('aur_browse_relevant'))->getFileName();
+    $filterSha=@hash_file('sha256',$filterFile);
     if (!is_string($filterSha)) return null;
     $cache=dirname($path).'/catalogue-visible-count-cache.json';
     $cached=@file_get_contents($cache);
