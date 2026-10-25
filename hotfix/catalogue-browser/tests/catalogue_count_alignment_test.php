@@ -20,6 +20,10 @@ try {
         'description'=>'Anaesthesia workstation',
         'source_ref'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35'],
     ];
+    $fixture[]=['canonical_id'=>'AUR-P-'.str_repeat('4',20),'manufacturer'=>'Tribesigns',
+        'model'=>'207556','sector'=>'laboratory','category'=>'Spectroscopy',
+        'description'=>'Bartisch 160 cm',
+        'source_ref'=>'https://luxus-kollektion.de/products/tribesigns-bartisch-207556'];
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$fixture],
         JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
     $raw=aur_catalogue_count_file($path);
