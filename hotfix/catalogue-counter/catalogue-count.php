@@ -63,6 +63,55 @@ function aur_catalogue_count_file(string $path): ?int {
         fclose($fp);
     }
 }
+/**
+ * Count precisely the identities that appear in the seven public sector browsers.
+ * Cache is tied to the atomic snapshot inode/mtime/size, just like the raw counter.
+ * The underlying published product set is never modified or silently truncated.
+ */
+function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
+    if (!is_file(__DIR__.'/catalogue-browse.php')) return $rawCount;
+    if (!function_exists('aur_browse_relevant')) {
+        if (!defined('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY')) define('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY', true);
+        require_once __DIR__.'/catalogue-browse.php';
+    }
+    $stat=@stat($path);
+    if (!$stat || ($stat['size'] ?? 0)>256000000) return null;
+    $cache=dirname($path).'/catalogue-visible-count-cache.json';
+    $cached=@file_get_contents($cache);
+    if (is_string($cached) && strlen($cached)<512) {
+        $v=json_decode($cached,true);
+        if (is_array($v) && ($v['size']??-1)===$stat['size']
+            && ($v['mtime']??-1)===$stat['mtime'] && ($v['inode']??-1)===$stat['ino']
+            && is_int($v['count']??null) && $v['count']>=0 && $v['count']<=$rawCount)
+            return $v['count'];
+    }
+    $raw=@file_get_contents($path);
+    if (!is_string($raw)) return null;
+    $data=json_decode($raw,true);
+    unset($raw);
+    if (!is_array($data) || ($data['schema']??'')!=='aurenoeva-catalogue/1'
+        || !is_array($data['items']??null)) return null;
+    $sectors=['laboratory','test','medical','industrial','energy','marine','aviation'];
+    $count=0;
+    foreach ($data['items'] as $p) {
+        if (!is_array($p) || !in_array((string)($p['sector']??''),$sectors,true)
+            || !preg_match('/^AUR-P-[A-F0-9]{20}$/D',(string)($p['canonical_id']??''))
+            || trim((string)($p['manufacturer']??''))==='' || trim((string)($p['model']??''))===''
+            || !aur_browse_relevant($p)) continue;
+        ++$count;
+    }
+    unset($data);
+    $tmp=@tempnam(dirname($path),'.visible-count-');
+    if ($tmp!==false) {
+        @chmod($tmp,0600);
+        $value=json_encode(['size'=>$stat['size'],'mtime'=>$stat['mtime'],
+            'inode'=>$stat['ino'],'count'=>$count],JSON_THROW_ON_ERROR);
+        if (@file_put_contents($tmp,$value,LOCK_EX)!==false) @rename($tmp,$cache);
+        if (is_file($tmp)) @unlink($tmp);
+    }
+    return $count;
+}
+
 /** Aggregate reconciliation is embedded at the end of the published JSON.
  * Reads only a bounded tail and never exposes inventory contents or contacts.
  */
@@ -119,7 +168,10 @@ try {
     }
     $count = aur_catalogue_count_file($real);
     if ($count === null) throw new RuntimeException('catalogue_unavailable');
-    $payload=['ok'=>true,'searchable_parts'=>$count,
+    $visible=aur_catalogue_visible_count_file($real,$count);
+    if ($visible === null) throw new RuntimeException('catalogue_unavailable');
+    $payload=['ok'=>true,'searchable_parts'=>$visible,
+        'published_parts'=>$count,'excluded_from_browse'=>$count-$visible,
         'snapshot_updated_at_utc'=>aur_catalogue_snapshot_updated_at($real),
         'stock_verified'=>false,'source'=>'published_catalogue_snapshot'];
     $stats=aur_catalogue_public_stats($real,$count);
