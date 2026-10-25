@@ -22,6 +22,7 @@ on:
       - 'hotfix/catalogue-browser/**'
       - 'hotfix/v8.2.6.8/index.html'
       - 'hotfix/v8.2.6.5/site.js'
+      - 'hotfix/de-language-refinement/apply.py'
       - 'tests/test_catalogue_publish.py'
       - 'tests/test_catalogue_harvester.py'
       - 'tools/catalogue_harvester.py'
