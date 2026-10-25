@@ -598,6 +598,9 @@ header('Content-Type: text/html; charset=utf-8');
 :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f3f5f4;color:#17221f;font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
 .wrap{max-width:1120px;margin:auto;padding:24px 24px 80px}.top{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid #dce4e0;gap:20px}
 .brand{font-weight:800;letter-spacing:.13em;font-size:19px}.sub{color:#5b6863;font-size:12px;letter-spacing:.15em;text-transform:uppercase}
+.aur-header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.aur-home-link{display:inline-flex;align-items:center;justify-content:center;padding:12px 16px;border:1px solid #c5d2cd;border-radius:8px;background:#fff;color:#143f38;font-weight:650;text-decoration:none;white-space:nowrap}
+.aur-home-link:hover{background:#e9f2ed;color:#143f38}.aur-home-link:focus-visible{outline:3px solid #95bcb0;outline-offset:2px}
 h1{font-size:clamp(32px,5vw,52px);letter-spacing:-.05em;line-height:1.1;margin:46px 0 12px}h2{font-size:22px;margin:0 0 18px;letter-spacing:-.02em}
 p{color:#576560}a{color:#154f45}button,.button{background:#143f38;color:white;border:0;padding:12px 20px;border-radius:8px;font-weight:650;cursor:pointer}
 button:hover{background:#255d53}.ghost{background:transparent;color:#143f38;border:1px solid #c5d2cd}
@@ -703,7 +706,8 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-mail-pagination{display:flex;align-items:center;gap:9px;margin-top:14px}
 @media(max-width:700px){.aur-mail-shell{grid-template-columns:1fr;gap:12px}.aur-mail-folders{flex-direction:row;overflow-x:auto}.aur-mail-folders button{width:auto;white-space:nowrap}.aur-mail-toolbar input{max-width:none;order:5}}
 </style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
-<?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?>
+<div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
+<?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
 </header>
 <?php if (!$isAdmin): ?>
 <h1>Staff access</h1><p>Private procurement cases and customer source documents.</p>
