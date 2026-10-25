@@ -547,7 +547,7 @@ jobs:
           grep -q 'PLC / control modules' "$PAGE"
           grep -q 'Power conversion / inverters' "$PAGE"
           grep -q 'Engines & propulsion' "$PAGE"
-          grep -q 'if(category)p.set("category",category)' "$PAGE"
+          grep -q 'if(industry&&category)p.set("category",category)' "$PAGE"
           grep -q 'populateCategories(true)' "$PAGE"
           # Unified sourcing: premium illustrations must belong to the one
           # interactive starting point, not a second dead-end sector section.
