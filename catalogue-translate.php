@@ -48,26 +48,77 @@ try {
     rewind($handle);ftruncate($handle,0);fwrite($handle,(string)($used+1));fflush($handle);
     flock($handle,LOCK_UN);fclose($handle);
     if (!function_exists('curl_init')) throw new RuntimeException('curl_unavailable');
-    $url='https://translate.argosopentech.com/translate';
-    $payload=json_encode(['q'=>$text,'source'=>'auto','target'=>$target,'format'=>'text'],
-        JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
-    $ch=curl_init($url);
-    curl_setopt_array($ch,[
-        CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$payload,CURLOPT_RETURNTRANSFER=>true,
-        CURLOPT_HTTPHEADER=>['Content-Type: application/json','Accept: application/json'],
-        CURLOPT_CONNECTTIMEOUT=>2,CURLOPT_TIMEOUT=>7,CURLOPT_FOLLOWLOCATION=>false,
-        CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
-        CURLOPT_USERAGENT=>'AurenoevaCatalogueTranslation/1.0',
-    ]);
-    $result=curl_exec($ch);
-    $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if (!is_string($result) || strlen($result)>8000 || $http!==200)
-        throw new RuntimeException('translation_service_unavailable');
-    $data=json_decode($result,true,16,JSON_THROW_ON_ERROR);
-    $translated=trim((string)($data['translatedText']??''));
-    if ($translated==='' || strlen($translated)>2500 || !preg_match('//u',$translated))
-        throw new RuntimeException('translation_invalid_response');
+    // The original community LibreTranslate host is intermittently unavailable.
+    // Try the documented free MyMemory segment API for short, public product
+    // descriptions first. Keep LibreTranslate as an independent fallback.
+    // Customer enquiries, contact details and RFQ records never use this route.
+    $source='en';
+    if (preg_match('/[\\x{0400}-\\x{052F}]/u',$text)) $source='ru';
+    elseif (preg_match('/[\\x{3040}-\\x{30FF}]/u',$text)) $source='ja';
+    elseif (preg_match('/[\\x{AC00}-\\x{D7AF}]/u',$text)) $source='ko';
+    elseif (preg_match('/[\\x{4E00}-\\x{9FFF}]/u',$text)) $source='zh';
+    elseif (preg_match('/\\b(?:la|el|las|los|una|funciona|correctamente|configuraciones|detección|evita)\\b/iu',$text)) $source='es';
+    elseif (preg_match('/\\b(?:les|des|avec|pour|logiciels|séries|détection|équipement)\\b/iu',$text)) $source='fr';
+    elseif (preg_match('/\\b(?:der|die|das|und|für|nicht|prüfung|erkennung|gerät|einstellungen)\\b/iu',$text)) $source='de';
+    elseif (preg_match('/\\b(?:della|delle|dell|sono|attrezzature|rilevamento)\\b/iu',$text)) $source='it';
+    $translated='';
+    $provider='';
+    if ($source!==$target && strlen($text)<=500) {
+        $params=http_build_query(['q'=>$text,'langpair'=>$source.'|'.$target,
+            'de'=>'info@aurenoeva.com'], '', '&', PHP_QUERY_RFC3986);
+        $ch=curl_init('https://api.mymemory.translated.net/get?'.$params);
+        curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_CONNECTTIMEOUT=>2,CURLOPT_TIMEOUT=>7,
+            CURLOPT_FOLLOWLOCATION=>false,CURLOPT_SSL_VERIFYPEER=>true,
+            CURLOPT_SSL_VERIFYHOST=>2,
+            CURLOPT_HTTPHEADER=>['Accept: application/json'],
+            CURLOPT_USERAGENT=>'AurenoevaPublicCatalogue/1.0']);
+        $raw=curl_exec($ch);
+        $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if (is_string($raw) && strlen($raw)<=10000 && $http===200) {
+            $data=json_decode($raw,true);
+            if (is_array($data) && (int)($data['responseStatus']??0)===200) {
+                $candidate=html_entity_decode(trim((string)(
+                    $data['responseData']['translatedText']??'')),
+                    ENT_QUOTES|ENT_HTML5,'UTF-8');
+                if ($candidate!=='' && $candidate!==$text
+                    && !str_starts_with(strtoupper($candidate),'MYMEMORY WARNING')
+                    && strlen($candidate)<=2500 && preg_match('//u',$candidate)) {
+                    $translated=$candidate;
+                    $provider='mymemory';
+                }
+            }
+        }
+    }
+    if ($translated==='') {
+        $url='https://translate.argosopentech.com/translate';
+        $payload=json_encode(['q'=>$text,'source'=>'auto','target'=>$target,'format'=>'text'],
+            JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $ch=curl_init($url);
+        curl_setopt_array($ch,[
+            CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$payload,CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_HTTPHEADER=>['Content-Type: application/json','Accept: application/json'],
+            CURLOPT_CONNECTTIMEOUT=>2,CURLOPT_TIMEOUT=>5,CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,
+            CURLOPT_USERAGENT=>'AurenoevaCatalogueTranslation/1.0',
+        ]);
+        $raw=curl_exec($ch);
+        $http=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if (is_string($raw) && strlen($raw)<=8000 && $http===200) {
+            $data=json_decode($raw,true);
+            if (is_array($data)) {
+                $candidate=trim((string)($data['translatedText']??''));
+                if ($candidate!=='' && $candidate!==$text
+                    && strlen($candidate)<=2500 && preg_match('//u',$candidate)) {
+                    $translated=$candidate;
+                    $provider='libretranslate';
+                }
+            }
+        }
+    }
+    if ($translated==='') throw new RuntimeException('translation_providers_unavailable');
     $tmp=@tempnam($cacheDir,'.translate-');
     if ($tmp!==false) {
         @chmod($tmp,0600);
@@ -76,7 +127,7 @@ try {
             @rename($tmp,$cache);
         if (is_file($tmp))@unlink($tmp);
     }
-    echo json_encode(['ok'=>true,'text'=>$translated,'source'=>'server'],
+    echo json_encode(['ok'=>true,'text'=>$translated,'source'=>$provider],
         JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
 } catch (InvalidArgumentException|JsonException $e) {
     http_response_code(422);echo '{"ok":false,"error":"invalid_request"}';
