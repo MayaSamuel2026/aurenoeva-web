@@ -30,7 +30,7 @@ try {
     $visible=aur_catalogue_visible_count_file($path,(int)$raw);
     $browsed=aur_browse_snapshot($path,'laboratory')['sector_total']
             +aur_browse_snapshot($path,'medical')['sector_total'];
-    if ($raw!==3 || $visible!==2 || $browsed!==2)
+    if ($raw!==4 || $visible!==2 || $browsed!==2)
         throw new RuntimeException("count_not_reconciled:$raw/$visible/$browsed");
     if(aur_browse_snapshot($path,'laboratory','', 'Tribesigns')['total']!==0)
         throw new RuntimeException('consumer_furniture_visible');
