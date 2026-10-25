@@ -69,8 +69,8 @@ function aur_catalogue_count_file(string $path): ?int {
  * The underlying published product set is never modified or silently truncated.
  */
 function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
-    if (!is_file(__DIR__.'/catalogue-browse.php')) return $rawCount;
     if (!function_exists('aur_browse_relevant')) {
+        if (!is_file(__DIR__.'/catalogue-browse.php')) return $rawCount;
         if (!defined('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY')) define('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY', true);
         require_once __DIR__.'/catalogue-browse.php';
     }
