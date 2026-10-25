@@ -20,6 +20,8 @@ on:
       - 'hotfix/v8.2.6.11/catalogue-search.php'
       - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/catalogue-browser/**'
+      - 'hotfix/v8.2.6.8/index.html'
+      - 'hotfix/v8.2.6.5/site.js'
       - 'tests/test_catalogue_publish.py'
       - 'tests/test_catalogue_harvester.py'
       - 'tools/catalogue_harvester.py'
@@ -500,7 +502,7 @@ jobs:
           grep -q 'max-width:285px;height:auto' "$PAGE"
 
           grep -q 'grid-template-columns:repeat(4,minmax(0,1fr))' "$PAGE"
-          grep -q 'industries.html#laboratory' "$PAGE"
+          grep -q 'data-sector="Laboratory" aria-pressed="true"' "$PAGE"
           grep -q 'requirement.html?' "$PAGE"
           grep -q 'V8.2.6.8 compact sectors + cache-safe unified navigation + requirement mail' "$PAGE"
 
@@ -546,6 +548,27 @@ jobs:
           grep -q 'Engines & propulsion' "$PAGE"
           grep -q 'if(category)p.set("category",category)' "$PAGE"
           grep -q 'populateCategories(true)' "$PAGE"
+          # Unified sourcing: premium illustrations must belong to the one
+          # interactive starting point, not a second dead-end sector section.
+          node - "$PAGE" "$RUNNER_TEMP/source/site/assets/js/site.js" <<'NODE'
+          const fs=require('fs'),assert=require('node:assert/strict');
+          const home=fs.readFileSync(process.argv[2],'utf8');
+          const wizard=fs.readFileSync(process.argv[3],'utf8');
+          assert.equal((home.match(/<button type="button" class="sector-card/g)||[]).length,7);
+          assert.equal((home.match(/id="sectors"/g)||[]).length,1);
+          assert(!home.includes('<section class="sectors"'));
+          assert(!home.includes('class="sector-mini"'));
+          const start=home.indexOf('<section class="procurement"');
+          const finish=home.indexOf('<section class="journey"');
+          const cards=home.indexOf('class="card-grid"',start);
+          assert(start>=0&&cards>start&&cards<finish);
+          assert(home.includes('state.mode==="exact"?"":"Laboratory"'));
+          assert(home.includes('if(industry)p.set("industry",industry)'));
+          assert(home.includes('class="intelligence-lens"'));
+          assert(wizard.includes("params.get('mode')==='exact'&&!params.get('industry')"));
+          assert(wizard.includes("if(!fields.industry.value)"));
+          console.log('AURENOEVA_UNIFIED_SOURCING_ILLUSTRATED_CARDS=PASS');
+          NODE
 
           # Desktop sector geometry: 4 cards on row one, 3 equal cards on row two.
           grep -q 'grid-template-columns:repeat(12,minmax(0,1fr))' "$PAGE"
