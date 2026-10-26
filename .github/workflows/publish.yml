@@ -670,6 +670,28 @@ jobs:
           trap - EXIT
           echo "V8.2.6.9 minimum revenue-loop qualification: PASS"
 
+      - name: Add registered proprietor to AURENOEVA legal imprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          SITE_ROOT="$RUNNER_TEMP/source/site" python3 <<'PY'
+          from pathlib import Path
+          import os
+          path = Path(os.environ["SITE_ROOT"]) / "imprint.html"
+          html = path.read_text(encoding="utf-8")
+          owner = "Frederick Samuel"
+          original_en = "<strong>NOEVA Systems e.K.</strong><br/>Marienburger Straße 16<br/>56112 Lahnstein<br/>Germany"
+          original_de = "<strong>NOEVA Systems e.K.</strong><br/>Marienburger Straße 16<br/>56112 Lahnstein<br/>Deutschland"
+          replacement_en = f"<strong>NOEVA Systems e.K.</strong><br/>Owner: {owner}<br/>Marienburger Straße 16<br/>56112 Lahnstein<br/>Germany"
+          replacement_de = f"<strong>NOEVA Systems e.K.</strong><br/>Inhaber: {owner}<br/>Marienburger Straße 16<br/>56112 Lahnstein<br/>Deutschland"
+          assert html.count(original_en) == 1 and html.count(original_de) == 1, "Imprint source changed; verify provider blocks before publishing"
+          html = html.replace(original_en, replacement_en, 1).replace(original_de, replacement_de, 1)
+          assert html.count("Owner: Frederick Samuel") == 1
+          assert html.count("Inhaber: Frederick Samuel") == 1
+          path.write_text(html, encoding="utf-8")
+          print("AURENOEVA_BILINGUAL_PROPRIETOR_IMPRINT=PASS")
+          PY
+
       - name: Build clean production branch
         shell: bash
         run: |
@@ -788,4 +810,22 @@ jobs:
               # otherwise healthy catalogue code release into an outage.
               print("::warning::AURENOEVA_LIVE_SERVER_TRANSLATION=UNAVAILABLE "
                     +type(exc).__name__+": "+str(exc)[:160])
+          PY
+
+      - name: Verify live AURENOEVA proprietor imprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import os
+          import urllib.request
+          commit = os.environ["GITHUB_SHA"]
+          url = "https://aurenoeva.com/imprint.html?release=" + commit
+          request = urllib.request.Request(url, headers={"Cache-Control":"no-cache"})
+          with urllib.request.urlopen(request, timeout=20) as response:
+              html = response.read().decode("utf-8")
+          assert html.count("Owner: Frederick Samuel") == 1, "English owner not visible in live imprint"
+          assert html.count("Inhaber: Frederick Samuel") == 1, "German proprietor not visible in live imprint"
+          assert "Marienburger Straße 16" in html and "56112 Lahnstein" in html
+          print("AURENOEVA_LIVE_BILINGUAL_PROPRIETOR_IMPRINT=PASS")
           PY
