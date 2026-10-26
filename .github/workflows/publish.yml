@@ -686,8 +686,15 @@ jobs:
           replacement_de = f"<strong>NOEVA Systems e.K.</strong><br/>Inhaber: {owner}<br/>Marienburger Straße 16<br/>56112 Lahnstein<br/>Deutschland"
           assert html.count(original_en) == 1 and html.count(original_de) == 1, "Imprint source changed; verify provider blocks before publishing"
           html = html.replace(original_en, replacement_en, 1).replace(original_de, replacement_de, 1)
+          old_en = "For procurement requirements, please use the guided requirement interface so the enquiry can be structured correctly."
+          old_de = "Für Beschaffungsbedarfe nutzen Sie bitte den geführten Bedarfsprozess."
+          new_en = 'Have a question or want to get in touch? Write to us using our <a class="text-link" href="about.html#contact">contact form</a>.'
+          new_de = 'Sie haben eine Frage oder möchten uns etwas mitteilen? Schreiben Sie uns über das <a class="text-link" href="about.html#contact">Kontaktformular</a>.'
+          assert html.count(old_en) == 1 and html.count(old_de) == 1, "Legal contact copy changed; inspect before replacing"
+          html = html.replace(old_en, new_en, 1).replace(old_de, new_de, 1)
           assert html.count("Owner: Frederick Samuel") == 1
           assert html.count("Inhaber: Frederick Samuel") == 1
+          assert html.count('href="about.html#contact"') == 2
           path.write_text(html, encoding="utf-8")
           print("AURENOEVA_BILINGUAL_PROPRIETOR_IMPRINT=PASS")
           PY
@@ -826,6 +833,10 @@ jobs:
               html = response.read().decode("utf-8")
           assert html.count("Owner: Frederick Samuel") == 1, "English owner not visible in live imprint"
           assert html.count("Inhaber: Frederick Samuel") == 1, "German proprietor not visible in live imprint"
+          assert html.count('href="about.html#contact"') == 2, "Contact forms not linked from both imprint languages"
+          assert "Sie haben eine Frage oder möchten uns etwas mitteilen?" in html
+          assert "Have a question or want to get in touch?" in html
+          assert "geführten Bedarfsprozess" not in html
           assert "Marienburger Straße 16" in html and "56112 Lahnstein" in html
           print("AURENOEVA_LIVE_BILINGUAL_PROPRIETOR_IMPRINT=PASS")
           PY
