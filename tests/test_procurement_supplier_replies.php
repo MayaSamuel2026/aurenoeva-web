@@ -37,4 +37,15 @@ $bad=false;try{aur_reply_record($store,$case,$id,$key,
 catch(InvalidArgumentException $e){$bad=true;}
 assert_reply($bad,'invalid price currency accepted');
 assert_reply(count(aur_reply_read($store,$case))===1,'failed update damaged existing quote');
+$case['buyer']=['company'=>'Example GmbH','contact'=>'Purchasing Team','email'=>'buyer@example.test'];
+$case['public_reference']='AUR-20261027-120000-TEST';
+$prepared=aur_reply_buyer_draft($case,aur_reply_read($store,$case));
+assert_reply(is_array($prepared)&&$prepared['to']==='buyer@example.test','buyer draft recipient missing');
+assert_reply($prepared['send_allowed']===false,'buyer email incorrectly marked approved for dispatch');
+assert_reply(str_contains($prepared['body'],'1234.50 EUR') &&
+    str_contains($prepared['body'],'Requested quantity: 2'),'supplier price or original quantity lost');
+assert_reply(str_contains($prepared['body'],'not independently verified stock'),
+    'draft wrongly implies firm availability');
+assert_reply(aur_reply_buyer_draft(['buyer'=>[]],aur_reply_read($store,$case))===null,
+    'anonymous buyer must not create an addressed outgoing draft');
 echo "AURENOEVA_ITEM_MATCHED_SUPPLIER_REPLIES=PASS\n";
