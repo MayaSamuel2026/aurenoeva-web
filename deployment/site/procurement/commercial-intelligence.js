@@ -27,6 +27,17 @@
       $('ci-metadata').textContent='Catalogue synchronized: '+when(c.snapshot_updated_at)+
         ' · Newest product evidence: '+when(c.latest_product_seen_at)+
         ' · '+fmt(c.classified_products)+' technically classified · '+fmt(c.multi_industry)+' cross-industry';
+      const health=c.health||{};
+      $('ci-source-links').textContent=fmt(health.source_links);
+      $('ci-source-overdue').textContent=fmt(health.overdue_14d_links);
+      $('ci-source-review').textContent=fmt(health.recheck_required_links);
+      $('ci-source-withdrawn').textContent=fmt(health.confirmed_withdrawn_links);
+      $('ci-products-hidden').textContent=fmt(health.confirmed_withdrawn_products);
+      $('ci-products-overdue').textContent=fmt(health.unverified_30d_products);
+      $('ci-source-check').textContent=c.health?
+        'Most recent source check: '+when(health.latest_check_at)+
+        ' · Figures count source-product links, not stock guarantees.':
+        'Lifecycle metrics not yet published by the VPS crawler; historical counts cannot be inferred.';
       $('ci-catalogue-warning').hidden=!!c.available;
       $('ci-history-note').textContent=(c.growth_history.length<2)?
         'Historical trend becomes available after at least two dated successful catalogue publications. Existing older counts cannot be reconstructed.':

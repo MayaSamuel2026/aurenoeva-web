@@ -357,13 +357,128 @@ def db_init(db):
     """)
     init_offers(db)
     init_classifications(db)
+    # Add state to the EXISTING supplier-product evidence table. Historical
+    # records and their original canonical identities are never deleted.
+    columns={col[1] for col in db.execute("PRAGMA table_info(vendor_product_evidence)")}
+    for name,definition in (
+        ("listing_status","TEXT NOT NULL DEFAULT 'ACTIVE'"),
+        ("missing_checks","INTEGER NOT NULL DEFAULT 0"),
+        ("first_missing_at","TEXT NOT NULL DEFAULT ''"),
+        ("last_checked_at","TEXT NOT NULL DEFAULT ''"),
+        ("withdrawn_at","TEXT NOT NULL DEFAULT ''"),
+        ("last_http_status","INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if name not in columns:
+            db.execute("ALTER TABLE vendor_product_evidence ADD COLUMN "+name+" "+definition)
+    db.execute("CREATE INDEX IF NOT EXISTS vendor_evidence_by_source ON vendor_product_evidence(source_url,listing_status)")
     cols={x[1] for x in db.execute("PRAGMA table_info(products)")}
     for name in ("sector","category"):
         if name not in cols:db.execute("ALTER TABLE products ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
+    # Older catalogue SQLite schemas predate lifecycle and evidence columns.
+    for name,definition in (
+        ("identity_evidence","TEXT NOT NULL DEFAULT 'HISTORICAL_SOURCE'"),
+        ("lifecycle_status","TEXT NOT NULL DEFAULT 'UNVERIFIED'"),
+    ):
+        if name not in cols:
+            db.execute("ALTER TABLE products ADD COLUMN "+name+" "+definition)
     leadcols={x[1] for x in db.execute("PRAGMA table_info(vendor_leads)")}
     for name in ("email","phone"):
         if name not in leadcols:db.execute("ALTER TABLE vendor_leads ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
+    # One-time adoption of legacy catalogue sources, without new databases.
+    # Unverified historical source dates stay historical: no false freshness.
+    db.execute("CREATE TABLE IF NOT EXISTS catalogue_lifecycle_meta (key TEXT PRIMARY KEY)")
+    if not db.execute("SELECT 1 FROM catalogue_lifecycle_meta WHERE key='source_adoption_v1'").fetchone():
+        host="""lower(substr(source_url,9,CASE
+             WHEN instr(substr(source_url,9),'/')>0
+             THEN instr(substr(source_url,9),'/')-1 ELSE 180 END))"""
+        db.execute("""INSERT OR IGNORE INTO vendor_product_evidence
+          (website,product_id,source_url,manufacturer,model,sector,category,evidence_type,last_seen)
+          SELECT """+host+""",product_id,source_url,manufacturer,model,sector,category,
+          identity_evidence,last_seen FROM products
+          WHERE source_url LIKE 'https://%' AND manufacturer!='' AND model!=''""")
+        db.execute("""INSERT OR IGNORE INTO harvest_queue
+          (url,kind,sector,category,maker,depth,due)
+          SELECT source_url,'page',sector,category,manufacturer,0,?
+          FROM products WHERE source_url LIKE 'https://%'""",(stamp(),))
+        db.execute("INSERT INTO catalogue_lifecycle_meta(key) VALUES('source_adoption_v1')")
     db.commit()
+
+def verify_source_listings(db, url, found_product_ids, checked_at, http_status=200):
+    """Two dated, independent observations before withdrawing a seller listing.
+
+    A 404/410 is negative evidence. A successful page that clearly identifies
+    OTHER products is negative for an older missing model. Empty or broken
+    parser results and network failures are inconclusive, never deletions.
+    Product identities, quotes and historical supplier records remain intact.
+    """
+    if http_status not in (200,404,410):
+        return 0
+    existing=db.execute("""SELECT product_id,listing_status,missing_checks,first_missing_at
+                           FROM vendor_product_evidence WHERE source_url=?""",(url,)).fetchall()
+    positive=set(found_product_ids)
+    # Parsed catalogue/index pages can omit products through pagination.
+    # Only a single positively identified replacement on an item-detail URL
+    # counts as negative evidence for an older seller item on HTTP 200.
+    path=urlsplit(url).path.lower()
+    individual_page=bool(re.search(r"/(?:products?|parts?|items?|p)/[^?#]+",path)) and len(positive)==1
+    current=datetime.fromisoformat(checked_at.replace("Z","+00:00"))
+    affected=set(positive)
+    withdrawn=0
+    for record in existing:
+        key=record["product_id"]
+        affected.add(key)
+        if key in positive:
+            db.execute("""UPDATE vendor_product_evidence
+                          SET listing_status='ACTIVE',missing_checks=0,first_missing_at='',
+                              last_checked_at=?,last_http_status=?,withdrawn_at=''
+                          WHERE product_id=? AND source_url=?""",
+                       (checked_at,http_status,key,url))
+            continue
+        # A parsed empty page is NOT proof that the seller withdrew every part.
+        # A missing price or temporarily broken markup is not product removal.
+        if http_status==200 and not individual_page:
+            db.execute("""UPDATE vendor_product_evidence SET last_checked_at=?,
+                          last_http_status=200 WHERE product_id=? AND source_url=?""",
+                       (checked_at,key,url))
+            continue
+        first=record["first_missing_at"]
+        try:
+            elapsed=(current-datetime.fromisoformat(first.replace("Z","+00:00"))).total_seconds()
+        except (ValueError,TypeError):
+            elapsed=0
+        checks=int(record["missing_checks"])+1
+        confirmed=(checks>=2 and elapsed>=86400)
+        state="WITHDRAWN" if confirmed else "RECHECK_REQUIRED"
+        # A definite missing source is sufficient to SUSPEND its price now.
+        # Retire the product listing only after the second dated observation.
+        db.execute("UPDATE public_offers SET active=0 WHERE product_id=? AND source_url=?",(key,url))
+        if state=="WITHDRAWN" and record["listing_status"]!="WITHDRAWN":
+            withdrawn+=1
+        db.execute("""UPDATE vendor_product_evidence SET listing_status=?,missing_checks=?,
+                      first_missing_at=?,last_checked_at=?,last_http_status=?,
+                      withdrawn_at=? WHERE product_id=? AND source_url=?""",
+                   (state,checks,first or checked_at,checked_at,http_status,
+                    checked_at if confirmed else "",key,url))
+    # The caller has already inserted positive evidence for newly parsed items.
+    for key in affected:
+        candidates=db.execute("""SELECT source_url FROM vendor_product_evidence
+                         WHERE product_id=? AND listing_status!='WITHDRAWN'
+                         ORDER BY last_seen DESC LIMIT 1""",(key,)).fetchone()
+        if candidates is None:
+            db.execute("UPDATE products SET lifecycle_status='WITHDRAWN' WHERE product_id=?",(key,))
+        elif key in positive:
+            db.execute("UPDATE products SET lifecycle_status='ACTIVE' WHERE product_id=?",(key,))
+        # A retired primary URL must be replaced by the surviving seller source.
+        if candidates is not None:
+            db.execute("""UPDATE products SET source_url=? WHERE product_id=?
+                       AND (lifecycle_status='WITHDRAWN' OR source_url IN
+                            (SELECT source_url FROM vendor_product_evidence
+                             WHERE product_id=? AND listing_status='WITHDRAWN'))""",
+                       (candidates["source_url"],key,key))
+            db.execute("""UPDATE products SET lifecycle_status='ACTIVE'
+                       WHERE product_id=? AND lifecycle_status='WITHDRAWN'""",(key,))
+    return withdrawn
+
 def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     try:public_url(url)
     except ValueError:return 0
@@ -573,9 +688,11 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                           ON CONFLICT(website,product_id,source_url) DO UPDATE SET last_seen=excluded.last_seen""",
                           (hostof(url),prod["product_id"],url,prod["manufacturer"],prod["model"],
                            row["sector"],row["category"],prod["identity_evidence"],t))
-                    if kind=="page" and products:
-                        offers=extract_public_offers(body,url,products,t)
-                        replace_page_offers(db,url,[p["product_id"] for p in products],offers)
+                    if kind=="page":
+                        if products:
+                            offers=extract_public_offers(body,url,products,t)
+                            replace_page_offers(db,url,[p["product_id"] for p in products],offers)
+                        verify_source_listings(db,url,[p["product_id"] for p in products],t)
                     if kind in ("search","search_ddg"):
                         for link in links[:80]:
                             stats["new_urls"]+=enqueue(db,link,"page",row["sector"],row["category"])
@@ -615,6 +732,19 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                             stats["new_urls"]+=enqueue(db,dest,"page",row["sector"],row["category"],row["maker"],row["depth"]+1)
                     due=stamp(clock()+timedelta(hours=48 if kind in ("search","search_ddg") else 96))
                     db.execute("UPDATE harvest_queue SET due=?,failures=0,last_error='' WHERE url=?",(due,url))
+                except HTTPError as e:
+                    # Two 404/410 observations >=24h apart retire just this seller
+                    # source. Other HTTP failures do not affect listing validity.
+                    if kind=="page" and e.code in (404,410):
+                        verify_source_listings(db,url,[],t,http_status=e.code)
+                        due=stamp(clock()+timedelta(hours=48))
+                    else:
+                        retry=row["failures"]+1
+                        wait=min(12*3600,15*60*(2**min(retry-1,5)))
+                        due=stamp(clock()+timedelta(seconds=wait))
+                    db.execute("UPDATE harvest_queue SET due=?,failures=failures+1,last_error=? WHERE url=?",
+                               (due,txt("HTTP "+str(e.code),180),url))
+                    stats["failures"]+=1
                 except Exception as e:
                     # Every failure affects exactly this URL; no quarantine/dead-end.
                     retry=row["failures"]+1
@@ -654,7 +784,8 @@ def export(db,path):
     enrich_rows(rows)
     vendors=[dict(x) for x in db.execute("""SELECT website,product_id,source_url,
        manufacturer,model,sector,category,evidence_type,last_seen
-       FROM vendor_product_evidence ORDER BY last_seen DESC""")]
+       FROM vendor_product_evidence WHERE listing_status!='WITHDRAWN'
+       ORDER BY last_seen DESC""")]
     leads=[dict(x) for x in db.execute("""SELECT website,category,sector,evidence_url,last_seen,checked,email,phone
        FROM vendor_leads ORDER BY last_seen DESC""")]
     payload={"schema":"aurenoeva-catalogue/1","items":rows,

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 import time
 import fcntl
 from http.client import RemoteDisconnected, HTTPException
@@ -118,12 +119,17 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
         raise ValueError("invalid_snapshot_schema")
     records = {}
     reasons = {key: 0 for key in (
-        "non_product_record", "invalid_canonical_id", "missing_manufacturer",
+        "non_product_record", "withdrawn_all_sources", "invalid_canonical_id", "missing_manufacturer",
         "missing_model", "generic_heading", "invalid_https_source",
         "duplicate_canonical_id", "nontechnical_catalogue_record")}
     for value in raw["items"]:
         if not isinstance(value, dict):
             reasons["non_product_record"] += 1
+            continue
+        # Keep the canonical product in SQLite and all existing RFQ history.
+        # Only exclude confirmed withdrawn-from-all-sources identities publicly.
+        if value.get("lifecycle_status") == "WITHDRAWN":
+            reasons["withdrawn_all_sources"] += 1
             continue
         ident = str(value.get("canonical_id", ""))
         maker = str(value.get("manufacturer", "")).strip()[:100]
@@ -165,7 +171,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 maker, model, str(value.get("description", ""))[:240], source),
             "description": str(value.get("description", ""))[:240],
             "source_ref": source,
-            "lifecycle_status": "UNVERIFIED",
+            "lifecycle_status": "ACTIVE" if value.get("lifecycle_status") == "ACTIVE" else "UNVERIFIED",
             "price_status": "ON_REQUEST",
             "public_offers": sanitize_offers(value.get("public_offers"), ident),
             "last_seen": str(value.get("last_seen", ""))[:35],
@@ -200,6 +206,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "exported_products": len(raw["items"]),
                 "eligible_products": len(records),
                 "excluded_products": len(raw["items"]) - len(records),
+                "excluded_withdrawn": reasons["withdrawn_all_sources"],
                 "excluded_invalid_id": reasons["invalid_canonical_id"],
                 "excluded_generic": reasons["generic_heading"],
                 "excluded_missing_maker": reasons["missing_manufacturer"],
@@ -208,6 +215,18 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "excluded_duplicates": reasons["duplicate_canonical_id"],
                 "excluded_nonrecord": reasons["non_product_record"],
             }
+    health = raw.get("catalogue_health")
+    if isinstance(health, dict) and health.get("lifecycle_version") == 1:
+        # Only public-safe aggregates; no supplier contacts or private URLs.
+        allowed = ("source_links", "confirmed_withdrawn_links",
+                   "recheck_required_links", "overdue_14d_links",
+                   "confirmed_withdrawn_products", "unverified_30d_products")
+        payload["catalogue_health"] = {"lifecycle_version": 1}
+        for key in allowed:
+            value = health.get(key)
+            if type(value) is int and 0 <= value <= 10000000:
+                payload["catalogue_health"][key] = value
+        payload["catalogue_health"]["latest_check_at"] = str(health.get("latest_check_at") or "")[:35]
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
 
 
@@ -225,17 +244,42 @@ def make_full_database_export(db_path: Path, dest: Path) -> dict:
             conn.row_factory = sqlite3.Row
             rows = [dict(row) for row in conn.execute(
                 """SELECT product_id AS canonical_id,manufacturer,model,description,
-                          source_url AS source_ref,sector,category,last_seen
+                          source_url AS source_ref,sector,category,last_seen,lifecycle_status
                    FROM products ORDER BY manufacturer,model""")]
     except sqlite3.Error as exc:
         raise RuntimeError("canonical_catalogue_database_unreadable") from exc
     if not rows:
         raise RuntimeError("canonical_catalogue_database_empty")
+    health = None
     with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True, timeout=15) as db:
+        db.row_factory = sqlite3.Row
         attach_offers(db, rows)
+        columns = {col[1] for col in db.execute("PRAGMA table_info(vendor_product_evidence)")}
+        if {"listing_status", "last_checked_at"}.issubset(columns):
+            limit14 = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+            limit30 = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+            source = db.execute("""SELECT COUNT(*) AS n,
+                    SUM(CASE WHEN listing_status='WITHDRAWN' THEN 1 ELSE 0 END) AS withdrawn,
+                    SUM(CASE WHEN listing_status='RECHECK_REQUIRED' THEN 1 ELSE 0 END) AS review,
+                    SUM(CASE WHEN last_seen < ? AND listing_status!='WITHDRAWN' THEN 1 ELSE 0 END) AS overdue,
+                    MAX(last_checked_at) AS latest
+                    FROM vendor_product_evidence""", (limit14,)).fetchone()
+            health = {
+                "lifecycle_version": 1,
+                "source_links": int(source["n"] or 0),
+                "confirmed_withdrawn_links": int(source["withdrawn"] or 0),
+                "recheck_required_links": int(source["review"] or 0),
+                "overdue_14d_links": int(source["overdue"] or 0),
+                "latest_check_at": source["latest"] or "",
+                "confirmed_withdrawn_products": sum(r["lifecycle_status"] == "WITHDRAWN" for r in rows),
+                "unverified_30d_products": sum((not r["last_seen"]) or r["last_seen"] < limit30 for r in rows
+                                                    if r["lifecycle_status"] != "WITHDRAWN")
+            }
     enrich_rows(rows)
     data = {"schema": SCHEMA, "items": rows,
             "source_catalogue_stats": {"db_products": len(rows)}}
+    if health is not None:
+        data["catalogue_health"] = health
     dest.parent.mkdir(parents=True, exist_ok=True)
     with dest.open("w", encoding="utf-8") as fp:
         json.dump(data, fp, ensure_ascii=False, separators=(",", ":"))

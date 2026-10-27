@@ -123,6 +123,11 @@ def extract_public_offers(body, source_url, products, observed_at):
                                 typ = typ[0] if typ else ""
                             if typ != "Offer":  # No AggregateOffer ranges or inferred quotes.
                                 continue
+                            # Seller expressly marks the offer unavailable:
+                            # never advertise its price as a current public offer.
+                            availability=str(offer.get("availability") or "").rsplit("/",1)[-1].casefold()
+                            if availability in ("outofstock","soldout","discontinued"):
+                                continue
                             currency = str(offer.get("priceCurrency", "")).upper().strip()
                             amount = amount_value(offer.get("price"))
                             if currency not in CURRENCIES or amount is None:
