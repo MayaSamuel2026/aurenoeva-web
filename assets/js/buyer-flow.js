@@ -69,8 +69,12 @@ function begin(){
       feedback=root.querySelector('#aur-fast-feedback'),cartbutton=root.querySelector('.aur-fast-cartbutton'),
       cartcount=root.querySelector('#aur-fast-count'),form=backdrop.querySelector('form'),
       selected=backdrop.querySelector('#aur-fast-selected'),sendstatus=backdrop.querySelector('#aur-fast-sendstatus');
-  // Mount directly under body: the fixed basket is not clipped by any hero/grid container.
-  document.body.appendChild(cartbutton);
+  // Place the existing persistent basket in the sticky site header:
+  // logo → basket → Home. The same element retains its count and click handler.
+  var header=document.querySelector('.site-header .header-inner, #site-header .header-inner');
+  var brand=header&&header.querySelector('.brand');
+  if(brand)brand.insertAdjacentElement('afterend',cartbutton);
+  else root.insertAdjacentElement('afterend',cartbutton);
   cartbutton.addEventListener('click',function(){openDrawer();});
   var found=[],items=[],freeText='',timer=null,seq=0,requestInProgress=false,lastFocus=null;
   // Match the established AURENOEVA catalogue selection store used by site.js.
