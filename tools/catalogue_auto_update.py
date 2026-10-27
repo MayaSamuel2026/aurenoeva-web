@@ -24,9 +24,9 @@ RAW = f"https://raw.githubusercontent.com/{REPO}"
 APP = Path("/opt/aurenoeva")
 STATE = Path("/var/lib/aurenoeva")
 FILES = ("tools/catalogue_harvester.py", "tools/catalogue_publish.py",
-         "tools/catalogue_prices.py",
+         "tools/catalogue_prices.py", "tools/catalogue_classification.py",
          "tools/catalogue_auto_update.py", "config/catalogue_harvester.json")
-TESTS = ("tests/test_catalogue_prices.py", "tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
+TESTS = ("tests/test_catalogue_classification.py", "tests/test_catalogue_prices.py", "tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
          "tests/test_catalogue_auto_update.py")
 SHA_PATTERN = re.compile(r"[a-f0-9]{40}\Z")
 
@@ -95,7 +95,7 @@ def stage_revision(sha: str, work: Path) -> None:
         not isinstance(cfg.get("categories"), dict) or
         sum(len(v) for v in cfg["categories"].values()) < 49):
         raise ValueError("catalogue_configuration_incomplete")
-    for name in ("tools/catalogue_prices.py", "tools/catalogue_harvester.py", "tools/catalogue_publish.py"):
+    for name in ("tools/catalogue_prices.py", "tools/catalogue_classification.py", "tools/catalogue_harvester.py", "tools/catalogue_publish.py"):
         compile((work / name).read_bytes(), name, "exec")
     result = subprocess.run(
         ["/usr/sbin/runuser", "-u", "aurenoeva", "--", "/usr/bin/python3",
@@ -130,7 +130,7 @@ def install_revision(sha: str, work: Path, app: Path = APP,
     if not (state / "catalogue.sqlite3").is_file():
         raise RuntimeError("preserved_database_missing")
     if any((dest.exists() and not dest.is_file()) or dest.is_symlink()
-           or (not dest.exists() and name != "tools/catalogue_prices.py")
+           or (not dest.exists() and name not in ("tools/catalogue_prices.py","tools/catalogue_classification.py"))
            for _, dest, name in files):
         raise RuntimeError("unexpected_installed_file_type")
     versions = state / "catalogue-code-releases"
