@@ -102,3 +102,45 @@ body.aur-fast-dialog-open{overflow:hidden}
 }
 @media(max-width:420px){.aur-fast-inputrow{min-height:58px}.aur-fast-searchbtn span:first-child{display:none}.aur-fast-searchbtn{font-size:19px;min-width:46px}.aur-fast-result{flex-direction:column}.aur-fast-select{align-self:flex-start}}
 @media(prefers-reduced-motion:reduce){.aur-fast-inputrow{transition:none}}
+
+
+/* Open in-place industry catalogue: inherit AURENOEVA original sector visuals. */
+.aur-fast-home .card-grid .sector-card{cursor:pointer}
+.aur-fast-home .card-grid .sector-card:focus-visible{outline:3px solid #3F6F62;outline-offset:4px}
+.aur-fast-sector[hidden]{display:none!important}
+.aur-fast-sector{scroll-margin-top:110px;display:block;margin:18px 0 26px;background:linear-gradient(155deg,#F4F7F5,#fff 85%);border:1px solid #C8D9D0;border-radius:20px;padding:clamp(17px,2.6vw,30px);box-shadow:0 15px 34px rgba(14,58,51,.05);color:#0E3A33}
+.aur-fast-sectorhead{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin-bottom:18px}
+.aur-fast-sectorhead h3{font:600 clamp(23px,2.6vw,33px)/1.2 Georgia,'Times New Roman',serif;margin:6px 0 0;color:#0E3A33}
+.aur-fast-sectorcount{font-size:12px;color:#62786D}
+.aur-fast-sectorcats{display:flex;gap:8px;flex-wrap:wrap;max-height:146px;overflow:auto;padding:2px 1px 10px;margin-bottom:7px}
+.aur-fast-sectorchip{border:1px solid #CADBD1;border-radius:99px;padding:8px 12px;min-height:36px;background:#fff;color:#345C4D;font-size:12px;font-weight:710;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.aur-fast-sectorchip.active{background:#0E3A33;color:#fff;border-color:#0E3A33}
+.aur-fast-sectorchip:focus-visible{outline:2px solid #3F6F62;outline-offset:2px}
+.aur-fast-sectorchip small{font-size:10px;opacity:.74}
+.aur-fast-sectorfilter{display:flex;gap:10px;align-items:center;border:1px solid #BFD2C6;border-radius:12px;background:#fff;padding:0 12px;margin:12px 0 9px;max-width:620px}
+.aur-fast-sectorfilter:focus-within{outline:2px solid rgba(63,111,98,.35)}
+.aur-fast-filtericon{color:#3F6F62;font-size:26px}
+.aur-fast-sectorfilter input{border:0;background:transparent;min-width:0;width:100%;padding:11px 0;font-size:13px;color:#0E3A33;outline:0;line-height:1.5}
+.aur-fast-sectorstatus{min-height:17px;color:#60756A;font-size:12px;margin:8px 0}
+.aur-fast-sectorparts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.aur-fast-sectorpart{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:16px;border:1px solid #D7E0DC;border-radius:14px;background:#fff;min-width:0}
+.aur-fast-sectorpart>div{min-width:0}
+.aur-fast-sectorpart strong{color:#0E3A33;font-size:13px;overflow-wrap:anywhere}
+.aur-fast-sectorpart p{font-size:11px;line-height:1.5;color:#66766F;margin:6px 0!important}
+.aur-fast-sectorpart .aur-fast-price{margin-top:7px;font-size:11px}
+.aur-fast-sectorpart button{align-self:center}
+.aur-fast-sectorpart button:disabled{background:#E9F1ED;color:#345E4C;border-color:#BFD3C6;cursor:default}
+.aur-fast-sector-more{margin:18px auto 4px;display:block;border:1px solid #B9D0C0;border-radius:11px;background:#F0F5F1;color:#0E3A33;padding:11px 17px;min-height:42px;font-size:12px;font-weight:750;cursor:pointer}
+.aur-fast-sector-more[hidden]{display:none}
+.aur-fast-home .aur-fast-cartbutton,.aur-fast-requirement .aur-fast-cartbutton{position:fixed;right:22px;bottom:22px;z-index:900;border-color:#C9B896;background:#0E3A33;color:#fff;box-shadow:0 11px 38px rgba(14,58,51,.22);padding:13px 18px;min-height:49px}
+.aur-fast-home .aur-fast-cartbutton b,.aur-fast-requirement .aur-fast-cartbutton b{background:#F8F7F3;color:#0E3A33}
+.aur-fast-home .aur-fast-cartbutton:hover,.aur-fast-requirement .aur-fast-cartbutton:hover{background:#2F675A}
+@media(max-width:850px){.aur-fast-sectorparts{grid-template-columns:1fr}}
+@media(max-width:520px){
+ .aur-fast-sector{scroll-margin-top:85px;padding:16px 12px}
+ .aur-fast-sectorhead{align-items:flex-start;flex-direction:column;gap:6px}
+ .aur-fast-sectorcats{max-height:182px}
+ .aur-fast-sectorpart{padding:12px;flex-direction:column;align-items:stretch}
+ .aur-fast-sectorpart .aur-fast-select{align-self:flex-start}
+ .aur-fast-home .aur-fast-cartbutton,.aur-fast-requirement .aur-fast-cartbutton{right:12px;bottom:12px;min-height:46px;padding:11px 15px}
+}
