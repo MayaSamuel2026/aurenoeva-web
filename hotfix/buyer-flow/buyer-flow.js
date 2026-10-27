@@ -458,7 +458,7 @@ function begin(){
     var note=short(form.elements.requirement.value,2500);
     var description=[freeText,detailLines.join('\n'),note].filter(Boolean).join('\n').slice(0,4800);
     var parts=items.map(function(i){var p=i.p;return {
-      canonical_id:short(p.canonical_id,220),manufacturer:short(p.manufacturer,220),part_number:short(p.part_number,220),
+      canonical_id:short(p.canonical_id,220),quantity:i.qty,manufacturer:short(p.manufacturer,220),part_number:short(p.part_number,220),
       model:short(p.model,220),description:short(p.description,500),source_ref:short(p.source_ref,500),
       identifier_type:short(p.identifier_type||'MODEL',80),original_search_query:short(input.value,180)
     };});
