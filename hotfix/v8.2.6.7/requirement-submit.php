@@ -163,7 +163,16 @@ if (!$ledgerCaptured) {
 // No automatic supplier dispatch or compliance approval is granted.
 try {
     require_once __DIR__.'/procurement/public_intake.php';
-    $privateCase=aur_public_case_capture(aur_store_root(),$contract);
+    $privateStore=aur_store_root();
+    $privateCase=aur_public_case_capture($privateStore,$contract);
+    // Compile existing, evidence-limited manufacturer/channel matches now.
+    // No network crawl, supplier message or clearance is triggered by intake.
+    try{
+        require_once __DIR__.'/procurement/supplier_intelligence.php';
+        aur_supplier_save($privateStore,$privateCase);
+    }catch(Throwable $researchError){
+        error_log('AURENOEVA WP09 supplier research deferred: '.get_class($researchError));
+    }
 } catch(Throwable $e) {
     error_log('AURENOEVA WP09 private case intake: '.get_class($e));
     aur_json([
