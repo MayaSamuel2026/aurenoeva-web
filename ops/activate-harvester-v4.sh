@@ -49,6 +49,7 @@ fi
 for file in "$UNIT" "/etc/systemd/system/$TIMER" "$APP/tools/catalogue_publish.py";do
  if [[ -f "$file" ]];then cp -a "$file" "$file.before-harvester-v4-$TS";fi
 done
+install -m 0644 "$WORK/tools/catalogue_prices.py" "$APP/tools/catalogue_prices.py"
 install -m 0644 "$WORK/tools/catalogue_classification.py" "$APP/tools/catalogue_classification.py"
 install -m 0644 "$WORK/tools/catalogue_harvester.py" "$APP/tools/catalogue_harvester.py"
 install -m 0644 "$WORK/tools/catalogue_publish.py" "$APP/tools/catalogue_publish.py"
