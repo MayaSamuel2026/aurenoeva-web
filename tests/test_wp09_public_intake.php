@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/../deployment/site/procurement/public_intake.php';
 require __DIR__.'/../deployment/site/procurement/supplier_intelligence.php';
+require __DIR__.'/../deployment/site/procurement/supplier_rfq.php';
 require __DIR__.'/../deployment/site/procurement/supplier_replies.php';
 function wp09_assert(bool $condition,string $message):void {
     if(!$condition)throw new RuntimeException($message);
