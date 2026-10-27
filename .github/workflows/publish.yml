@@ -713,6 +713,29 @@ jobs:
           print("AURENOEVA_BILINGUAL_PROPRIETOR_IMPRINT=PASS")
           PY
 
+      - name: Add cross-industry discovery without changing approved AURENOEVA design
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp hotfix/catalogue-discovery/catalogue-discovery.js "$RUNNER_TEMP/source/site/assets/js/catalogue-discovery.js"
+          cp hotfix/catalogue-discovery/catalogue-discovery.css "$RUNNER_TEMP/source/site/assets/css/catalogue-discovery.css"
+          python3 - "$RUNNER_TEMP/source/site/index.html" <<'PY'
+          import os,sys
+          from pathlib import Path
+          page=Path(sys.argv[1])
+          html=page.read_text(encoding='utf-8')
+          assert html.count('id="sectors"')==1
+          assert html.count('class="card-grid"')==1
+          assert html.count('</head>')==1 and html.count('</body>')==1
+          assert 'catalogue-discovery.js' not in html and 'catalogue-discovery.css' not in html
+          version=os.environ['GITHUB_SHA'][:12]
+          html=html.replace('</head>',f'<link rel="stylesheet" href="assets/css/catalogue-discovery.css?v={version}">\n</head>',1)
+          html=html.replace('</body>',f'<script defer src="assets/js/catalogue-discovery.js?v={version}"></script>\n</body>',1)
+          page.write_text(html,encoding='utf-8')
+          PY
+          node --check "$RUNNER_TEMP/source/site/assets/js/catalogue-discovery.js"
+          node tests/test_catalogue_discovery.js "$RUNNER_TEMP/source/site/index.html" "$RUNNER_TEMP/source/site/assets/js/catalogue-discovery.js"
+
       - name: Build clean production branch
         shell: bash
         run: |

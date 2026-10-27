@@ -1,0 +1,22 @@
+/* Preserve the approved AURENOEVA forest/cream CI and the existing seven image cards. */
+.aur-discovery-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 17px;padding:5px;border:1px solid #D7E0DC;border-radius:15px;background:#F4F7F5;max-width:max-content}
+.aur-discovery-tab{appearance:none;border:1px solid transparent;border-radius:11px;background:transparent;color:#50665E;font:700 12px/1.4 Inter,Aptos,'Segoe UI',Arial,sans-serif;padding:12px 17px;cursor:pointer}
+.aur-discovery-tab:hover,.aur-discovery-tab:focus-visible{border-color:#8CA99F;outline-offset:2px}
+.aur-discovery-tab.active{color:#fff;background:#0E3A33;border-color:#0E3A33;box-shadow:0 3px 10px rgba(14,58,51,.10)}
+.aur-discovery-more{margin:18px 0 4px;border:1px solid #D7E0DC;border-radius:16px;background:#fff;padding:14px 17px}
+.aur-discovery-more summary{color:#0E3A33;font-size:13px;font-weight:750;cursor:pointer;list-style-position:inside}
+.aur-discovery-more[open] summary{margin-bottom:16px}
+.aur-discovery-panel{padding:4px 0 10px}
+.aur-discovery-helper{font-size:13px;line-height:1.6;color:#536A63;max-width:900px;margin:4px 0 16px}
+.aur-discovery-chip-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.aur-discovery-chip{display:flex;justify-content:space-between;align-items:center;gap:12px;text-decoration:none;color:#0E3A33!important;background:#fff;border:1px solid #D7E0DC;border-radius:13px;min-height:62px;padding:13px 15px;font-size:12.5px;font-weight:690;line-height:1.4;transition:border-color .16s,box-shadow .16s}
+.aur-discovery-chip:hover,.aur-discovery-chip:focus-visible{border-color:#3F7867;box-shadow:0 8px 20px rgba(14,58,51,.08)}
+.aur-discovery-arrow{flex:0 0 auto;color:#3F6F62}
+.aur-discovery-maker-form{display:flex;gap:8px;max-width:790px}
+.aur-discovery-maker-form input{min-width:0;flex:1;background:#fff;border:1px solid #C5D5CE;border-radius:12px;padding:13px 15px;color:#0E3A33;font:500 15px Inter,Aptos,'Segoe UI',Arial,sans-serif}
+.aur-discovery-maker-form button{border:0;border-radius:12px;background:#0E3A33;color:#fff;padding:13px 18px;font-size:13px;font-weight:700;cursor:pointer}
+.aur-discovery-maker-form button:focus-visible{outline:2px solid #3F7867;outline-offset:3px}
+.aur-discovery-examples{font-size:12px;color:#657A71;margin-top:11px}
+.card-grid[hidden],.aur-discovery-panel[hidden],.aur-discovery-more[hidden]{display:none!important}
+@media(max-width:900px){.aur-discovery-chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.aur-discovery-tabs{max-width:none;width:100%;gap:4px}.aur-discovery-tab{flex:1;padding:11px 6px;font-size:11px}.aur-discovery-chip-grid{grid-template-columns:1fr}.aur-discovery-maker-form{flex-direction:column}.aur-discovery-maker-form button{min-height:46px}}
