@@ -101,6 +101,31 @@ function aur_seo_products_from_json(string $path): Generator {
     } finally { fclose($fp); }
 }
 /**
+ * SEO eligibility is intentionally stricter than catalogue/search eligibility.
+ * Broad crawler phrases and generic supplier labels remain searchable but are
+ * not promoted into thin landing pages or product sitemap entries.
+ */
+function aur_seo_indexable(array $p): bool {
+    $maker = trim((string)($p['manufacturer'] ?? ''));
+    $model = trim((string)($p['model'] ?? ''));
+    if ($maker === '' || $model === '' || strlen($maker) > 75 ||
+        strlen($model) > 90 || str_word_count($model) > 11 ||
+        in_array(strtolower($maker), ['other','unknown','generic','n/a','unspecified','manufacturer'], true))
+        return false;
+    if (!preg_match('/[0-9]/', $model) && strlen($model) > 38) return false;
+    if (preg_match('/\\b(?:buy now|free shipping|wholesale|best price|lowest price|customized popular|request quote|directly steam|factory direct|online store)\\b/i', $model))
+        return false;
+    return true;
+}
+/** Avoid repeating supplier sales claims as AURENOEVA technical facts. */
+function aur_seo_source_note(string $raw): string {
+    $text = trim((string)preg_replace('/\\s+/u', ' ', strip_tags($raw)));
+    if (strlen($text) < 25 || strlen($text) > 240) return '';
+    if (preg_match('/(?:great price|free shipping|official supplier|request (?:a )?quote|contact us|buy now|wide product range|best deal|discount|shop online|lowest price|order online|visit our store|learn more about|find more about|\\bclick here\\b)/iu', $text))
+        return '';
+    return $text;
+}
+/**
  * Maintain a small, private SEO read model beside the existing snapshot.
  * Atomic replacement, no new database, no crawler modifications.
  */
@@ -113,7 +138,7 @@ function aur_seo_index(string $snapshot): array {
         if (!is_file($metaFile) || !is_file($productsFile)) return null;
         $data = json_decode((string)@file_get_contents($metaFile), true);
         if (!is_array($data) || ($data['fingerprint'] ?? '') !== $fingerprint ||
-            ($data['schema'] ?? '') !== 'aurenoeva-seo/1') return null;
+            ($data['schema'] ?? '') !== 'aurenoeva-seo/2') return null;
         return $data;
     };
     if ($index = $readMeta()) return $index;
@@ -134,7 +159,7 @@ function aur_seo_index(string $snapshot): array {
                 $maker = trim((string)($p['manufacturer'] ?? ''));
                 $model = trim((string)($p['model'] ?? ''));
                 if (!preg_match('/^AUR-P-[A-F0-9]{20}$/D', $id) || $maker === '' || $model === '' ||
-                    !aur_browse_relevant($p)) continue;
+                    !aur_browse_relevant($p) || !aur_seo_indexable($p)) continue;
                 $facets = [];
                 foreach (['laboratory','test','medical','industrial','energy','marine','aviation'] as $sector) {
                     $category = aur_browse_sector_category($p, $sector);
@@ -165,7 +190,7 @@ function aur_seo_index(string $snapshot): array {
         if (!rename($temp,$productsFile)) throw new RuntimeException('index_rename');
         ksort($makers, SORT_NATURAL | SORT_FLAG_CASE);
         ksort($categories, SORT_STRING);
-        $index = ['schema'=>'aurenoeva-seo/1', 'fingerprint'=>$fingerprint,
+        $index = ['schema'=>'aurenoeva-seo/2', 'fingerprint'=>$fingerprint,
             'count'=>$count, 'makers'=>$makers, 'categories'=>$categories];
         $tmpMeta = tempnam($dir, '.seo-meta-');
         if (!$tmpMeta) throw new RuntimeException('index_meta');
@@ -356,8 +381,9 @@ function aur_seo_page(array $index,string $productsFile): void {
             aur_seo_h($selected['manufacturer']).'</div><div class="seo-fact"><b>'.($de?'Modellbezeichnung':'Model identifier').'</b>' .
             aur_seo_h($selected['model']).'</div><div class="seo-fact"><b>'.($de?'Katalogreferenz':'Catalogue reference').'</b>' .
             aur_seo_h($selected['canonical_id']).'</div></div>';
-        if (trim($selected['description'])!=='') echo '<h2>'.($de?'Quellenbeschreibung':'Source description').'</h2><p>' .
-            aur_seo_h($selected['description']).'</p>';
+        $sourceNote=aur_seo_source_note((string)$selected['description']);
+        if ($sourceNote !== '') echo '<h2>'.($de?'Technische Hinweise aus der Quelle':'Technical notes from source').'</h2><p>' .
+            aur_seo_h($sourceNote).'</p>';
         if (filter_var($selected['source_ref'],FILTER_VALIDATE_URL) &&
             parse_url($selected['source_ref'],PHP_URL_SCHEME)==='https')
             echo '<p><a rel="nofollow noopener noreferrer" target="_blank" href="' .
