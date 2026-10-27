@@ -374,6 +374,13 @@ def db_init(db):
     cols={x[1] for x in db.execute("PRAGMA table_info(products)")}
     for name in ("sector","category"):
         if name not in cols:db.execute("ALTER TABLE products ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
+    # Older catalogue SQLite schemas predate lifecycle and evidence columns.
+    for name,definition in (
+        ("identity_evidence","TEXT NOT NULL DEFAULT 'HISTORICAL_SOURCE'"),
+        ("lifecycle_status","TEXT NOT NULL DEFAULT 'UNVERIFIED'"),
+    ):
+        if name not in cols:
+            db.execute("ALTER TABLE products ADD COLUMN "+name+" "+definition)
     leadcols={x[1] for x in db.execute("PRAGMA table_info(vendor_leads)")}
     for name in ("email","phone"):
         if name not in leadcols:db.execute("ALTER TABLE vendor_leads ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
