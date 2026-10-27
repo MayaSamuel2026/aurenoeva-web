@@ -39,9 +39,9 @@ function aur_supplier_profile(array $vendor): array {
         $model=aur_supplier_clean_name($product['model']??'');
         $brand=aur_supplier_clean_name($product['brand']??'');
         $family=aur_supplier_clean_name($product['category']??($product['family']??''));
-        if($brand!=='')$brands[mb_strtolower($brand,'UTF-8')]=['name'=>$brand,'evidence_url'=>$url];
-        if($family!=='')$families[mb_strtolower($family,'UTF-8')]=['name'=>$family,'evidence_url'=>$url];
-        if($model!=='')$models[mb_strtolower($model,'UTF-8')]=['name'=>$model,'evidence_url'=>$url];
+        if($brand!=='')$brands[function_exists('mb_strtolower')?mb_strtolower($brand,'UTF-8'):strtolower($brand)]=['name'=>$brand,'evidence_url'=>$url];
+        if($family!=='')$families[function_exists('mb_strtolower')?mb_strtolower($family,'UTF-8'):strtolower($family)]=['name'=>$family,'evidence_url'=>$url];
+        if($model!=='')$models[function_exists('mb_strtolower')?mb_strtolower($model,'UTF-8'):strtolower($model)]=['name'=>$model,'evidence_url'=>$url];
         $proof[$url]=true;
     }
     // No generic historical customer request text becomes a verified capability.
