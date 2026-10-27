@@ -108,6 +108,34 @@ try {
         throw new RuntimeException('medical_monitor_category_wrong');
     if(aur_browse_snapshot($path,'test')['items'][0]['category']!=='Meters & power analyzers')
         throw new RuntimeException('multimeter_category_wrong');
+    // One canonical part appears in two evidence-backed sectors but never in
+    // a third; filtering must return the appropriate category in each.
+    $multi=['canonical_id'=>'AUR-P-'.str_repeat('9',20),
+        'manufacturer'=>'HydroWorks','model'=>'HP-20',
+        'description'=>'Industrial and marine hydraulic pump',
+        'sector'=>'industrial','category'=>'PLC / control modules',
+        'source_ref'=>'https://example.com/products/hp-20',
+        'classification_status'=>'EVIDENCE_MATCHED',
+        'classifications'=>[
+            ['industry'=>'industrial','category'=>'Pneumatics / hydraulics',
+             'method'=>'technical-facets/1'],
+            ['industry'=>'marine','category'=>'Pumps / fluid systems',
+             'method'=>'technical-facets/1']
+        ],
+        'public_offers'=>[['seller_website'=>'example.com','seller_name'=>'Example Seller',
+            'source_url'=>'https://example.com/products/hp-20','currency'=>'EUR',
+            'amount'=>89.5,'observed_at'=>gmdate('c')]]];
+    file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>[$multi]],
+        JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    $ind=aur_browse_snapshot($path,'industrial','Pneumatics / hydraulics');
+    $sea=aur_browse_snapshot($path,'marine','Pumps / fluid systems');
+    $air=aur_browse_snapshot($path,'aviation');
+    if($ind['total']!==1 || $sea['total']!==1 || $air['total']!==0 ||
+       $ind['items'][0]['canonical_id']!==$sea['items'][0]['canonical_id'] ||
+       $sea['items'][0]['price_status']!=='PUBLIC_OFFER' ||
+       count($sea['items'][0]['public_offers'])!==1 ||
+       $sea['items'][0]['classifications'][0]['industry']!=='industrial')
+        throw new RuntimeException('multi_industry_evidence_or_offer_regression');
     // Restore full fixture for the remaining assertions.
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$items],
         JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
