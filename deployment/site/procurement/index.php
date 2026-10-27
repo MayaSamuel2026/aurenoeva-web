@@ -869,7 +869,7 @@ try{
 <strong><?=aur_escape(str_replace('_',' ',(string)$aurWp09Current['stage']))?></strong></p>
 <p class="muted"><b>Next:</b> <?=aur_escape((string)$aurWp09Current['next_action'])?></p>
 <?php endif; ?>
-<p class="muted" style="margin-bottom:0">Based only on recorded buyer cases, authenticated SMTP 250 acceptances and source-matched supplier mailbox evidence. SMTP acceptance is not proof of inbox delivery. The count of confirmed purchases remains <b>0</b> unless a separate, voluntarily confirmed purchasing outcome is actually recorded. No test fixtures are included. <?=$aurWp09Report['limited']?'Showing most recent 250 cases.':''?></p>
+<p class="muted" style="margin-bottom:0">Based only on recorded buyer cases, authenticated SMTP 250 acceptances and source-matched supplier mailbox evidence. SMTP acceptance is not proof of inbox delivery. Purchases are <b>not inferred or counted as confirmed</b> from the RFQ and email trail; separate, voluntary transaction confirmation is required. No test fixtures are included. <?=$aurWp09Report['limited']?'Showing most recent 250 cases.':''?></p>
 <?php endif; ?>
 </section>
 <nav id="aur-tabs" class="aur-switcher" role="tablist" data-default-panel="<?=$aurHasCase?'overview':'enquiry'?>" aria-label="Procurement areas">
