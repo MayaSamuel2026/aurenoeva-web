@@ -314,7 +314,7 @@ jobs:
           php tests/test_wp09_public_intake.php
           grep -q "aur_public_case_capture" "$RUNNER_TEMP/source/site/requirement-submit.php"
           grep -q "'quantity'=>\$quantityValue" "$RUNNER_TEMP/source/site/requirement-submit.php"
-          grep -q "quantity:i.qty" "$RUNNER_TEMP/source/site/assets/js/buyer-flow.js"
+          grep -q "quantity:i.qty" "hotfix/buyer-flow/buyer-flow.js"
                     grep -q 'aur_case_import' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'Products by sector and subcategory' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'catalogueSnapshotManufacturers' "$RUNNER_TEMP/source/site/procurement/index.php"
