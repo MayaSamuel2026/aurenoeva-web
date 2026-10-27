@@ -41,8 +41,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: aurenoeva-private-procurement-main
-  cancel-in-progress: false
+  group: aurenoeva-private-procurement-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   test:
     runs-on: ubuntu-latest
