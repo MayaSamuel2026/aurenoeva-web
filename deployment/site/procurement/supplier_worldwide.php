@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/supplier_matching.php';
 /**
  * Case-owned worldwide supplier research. Click-driven, incremental, free.
  * Source verification = page fetched + requested equipment mentioned.
@@ -235,8 +236,15 @@ function aur_worldwide_master_read(string $store):array {
     $path=aur_worldwide_master_path($store);
     if(!is_file($path))return ['version'=>AUR_WORLDWIDE_VERSION,'vendors'=>[]];
     $data=json_decode((string)file_get_contents($path),true);
-    return is_array($data) && isset($data['vendors']) && is_array($data['vendors'])
-        ?$data:['version'=>AUR_WORLDWIDE_VERSION,'vendors'=>[]];
+    if(!is_array($data) || !isset($data['vendors']) || !is_array($data['vendors']))
+        return ['version'=>AUR_WORLDWIDE_VERSION,'vendors'=>[]];
+    // Additive computed profiles make historic supplier-master records usable
+    // without re-crawling them or asserting unverified stock/authorization.
+    foreach($data['vendors'] as $id=>&$vendor) {
+        if(is_array($vendor))$vendor['supplier_profile']=aur_supplier_profile($vendor);
+    }
+    unset($vendor);
+    return $data;
 }
 function aur_worldwide_master_merge(string $store,array $observed):int {
     if(!$observed)return 0;
@@ -285,6 +293,7 @@ function aur_worldwide_master_merge(string $store,array $observed):int {
             if($description!==''&&!in_array($description,$hints,true))$hints[]=$description;
             $master['vendors'][$id]['equipment_hints']=array_slice($hints,-24);
             $master['vendors'][$id]['last_seen_at']=gmdate('c');
+            $master['vendors'][$id]['supplier_profile']=aur_supplier_profile($master['vendors'][$id]);
         }
         $master['updated_at']=gmdate('c');
         $json=json_encode($master,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
