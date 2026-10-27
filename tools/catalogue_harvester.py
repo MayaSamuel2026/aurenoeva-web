@@ -377,6 +377,23 @@ def db_init(db):
     leadcols={x[1] for x in db.execute("PRAGMA table_info(vendor_leads)")}
     for name in ("email","phone"):
         if name not in leadcols:db.execute("ALTER TABLE vendor_leads ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
+    # One-time adoption of legacy catalogue sources, without new databases.
+    # Unverified historical source dates stay historical: no false freshness.
+    db.execute("CREATE TABLE IF NOT EXISTS catalogue_lifecycle_meta (key TEXT PRIMARY KEY)")
+    if not db.execute("SELECT 1 FROM catalogue_lifecycle_meta WHERE key='source_adoption_v1'").fetchone():
+        host="""lower(substr(source_url,9,CASE
+             WHEN instr(substr(source_url,9),'/')>0
+             THEN instr(substr(source_url,9),'/')-1 ELSE 180 END))"""
+        db.execute("""INSERT OR IGNORE INTO vendor_product_evidence
+          (website,product_id,source_url,manufacturer,model,sector,category,evidence_type,last_seen)
+          SELECT """+host+""",product_id,source_url,manufacturer,model,sector,category,
+          identity_evidence,last_seen FROM products
+          WHERE source_url LIKE 'https://%' AND manufacturer!='' AND model!=''""")
+        db.execute("""INSERT OR IGNORE INTO harvest_queue
+          (url,kind,sector,category,maker,depth,due)
+          SELECT source_url,'page',sector,category,manufacturer,0,?
+          FROM products WHERE source_url LIKE 'https://%'""",(stamp(),))
+        db.execute("INSERT INTO catalogue_lifecycle_meta(key) VALUES('source_adoption_v1')")
     db.commit()
 
 def verify_source_listings(db, url, found_product_ids, checked_at, http_status=200):
