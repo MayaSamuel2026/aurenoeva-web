@@ -275,7 +275,7 @@
     document.querySelector('#aur-prepare-buyer-reply')?.addEventListener('click', event => {
       const button = event.currentTarget;
       const to = String(button.dataset.buyerTo || '').trim();
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
         notice('Buyer email is missing or invalid. No draft opened.', true);
         return;
       }
