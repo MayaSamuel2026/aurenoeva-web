@@ -140,7 +140,7 @@ function begin(){
   function identity(p){return short(p.canonical_id,60)||[short(p.manufacturer,100),short(p.model||p.part_number,160)].join('|');}
   function fmtPrice(p){
     var a=Array.isArray(p.public_offers)?p.public_offers:[];
-    var o=a.find(function(x){return x&&Number(x.amount)>0&&/^[A-Z]{3}$/.test(x.currency||'')&&/^https:\/\//.test(x.source_url||'');});
+    var o=a.find(function(x){var seen=x&&Date.parse(x.observed_at||'');return x&&Number(x.amount)>0&&/^[A-Z]{3}$/.test(x.currency||'')&&/^https:\/\//.test(x.source_url||'')&&Number.isFinite(seen)&&seen<=Date.now()+300000&&seen>Date.now()-14*86400000;});
     if(!o)return '<strong>'+esc(tx('price'))+'</strong>';
     var price=String(o.currency)+' '+Number(o.amount).toFixed(2);
     try{price=new Intl.NumberFormat(de()?'de-DE':'en-GB',{style:'currency',currency:o.currency}).format(Number(o.amount));}catch(e){}
