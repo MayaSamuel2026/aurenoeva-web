@@ -55,8 +55,8 @@
       wrap.querySelector('.aur-browse-filter-label').textContent=label('Filter by manufacturer or model','Nach Hersteller oder Modell filtern');
       filter.placeholder=label('e.g. Agilent, 1260, centrifuge…','z. B. Agilent, 1260, Zentrifuge …');
       wrap.querySelector('#aur-browse-disclaimer').textContent=label(
-        'Catalogue entries are product identities, not confirmed supplier stock. We check availability and pricing once you enquire.',
-        'Katalogeinträge beschreiben Produkte, keine bestätigten Lagerbestände. Verfügbarkeit und Preis klären wir auf Anfrage.');
+        'Catalogue entries do not confirm stock. Public seller offers are source-linked, time-limited, and may exclude tax and shipping. Request a quotation to confirm.',
+        'Katalogeinträge bestätigen keinen Lagerbestand. Öffentliche Verkäuferpreise sind mit Quellen verknüpft, zeitlich begrenzt und ggf. ohne Steuern und Versand. Bitte Preis per Anfrage bestätigen.');
       more.textContent=label('Show more parts ↓','Weitere Teile anzeigen ↓');
     }
     function categoryText(name) {
@@ -105,13 +105,28 @@
         button.textContent=added?label('✓ Added','✓ Übernommen'):label('+ Add to enquiry','+ Zur Anfrage hinzufügen');
       });
     }
+    function offerMarkup(part) {
+      const offers=Array.isArray(part.public_offers)?part.public_offers:[];
+      const first=offers.find(o=>o && /^[A-Z]{3}$/.test(o.currency||'') &&
+        Number.isFinite(Number(o.amount)) && Number(o.amount)>0 &&
+        /^https:\/\//.test(o.source_url||''));
+      if(!first)return '<div class="aur-browse-price">'+
+        esc(label('Price on request','Preis auf Anfrage'))+'</div>';
+      let price=first.currency+' '+Number(first.amount).toFixed(2);
+      try{price=new Intl.NumberFormat(document.documentElement.lang==='de'?'de-DE':'en-GB',
+        {style:'currency',currency:first.currency}).format(Number(first.amount));}catch(_e){}
+      return '<div class="aur-browse-price">'+
+        esc(label('Public seller offer','Öffentliches Verkäuferangebot'))+': <strong>'+esc(price)+'</strong>'+
+        ' <a href="'+esc(first.source_url)+'" target="_blank" rel="noopener noreferrer">'+
+        esc(first.seller_name||first.seller_website||label('Source','Quelle'))+'</a></div>';
+    }
     function drawParts(data,append) {
       const results=(Array.isArray(data.items)?data.items:[]);
       const html=results.map((p,i)=>
         '<article class="aur-browse-part"><div class="aur-browse-part-copy">'+
         '<b><span class="aur-browse-brand">'+esc(p.manufacturer||'')+' · </span>'+
         '<span class="aur-browse-model">'+esc(p.model||'')+'</span></b>'+
-        '<span class="aur-browse-description">'+esc(p.description||categoryText(p.category||'__other'))+'</span></div>'+
+        '<span class="aur-browse-description">'+esc(p.description||categoryText(p.category||'__other'))+'</span>'+offerMarkup(p)+'</div>'+
         '<button type="button" class="aur-browse-add" data-part-id="'+esc(p.canonical_id||'')+'" data-index="'+i+'">'+
         esc(label('+ Add to enquiry','+ Zur Anfrage hinzufügen'))+'</button></article>'
       ).join('');

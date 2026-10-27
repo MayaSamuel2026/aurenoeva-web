@@ -80,7 +80,9 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
             'lifecycle_status' => 'UNVERIFIED',
             'relationship_type' => 'CANDIDATE',
             'confidence' => null,
-            'source_ref' => filter_var((string)($p['source_ref'] ?? ''), FILTER_VALIDATE_URL) ?: ''
+            'source_ref' => filter_var((string)($p['source_ref'] ?? ''), FILTER_VALIDATE_URL) ?: '',
+            'price_status' => function_exists('aur_browse_public_offers') && aur_browse_public_offers($p) ? 'PUBLIC_OFFER' : 'ON_REQUEST',
+            'public_offers' => function_exists('aur_browse_public_offers') ? aur_browse_public_offers($p) : []
         ]];
     }
     usort($ranked, static fn(array $a,array $b): int => $b[0] <=> $a[0]);

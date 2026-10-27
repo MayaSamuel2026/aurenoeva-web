@@ -28,6 +28,41 @@ function aur_catalogue_utf8_cut(string $value, int $maxBytes): string {
     return $slice;
 }
 
+/** Whitelist public prices; never accept stock, quotes, contact data or margins. */
+function aur_catalogue_public_offers(array $item): array {
+    $valid = [];
+    $allowed = ['EUR','USD','GBP','CHF','CAD','AUD','JPY','CNY','SEK','NOK','DKK',
+        'PLN','CZK','HUF','INR','SGD','NZD','AED','SAR','ZAR','BRL','MXN','KRW','TRY','HKD','TWD'];
+    foreach (array_slice(is_array($item['public_offers'] ?? null) ? $item['public_offers'] : [], 0, 30) as $offer) {
+        if (!is_array($offer)) continue;
+        $url = (string)($offer['source_url'] ?? '');
+        $parts = @parse_url($url);
+        $seller = strtolower((string)($offer['seller_website'] ?? ''));
+        $currency = strtoupper((string)($offer['currency'] ?? ''));
+        $amount = $offer['amount'] ?? null;
+        $when = (string)($offer['observed_at'] ?? '');
+        $timestamp = strtotime($when);
+        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https'
+            || !isset($parts['host']) || strtolower((string)$parts['host']) !== $seller
+            || isset($parts['user']) || isset($parts['pass'])
+            || strlen($url) > 1400 || !in_array($currency, $allowed, true)
+            || !is_numeric($amount) || !is_finite((float)$amount)
+            || (float)$amount <= 0 || (float)$amount > 100000000
+            || $timestamp === false || $timestamp < time()-14*86400
+            || $timestamp > time()+300) continue;
+        $key = $seller.'|'.$url.'|'.$currency;
+        if (isset($valid[$key])) continue;
+        $valid[$key] = [
+            'seller_website' => $seller,
+            'seller_name' => aur_catalogue_utf8_cut((string)($offer['seller_name'] ?? $seller), 120),
+            'source_url' => $url, 'currency' => $currency,
+            'amount' => (float)$amount, 'observed_at' => $when
+        ];
+        if (count($valid) >= 5) break;
+    }
+    return array_values($valid);
+}
+
 function aur_catalogue_clean_snapshot(string $body): array {
     if ($body === '' || strlen($body) > 256000000) throw new RuntimeException('snapshot_size');
     $raw = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -53,6 +88,7 @@ function aur_catalogue_clean_snapshot(string $body): array {
             || in_array(strtolower($model), $generic, true)
             || !is_array($url) || strtolower((string)($url['scheme'] ?? '')) !== 'https'
             || empty($url['host']) || isset($url['user']) || isset($url['pass'])) continue;
+        $publicOffers = aur_catalogue_public_offers($p);
         $items[$id] = [
             'canonical_id' => $id,
             'manufacturer' => $manufacturer,
@@ -62,7 +98,9 @@ function aur_catalogue_clean_snapshot(string $body): array {
             'description' => aur_catalogue_utf8_cut((string)($p['description'] ?? ''), 240),
             'source_ref' => $source,
             'last_seen' => aur_catalogue_utf8_cut((string)($p['last_seen'] ?? ''), 40),
-            'lifecycle_status' => 'UNVERIFIED'
+            'lifecycle_status' => 'UNVERIFIED',
+            'price_status' => $publicOffers ? 'PUBLIC_OFFER' : 'ON_REQUEST',
+            'public_offers' => $publicOffers
         ];
     }
     // A broken or empty upstream catalogue must never erase the last good website snapshot.
