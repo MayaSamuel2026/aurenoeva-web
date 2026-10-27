@@ -25,6 +25,8 @@ on:
       - 'hotfix/de-language-refinement/apply.py'
       - 'tests/test_catalogue_publish.py'
       - 'tests/test_catalogue_harvester.py'
+      - 'tools/catalogue_prices.py'
+      - 'tests/test_catalogue_prices.py'
       - 'tools/catalogue_harvester.py'
       - 'tools/catalogue_publish.py'
       - 'tools/catalogue_auto_update.py'
@@ -229,7 +231,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/catalogue_harvester.py tools/catalogue_publish.py
+          python3 -m py_compile tools/catalogue_prices.py tools/catalogue_harvester.py tools/catalogue_publish.py
           bash -n ops/activate-harvester-v4.sh ops/repair-large-catalogue-publish.sh
           python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
