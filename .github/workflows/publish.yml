@@ -11,6 +11,7 @@ on:
       - '.github/workflows/publish.yml'
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_worldwide_php.php'
+      - 'tests/test_supplier_matching.php'
       - 'tests/test_procurement_smtp.php'
       - 'tests/test_procurement_housekeeping.php'
       - 'tests/test_procurement_quality.php'
@@ -22,6 +23,8 @@ on:
       - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/catalogue-browser/**'
       - 'hotfix/buyer-flow/**'
+      - 'hotfix/international-seo/**'
+      - 'tests/test_international_seo.php'
       - 'tests/test_buyer_flow.js'
       - 'hotfix/v8.2.6.8/index.html'
       - 'hotfix/v8.2.6.5/site.js'
@@ -286,7 +289,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/source/site/procurement"
           # Copy the complete canonical procurement application, not a stale hardcoded subset.
           # New supplier and RFQ modules must ship in the SAME release as index.php.
-          for name in index.php commercial_intelligence.php activity.php commercial-intelligence.js commercial-intelligence.css private_cases.php public_intake.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_replies.php supplier_quality.php supplier_inbox_mime.php supplier_inbox_store.php supplier_inbox_curl.php supplier_inbox.php mail_branding.php mail_center.php supplier-inbox-cli.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js workspace-tabs.js inbox-sync.js mail-center.js .htaccess; do
+          for name in index.php commercial_intelligence.php activity.php commercial-intelligence.js commercial-intelligence.css private_cases.php public_intake.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_matching.php supplier_rfq.php supplier_replies.php supplier_quality.php supplier_inbox_mime.php supplier_inbox_store.php supplier_inbox_curl.php supplier_inbox.php mail_branding.php mail_center.php supplier-inbox-cli.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php discover.js worldwide.js workspace-tabs.js inbox-sync.js mail-center.js .htaccess; do
             cp "deployment/site/procurement/$name" "$RUNNER_TEMP/source/site/procurement/$name"
           done
           # Deploy a dedicated, release-verified logo from the exact approved brand asset.
@@ -297,7 +300,7 @@ jobs:
           # Preserve the public index.html as default while allowing subdirectory PHP index.
           sed -i 's/^DirectoryIndex index.html$/DirectoryIndex index.html index.php/' "$RUNNER_TEMP/source/site/.htaccess"
           grep -q '^DirectoryIndex index.html index.php$' "$RUNNER_TEMP/source/site/.htaccess"
-          for name in index.php commercial_intelligence.php activity.php private_cases.php public_intake.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_replies.php supplier_quality.php supplier_inbox_mime.php supplier_inbox_store.php supplier_inbox_curl.php supplier_inbox.php mail_branding.php mail_center.php supplier-inbox-cli.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php; do
+          for name in index.php commercial_intelligence.php activity.php private_cases.php public_intake.php embargo_screen.php supplier_intelligence.php supplier_discovery.php supplier_routes.php supplier_worldwide.php supplier_matching.php supplier_rfq.php supplier_replies.php supplier_quality.php supplier_inbox_mime.php supplier_inbox_store.php supplier_inbox_curl.php supplier_inbox.php mail_branding.php mail_center.php supplier-inbox-cli.php supplier_portal.php staff_auth.php supplier-refresh-cli.php setup-cli.php activate.php; do
             php -l "$RUNNER_TEMP/source/site/procurement/$name"
           done
           python3 - "$RUNNER_TEMP/source/site/index.html" <<'PY'
@@ -346,6 +349,7 @@ jobs:
           grep -Fq "track('basket_add')" hotfix/buyer-flow/buyer-flow.js
           php tests/test_procurement_tabs.php
           php tests/test_procurement_worldwide_php.php
+          php tests/test_supplier_matching.php
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
           php tests/test_procurement_smtp.php
@@ -785,6 +789,39 @@ jobs:
           node tests/test_buyer_flow.js "$RUNNER_TEMP/source/site"
           php -l "$RUNNER_TEMP/source/site/requirement-submit.php"
 
+      - name: Add international catalogue SEO without another browsing interface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp hotfix/international-seo/seo.php "$RUNNER_TEMP/source/site/seo.php"
+          cp hotfix/international-seo/robots.txt "$RUNNER_TEMP/source/site/robots.txt"
+          python3 - "$RUNNER_TEMP/source/site" <<'PY'
+          from pathlib import Path
+          import json,sys
+          site=Path(sys.argv[1])
+          htaccess=site/'.htaccess'
+          old=htaccess.read_text(encoding='utf-8')
+          rules=Path('hotfix/international-seo/rewrites.htaccess').read_text(encoding='utf-8')
+          assert 'seo.php?feed=index' not in old
+          htaccess.write_text(rules+'\n'+old,encoding='utf-8')
+          home=site/'index.html'
+          html=home.read_text(encoding='utf-8')
+          assert html.count('</head>')==1
+          assert 'rel="canonical"' not in html
+          schema={"@context":"https://schema.org","@type":"Organization","name":"AURENOEVA",
+            "url":"https://aurenoeva.com/",
+            "logo":"https://aurenoeva.com/assets/img/brand/aurenoeva-logo-approved.png"}
+          tags='<link rel="canonical" href="https://aurenoeva.com/">\n'+(
+            '<script type="application/ld+json">'+json.dumps(schema,separators=(',',':'))+'</script>\n')
+          home.write_text(html.replace('</head>',tags+'</head>',1),encoding='utf-8')
+          PY
+          php -l "$RUNNER_TEMP/source/site/seo.php"
+          php tests/test_international_seo.php
+          grep -q 'sitemap.xml' "$RUNNER_TEMP/source/site/robots.txt"
+          grep -q 'seo.php?kind=product' "$RUNNER_TEMP/source/site/.htaccess" || grep -q 'kind=product' "$RUNNER_TEMP/source/site/.htaccess"
+          grep -q 'rel="canonical"' "$RUNNER_TEMP/source/site/index.html"
+          # Original homepage, categories, basket, supplier RFQs and staff dashboard remain untouched.
+
       - name: Build clean production branch
         shell: bash
         run: |
@@ -926,4 +963,34 @@ jobs:
           assert "geführten Bedarfsprozess" not in html
           assert "Marienburger Straße 16" in html and "56112 Lahnstein" in html
           print("AURENOEVA_LIVE_BILINGUAL_PROPRIETOR_IMPRINT=PASS")
+          PY
+
+      - name: Verify live EN/DE SEO and crawlability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import re,urllib.request,xml.etree.ElementTree as ET
+          base='https://aurenoeva.com'
+          def get(path,timeout=65):
+              req=urllib.request.Request(base+path,headers={'Cache-Control':'no-cache','User-Agent':'AURENOEVA release-qualification/1'})
+              with urllib.request.urlopen(req,timeout=timeout) as r:
+                  return r.read().decode('utf-8')
+          robots=get('/robots.txt')
+          assert 'Sitemap: https://aurenoeva.com/sitemap.xml' in robots
+          home=get('/')
+          assert '<link rel="canonical" href="https://aurenoeva.com/">' in home
+          sitemaps=ET.fromstring(get('/sitemap.xml'))
+          ns={'s':'http://www.sitemaps.org/schemas/sitemap/0.9'}
+          urls=[n.text for n in sitemaps.findall('.//s:loc',ns)]
+          assert any('/sitemaps/taxonomy-de.xml' in x for x in urls),urls
+          assert any('/sitemaps/products-en-1.xml' in x for x in urls),urls
+          products=ET.fromstring(get('/sitemaps/products-en-1.xml'))
+          sample=products.find('.//s:loc',ns)
+          assert sample is not None and sample.text.startswith(base+'/en/parts/')
+          page=get(sample.text[len(base):],30)
+          assert 'rel="canonical"' in page and '"@type":"Product"' in page
+          assert 'hreflang="de"' in page and '/requirement.html?q=' in page
+          assert 'AURENOEVA catalogue ID' in page
+          print('AURENOEVA_LIVE_INTERNATIONAL_SEO=PASS')
           PY

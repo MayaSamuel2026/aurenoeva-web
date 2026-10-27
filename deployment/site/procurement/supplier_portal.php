@@ -6,7 +6,7 @@ require_once __DIR__.'/supplier_inbox_store.php';
 $researchRows=is_array($supplierResearch['rows']??null)?$supplierResearch['rows']:[];
 try{$worldStats=aur_worldwide_stats($supplierResearch);}
 catch(Throwable $e){error_log('AURENOEVA vendor stats: '.get_class($e));$worldStats=['scanned'=>0,'total'=>count($researchRows),'unique_vendors'=>0,'new_source_pages'=>0];}
-$dashboard=[];$regions=[];
+$dashboard=[];$regions=[];$rankedByRow=[];
 foreach($researchRows as $row) {
     if(!is_array($row))continue;
     $key=(string)($row['source_row']??'');
@@ -26,6 +26,8 @@ foreach($researchRows as $row) {
           'email'=>'','phone'=>'','evidence_url'=>$url,
           'status'=>'MANUFACTURER_INFORMATION_ONLY','match_basis'=>aur_worldwide_candidate_text($oem['match_quality']??null)];
     }
+    // Read-only rankings only: never change the recipients or WP09 approval gates.
+    $rankedByRow[$key]=aur_supplier_rank_candidates($description,$candidates,100);
     foreach($candidates as $vendor) {
         if(!is_array($vendor))continue;
         $name=aur_worldwide_candidate_text($vendor['name']??null);
@@ -65,6 +67,7 @@ uasort($dashboard,static function($a,$b):int{
     return strcasecmp($a['name'],$b['name']);
 });
 $contactableCount=count(array_filter($dashboard,static fn($s)=>$s['contactable']));
+$rfqRecommendations=aur_supplier_rank_rfq($rankedByRow,8);
 $approvedDrafts=[];
 $unsentToClean=0;
 try {
@@ -83,6 +86,23 @@ try {
 <span class="pill"><b><?=(int)$worldStats['scanned']?> / <?=(int)$worldStats['total']?></b> lines scanned</span>
 <span class="pill"><b><?=(int)$worldStats['new_source_pages']?></b> saved online source links</span>
 </p>
+<details class="aux-disclosure" id="supplier-intelligence" open>
+<summary><b>Supplier intelligence</b> · <?=count($rfqRecommendations)?> ranked sourcing suggestions</summary>
+<p class="muted">Ranked against the documented supplier pages and existing sourcing history. The 0–100 value is a <b>relative evidence-fit score</b>, not a probability of stock, authorized distribution, legal clearance or successful delivery. Supplier identity, exact configuration, stock and shipping must still be confirmed before contacting or selecting a supplier.</p>
+<?php if($rfqRecommendations):?>
+<div class="scroll"><table><thead><tr><th>Supplier / documented country</th><th>RFQ coverage</th><th>Evidence fit</th><th>Source</th></tr></thead><tbody>
+<?php foreach($rfqRecommendations as $suggestion):?>
+<tr>
+<td><b><?=aur_escape((string)$suggestion['name'])?></b><div class="muted"><?=aur_escape((string)$suggestion['country'])?> · <?= $suggestion['contactable']?'Published email':'Research only' ?></div></td>
+<td><?= (int)$suggestion['matched_lines']?> / <?=count($rankedByRow)?> lines</td>
+<td><b><?= (int)$suggestion['average_evidence_score']?> / 100</b> <span class="muted">(relative match)</span></td>
+<td><a href="<?=aur_escape((string)$suggestion['best_evidence_url'])?>" target="_blank" rel="noopener noreferrer">Review evidence ↗</a></td>
+</tr>
+<?php endforeach;?>
+</tbody></table></div>
+<?php else:?><p>No sufficiently documented supplier matches yet; continue source research below.</p><?php endif;?>
+<p class="muted">All suggestions are informational. RFQ recipient selection, screening, country review, administrator authorization and mail dispatch remain in the existing workflow.</p>
+</details>
 <?php if(!empty($supplierResearchMode)):?><p class="muted" role="status"><?=aur_escape((string)$supplierResearchMode)?></p><?php endif;?>
 <?php if(!empty($supplierDiscoveryMessage)):?><p role="status"><?=aur_escape((string)$supplierDiscoveryMessage)?></p><?php endif;?>
 <p><a href="#supplier-search-controls">↑ Run worldwide discovery</a> · <a href="#supplier-history">Saved supplier RFQ</a> · <a href="#item-sources">Research by equipment item</a></p>
@@ -171,6 +191,19 @@ try {
 <p><?php foreach($regionsToSearch as $regionName=>$link):?>
 <a href="<?=aur_escape($link)?>" target="_blank" rel="noopener noreferrer"><?=aur_escape($regionName)?> ↗</a> &nbsp; 
 <?php endforeach;?></p>
+<?php $itemSuggestions=array_slice($rankedByRow[(string)($row['source_row']??'')]??[],0,4); ?>
+<?php if($itemSuggestions):?>
+<div style="margin:10px 0"><strong>Ranked sourcing suggestions</strong>
+<?php foreach($itemSuggestions as $suggestion):?>
+<div style="padding:8px 0;border-bottom:1px solid #e2e9e3">
+<b><?=aur_escape((string)$suggestion['name'])?></b>
+· <?= (int)$suggestion['score']?> / 100 evidence fit
+· <?=aur_escape((string)$suggestion['country'])?>
+<div class="muted"><?=aur_escape((string)$suggestion['reason'])?> · Stock and authorization not verified</div>
+<a href="<?=aur_escape((string)$suggestion['evidence_url'])?>" target="_blank" rel="noopener noreferrer">Check source ↗</a>
+</div>
+<?php endforeach;?></div>
+<?php endif;?>
 <?php foreach((is_array($row['sources']??null)?$row['sources']:[]) as $source):if(!is_array($source))continue;?>
 <div><?=aur_escape(aur_worldwide_candidate_text($source['company']??null))?> — <a target="_blank" rel="noopener noreferrer" href="<?=aur_escape(aur_worldwide_candidate_text($source['evidence_url']??null))?>">OEM/source evidence ↗</a></div>
 <?php endforeach;?>
