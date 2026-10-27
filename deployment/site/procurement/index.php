@@ -9,7 +9,7 @@ header('Cache-Control: private, no-store, max-age=0');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 header('X-Frame-Options: DENY');
 
 function aur_escape(string $s): string {
@@ -33,6 +33,7 @@ require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/supplier_inbox.php';
 require_once __DIR__ . '/mail_center.php';
 require_once __DIR__ . '/staff_auth.php';
+require_once __DIR__ . '/commercial_intelligence.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
 if (($_SERVER['REQUEST_METHOD']??'')==='POST' &&
@@ -141,6 +142,19 @@ if(isset($_GET['mail_action'])||isset($_POST['mail_action'])){
         echo json_encode(['ok'=>false,'error'=>$e instanceof InvalidArgumentException?$e->getMessage():'mailbox_operation_unavailable']);
         exit;
     }
+}
+
+/* Private, read-only commercial intelligence endpoint; never cached or public. */
+if (isset($_GET['intelligence'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: private, no-store, max-age=0');
+    if (!$isAdmin || ($_SERVER['REQUEST_METHOD']??'')!=='GET') {
+        http_response_code(401);echo '{"ok":false,"error":"authentication_required"}';exit;
+    }
+    try { echo json_encode(aur_ci_report($aurStore),JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES); }
+    catch (Throwable $e) {error_log('AURENOEVA commercial intelligence: '.get_class($e));
+        http_response_code(503);echo '{"ok":false,"error":"intelligence_unavailable"}';}
+    exit;
 }
 
 /* Live readback: private, authenticated, read-only persisted RFQ ledger.
@@ -344,8 +358,19 @@ if (isset($_GET['export_catalogue'])) {
     exit;
 }
 $aurSupplierAuditMessage=null;
+$aurCommercialNotice=null;
 if ($isAdmin) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['consolidate_supplier_history'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['record_commercial_outcome'])) {
+        try {
+            if (($_POST['staff_verified']??'')!=='1') throw new InvalidArgumentException('staff_confirmation_required');
+            aur_ci_record_outcome($aurStore,trim((string)($_POST['case_ref']??'')),
+                (string)($_POST['outcome']??''),(string)($_POST['evidence_reference']??''));
+            header('Location: /procurement/?outcome_saved=1#tab-intelligence',true,303);exit;
+        } catch (Throwable $e) {
+            error_log('AURENOEVA commercial outcome: '.get_class($e));
+            $aurCommercialNotice='Outcome was not saved. Select a valid existing case and enter the retained supporting evidence reference.';
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['consolidate_supplier_history'])) {
         try {
             $historical=aur_worldwide_research_inventory($aurStore,true);
             $aurSupplierAuditMessage='Historical RFQ research reconciled: '
@@ -802,7 +827,7 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 #aur-mail-feedback.is-error{color:#a0442d}
 .aur-mail-pagination{display:flex;align-items:center;gap:9px;margin-top:14px}
 @media(max-width:700px){.aur-mail-shell{grid-template-columns:1fr;gap:12px}.aur-mail-folders{flex-direction:row;overflow-x:auto}.aur-mail-folders button{width:auto;white-space:nowrap}.aur-mail-toolbar input{max-width:none;order:5}}
-</style></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
+</style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
 </header>
@@ -840,6 +865,7 @@ elseif($aurDraftStatus==='DRAFT_REVIEW'){
 ?>
 <nav id="aur-tabs" class="aur-switcher" role="tablist" data-default-panel="<?=$aurHasCase?'overview':'enquiry'?>" aria-label="Procurement areas">
 <button type="button" role="tab" data-aur-tab="overview" id="aur-tab-overview" aria-controls="aur-panel-overview">Overview</button>
+<button type="button" role="tab" data-aur-tab="intelligence" id="aur-tab-intelligence" aria-controls="aur-panel-intelligence">Intelligence</button>
 <button type="button" role="tab" data-aur-tab="enquiry" id="aur-tab-enquiry" aria-controls="aur-panel-enquiry">Enquiry</button>
 <button type="button" role="tab" data-aur-tab="suppliers" id="aur-tab-suppliers" aria-controls="aur-panel-suppliers">Suppliers</button>
 <button type="button" role="tab" data-aur-tab="rfq" id="aur-tab-rfq" aria-controls="aur-panel-rfq">RFQ &amp; replies</button>
@@ -1038,6 +1064,66 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <?php endif; ?>
 
 
+
+<section class="card" id="aur-commercial-intelligence" aria-label="Commercial intelligence">
+<div class="ci-heading"><div>
+<h2>Commercial intelligence</h2>
+<p class="ci-muted">Evidence-backed decisions from the live catalogue, buyer activity and the existing WP09 procurement ledgers.</p>
+<p class="ci-muted" id="ci-asof">Open this area to load private metrics.</p>
+</div><div class="ci-toolbar"><button id="ci-refresh" type="button" class="ghost">Refresh data ↻</button></div></div>
+<p id="ci-status" role="status" aria-live="polite">Select Intelligence to read current records.</p>
+<p id="ci-catalogue-warning" class="ci-insight" hidden>The current catalogue snapshot is unavailable. Product counts and coverage cannot be calculated.</p>
+<div class="ci-kpis">
+<div class="ci-kpi"><strong id="ci-products">—</strong><b>Searchable products</b><small>Unique catalogue product identities</small></div>
+<div class="ci-kpi"><strong id="ci-price">—</strong><b>Verified public pricing</b><small id="ci-price-pct">Current seller offers, not our selling prices</small></div>
+<div class="ci-kpi"><strong id="ci-fresh">—</strong><b>Recently observed products</b><small id="ci-fresh-pct">Product evidence within 30 days</small></div>
+<div class="ci-kpi"><strong id="ci-enquiries">—</strong><b>Customer enquiries</b><small>Saved original cases · not purchases</small></div>
+<div class="ci-kpi"><strong id="ci-contactable">—</strong><b>Contactable suppliers</b><small>Supplier master records with email</small></div>
+<div class="ci-kpi"><strong id="ci-transactions">—</strong><b>Verified purchases</b><small id="ci-no-sale">Evidence-required outcome verification</small></div>
+</div>
+<p class="ci-muted" id="ci-metadata"></p>
+<div class="ci-two">
+<section class="ci-section"><h3>Catalogue growth</h3><div id="ci-growth"></div><p class="ci-muted" id="ci-history-note"></p></section>
+<section class="ci-section"><div class="ci-heading"><h3>Buyer interest</h3><div class="ci-toolbar">
+<label for="ci-period">Period</label><select id="ci-period"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option></select></div></div>
+<p><strong id="ci-searches">—</strong> searches · <strong id="ci-baskets">—</strong> basket additions</p>
+<div id="ci-activity-chart"></div><p class="ci-muted" id="ci-activity-scope"></p></section>
+</div>
+<section class="ci-section">
+<div class="ci-heading"><div><h3>All 19 industry categories</h3><p class="ci-muted">The established seven show primary-sector counts and independently evidenced technical classifications. The twelve newer industries remain searchable discovery topics until separate classification evidence is available. Missing counts are shown as a dash, never as zero.</p></div>
+<div class="ci-toolbar"><label for="ci-industry-filter">Show</label><select id="ci-industry-filter"><option value="all">All 19</option><option value="established">7 established</option><option value="discovery">12 additional</option></select></div></div>
+<div class="ci-table-scroll"><table class="ci-table"><thead><tr><th>Industry</th><th>Primary products</th><th>Technical matches</th><th>Evidence status</th></tr></thead><tbody id="ci-industries"></tbody></table></div>
+</section>
+<div class="ci-two">
+<section class="ci-section"><h3>Enquiry-to-purchase funnel</h3><div id="ci-funnel"></div>
+<p class="ci-muted">The first five stages are unique original cases, not item counts. Purchases require independent evidence.</p>
+<p class="ci-muted" id="ci-case-cap" hidden>More than 1,000 cases exist; this view covers the first 1,000 only. Funnel figures are incomplete.</p></section>
+<section class="ci-section"><h3>Supplier participation & quotations</h3>
+<p class="ci-insight" id="ci-supplier-summary">Loading saved supplier data…</p>
+<p><strong id="ci-response-rate">—</strong> supplier response rate</p>
+<p><strong id="ci-quote-rate">—</strong> priced quotation rate</p><p class="ci-muted" id="ci-quote-note"></p>
+<p class="ci-muted" id="ci-response-note"></p>
+<p class="ci-muted">Only stored structured supplier responses are counted. SMTP acceptance is not delivery confirmation or a response.</p></section>
+</div>
+<section class="ci-section"><h3>Verify transaction outcome</h3>
+<p class="ci-muted">Record a purchase or a confirmed non-purchase only when supporting customer or supplier correspondence is retained. This is an internal staff attestation, not an automatically verified payment. Save an evidence reference, not confidential message content.</p>
+<?php if(isset($_GET['outcome_saved'])):?><p role="status" class="ci-insight">Confirmed outcome saved in the private evidence ledger.</p><?php endif;?>
+<?php if($aurCommercialNotice!==null):?><p role="alert"><?=aur_escape($aurCommercialNotice)?></p><?php endif;?>
+<form class="ci-outcome-form" method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="record_commercial_outcome" value="1">
+<label>Original enquiry<select id="ci-case-ref" name="case_ref" required><option value="">Select an enquiry</option></select></label>
+<label>Verified outcome<select name="outcome" required>
+<option value="PURCHASE_CONFIRMED">Purchase independently confirmed</option>
+<option value="NO_PURCHASE_CONFIRMED">No purchase independently confirmed</option></select></label>
+<label class="ci-wide">Evidence reference<input name="evidence_reference" minlength="8" maxlength="250" required placeholder="e.g. archived buyer confirmation or verified supplier order reference"></label>
+<label class="ci-wide ci-affirm"><input type="checkbox" name="staff_verified" value="1" required> I have checked retained evidence supporting this outcome.</label>
+<div class="ci-wide"><button type="submit">Save confirmed outcome</button></div>
+</form>
+</section>
+<p class="ci-muted">Measurements reflect the current private snapshot and saved ledgers. Search and basket tracking starts only with the new instrumentation. Seller prices are not stock commitments; supplier responses are not completed transactions.</p>
+</section>
+
 <section class="card" id="aur-mail-center" aria-label="AURENOEVA Mail Center">
 <h2>Mail Center <small style="font-size:13px;font-weight:500;color:#67766e">info@aurenoeva.com · Hostinger</small></h2>
 <p class="muted">Read supplier emails, reply and send messages without leaving procurement. Existing RFQ automation continues independently.</p>
@@ -1210,4 +1296,4 @@ Registered with Amtsgericht Koblenz | HRA 23554
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=3"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=3"></script><?php endif; ?></body></html>

@@ -1,0 +1,47 @@
+/* AURENOEVA private commercial intelligence. Existing brand colours and card rhythm. */
+#aur-commercial-intelligence{color:#1a312b}
+#aur-commercial-intelligence .ci-heading{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:12px}
+#aur-commercial-intelligence .ci-heading h2{margin:0 0 8px}
+#aur-commercial-intelligence .ci-muted{font-size:12px;color:#667970;line-height:1.6}
+#aur-commercial-intelligence .ci-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#aur-commercial-intelligence .ci-toolbar select{min-width:135px;padding:9px 10px;border:1px solid #c6d6ce;background:#fff;color:#1a312b;border-radius:8px}
+#aur-commercial-intelligence .ci-toolbar button{padding:10px 14px}
+#aur-commercial-intelligence .ci-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px 0}
+#aur-commercial-intelligence .ci-kpi{border:1px solid #d6e1dc;border-radius:12px;padding:17px;background:#f6f9f7;min-width:0}
+#aur-commercial-intelligence .ci-kpi strong{display:block;color:#124c40;font-size:29px;letter-spacing:-.7px;line-height:1.25}
+#aur-commercial-intelligence .ci-kpi b{display:block;font-size:13px;font-weight:650;margin:6px 0}
+#aur-commercial-intelligence .ci-kpi small{display:block;color:#657a70;font-size:11px;line-height:1.55}
+#aur-commercial-intelligence .ci-section{border-top:1px solid #dee7e2;padding-top:20px;margin-top:22px}
+#aur-commercial-intelligence .ci-section h3{font-size:17px;margin:0 0 12px}
+#aur-commercial-intelligence .ci-two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+#aur-commercial-intelligence .ci-bars{display:flex;align-items:end;gap:4px;height:145px;overflow-x:auto;padding:12px 3px 4px;border-bottom:1px solid #d3ded8}
+#aur-commercial-intelligence .ci-bar-item{flex:1;min-width:20px;max-width:55px;display:flex;flex-direction:column;justify-content:end;align-items:center;height:100%;gap:6px}
+#aur-commercial-intelligence .ci-bar-track{height:109px;width:100%;display:flex;align-items:end;justify-content:center}
+#aur-commercial-intelligence .ci-bar-fill{width:75%;min-height:2px;background:linear-gradient(180deg,#4f9b81,#1e6353);border-radius:4px 4px 0 0}
+#aur-commercial-intelligence .ci-bar-item small{color:#6a7b71;font-size:9px;white-space:nowrap}
+#aur-commercial-intelligence .ci-empty{padding:30px 0;color:#6c7e74}
+#aur-commercial-intelligence .ci-chart-foot{font-size:11px;color:#60736a}
+#aur-commercial-intelligence .ci-table-scroll{max-width:100%;overflow-x:auto}
+#aur-commercial-intelligence .ci-table{border-collapse:collapse;width:100%;font-size:13px}
+#aur-commercial-intelligence .ci-table th{text-align:left;background:#eaf2ed;color:#315549;padding:12px 9px;white-space:nowrap}
+#aur-commercial-intelligence .ci-table td{padding:12px 9px;border-bottom:1px solid #e3ebe7}
+#aur-commercial-intelligence .ci-table td strong{display:block}
+#aur-commercial-intelligence .ci-industry-type{display:block;font-size:11px;margin-top:3px;color:#829087}
+#aur-commercial-intelligence .ci-number{text-align:right;font-variant-numeric:tabular-nums;font-weight:650}
+#aur-commercial-intelligence .ci-table th:nth-child(2),#aur-commercial-intelligence .ci-table th:nth-child(3){text-align:right}
+#aur-commercial-intelligence .ci-category-status{color:#5d7467;font-size:12px}
+#aur-commercial-intelligence .ci-funnel-row{margin-bottom:17px}
+#aur-commercial-intelligence .ci-funnel-heading{display:flex;gap:12px;justify-content:space-between;margin:0 0 7px;font-size:12px}
+#aur-commercial-intelligence .ci-funnel-heading span{font-variant-numeric:tabular-nums;color:#62756b}
+#aur-commercial-intelligence .ci-bar{height:10px;border-radius:8px;background:#e2ece6;overflow:hidden}
+#aur-commercial-intelligence .ci-bar span{display:block;height:100%;background:#357a63;border-radius:8px}
+#aur-commercial-intelligence .ci-insight{background:#f0f6f1;padding:13px 16px;border-radius:9px;font-size:13px}
+#aur-commercial-intelligence .ci-outcome-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#aur-commercial-intelligence .ci-outcome-form label{display:grid;gap:6px;font-size:12px;font-weight:650}
+#aur-commercial-intelligence .ci-outcome-form input,#aur-commercial-intelligence .ci-outcome-form select{min-width:0;width:100%;box-sizing:border-box;padding:11px;border:1px solid #bfcec6;border-radius:7px}
+#aur-commercial-intelligence .ci-outcome-form .ci-wide{grid-column:1/-1}
+#aur-commercial-intelligence .ci-outcome-form .ci-affirm{display:flex;align-items:center;gap:9px;line-height:1.5}
+#aur-commercial-intelligence .ci-affirm input{width:auto}
+#aur-commercial-intelligence #ci-status{font-size:12px;color:#496858}
+@media(max-width:780px){#aur-commercial-intelligence .ci-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#aur-commercial-intelligence .ci-two{grid-template-columns:1fr}}
+@media(max-width:480px){#aur-commercial-intelligence .ci-kpis,#aur-commercial-intelligence .ci-outcome-form{grid-template-columns:1fr}}

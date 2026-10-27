@@ -5,6 +5,8 @@
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g,
     char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const label = (en,de) => document.documentElement.lang === 'de' ? de : en;
+  const track=event=>fetch('/procurement/activity.php',{method:'POST',credentials:'omit',keepalive:true,
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({event})}).catch(()=>{});
   const format = count => new Intl.NumberFormat(document.documentElement.lang === 'de' ? 'de-DE' : 'en-GB').format(count || 0);
   function start() {
     const wizard=document.querySelector('[data-wizard]');
@@ -149,6 +151,7 @@
           }
           status.dataset.state='';
           status.textContent='';
+          track('basket_add');
           event.currentTarget.textContent=label('✓ Added','✓ Übernommen');
           event.currentTarget.disabled=true;
           if(firstSelection && enquiryTray && !enquiryTray.hidden){
@@ -205,6 +208,7 @@
           esc(label('indexed products','erfasste Produkte'))+'</small>';
         drawCategories(data);
         drawParts(data,append);
+        if(!append)track('search');
         status.dataset.state='';
       }catch(e) {
         if(ticket!==seq)return;
