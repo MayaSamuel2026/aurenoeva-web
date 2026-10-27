@@ -784,7 +784,8 @@ def export(db,path):
     enrich_rows(rows)
     vendors=[dict(x) for x in db.execute("""SELECT website,product_id,source_url,
        manufacturer,model,sector,category,evidence_type,last_seen
-       FROM vendor_product_evidence ORDER BY last_seen DESC""")]
+       FROM vendor_product_evidence WHERE listing_status!='WITHDRAWN'
+       ORDER BY last_seen DESC""")]
     leads=[dict(x) for x in db.execute("""SELECT website,category,sector,evidence_url,last_seen,checked,email,phone
        FROM vendor_leads ORDER BY last_seen DESC""")]
     payload={"schema":"aurenoeva-catalogue/1","items":rows,
