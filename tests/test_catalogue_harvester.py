@@ -86,6 +86,38 @@ class Tests(unittest.TestCase):
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM products").fetchone()[0],1)
         self.assertIn("sector",[x[1] for x in conn.execute("PRAGMA table_info(products)")])
         conn.close()
+    def test_all_homepage_discovery_topics_seed_both_search_providers(self):
+        root=Path(__file__).resolve().parents[1]
+        cfg=json.loads((root/"config/catalogue_harvester.json").read_text())
+        targets=cfg["discovery_targets"]
+        self.assertEqual(sum(x["group"]=="industry" for x in targets),12)
+        self.assertEqual(sum(x["group"]=="product_family" for x in targets),18)
+        self.assertEqual(len(targets),30)
+        self.assertEqual(len({x["name"] for x in targets}),30)
+        # Every newly illustrated homepage category is an active discovery topic.
+        ui=(root/"hotfix/catalogue-discovery/catalogue-discovery.js").read_text()
+        for target in targets:
+            self.assertIn("['"+target["name"]+"',",ui)
+            self.assertEqual(len(target["queries"]),2)
+        seeds(self.db,cfg)
+        rows=[dict(x) for x in self.db.execute(
+            "SELECT url,kind,sector,category FROM harvest_queue WHERE kind IN ('search','search_ddg')")]
+        by_phrase={}
+        for row in rows:
+            phrase=parse_qs(urlsplit(row["url"]).query).get("q",[""])[0]
+            by_phrase.setdefault(phrase,[]).append(row)
+        for target in targets:
+            for phrase in target["queries"]:
+                self.assertEqual({r["kind"] for r in by_phrase[phrase]},
+                                 {"search","search_ddg"},phrase)
+                for row in by_phrase[phrase]:
+                    self.assertEqual((row["sector"],row["category"]),("",""),
+                         "A discovery keyword is not technical evidence for a product")
+        # Seed repeatedly without creating duplicate tasks or resetting retries.
+        total=self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0]
+        seeds(self.db,cfg)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],total)
+
     def test_49_live_categories_are_configured(self):
         cfg=json.loads((Path(__file__).resolve().parents[1]/"config/catalogue_harvester.json").read_text())
         self.assertEqual(len(cfg["categories"]),7)
