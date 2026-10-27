@@ -24,8 +24,9 @@ RAW = f"https://raw.githubusercontent.com/{REPO}"
 APP = Path("/opt/aurenoeva")
 STATE = Path("/var/lib/aurenoeva")
 FILES = ("tools/catalogue_harvester.py", "tools/catalogue_publish.py",
+         "tools/catalogue_prices.py",
          "tools/catalogue_auto_update.py", "config/catalogue_harvester.json")
-TESTS = ("tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
+TESTS = ("tests/test_catalogue_prices.py", "tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
          "tests/test_catalogue_auto_update.py")
 SHA_PATTERN = re.compile(r"[a-f0-9]{40}\Z")
 
@@ -94,7 +95,7 @@ def stage_revision(sha: str, work: Path) -> None:
         not isinstance(cfg.get("categories"), dict) or
         sum(len(v) for v in cfg["categories"].values()) < 49):
         raise ValueError("catalogue_configuration_incomplete")
-    for name in ("tools/catalogue_harvester.py", "tools/catalogue_publish.py"):
+    for name in ("tools/catalogue_prices.py", "tools/catalogue_harvester.py", "tools/catalogue_publish.py"):
         compile((work / name).read_bytes(), name, "exec")
     result = subprocess.run(
         ["/usr/sbin/runuser", "-u", "aurenoeva", "--", "/usr/bin/python3",
@@ -128,8 +129,9 @@ def install_revision(sha: str, work: Path, app: Path = APP,
     files = [(work / name, app / name, name) for name in FILES]
     if not (state / "catalogue.sqlite3").is_file():
         raise RuntimeError("preserved_database_missing")
-    if any(not dest.is_file() or dest.is_symlink()
-           for _, dest, _ in files):
+    if any((dest.exists() and not dest.is_file()) or dest.is_symlink()
+           or (not dest.exists() and name != "tools/catalogue_prices.py")
+           for _, dest, name in files):
         raise RuntimeError("unexpected_installed_file_type")
     versions = state / "catalogue-code-releases"
     versions.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -139,8 +141,9 @@ def install_revision(sha: str, work: Path, app: Path = APP,
     for _, dest, name in files:
         path = backup / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(dest, path)
-        path.chmod(0o600)
+        if dest.is_file():
+            shutil.copy2(dest, path)
+            path.chmod(0o600)
     installed = []
     try:
         for candidate, dest, name in files:
@@ -160,7 +163,10 @@ def install_revision(sha: str, work: Path, app: Path = APP,
                 os.unlink(tmp)
     except Exception:
         for dest, old in reversed(installed):
-            atomic_write(dest, old.read_bytes())
+            if old.is_file():
+                atomic_write(dest, old.read_bytes())
+            else:
+                dest.unlink(missing_ok=True)
         print("CATALOGUE_UPDATE_ROLLBACK=PASS", flush=True)
         raise
     entries = sorted((p for p in versions.iterdir()

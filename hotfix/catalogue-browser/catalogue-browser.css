@@ -82,3 +82,8 @@
 @media(max-width:1040px){
   #aur-browse .aur-browse-products{grid-template-columns:minmax(0,1fr)}
 }
+
+/* WP02: Pricing enriches cards without displacing the existing RFQ action. */
+.aur-browse-price{display:block;margin-top:9px;font-size:11px;line-height:1.5;color:#16483d;overflow-wrap:anywhere}
+.aur-browse-price strong{font-variant-numeric:tabular-nums}
+.aur-browse-price a{color:#156856;text-decoration:underline;text-underline-offset:2px}

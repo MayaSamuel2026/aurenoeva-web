@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from urllib.error import HTTPError, URLError
 from urllib.robotparser import RobotFileParser
 from xml.etree import ElementTree as ET
+from catalogue_prices import init_offers, extract_public_offers, replace_page_offers, attach_offers
 
 AGENT="AurenoevaDiscovery/4.0 (+https://aurenoeva.com/)"
 SECTORS=("laboratory","test","medical","industrial","energy","marine","aviation")
@@ -344,6 +345,7 @@ def db_init(db):
     email TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',
     PRIMARY KEY(website,evidence_url));
     """)
+    init_offers(db)
     cols={x[1] for x in db.execute("PRAGMA table_info(products)")}
     for name in ("sector","category"):
         if name not in cols:db.execute("ALTER TABLE products ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
@@ -545,6 +547,9 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                           ON CONFLICT(website,product_id,source_url) DO UPDATE SET last_seen=excluded.last_seen""",
                           (hostof(url),prod["product_id"],url,prod["manufacturer"],prod["model"],
                            row["sector"],row["category"],prod["identity_evidence"],t))
+                    if kind=="page" and products:
+                        offers=extract_public_offers(body,url,products,t)
+                        replace_page_offers(db,url,[p["product_id"] for p in products],offers)
                     if kind in ("search","search_ddg"):
                         for link in links[:80]:
                             stats["new_urls"]+=enqueue(db,link,"page",row["sector"],row["category"])
@@ -619,6 +624,7 @@ def export(db,path):
     rows=[dict(x) for x in db.execute("""SELECT product_id AS canonical_id,manufacturer,model,description,
         source_url AS source_ref,sector,category,lifecycle_status,last_seen FROM products
         ORDER BY manufacturer,model""") if x["model"].casefold() not in GENERIC]
+    attach_offers(db, rows)
     vendors=[dict(x) for x in db.execute("""SELECT website,product_id,source_url,
        manufacturer,model,sector,category,evidence_type,last_seen
        FROM vendor_product_evidence ORDER BY last_seen DESC""")]

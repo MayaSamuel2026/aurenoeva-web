@@ -109,6 +109,26 @@ function aur_browse_category(array $part): string {
     return in_array($cat, $allowed[$sector], true) ? $cat : 'General laboratory equipment';
 }
 
+/** Expire source offers at read time, including between 30-minute snapshots. */
+function aur_browse_public_offers(array $part): array {
+    $raw = $part['public_offers'] ?? [];
+    if (!is_array($raw)) return [];
+    $now = time();
+    $offers = [];
+    foreach (array_slice($raw, 0, 5) as $offer) {
+        if (!is_array($offer)) continue;
+        $date = strtotime((string)($offer['observed_at'] ?? ''));
+        if ($date === false || $date < $now-14*86400 || $date > $now+300) continue;
+        $url = (string)($offer['source_url'] ?? '');
+        $parts = @parse_url($url);
+        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https'
+            || strtolower((string)($parts['host'] ?? '')) !== (string)($offer['seller_website'] ?? '')
+            || !is_numeric($offer['amount'] ?? null) || (float)$offer['amount'] <= 0) continue;
+        $offers[] = $offer;
+    }
+    return $offers;
+}
+
 function aur_browse_snapshot(string $path, string $sector, string $category = '', string $query = '', int $page = 0, int $limit = 12): array {
     $allowed = ['laboratory','test','medical','industrial','energy','marine','aviation'];
     if (!in_array($sector, $allowed, true)) throw new InvalidArgumentException('invalid_sector');
@@ -158,6 +178,8 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
                 'lifecycle_status' => 'UNVERIFIED',
                 'confidence' => null,
                 'source_ref' => filter_var($source, FILTER_VALIDATE_URL) ? $source : '',
+                'price_status' => aur_browse_public_offers($part) ? 'PUBLIC_OFFER' : 'ON_REQUEST',
+                'public_offers' => aur_browse_public_offers($part),
             ];
         }
         ++$matching;

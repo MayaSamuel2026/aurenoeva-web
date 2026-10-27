@@ -31,6 +31,25 @@ try {
     $found = aur_catalogue_snapshot_search('WATO EX-35');
     if (!is_array($found) || count($found) !== 1 || $found[0]['model'] !== 'WATO EX-35')
         throw new RuntimeException('website_search_readback_failed');
+    // WP02: permit only fresh, source-attributed seller prices.
+    $offerExample = $example;
+    $offerExample['items'] = [$example['items'][0]];
+    $offerExample['items'][0]['public_offers'] = [
+        ['seller_website'=>'www.mindray.com', 'seller_name'=>'Mindray Official',
+         'source_url'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35',
+         'currency'=>'EUR','amount'=>1200.50,'observed_at'=>gmdate('c'),
+         'private_margin'=>777],
+        ['seller_website'=>'fraud.example.net','seller_name'=>'Spoof',
+         'source_url'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35',
+         'currency'=>'EUR','amount'=>1,'observed_at'=>gmdate('c')],
+    ];
+    [$priceClean,$priceCount] = aur_catalogue_clean_snapshot(json_encode($offerExample, JSON_THROW_ON_ERROR));
+    $publicItem = json_decode($priceClean,true,512,JSON_THROW_ON_ERROR)['items'][0];
+    if ($priceCount!==1 || $publicItem['price_status']!=='PUBLIC_OFFER'
+        || count($publicItem['public_offers'])!==1
+        || $publicItem['public_offers'][0]['amount']!==1200.5
+        || str_contains($priceClean,'private_margin') || str_contains($priceClean,'fraud.example.net'))
+        throw new RuntimeException('public_price_source_sanitization_failed');
     // Regression: byte-limited fields containing international names must
     // never split UTF-8 sequences into malformed JSON (live HTTP 422).
     $utf8Input = ['schema'=>'aurenoeva-catalogue/1','items'=>[[

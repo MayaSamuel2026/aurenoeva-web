@@ -18,6 +18,12 @@ foreach(range(0,29) as $i) {
         'source_ref'=>'https://example.com/product/'.$i,
     ];
 }
+// WP02: seller evidence survives browsing, while absent offers say on request.
+$items[0]['public_offers'] = [[
+    'seller_website'=>'example.com','seller_name'=>'Example Seller',
+    'source_url'=>'https://example.com/product/0',
+    'currency'=>'EUR','amount'=>42.5,'observed_at'=>gmdate('c')
+]];
 $items[]=[
     'canonical_id'=>'AUR-P-'.str_repeat('F',20),
     'manufacturer'=>'Siemens','model'=>'6ES7132','sector'=>'industrial',
@@ -31,6 +37,10 @@ try {
        count($first['items'])!==12||$first['has_more']!==true||
        count($first['categories'])!==2)
        throw new RuntimeException('category_summary_wrong');
+    if($first['items'][0]['price_status']!=='PUBLIC_OFFER'
+       || count($first['items'][0]['public_offers'])!==1
+       || $first['items'][1]['price_status']!=='ON_REQUEST')
+       throw new RuntimeException('public_offer_and_on_request_fallback_wrong');
     $second=aur_browse_snapshot($path,'laboratory','', '',1,12);
     if(count($second['items'])!==12||
        $second['items'][0]['canonical_id']===$first['items'][0]['canonical_id'])
