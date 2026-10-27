@@ -27,6 +27,8 @@ class Tests(unittest.TestCase):
                          "https://de.pons.com/shop/grammatik/978-3-12-562482-5"))
         self.assertFalse(technical_product_relevance("aviation","100397202",
                          "https://www.lidl.de/p/cutting-board/p100397202"))
+        self.assertFalse(technical_product_relevance("marine","Pumps FRANCESCA",
+                         "https://www.breuninger.com/de/p/pumps-francesca"))
         self.assertTrue(technical_product_relevance("industrial","6ES7132",
                         "https://www.ersaal.de/en/product/siemens-6es7132"))
 
