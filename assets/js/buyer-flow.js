@@ -80,6 +80,11 @@ function begin(){
   // Match the established AURENOEVA catalogue selection store used by site.js.
   // Quantities live alongside each selected identity; no server-side session or login.
   var BASKET_KEY='aur_selected_parts_v1';
+  // Count actions without transmitting typed queries, products, customer data or identifiers.
+  function track(event){
+    fetch('/procurement/activity.php',{method:'POST',credentials:'omit',keepalive:true,
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({event:event})}).catch(function(){});
+  }
   function restoreBasket(){
     try{
       var saved=JSON.parse(localStorage.getItem(BASKET_KEY)||'[]');
@@ -190,6 +195,7 @@ function begin(){
       if(!res.ok||!data.ok||data.available===false)throw Error('unavailable');
       found=(Array.isArray(data.items)?data.items:[]).filter(function(p){return p&&p.canonical_id&&p.manufacturer&&p.model;}).slice(0,8);
       renderResults();
+      track('search');
       status(found.length?'':tx('noMatch'));
     }catch(e){
       if(my!==seq)return;
@@ -226,6 +232,7 @@ function begin(){
     if(!items.some(function(x){return x.id===id;})){
       if(items.length>=20){status(tx('maxItems'));return false;}
       items.push({id:id,p:p,qty:1});
+      track('basket_add');
     }
     saveBasket();renderResults();
     if(openImmediately)openDrawer();
@@ -390,6 +397,7 @@ function begin(){
       // A page may overlap a previous request after a live snapshot refresh.
       var ids=new Set(sectorState.products.map(identity));
       data.items.forEach(function(p){if(p&&p.canonical_id&&!ids.has(identity(p))){ids.add(identity(p));sectorState.products.push(p);}});
+      if(page===0)track('search');
       statusEl.textContent=Number(data.total).toLocaleString(de()?'de-DE':'en-GB')+' '+sectorTx('result');
       drawSectorCategories();drawSectorProducts();updateSectorLanguage();
     }catch(err){

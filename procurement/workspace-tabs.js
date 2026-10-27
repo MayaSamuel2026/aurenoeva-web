@@ -7,7 +7,7 @@
     const tabs = document.getElementById('aur-tabs');
     const guide = document.getElementById('aur-workflow');
     if (!tabs || !guide) return;
-    const keys = ['overview', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'];
+    const keys = ['overview', 'intelligence', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'];
     const panels = {};
     for (const key of keys) {
       const panel = document.createElement('section');
@@ -31,6 +31,7 @@
         return heading && heading.textContent.trim() === title;
       });
     move(guide, panels.overview);
+    move(document.getElementById('aur-commercial-intelligence'), panels.intelligence);
     move(document.getElementById('aur-upload'), panels.enquiry);
     move(document.getElementById('saved-cases'), panels.enquiry);
 
