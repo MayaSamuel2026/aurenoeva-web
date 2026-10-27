@@ -61,6 +61,14 @@ class PublicOfferTests(unittest.TestCase):
                 "@type": "Offer", "price": "999", "priceCurrency": ""}}),
             self.url, [self.part], self.now), [])
 
+    def test_structured_seller_unavailable_offer_is_not_published(self):
+        for status in ("OutOfStock", "SoldOut", "Discontinued"):
+            entry = {**self.product, "offers": {
+                **self.product["offers"],
+                "availability": "https://schema.org/" + status}}
+            self.assertEqual(extract_public_offers(self.page(entry), self.url,
+                                                   [self.part], self.now), [])
+
     def test_revisit_withdraws_only_its_own_page_prices(self):
         initial = extract_public_offers(self.page(self.product), self.url, [self.part], self.now)
         other = dict(initial[0], seller_website="competitor.example.com",
