@@ -68,6 +68,29 @@ function begin(){
       cartcount=root.querySelector('#aur-fast-count'),form=backdrop.querySelector('form'),
       selected=backdrop.querySelector('#aur-fast-selected'),sendstatus=backdrop.querySelector('#aur-fast-sendstatus');
   var found=[],items=[],freeText='',timer=null,seq=0,requestInProgress=false,lastFocus=null;
+  // Match the established AURENOEVA catalogue selection store used by site.js.
+  // Quantities live alongside each selected identity; no server-side session or login.
+  var BASKET_KEY='aur_selected_parts_v1';
+  function restoreBasket(){
+    try{
+      var saved=JSON.parse(localStorage.getItem(BASKET_KEY)||'[]');
+      if(!Array.isArray(saved))return [];
+      var seen=new Set();
+      return saved.filter(function(p){return p&&typeof p==='object'&&p.canonical_id&&p.manufacturer&&(p.model||p.part_number);})
+        .slice(0,20).map(function(p){
+          var id=identity(p),qty=Math.max(1,Math.min(999999,parseInt(p.aur_quantity,10)||1));
+          if(seen.has(id))return null;seen.add(id);
+          return {id:id,p:p,qty:qty};
+        }).filter(Boolean);
+    }catch(e){return [];}
+  }
+  function saveBasket(){
+    try{localStorage.setItem(BASKET_KEY,JSON.stringify(items.map(function(i){
+      return Object.assign({},i.p,{aur_quantity:i.qty});
+    }).slice(0,20)));}catch(e){}
+    cartbutton.hidden=items.length===0&&!freeText.trim();
+    cartcount.textContent=String(items.length+(freeText.trim()?1:0));
+  }
   var strings={
    searchLabel:['Find industrial and technical parts','Industrie- und technische Ersatzteile finden'],
    searchButton:['Search','Suchen'],
@@ -161,8 +184,7 @@ function begin(){
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(search,350);}
   function renderBasket(){
-    cartbutton.hidden=items.length===0&&!freeText;
-    cartcount.textContent=String(items.length||(freeText?1:0));
+    saveBasket();
     var html='';
     items.forEach(function(i,k){
       html+='<div class="aur-fast-line"><div class="aur-fast-linecopy"><b>'+esc(i.p.manufacturer)+' · '+esc(i.p.model||i.p.part_number)+'</b>'+
@@ -179,15 +201,175 @@ function begin(){
     var focus= form.querySelector('[name="email"]');if(focus)focus.focus();
   }
   function closeDrawer(){if(requestInProgress)return;var f=selected.querySelector('#aur-fast-freevalue');if(f)freeText=short(f.value,1000);backdrop.hidden=true;document.body.classList.remove('aur-fast-dialog-open');if(lastFocus&&lastFocus.isConnected)lastFocus.focus();}
-  function choose(i){var p=found[i];if(!p)return;var id=identity(p);if(!items.some(function(x){return x.id===id;})){if(items.length>=20){status(tx('maxItems'));return;}items.push({id:id,p:p,qty:1});}renderResults();openDrawer();}
+  function addToBasket(p,openImmediately){
+    if(!p||!p.canonical_id)return false;
+    var id=identity(p);
+    if(!items.some(function(x){return x.id===id;})){
+      if(items.length>=20){status(tx('maxItems'));return false;}
+      items.push({id:id,p:p,qty:1});
+    }
+    saveBasket();renderResults();
+    if(openImmediately)openDrawer();
+    return true;
+  }
+  function choose(i){return addToBasket(found[i],true);}
+
+  // Sector cards now OPEN their live catalogue rather than merely changing an
+  // invisible legacy wizard field. Browse and add parts on the homepage.
+  var sectorPanel=null,sectorState={sector:'',category:'__all',page:0,total:0,hasMore:false,
+    categories:[],products:[],epoch:0},sectorAbort=null;
+  var sectorNames={
+    laboratory:['Laboratory','Labor & Analytik'],test:['Test & Measurement','Mess- & Prüftechnik'],
+    medical:['Medical','Medizintechnik'],industrial:['Industrial','Industrie & Automation'],
+    energy:['Energy','Energie'],marine:['Marine','Marine'],aviation:['Aviation','Luftfahrt']
+  };
+  var sectorLabels={
+    heading:['Browse ','Katalog durchsuchen: '],
+    all:['All categories','Alle Kategorien'],
+    loading:['Loading catalogue parts…','Katalogteile werden geladen …'],
+    error:['The catalogue is temporarily unavailable. Search a part number above or try again.','Der Katalog ist vorübergehend nicht erreichbar. Nutzen Sie die Suche oben oder versuchen Sie es erneut.'],
+    search:['Filter parts in this industry','Teile in diesem Bereich filtern'],
+    more:['Show more parts','Weitere Teile laden'],
+    result:['parts found','Teile gefunden'],
+    empty:['No parts match these filters. Try another category.','Keine passenden Teile. Versuchen Sie eine andere Kategorie.'],
+    selected:['Added to your enquiry — continue browsing or open the basket.','Zur Anfrage hinzugefügt – weitersuchen oder Anfragekorb öffnen.']
+  };
+  function sectorTx(k){var v=sectorLabels[k]||[k,k];return v[de()?1:0];}
+  function sectorName(k){var v=sectorNames[k]||[k,k];return v[de()?1:0];}
+  function initSectorBrowser(){
+    if(!isHome)return;
+    var cards=document.querySelector('.card-grid');
+    if(!cards)return;
+    sectorPanel=document.createElement('section');sectorPanel.id='aur-fast-sector';
+    sectorPanel.className='aur-fast-sector';sectorPanel.hidden=true;
+    sectorPanel.setAttribute('aria-label','Industry catalogue');
+    sectorPanel.innerHTML='<div class="aur-fast-sectorhead"><div><span class="aur-fast-eyebrow">AURENOEVA CATALOGUE</span><h3 id="aur-fast-sectortitle"></h3></div>'+
+      '<span id="aur-fast-sectorcount" class="aur-fast-sectorcount"></span></div>'+
+      '<div id="aur-fast-sectorcats" class="aur-fast-sectorcats"></div>'+
+      '<label class="aur-fast-sectorfilter"><span class="aur-fast-filtericon" aria-hidden="true">⌕</span><input type="search" id="aur-fast-sectorquery" maxlength="120" autocomplete="off"></label>'+
+      '<p id="aur-fast-sectorstatus" class="aur-fast-sectorstatus" role="status" aria-live="polite"></p>'+
+      '<div id="aur-fast-sectorparts" class="aur-fast-sectorparts"></div>'+
+      '<button type="button" class="aur-fast-sector-more" hidden></button>';
+    cards.insertAdjacentElement('afterend',sectorPanel);
+    var map={'Laboratory':'laboratory','Test & Measurement':'test','Medical':'medical',
+      'Industrial':'industrial','Energy':'energy','Marine':'marine','Aviation':'aviation'};
+    cards.querySelectorAll('button.sector-card').forEach(function(card){
+      // Keep existing card illustrations, layout and active states.
+      card.addEventListener('click',function(){
+        var sector=map[card.dataset.sector];
+        if(sector)openSector(sector);
+      });
+      card.setAttribute('aria-label',(de()?'Katalog öffnen: ':'Browse catalogue: ')+card.dataset.sector);
+    });
+    var query=sectorPanel.querySelector('#aur-fast-sectorquery'),debounce;
+    query.addEventListener('input',function(){clearTimeout(debounce);debounce=setTimeout(function(){
+      sectorState.page=0;sectorState.products=[];loadSector(0);
+    },320);});
+    sectorPanel.addEventListener('click',function(event){
+      var chip=event.target.closest('[data-aur-category]');
+      if(chip){sectorState.category=chip.dataset.aurCategory;sectorState.products=[];sectorState.page=0;
+        drawSectorCategories();loadSector(0);return;}
+      var pick=event.target.closest('[data-aur-sector-pick]');
+      if(pick){var product=sectorState.products[Number(pick.dataset.aurSectorPick)];
+        if(addToBasket(product,false)){
+          drawSectorProducts();
+          sectorPanel.querySelector('#aur-fast-sectorstatus').textContent=sectorTx('selected');
+        }
+        return;}
+      if(event.target.closest('.aur-fast-sector-more'))loadSector(sectorState.page+1);
+    });
+  }
+  function openSector(sector){
+    if(!sectorPanel)return;
+    var changed=sectorState.sector!==sector;
+    sectorState.sector=sector;sectorPanel.hidden=false;
+    if(changed){
+      sectorState.category='__all';sectorState.page=0;sectorState.products=[];
+      sectorPanel.querySelector('#aur-fast-sectorquery').value='';
+    }
+    updateSectorLanguage();
+    loadSector(0);
+    sectorPanel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function drawSectorCategories(){
+    if(!sectorPanel)return;
+    var holder=sectorPanel.querySelector('#aur-fast-sectorcats');
+    var cats=[{name:'__all',count:sectorState.total}].concat(sectorState.categories);
+    holder.innerHTML=cats.map(function(c){
+      var active=c.name===sectorState.category;
+      var name=c.name==='__all'?sectorTx('all'):(c.name==='__other'?(de()?'Weitere Teile':'Other parts'):c.name);
+      return '<button type="button" class="aur-fast-sectorchip'+(active?' active':'')+
+        '" data-aur-category="'+esc(c.name)+'" aria-pressed="'+String(active)+'">'+esc(name)+
+        (typeof c.count==='number'?'<small>'+c.count.toLocaleString(de()?'de-DE':'en-GB')+'</small>':'')+'</button>';
+    }).join('');
+  }
+  function drawSectorProducts(){
+    if(!sectorPanel)return;
+    var list=sectorPanel.querySelector('#aur-fast-sectorparts');
+    list.innerHTML=sectorState.products.map(function(p,i){
+      var added=items.some(function(x){return x.id===identity(p);});
+      return '<article class="aur-fast-sectorpart"><div><strong>'+esc(p.manufacturer||'')+' · '+esc(p.model||p.part_number||'')+
+        '</strong><p>'+esc(short(p.description||p.category,180))+'</p><div class="aur-fast-price">'+fmtPrice(p)+'</div></div>'+
+        '<button type="button" class="aur-fast-select" data-aur-sector-pick="'+i+'" '+(added?'disabled':'')+'>'+
+        esc(tx(added?'added':'select'))+' <span aria-hidden="true">→</span></button></article>';
+    }).join('');
+    sectorPanel.querySelector('.aur-fast-sector-more').hidden=!sectorState.hasMore;
+    sectorPanel.querySelector('.aur-fast-sector-more').textContent=sectorTx('more');
+    if(sectorState.products.length===0&&!sectorState.hasMore){
+      sectorPanel.querySelector('#aur-fast-sectorstatus').textContent=sectorTx('empty');
+    }
+  }
+  async function loadSector(page){
+    if(!sectorPanel||!sectorState.sector)return;
+    if(sectorAbort)sectorAbort.abort();
+    var controller=new AbortController();sectorAbort=controller;
+    var epoch=++sectorState.epoch;
+    var statusEl=sectorPanel.querySelector('#aur-fast-sectorstatus');
+    statusEl.textContent=sectorTx('loading');
+    var more=sectorPanel.querySelector('.aur-fast-sector-more');
+    more.hidden=true;
+    var filter=sectorPanel.querySelector('#aur-fast-sectorquery').value.trim();
+    var params=new URLSearchParams({sector:sectorState.sector,category:sectorState.category,
+      page:String(page)});
+    if(filter)params.set('q',filter);
+    try{
+      var response=await fetch('catalogue-browse.php?'+params.toString(),{
+        credentials:'same-origin',signal:controller.signal,headers:{Accept:'application/json'}
+      });
+      var data=await response.json();
+      if(epoch!==sectorState.epoch)return;
+      if(!response.ok||data.ok!==true||data.sector!==sectorState.sector||
+         !Array.isArray(data.items)||!Array.isArray(data.categories))throw Error('catalogue_unavailable');
+      sectorState.categories=data.categories;
+      sectorState.total=Number(data.sector_total)||0;
+      sectorState.page=page;sectorState.hasMore=!!data.has_more;
+      if(page===0)sectorState.products=[];
+      // A page may overlap a previous request after a live snapshot refresh.
+      var ids=new Set(sectorState.products.map(identity));
+      data.items.forEach(function(p){if(p&&p.canonical_id&&!ids.has(identity(p))){ids.add(identity(p));sectorState.products.push(p);}});
+      statusEl.textContent=Number(data.total).toLocaleString(de()?'de-DE':'en-GB')+' '+sectorTx('result');
+      drawSectorCategories();drawSectorProducts();updateSectorLanguage();
+    }catch(err){
+      if(epoch!==sectorState.epoch||err.name==='AbortError')return;
+      statusEl.textContent=sectorTx('error');
+      more.hidden=true;
+    }
+  }
+  function updateSectorLanguage(){
+    if(!sectorPanel||sectorPanel.hidden)return;
+    sectorPanel.querySelector('#aur-fast-sectortitle').textContent=sectorTx('heading')+sectorName(sectorState.sector);
+    sectorPanel.querySelector('#aur-fast-sectorquery').placeholder=sectorTx('search');
+    sectorPanel.querySelector('#aur-fast-sectorquery').setAttribute('aria-label',sectorTx('search'));
+    drawSectorCategories();drawSectorProducts();
+  }
+
   function i18n(){
     var pageCopy=isHome?['#sectors .stage-title','#sectors .stage-help','.sector-feature-intro h3']:['.page-hero h1','.page-hero .eyebrow','.page-hero p'];
     pageCopy.forEach(function(q){var el=document.querySelector(q);if(el)el.textContent=de()?el.dataset.de:el.dataset.en;});
     root.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
     backdrop.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
     input.placeholder=de()?'z. B. Siemens 6ES7, Festo, Dichtung, Laborgerät':'e.g. Siemens 6ES7, Festo, seal, laboratory equipment';
-    root.querySelector('.aur-fast-cartbutton').hidden=items.length===0&&!freeText;
-    renderResults();renderBasket();
+    renderResults();renderBasket();if(typeof updateSectorLanguage==='function')updateSectorLanguage();
   }
   root.addEventListener('click',function(e){
     var pick=e.target.closest('[data-aur-pick]');
@@ -200,10 +382,10 @@ function begin(){
   backdrop.addEventListener('click',function(e){
     if(e.target===backdrop){closeDrawer();return;}
     var btn=e.target.closest('[data-aur-action]');if(btn){if(btn.dataset.aurAction==='close')closeDrawer();if(btn.dataset.aurAction==='another'){closeDrawer();input.focus();}return;}
-    var remove=e.target.closest('[data-aur-remove]');if(remove){items.splice(Number(remove.dataset.aurRemove),1);renderResults();renderBasket();}
+    var remove=e.target.closest('[data-aur-remove]');if(remove){items.splice(Number(remove.dataset.aurRemove),1);renderResults();renderBasket();if(typeof drawSectorProducts==='function')drawSectorProducts();}
   });
   backdrop.addEventListener('change',function(e){
-    if(e.target.matches('[data-aur-qty]')){var i=Number(e.target.dataset.aurQty);if(items[i])items[i].qty=Math.max(1,Math.min(999999,parseInt(e.target.value,10)||1));e.target.value=String(items[i]?items[i].qty:1);}
+    if(e.target.matches('[data-aur-qty]')){var i=Number(e.target.dataset.aurQty);if(items[i])items[i].qty=Math.max(1,Math.min(999999,parseInt(e.target.value,10)||1));e.target.value=String(items[i]?items[i].qty:1);saveBasket();}
   });
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!backdrop.hidden)closeDrawer();});
   input.addEventListener('input',schedule);
@@ -240,13 +422,15 @@ function begin(){
       selected.innerHTML='<div class="aur-fast-success"><span aria-hidden="true">✓</span><strong>'+esc(tx('submitted'))+esc(reference)+'</strong><p>'+esc(tx('sentNotice'))+'</p></div>';
       form.querySelector('.aur-fast-fields').hidden=true;form.querySelector('.aur-fast-details').hidden=true;
       form.querySelector('.aur-fast-another').hidden=true;button.hidden=true;
-      sendstatus.textContent='';items=[];freeText='';renderResults();cartbutton.hidden=true;
+      sendstatus.textContent='';items=[];freeText='';saveBasket();renderResults();
     }catch(e){sendstatus.textContent=tx('sendError');}
     finally{requestInProgress=false;button.disabled=false;}
   });
   var params=new URLSearchParams(location.search);
   var q=params.get('q')||params.get('identifier')||'';
+  items=restoreBasket();
   if(q){input.value=q.slice(0,180);schedule();}
+  initSectorBrowser();
   i18n();
   document.addEventListener('aur:lang',i18n);
   document.querySelectorAll('[data-lang]').forEach(function(el){el.addEventListener('click',function(){setTimeout(i18n,0);});});
