@@ -749,6 +749,30 @@ jobs:
           node tests/test_catalogue_discovery.js "$RUNNER_TEMP/source/site/index.html" "$RUNNER_TEMP/source/site/assets/js/catalogue-discovery.js"
           node tests/test_catalogue_icons.js "$RUNNER_TEMP/source/site/assets/js/catalogue-discovery.js" "$RUNNER_TEMP/source/site/assets/css/catalogue-discovery.css" "$RUNNER_TEMP/source/site/assets/img/category-icons.svg"
 
+      - name: Install AURENOEVA streamlined buyer flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp hotfix/buyer-flow/buyer-flow.js "$RUNNER_TEMP/source/site/assets/js/buyer-flow.js"
+          cp hotfix/buyer-flow/buyer-flow.css "$RUNNER_TEMP/source/site/assets/css/buyer-flow.css"
+          python3 - "$RUNNER_TEMP/source/site" <<'PY'
+          import os,sys
+          from pathlib import Path
+          site=Path(sys.argv[1])
+          release=os.environ['GITHUB_SHA'][:12]
+          for name in ('index.html','requirement.html'):
+              page=site/name
+              html=page.read_text(encoding='utf-8')
+              assert html.count('</head>')==1 and html.count('</body>')==1
+              assert 'buyer-flow.js' not in html and 'buyer-flow.css' not in html
+              html=html.replace('</head>',f'<link rel="stylesheet" href="assets/css/buyer-flow.css?v={release}">\n</head>',1)
+              html=html.replace('</body>',f'<script defer src="assets/js/buyer-flow.js?v={release}"></script>\n</body>',1)
+              page.write_text(html,encoding='utf-8')
+          PY
+          node --check "$RUNNER_TEMP/source/site/assets/js/buyer-flow.js"
+          node tests/test_buyer_flow.js "$RUNNER_TEMP/source/site"
+          php -l "$RUNNER_TEMP/source/site/requirement-submit.php"
+
       - name: Build clean production branch
         shell: bash
         run: |
