@@ -409,6 +409,11 @@ def verify_source_listings(db, url, found_product_ids, checked_at, http_status=2
     existing=db.execute("""SELECT product_id,listing_status,missing_checks,first_missing_at
                            FROM vendor_product_evidence WHERE source_url=?""",(url,)).fetchall()
     positive=set(found_product_ids)
+    # Parsed catalogue/index pages can omit products through pagination.
+    # Only a single positively identified replacement on an item-detail URL
+    # counts as negative evidence for an older seller item on HTTP 200.
+    path=urlsplit(url).path.lower()
+    individual_page=bool(re.search(r"/(?:products?|parts?|items?|p)/[^?#]+",path)) and len(positive)==1
     current=datetime.fromisoformat(checked_at.replace("Z","+00:00"))
     affected=set(positive)
     withdrawn=0
@@ -424,7 +429,7 @@ def verify_source_listings(db, url, found_product_ids, checked_at, http_status=2
             continue
         # A parsed empty page is NOT proof that the seller withdrew every part.
         # A missing price or temporarily broken markup is not product removal.
-        if http_status==200 and not positive:
+        if http_status==200 and not individual_page:
             db.execute("""UPDATE vendor_product_evidence SET last_checked_at=?,
                           last_http_status=200 WHERE product_id=? AND source_url=?""",
                        (checked_at,key,url))
