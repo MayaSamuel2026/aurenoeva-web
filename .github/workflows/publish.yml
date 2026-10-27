@@ -343,7 +343,7 @@ jobs:
           node --check "$RUNNER_TEMP/source/site/procurement/commercial-intelligence.js"
           grep -q 'data-aur-tab="intelligence"' "$RUNNER_TEMP/source/site/procurement/index.php"
           grep -q 'commercial_intelligence.php' "$RUNNER_TEMP/source/site/procurement/index.php"
-          grep -q 'track('\''basket_add'\'')' "$RUNNER_TEMP/source/site/assets/js/buyer-flow.js" || grep -q "track('basket_add')" "hotfix/buyer-flow/buyer-flow.js"
+          grep -Fq "track('basket_add')" hotfix/buyer-flow/buyer-flow.js
           php tests/test_procurement_tabs.php
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
