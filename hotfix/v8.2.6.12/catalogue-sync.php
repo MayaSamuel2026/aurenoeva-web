@@ -219,6 +219,10 @@ function aur_catalogue_write_snapshot(string $body, string $directory): array {
             $digest=hash('sha256',$normalized);
             if(hash_file('sha256',$target)!==$digest)
                 throw new RuntimeException('snapshot_readback');
+            // Record actual publication history after verified snapshot readback.
+            try { require_once __DIR__.'/procurement/commercial_intelligence.php';
+                  aur_ci_snapshot_observed($directory,$count,$digest); }
+            catch(Throwable $e){error_log('AURENOEVA catalogue history: '.get_class($e));}
             return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,
                 'accepted_input_records'=>$acceptedInput,'sha256'=>$digest,
                 'source_sha256'=>hash('sha256',$body)];
@@ -427,6 +431,9 @@ function aur_bulk_commit(string $directory,string $sha,int $bytes,int $count):ar
         if(!@rename($file,$target))
             throw new RuntimeException('bulk_write_failed');
         clearstatcache(true,$target);
+        try { require_once __DIR__.'/procurement/commercial_intelligence.php';
+              aur_ci_snapshot_observed($directory,$count,$sha); }
+        catch(Throwable $e){error_log('AURENOEVA catalogue history: '.get_class($e));}
         return ['ok'=>true,'status'=>'PUBLISHED','records'=>$count,'sha256'=>$sha];
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
