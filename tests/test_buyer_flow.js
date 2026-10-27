@@ -40,5 +40,6 @@ assert.ok(js.includes("data-aur-category"),'offer per-industry category selectio
 assert.ok(js.includes("data-aur-sector-pick"),'allow category products to be added to enquiry');
 assert.ok(js.includes('if(page===0)sectorState.products=[]'),'new filter replaces results');
 assert.ok(js.includes('sectorState.epoch'),'reject stale catalogue responses');
+assert.ok(js.includes("Date.parse(x.observed_at||'')")&&js.includes('Date.now()-14*86400000'),'restored public prices expire independently of persisted part identities');
 assert.ok(css.includes('position:fixed')&&css.includes('.aur-fast-sectorparts'),'basket remains reachable while browsing');
 console.log('AURENOEVA_ONE_PAGE_BUYER_FLOW=PASS');
