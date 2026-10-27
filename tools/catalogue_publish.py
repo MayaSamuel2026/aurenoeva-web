@@ -195,6 +195,19 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
         "items": [records[key] for key in sorted(records)],
         "availability_notice": "Product identity only; no supplier stock or price is implied.",
     }
+    health = raw.get("catalogue_health")
+    if isinstance(health, dict) and health.get("lifecycle_version") == 1:
+        # Only public-safe aggregates; no supplier contacts or private URLs.
+        allowed = ("source_links", "confirmed_withdrawn_links",
+                   "recheck_required_links", "overdue_14d_links",
+                   "confirmed_withdrawn_products", "unverified_30d_products")
+        payload["catalogue_health"] = {"lifecycle_version": 1}
+        for key in allowed:
+            value = health.get(key)
+            if type(value) is int and 0 <= value <= 10000000:
+                payload["catalogue_health"][key] = value
+        payload["catalogue_health"]["latest_check_at"] = str(health.get("latest_check_at") or "")[:35]
+    # Keep public_stats last: catalogue-count.php validates it from the bounded JSON tail.
     source_stats = raw.get("source_catalogue_stats")
     if isinstance(source_stats, dict):
         db_count = source_stats.get("db_products")
@@ -215,18 +228,6 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "excluded_duplicates": reasons["duplicate_canonical_id"],
                 "excluded_nonrecord": reasons["non_product_record"],
             }
-    health = raw.get("catalogue_health")
-    if isinstance(health, dict) and health.get("lifecycle_version") == 1:
-        # Only public-safe aggregates; no supplier contacts or private URLs.
-        allowed = ("source_links", "confirmed_withdrawn_links",
-                   "recheck_required_links", "overdue_14d_links",
-                   "confirmed_withdrawn_products", "unverified_30d_products")
-        payload["catalogue_health"] = {"lifecycle_version": 1}
-        for key in allowed:
-            value = health.get(key)
-            if type(value) is int and 0 <= value <= 10000000:
-                payload["catalogue_health"][key] = value
-        payload["catalogue_health"]["latest_check_at"] = str(health.get("latest_check_at") or "")[:35]
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
 
 
