@@ -52,15 +52,48 @@
     if(rev)args.set('rev',rev);
     return 'requirement.html?'+args.toString();
   }
-  function linkChip(item){
+  // Visual vocabulary is shared by every category. Artwork is decorative, while
+  // bilingual category names remain accessible and are the actionable link text.
+  const industryIcons=['oil','chemical','pharma','automotive','rail','food',
+    'agriculture','mining','construction','water','semiconductor','logistics'];
+  const familyIcons=['automation','sensors','electrical','motors','hydraulics','pumps',
+    'bearings','mechanical','machines','filtration','hvac','laboratory','medical',
+    'energy','handling','safety','computing','materials'];
+  const industryDescriptions=[
+    ['Refining and extraction equipment','Raffinerie- und Fördertechnik'],
+    ['Chemical processing and handling','Chemische Prozesse und Verfahren'],
+    ['Production and laboratory systems','Produktions- und Labortechnik'],
+    ['Vehicle systems and EV components','Fahrzeugsysteme und E-Mobilität'],
+    ['Rail systems and infrastructure','Bahntechnik und Infrastruktur'],
+    ['Production and packaging equipment','Produktion und Verpackung'],
+    ['Agricultural and forestry machinery','Land- und Forstmaschinen'],
+    ['Extraction and heavy machinery','Förder- und Schwermaschinen'],
+    ['Building systems and equipment','Gebäudesysteme und Bautechnik'],
+    ['Treatment and filtration systems','Aufbereitung und Filtration'],
+    ['Components and fabrication tools','Bauteile und Fertigungstechnik'],
+    ['Material handling and storage','Fördertechnik und Lagerung']
+  ];
+  const asset='assets/img/category-icons.svg#aur-';
+  function linkChip(item,icon,description){
     const a=make('a','aur-discovery-chip');
     a.href=searchRoute(item[2]);
     a.setAttribute('aria-label',phrase('Search catalogue: ','Katalog durchsuchen: ')+phrase(item[0],item[1]));
+    const art=make('span','aur-discovery-art');
+    art.setAttribute('aria-hidden','true');
+    const drawing=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    drawing.setAttribute('viewBox','0 0 64 64');drawing.setAttribute('focusable','false');
+    const use=document.createElementNS('http://www.w3.org/2000/svg','use');
+    use.setAttribute('href',asset+icon);drawing.append(use);art.append(drawing);
+    const copy=make('span','aur-discovery-copy');
     bilingual(make('span'),item[0],item[1]);
-    const label=make('span');
-    bilingual(label,item[0],item[1]);
+    const name=make('span','aur-discovery-name');
+    bilingual(name,item[0],item[1]);copy.append(name);
+    if(description){
+      const sub=make('span','aur-discovery-caption');
+      bilingual(sub,description[0],description[1]);copy.append(sub);
+    }
     const arrow=make('span','aur-discovery-arrow');arrow.setAttribute('aria-hidden','true');arrow.textContent='→';
-    a.append(label,arrow);
+    a.append(art,copy,arrow);
     return a;
   }
   const tabs=make('div','aur-discovery-tabs');
@@ -86,7 +119,7 @@
   bilingual(summary,'Explore 12 more industries','12 weitere Branchen entdecken');
   extra.append(summary);
   const additional=make('div','aur-discovery-chip-grid');
-  industries.forEach(item=>additional.append(linkChip(item)));
+  industries.forEach((item,i)=>additional.append(linkChip(item,industryIcons[i],industryDescriptions[i])));
   extra.append(additional);
   cards.insertAdjacentElement('afterend',extra);
   const familyPanel=make('div','aur-discovery-panel');
@@ -96,7 +129,7 @@
   bilingual(familyIntro,'Explore cross-industry components. Each choice searches the existing catalogue; classifications and stock are never assumed.','Branchenübergreifende Komponenten entdecken. Jede Auswahl durchsucht den bestehenden Katalog; Klassifikation und Bestand werden nicht vorausgesetzt.');
   familyPanel.append(familyIntro);
   const familyGrid=make('div','aur-discovery-chip-grid');
-  families.forEach(item=>familyGrid.append(linkChip(item)));
+  families.forEach((item,i)=>familyGrid.append(linkChip(item,familyIcons[i])));
   familyPanel.append(familyGrid);
   extra.insertAdjacentElement('afterend',familyPanel);
   const makerPanel=make('div','aur-discovery-panel');
