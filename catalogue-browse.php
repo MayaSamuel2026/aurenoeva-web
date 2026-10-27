@@ -29,11 +29,15 @@ function aur_browse_relevant(array $part): bool {
         'www.pcwelt.de','pcwelt.de','www.computerbild.de','computerbild.de',
         'www.thisoldhouse.com','thisoldhouse.com',
         'www.langenscheidt.com','langenscheidt.com',
-        'tribesigns.de','www.tribesigns.de'
+        'tribesigns.de','www.tribesigns.de',
+        'www.deichmann.com','deichmann.com','www.gabor.com','gabor.com',
+        'www.breuninger.com','breuninger.com','www.zalando.de','zalando.de',
+        'www.aboutyou.de','aboutyou.de'
     ], true)) return false;
     $sector = (string)($part['sector'] ?? '');
     if (strcasecmp(trim((string)($part['manufacturer'] ?? '')), 'Tribesigns') === 0) return false;
     $model = (string)($part['model'] ?? '');
+    if (preg_match('/\b(?:stiefelette|sneaker|schuhe?|winterboots|handtasche|umhängetasche)\b/iu', $model)) return false;
     if (preg_match('/\bpons\b/i',(string)($part['manufacturer'] ?? '')) &&
         preg_match('/^97[89][-0-9]+$/',$model)) return false;
     $path = strtolower((string)(parse_url($source, PHP_URL_PATH) ?: ''));
