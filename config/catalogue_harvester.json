@@ -821,5 +821,247 @@
       "category": "Machine / process equipment",
       "priority": true
     }
+  ],
+  "discovery_targets": [
+    {
+      "group": "industry",
+      "name": "Oil, Gas & Petrochemicals",
+      "queries": [
+        "oil gas refinery petrochemical processing equipment OEM part numbers",
+        "oilfield pumps valves refinery instrumentation manufacturer datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Chemicals & Process Industries",
+      "queries": [
+        "chemical process plant equipment OEM spare parts datasheets",
+        "chemical dosing process automation pumps valves industrial suppliers"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Pharmaceutical & Biotechnology",
+      "queries": [
+        "pharmaceutical bioprocess manufacturing equipment OEM components models",
+        "biotechnology cleanroom process filtration parts manufacturer datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Automotive & Electric Mobility",
+      "queries": [
+        "automotive factory production equipment OEM spare parts catalogue",
+        "electric vehicle powertrain assembly charging testing equipment datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Rail & Transportation",
+      "queries": [
+        "railway rolling stock braking signalling equipment OEM components",
+        "rail traction control systems manufacturer replacement parts datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Food & Beverage",
+      "queries": [
+        "food beverage processing packaging equipment OEM replacement parts",
+        "food grade sanitary pumps conveyors mixing machinery datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Agriculture & Forestry",
+      "queries": [
+        "agricultural tractor harvester machinery OEM hydraulic parts",
+        "forestry logging equipment spare parts manufacturer model datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Mining & Heavy Equipment",
+      "queries": [
+        "mining extraction crushers conveyors OEM spare parts",
+        "excavator heavy mining machinery hydraulic replacement components datasheet"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Construction & Building Technology",
+      "queries": [
+        "building automation HVAC BMS control parts manufacturer model",
+        "construction equipment building systems actuators sensors OEM datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Water, Waste & Environmental",
+      "queries": [
+        "water wastewater treatment industrial pumps valves OEM parts",
+        "wastewater filtration environmental monitoring instrumentation datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Electronics & Semiconductors",
+      "queries": [
+        "semiconductor fabrication industrial equipment OEM replacement parts",
+        "PCB electronics manufacturing process equipment testing datasheets"
+      ]
+    },
+    {
+      "group": "industry",
+      "name": "Logistics & Warehousing",
+      "queries": [
+        "warehouse conveyor sorting automation OEM spare parts catalog",
+        "ASRS warehouse logistics robotics sensors drives technical datasheets"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Automation & Control Systems",
+      "queries": [
+        "industrial programmable logic controllers PLC I O modules OEM datasheet",
+        "industrial process control automation spare modules supplier catalog"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Sensors, Test & Measurement",
+      "queries": [
+        "industrial measurement sensors test instruments OEM model datasheet",
+        "industrial calibration test measurement equipment replacement parts"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Electrical & Electronic Components",
+      "queries": [
+        "industrial electrical relays contactors connectors OEM part number",
+        "industrial electronic modules power distribution replacement parts datasheet"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Motors, Drives & Power Transmission",
+      "queries": [
+        "industrial motors variable frequency drives OEM equipment models",
+        "industrial gearboxes couplings transmissions servo parts manufacturer"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Pneumatics & Hydraulics",
+      "queries": [
+        "industrial pneumatic cylinders valves air compressors OEM replacement parts",
+        "industrial hydraulic pumps cylinders manifold components datasheet"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Pumps, Valves & Fluid Handling",
+      "queries": [
+        "industrial centrifugal pumps process valves OEM part numbers",
+        "industrial fluid handling pumps seals flow control manufacturer datasheet"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Bearings, Seals, Gaskets & Fasteners",
+      "queries": [
+        "industrial bearings mechanical seals gaskets OEM part number",
+        "industrial fasteners O rings gasket technical catalog manufacturer"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Mechanical Components",
+      "queries": [
+        "industrial shafts gears couplings sprockets OEM part numbers",
+        "industrial precision mechanical components machine spares datasheets"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Industrial Machines & Machine Tools",
+      "queries": [
+        "CNC machine tools industrial machinery OEM replacement parts",
+        "industrial milling turning machinery components product datasheets"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Process Equipment & Filtration",
+      "queries": [
+        "industrial process filters centrifuge filtration systems OEM parts",
+        "industrial heat exchanger process equipment replacement elements datasheet"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Heating, Cooling & HVAC",
+      "queries": [
+        "industrial HVAC cooling chillers compressors OEM spare parts",
+        "industrial heating refrigeration air handling units manufacturer models"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Laboratory & Scientific Equipment",
+      "queries": [
+        "laboratory chromatography mass spectrometry instrument OEM parts",
+        "scientific analytical laboratory centrifuge incubator product datasheets"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Medical Equipment & Components",
+      "queries": [
+        "medical ventilator patient monitoring equipment OEM spare parts",
+        "medical diagnostic imaging device technical product catalogue manufacturer"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Power Generation & Energy Storage",
+      "queries": [
+        "industrial generators turbines power conversion OEM components",
+        "industrial battery energy storage UPS inverter equipment datasheets"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Material Handling & Packaging",
+      "queries": [
+        "industrial packaging machine conveyor robotics OEM replacement parts",
+        "industrial pallet handling filling packing machinery sensors drives"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Safety & Environmental Equipment",
+      "queries": [
+        "industrial safety gas detection ventilation monitoring OEM parts",
+        "industrial fire suppression environmental monitoring equipment datasheet"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Industrial Computing & Networks",
+      "queries": [
+        "industrial computers PLC network switches embedded automation parts",
+        "industrial communication gateways SCADA networking components datasheet"
+      ]
+    },
+    {
+      "group": "product_family",
+      "name": "Materials, Chemicals & Consumables",
+      "queries": [
+        "industrial consumables technical chemicals process materials OEM specifications",
+        "industrial filtration media lubricants sealants consumables technical datasheets"
+      ]
+    }
   ]
 }
