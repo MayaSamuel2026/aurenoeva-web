@@ -18,6 +18,7 @@ from urllib.error import HTTPError, URLError
 from urllib.robotparser import RobotFileParser
 from xml.etree import ElementTree as ET
 from catalogue_prices import init_offers, extract_public_offers, replace_page_offers, attach_offers
+from catalogue_classification import init_classifications, store_classifications, enrich_rows
 
 AGENT="AurenoevaDiscovery/4.0 (+https://aurenoeva.com/)"
 SECTORS=("laboratory","test","medical","industrial","energy","marine","aviation")
@@ -170,6 +171,7 @@ def parse_page(body,url,maker,sector,category):
     p=Page();p.feed(body);title=p.title[0] if p.title else ""
     heading=p.h1[0] if p.h1 else ""
     products=[]
+    structured_descriptions={}
     def walk(node):
         if isinstance(node,list):
             for x in node:walk(x)
@@ -180,7 +182,10 @@ def parse_page(body,url,maker,sector,category):
                 brand=node.get("brand") or node.get("manufacturer") or maker
                 if isinstance(brand,dict):brand=brand.get("name","")
                 name=txt(node.get("mpn") or node.get("model") or node.get("sku") or node.get("name"),160)
-                if name:products.append((txt(brand,100),name,"STRUCTURED_PRODUCT"))
+                if name:
+                    products.append((txt(brand,100),name,"STRUCTURED_PRODUCT"))
+                    if isinstance(node.get("description"),str):
+                        structured_descriptions[(txt(brand,100),name)]=txt(node["description"])
             for key in ("@graph","mainEntity","itemListElement","item","hasVariant"):
                 if key in node:walk(node[key])
     for x in p.structured[:20]:
@@ -260,7 +265,7 @@ def parse_page(body,url,maker,sector,category):
         if not brand or len(model)<2 or model.casefold() in GENERIC or len(model.split())>16:continue
         if not technical_product_relevance(sector,model,url):continue
         if not any(c.isdigit() for c in model) and proof!="STRUCTURED_PRODUCT":continue
-        desc=txt(special_description or p.metas.get("description") or title or heading)
+        desc=txt(special_description or structured_descriptions.get((brand,model)) or p.metas.get("description") or title or heading)
         proper_category=refine_lab_category(sector,category,brand,model,desc,url)
         result.append({"product_id":pid(brand,model),"manufacturer":brand,"model":model,
                        "description":desc,
@@ -346,6 +351,7 @@ def db_init(db):
     PRIMARY KEY(website,evidence_url));
     """)
     init_offers(db)
+    init_classifications(db)
     cols={x[1] for x in db.execute("PRAGMA table_info(products)")}
     for name in ("sector","category"):
         if name not in cols:db.execute("ALTER TABLE products ADD COLUMN "+name+" TEXT NOT NULL DEFAULT ''")
@@ -540,6 +546,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                           (prod["product_id"],prod["manufacturer"],prod["model"],prod["description"],
                            url,prod["content_sha256"],t,t,prod["sector"],prod["category"],
                            prod["identity_evidence"]))
+                        store_classifications(db, prod, t)
                         if not old:stats["new_products"]+=1
                         db.execute("""INSERT INTO vendor_product_evidence
                           (website,product_id,source_url,manufacturer,model,sector,category,evidence_type,last_seen)
@@ -625,6 +632,7 @@ def export(db,path):
         source_url AS source_ref,sector,category,lifecycle_status,last_seen FROM products
         ORDER BY manufacturer,model""") if x["model"].casefold() not in GENERIC]
     attach_offers(db, rows)
+    enrich_rows(rows)
     vendors=[dict(x) for x in db.execute("""SELECT website,product_id,source_url,
        manufacturer,model,sector,category,evidence_type,last_seen
        FROM vendor_product_evidence ORDER BY last_seen DESC""")]
