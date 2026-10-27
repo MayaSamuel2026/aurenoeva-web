@@ -859,7 +859,8 @@ elseif($aurDraftStatus==='DRAFT_REVIEW'){
 <div class="aur-next"><p><b>Next action:</b> <?=aur_escape($aurNext)?><?=($aurEnhancedReview?' · Supplier sending remains on hold.':'')?></p><a href="<?=aur_escape($aurNextLink)?>">Go to step →</a></div>
 <p class="muted" style="margin:10px 0 0">Mail figures come from the saved recipient ledger. SMTP acceptance confirms handoff to the mail server, not inbox delivery or a reply. The copy to info@aurenoeva.com is archived privately.</p>
 </nav>
-<section class="card" id="aur-upload"><span class="aur-step-label">Step 1 of 5 · Upload</span><h2>Import an Excel or CSV enquiry</h2><form method="post" enctype="multipart/form-data" class="inline">
+<section class="card" id="aur-upload"><span class="aur-step-label">Step 1 of 5 · Capture</span><h2>Customer enquiries and file uploads</h2>
+<p class="muted">Customer RFQs from the AURENOEVA website now enter this same private procurement workspace automatically, including individually requested quantities. For external customer lists, you can also import Excel or CSV below.</p><form method="post" enctype="multipart/form-data" class="inline">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <label>Initial destination country
 <select name="country" required style="padding:12px;border:1px solid #c5d2cd;border-radius:8px;max-width:250px">
@@ -875,7 +876,7 @@ elseif($aurDraftStatus==='DRAFT_REVIEW'){
 <?php if(!empty($savedCaseIndex['cases'])): ?>
 <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px">
 <?php foreach($savedCaseIndex['cases'] as $savedCase): ?>
-<a href="?case=<?=rawurlencode((string)$savedCase['reference'])?>"><?=aur_escape((string)$savedCase['reference'])?> · <?= (int)$savedCase['line_count']?> entries</a>
+<a href="?case=<?=rawurlencode((string)$savedCase['reference'])?>"><?=aur_escape((string)$savedCase['reference'])?> · <?= (int)$savedCase['line_count']?> entries<?php if(($savedCase['source']??'')==='PUBLIC_WEBSITE'):?> · Website<?=($savedCase['buyer_company']??'')!==''?' · '.aur_escape((string)$savedCase['buyer_company']):''?><?php endif;?></a>
 <?php endforeach; ?></div>
 <?php else: ?><p class="muted">No saved enquiries available.</p><?php endif;?>
 <p class="muted">Enquiries persist independently of supplier research. Nothing is deleted when you upload another case, send a test email or run worldwide discovery.</p>
@@ -911,6 +912,15 @@ catch(Throwable $e) {
 </div></details>
 <?php if (is_array($result) && isset($result['reference'])): ?>
 <section class="card"><span class="pill">Saved · verified database readback</span><h2 style="margin-top:16px">Case <?=aur_escape((string)$result['reference'])?></h2>
+<?php if(($result['source']??'')==='PUBLIC_WEBSITE'):?>
+<div style="margin:14px 0;padding:14px 17px;border:1px solid #b8d3c7;border-radius:10px;background:#edf5ef">
+<strong>Website enquiry · automatically captured</strong> · <?=aur_escape((string)($result['public_reference']??''))?>
+<p style="margin:8px 0"><b>Buyer:</b> <?=aur_escape((string)($result['buyer']['company']??''))?> · <?=aur_escape((string)($result['buyer']['contact']??''))?> ·
+<a href="mailto:<?=aur_escape((string)($result['buyer']['email']??''))?>"><?=aur_escape((string)($result['buyer']['email']??''))?></a></p>
+<?php if(($result['country']??'')==='ZZ'):?><p style="margin:8px 0"><strong>Action required:</strong> Confirm the destination country below before any supplier outreach. This enquiry has not passed legal or supplier checks.</p><?php endif;?>
+<p class="muted" style="margin:4px 0 0">Original catalogue parts and quantities are preserved below. Supplier matching and quotations use this case; supplier messages still require explicit staff approval.</p>
+</div>
+<?php endif;?>
 <p><b><?= (int)($result['requirements'] ?? 0) ?></b> numbered requirements ·
 <b><?= (int)($result['line_count'] ?? 0) ?></b> entries ·
 <b><?= (int)($result['alternatives'] ?? 0) ?></b> alternative options ·
