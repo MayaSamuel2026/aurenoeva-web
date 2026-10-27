@@ -30,7 +30,15 @@ if ($selectedPartsRaw !== '') {
     if (is_array($decoded)) {
         foreach (array_slice($decoded,0,20) as $row) {
             if (!is_array($row)) { continue; }
+            // Per-line quantities are authoritative; the old global text
+            // field remains a backward-compatible fallback for one product.
+            $quantityValue=$row['quantity']??null;
+            if($quantityValue===null&&count($decoded)===1&&preg_match('/^[1-9][0-9]{0,5}$/D',$quantity))
+                $quantityValue=(int)$quantity;
+            if($quantityValue!==null && (!is_int($quantityValue)||$quantityValue<1||$quantityValue>999999))
+                aur_json(['ok'=>false,'error'=>'invalid_item_quantity'],422);
             $part = [
+                'quantity'=>$quantityValue,
                 'canonical_id'=>substr(trim((string)($row['canonical_id']??'')),0,220),
                 'manufacturer_id'=>substr(trim((string)($row['manufacturer_id']??'')),0,220),
                 'manufacturer'=>substr(trim((string)($row['manufacturer']??'')),0,220),
@@ -150,6 +158,20 @@ if (!$ledgerCaptured) {
 }
 
 
+// WP09: turn every validated public RFQ into the existing private sourcing
+// case, making it visible to supplier discovery, approval, SMTP and quotes.
+// No automatic supplier dispatch or compliance approval is granted.
+try {
+    require_once __DIR__.'/procurement/public_intake.php';
+    $privateCase=aur_public_case_capture(aur_store_root(),$contract);
+} catch(Throwable $e) {
+    error_log('AURENOEVA WP09 private case intake: '.get_class($e));
+    aur_json([
+        'ok'=>false,'error'=>'sourcing_case_unavailable','reference'=>$reference,
+        'delivery'=>['email'=>false,'logged'=>$ledgerCaptured,'private_case'=>false]
+    ],503);
+}
+
 $selectedText='None selected';
 if ($selectedParts) {
     $lines=[];
@@ -161,7 +183,8 @@ if ($selectedParts) {
         if ($part['relationship_type']!=='') { $detail[]='relationship='.$part['relationship_type']; }
         if ($part['confidence']!==null) { $detail[]='confidence='.number_format($part['confidence'],3,'.',''); }
         if ($part['source_ref']!=='') { $detail[]='source_ref='.$part['source_ref']; }
-        $lines[]=($i+1).'. '.$label.($detail?' ['.implode('; ',$detail).']':'');
+        $itemQty=$part['quantity']===null?'To confirm':(string)$part['quantity'];
+        $lines[]=($i+1).'. '.$label.' | Quantity: '.$itemQty.($detail?' ['.implode('; ',$detail).']':'');
     }
     $selectedText=implode("\n",$lines);
 }
@@ -235,8 +258,10 @@ aur_json([
         'core_status'=>$core['status']
     ],
     'operations'=>[
-        'case_bound'=>$core['case_id']!==null,
-        'case_id'=>$core['case_id']
+        'case_bound'=>true,
+        'case_id'=>$privateCase['reference'],
+        'private_case_reference'=>$privateCase['reference'],
+        'core_case_id'=>$core['case_id']
     ],
     'compliance'=>[
         'state'=>$core['compliance_state'],
