@@ -13,6 +13,7 @@ require __DIR__.'/private_cases.php';
 require __DIR__.'/supplier_intelligence.php';
 require __DIR__.'/supplier_discovery.php';
 require __DIR__.'/supplier_inbox.php';
+require __DIR__.'/cycle_verification.php';
 try {
     $store=aur_store_root();
     // Reuse the existing scheduled Hostinger job; mailbox failures must not block supplier research.
@@ -33,8 +34,13 @@ try {
             'new_unverified_links'=>$result['new_unverified_links'],
             'provider_failures'=>$result['provider_failures']];
     }
+    // Existing scheduled supplier-refresh job also verifies communication evidence.
+    // The verifier cannot send mail or turn an enquiry into a transaction.
+    $wp09=['status'=>'UNAVAILABLE'];
+    try{$wp09=aur_wp09_cycle_report($store)['summary'];}
+    catch(Throwable $e){error_log('AURENOEVA WP09 cron verification: '.get_class($e));}
     echo json_encode(['ok'=>true,'checked'=>$total,'cases'=>$out,'supplier_emails_sent'=>0,
-        'legal_clearances_granted'=>0,'inbox'=>$mail],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
+        'legal_clearances_granted'=>0,'inbox'=>$mail,'wp09_verified_cycles'=>$wp09],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $e) {
     fwrite(STDERR,"AURENOEVA supplier refresh failed: ".get_class($e)."\n");
     exit(1);
