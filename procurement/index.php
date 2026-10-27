@@ -231,6 +231,24 @@ $catalogueSectorNames = [
     'industrial'=>'Industrial','energy'=>'Energy','marine'=>'Marine','aviation'=>'Aviation',
     'unclassified'=>'Unclassified / historical',
 ];
+// Match the twelve additional industry choices already published on the homepage.
+// These are live all-catalogue discovery searches, NOT independently verified
+// technical classifications. No separate counts are claimed until the crawler
+// starts emitting evidence-backed facets for these twelve industries.
+$catalogueAdditionalIndustries = [
+    ['name'=>'Oil, Gas & Petrochemicals','query'=>'oil gas'],
+    ['name'=>'Chemicals & Process Industries','query'=>'chemical'],
+    ['name'=>'Pharmaceutical & Biotechnology','query'=>'pharma'],
+    ['name'=>'Automotive & Electric Mobility','query'=>'automotive'],
+    ['name'=>'Rail & Transportation','query'=>'rail'],
+    ['name'=>'Food & Beverage','query'=>'food'],
+    ['name'=>'Agriculture & Forestry','query'=>'agriculture'],
+    ['name'=>'Mining & Heavy Equipment','query'=>'mining'],
+    ['name'=>'Construction & Building Technology','query'=>'construction'],
+    ['name'=>'Water, Waste & Environmental','query'=>'water'],
+    ['name'=>'Electronics & Semiconductors','query'=>'semiconductor'],
+    ['name'=>'Logistics & Warehousing','query'=>'logistics'],
+];
 $catalogueFacetCategories = [];
 $catalogueFacetIndustries = [];
 foreach ($catalogueFacetTaxonomy as $industry => $categories) {
@@ -692,6 +710,16 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-catalogue-facet-rows{padding:2px 16px 12px}
 .aur-catalogue-facet-rows>div{display:flex;justify-content:space-between;gap:16px;border-top:1px solid #edf0ed;padding:9px 0;font-size:12px;align-items:center}
 .aur-catalogue-facet-rows strong{white-space:nowrap;font-variant-numeric:tabular-nums;color:#143f38}
+.aur-catalogue-section-title{font-size:17px;color:#143f38;margin:23px 0 5px;font-weight:750}
+.aur-catalogue-evidence-count{margin:0 0 7px;padding:7px 0;font-size:12px;color:#567368}
+.aur-catalogue-additional-card{display:flex;flex-direction:column;justify-content:space-between;gap:10px;background:#fbfdfb;border:1px solid #d8e4de;border-radius:11px;padding:14px 16px;min-width:0}
+.aur-catalogue-additional-head{display:flex;justify-content:space-between;gap:12px;color:#143f38;align-items:flex-start}
+.aur-catalogue-additional-head strong{font-size:14px;line-height:1.45}
+.aur-catalogue-additional-head span{font-variant-numeric:tabular-nums;color:#81928b;font-size:19px}
+.aur-catalogue-additional-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.aur-catalogue-additional-foot small{font-size:11px;color:#668077}
+.aur-catalogue-additional-foot a{font-size:12px;color:#155a48;text-decoration:underline;font-weight:700}
+.aur-catalogue-additional-foot a:hover{color:#0d372f}
 .aur-catalogue-primary-breakdown{margin-top:17px;border-top:1px solid #e3eae5;padding-top:13px}
 .aur-catalogue-primary-breakdown summary{cursor:pointer;font-weight:650;color:#164a3d}
 @media(max-width:680px){.aur-catalogue-facet-grid{grid-template-columns:1fr}.aur-catalogue-facet-metrics{grid-template-columns:1fr 1fr}.aur-catalogue-facet-metrics strong{font-size:21px}}
@@ -1103,17 +1131,30 @@ Registered with Amtsgericht Koblenz | HRA 23554
 <div><strong><?=number_format($catalogueFacetMulti, 0, '.', ',')?></strong><span>Products in multiple industries</span></div>
 <div><strong><?=number_format($catalogueFacetAssignments, 0, '.', ',')?></strong><span>Technical industry assignments</span></div>
 </div>
+<h3 class="aur-catalogue-section-title">7 established industries</h3>
+<p class="muted">Primary-sector totals are shown prominently; evidence-backed technical matches appear inside each industry.</p>
 <div class="aur-catalogue-facet-grid">
 <?php foreach ($catalogueFacetTaxonomy as $industryKey => $technicalCategories): ?>
 <details class="aur-catalogue-facet-sector">
 <summary><span class="aur-catalogue-facet-sector-name"><?=aur_escape($catalogueSectorNames[$industryKey])?><small><?=count($technicalCategories)?> technical categories</small></span>
-<span class="aur-catalogue-facet-sector-count"><?=number_format($catalogueFacetIndustries[$industryKey], 0, '.', ',')?><small>classified products</small></span></summary>
+<span class="aur-catalogue-facet-sector-count"><?=number_format($catalogueSnapshotSectors[$industryKey] ?? 0, 0, '.', ',')?><small>primary-sector products</small></span></summary>
 <div class="aur-catalogue-facet-rows">
+<p class="aur-catalogue-evidence-count"><?=number_format($catalogueFacetIndustries[$industryKey], 0, '.', ',')?> products with verified technical categories</p>
 <?php foreach ($technicalCategories as $technicalCategory): ?>
 <div><span><?=aur_escape($technicalCategory)?></span><strong><?=number_format($catalogueFacetCategories[$industryKey][$technicalCategory], 0, '.', ',')?></strong></div>
 <?php endforeach; ?>
 </div>
 </details>
+<?php endforeach; ?>
+</div>
+<h3 class="aur-catalogue-section-title">12 additional industries</h3>
+<p class="muted">These industry discovery topics are already searchable on the website. They are not yet assigned separate evidence-verified industry counts in the synchronized catalogue. A dash therefore means <em>not separately classified</em>, not zero available products.</p>
+<div class="aur-catalogue-facet-grid aur-catalogue-additional-industries">
+<?php foreach ($catalogueAdditionalIndustries as $industry): ?>
+<div class="aur-catalogue-additional-card">
+<div class="aur-catalogue-additional-head"><strong><?=aur_escape($industry['name'])?></strong><span title="No separately verified industry count">—</span></div>
+<div class="aur-catalogue-additional-foot"><small>Discovery enabled · count not yet classified</small><a href="<?=aur_escape('/requirement.html?mode=exact&q='.rawurlencode($industry['query']))?>">Search catalogue ↗</a></div>
+</div>
 <?php endforeach; ?>
 </div>
 <details class="aur-catalogue-primary-breakdown"><summary>Historical primary-sector allocation (<?=number_format($catalogueSnapshotCount, 0, '.', ',')?> unique products)</summary>
