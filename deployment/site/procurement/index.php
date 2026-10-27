@@ -1116,6 +1116,19 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <div class="ci-kpi"><strong id="ci-transactions">—</strong><b>Verified purchases</b><small id="ci-no-sale">Evidence-required outcome verification</small></div>
 </div>
 <p class="ci-muted" id="ci-metadata"></p>
+<section class="ci-section" aria-label="Catalogue freshness and withdrawals">
+<h3>Catalogue health &amp; source verification</h3>
+<p class="ci-muted">Seller-page evidence is distinct from guaranteed stock. Withdrawal requires two source checks at least 24 hours apart. Historical product records and RFQs remain preserved.</p>
+<div class="ci-kpis">
+<div class="ci-kpi"><strong id="ci-source-links">—</strong><b>Supplier-product links tracked</b><small>Separate from unique products</small></div>
+<div class="ci-kpi"><strong id="ci-source-overdue">—</strong><b>Source links overdue 14 days</b><small>Successful product observations</small></div>
+<div class="ci-kpi"><strong id="ci-source-review">—</strong><b>Listings requiring recheck</b><small>First negative observation</small></div>
+<div class="ci-kpi"><strong id="ci-source-withdrawn">—</strong><b>Supplier listings withdrawn</b><small>Confirmed source-specific removals</small></div>
+<div class="ci-kpi"><strong id="ci-products-hidden">—</strong><b>Products hidden from search</b><small>No remaining verified seller listing</small></div>
+<div class="ci-kpi"><strong id="ci-products-overdue">—</strong><b>Product identities over 30 days</b><small>No recent positive source observation</small></div>
+</div>
+<p class="ci-muted" id="ci-source-check">Catalogue lifecycle observations require the current VPS crawler and a published canonical database snapshot.</p>
+</section>
 <div class="ci-two">
 <section class="ci-section"><h3>Catalogue growth</h3><div id="ci-growth"></div><p class="ci-muted" id="ci-history-note"></p></section>
 <section class="ci-section"><div class="ci-heading"><h3>Buyer interest</h3><div class="ci-toolbar">
