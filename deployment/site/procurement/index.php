@@ -31,6 +31,7 @@ require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/supplier_inbox.php';
+require_once __DIR__ . '/cycle_verification.php';
 require_once __DIR__ . '/mail_center.php';
 require_once __DIR__ . '/staff_auth.php';
 // The supplier dashboard uses one compact JSON request instead of a large
@@ -838,6 +839,39 @@ elseif($aurDraftStatus==='DRAFT_REVIEW'){
     $aurNextLink=aur_vendor_rfq_mail_verified($aurStore)?'#aur-rfq-approval':'#aur-mail-settings';
 }else{$aurNext='Inspect saved sending status';$aurNextLink='#aur-send-status';}
 ?>
+<?php
+// WP09 verification is read-only and drawn exclusively from private records.
+// A customer enquiry, server accepted email and a confirmed sale are distinct.
+try{
+    $aurWp09Report=aur_wp09_cycle_report($aurStore,250);
+    $aurWp09Current=$aurHasCase && ($result['source']??'')==='PUBLIC_WEBSITE'
+        ?aur_wp09_cycle_case($aurStore,$result):null;
+}catch(Throwable $e){
+    error_log('AURENOEVA WP09 verification: '.get_class($e));
+    $aurWp09Report=null;$aurWp09Current=null;
+}
+?>
+<section class="card" id="aur-wp09-verification" style="padding:18px 21px;margin:14px 0;border:1px solid #c9d9d0;background:#f6faf6">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+<div><span class="pill">WP09 · Evidence-based verification</span><h2 style="margin:9px 0 0;font-size:20px">Buyer → supplier → buyer</h2></div>
+<a href="/procurement/?<?= $aurHasCase?'case='.rawurlencode((string)$result['reference']).'&amp;':'' ?>#aur-wp09-verification">Refresh verified status ↻</a></div>
+<?php if($aurWp09Report===null): ?>
+<p role="alert">Verification data unavailable. Existing cases, quotations and sent messages remain unchanged.</p>
+<?php else: ?>
+<div class="aur-metrics" style="margin:14px 0">
+<div class="aur-metric"><strong><?=(int)$aurWp09Report['summary']['website_rfqs']?></strong><small>Website RFQs saved</small></div>
+<div class="aur-metric"><strong><?=(int)$aurWp09Report['summary']['supplier_smtp_250']?></strong><small>Supplier SMTP confirmed</small></div>
+<div class="aur-metric"><strong><?=(int)$aurWp09Report['summary']['supplier_quotes_verified']?></strong><small>Mailbox quotes verified</small></div>
+<div class="aur-metric"><strong><?=(int)$aurWp09Report['summary']['buyer_updates_smtp_250']?></strong><small>Buyer update SMTP confirmed</small></div>
+</div>
+<?php if($aurWp09Current!==null): ?>
+<p><b>Current case:</b> <?=aur_escape((string)$aurWp09Current['reference'])?> ·
+<strong><?=aur_escape(str_replace('_',' ',(string)$aurWp09Current['stage']))?></strong></p>
+<p class="muted"><b>Next:</b> <?=aur_escape((string)$aurWp09Current['next_action'])?></p>
+<?php endif; ?>
+<p class="muted" style="margin-bottom:0">Based only on recorded buyer cases, authenticated SMTP 250 acceptances and source-matched supplier mailbox evidence. SMTP acceptance is not proof of inbox delivery. The count of confirmed purchases remains <b>0</b> unless a separate, voluntarily confirmed purchasing outcome is actually recorded. No test fixtures are included. <?=$aurWp09Report['limited']?'Showing most recent 250 cases.':''?></p>
+<?php endif; ?>
+</section>
 <nav id="aur-tabs" class="aur-switcher" role="tablist" data-default-panel="<?=$aurHasCase?'overview':'enquiry'?>" aria-label="Procurement areas">
 <button type="button" role="tab" data-aur-tab="overview" id="aur-tab-overview" aria-controls="aur-panel-overview">Overview</button>
 <button type="button" role="tab" data-aur-tab="enquiry" id="aur-tab-enquiry" aria-controls="aur-panel-enquiry">Enquiry</button>
