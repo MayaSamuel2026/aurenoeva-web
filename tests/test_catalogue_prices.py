@@ -87,6 +87,7 @@ class PublicOfferTests(unittest.TestCase):
              self.url, "sha", self.now, self.now, "industrial", "Sensors / instrumentation"))
         offer = extract_public_offers(self.page(self.product), self.url, [self.part], self.now)
         replace_page_offers(self.db, self.url, [self.part["product_id"]], offer)
+        self.db.commit()
         with tempfile.TemporaryDirectory() as temp:
             dbpath = Path(temp) / "catalogue.sqlite3"
             disk = sqlite3.connect(dbpath)
@@ -103,7 +104,10 @@ class PublicOfferTests(unittest.TestCase):
             self.assertNotIn("seller_email", json.dumps(item))
             # No active public offer => on-request, never a carried-over price.
             self.db.execute("UPDATE public_offers SET active=0")
-            self.db.backup(sqlite3.connect(dbpath))
+            self.db.commit()
+            destination = sqlite3.connect(dbpath)
+            self.db.backup(destination)
+            destination.close()
             make_full_database_export(dbpath, outfile)
             raw, count = normalized_snapshot(outfile)
             result = json.loads(raw)["items"][0]
