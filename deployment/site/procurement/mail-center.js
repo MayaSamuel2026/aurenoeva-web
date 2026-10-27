@@ -270,6 +270,24 @@
       refresh();
     }));
     root.querySelector('#aur-mail-new').addEventListener('click', () => openCompose());
+    // WP09: an authenticated staff member may review a buyer response that
+    // summarizes recorded supplier quotes. This only opens a draft.
+    document.querySelector('#aur-prepare-buyer-reply')?.addEventListener('click', event => {
+      const button = event.currentTarget;
+      const to = String(button.dataset.buyerTo || '').trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+        notice('Buyer email is missing or invalid. No draft opened.', true);
+        return;
+      }
+      document.querySelector('[data-aur-tab="mail"]')?.click();
+      openCompose();
+      compose.elements.to.value = to;
+      compose.elements.subject.value = String(button.dataset.buyerSubject || '').slice(0,250);
+      richEditor.textContent = String(button.dataset.buyerBody || '');
+      root.scrollIntoView({behavior:'smooth', block:'start'});
+      notice('Buyer update is a draft. Check supplier evidence and terms before you explicitly send.');
+      compose.elements.to.focus();
+    });
     root.querySelector('#aur-mail-reload').addEventListener('click', refresh);
     root.querySelector('#aur-mail-cancel').addEventListener('click', showList);
     previous.addEventListener('click', () => {page = Math.max(1, page-1);refresh();});

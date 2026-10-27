@@ -84,3 +84,65 @@ function aur_reply_record(string $store,array $case,string $draftId,string $choi
     }finally{flock($lock,LOCK_UN);fclose($lock);}
     return $record;
 }
+
+/**
+ * WP09: non-sending buyer progress email, assembled only from SAVED,
+ * supplier/item-matched responses. Staff must review and explicitly send via
+ * the already-authenticated Mail Center; no automated price forwarding.
+ */
+function aur_reply_buyer_draft(array $case,array $responses):?array {
+    $buyer=$case['buyer']??[];
+    $email=trim((string)($buyer['email']??''));
+    if(!filter_var($email,FILTER_VALIDATE_EMAIL)||!$responses)return null;
+    $byRow=[];
+    foreach($responses as $reply){
+        if(!is_array($reply))continue;
+        $row=(int)($reply['source_row']??0);
+        if($row<1||!in_array(($reply['availability']??''),
+            ['QUOTED','NOT_AVAILABLE','ALTERNATIVE_OFFERED','DETAILS_PENDING'],true))continue;
+        $byRow[$row][]=$reply;
+    }
+    if(!$byRow)return null;
+    $name=trim((string)($buyer['contact']??''));
+    $reference=(string)($case['public_reference']??$case['reference']??'');
+    $body=['Dear '.($name!==''?$name:'Customer').',','',
+        'We have received supplier responses concerning your AURENOEVA enquiry '.$reference.'.',
+        'Please find a preliminary summary below for your review.',''];
+    $responseCount=0;
+    foreach(($case['payload']['sourcing_lines']??[]) as $line){
+        $row=(int)($line['source_row']??0);
+        if(!isset($byRow[$row]))continue;
+        $body[]='Item #'.(int)($line['customer_item_number']??0).': '.
+            substr((string)($line['description_original']??''),0,250);
+        $qty=$line['quantity']??null;
+        $body[]='Requested quantity: '.($qty===null?'To confirm':(string)(int)$qty);
+        foreach($byRow[$row] as $reply){
+            $seller=substr((string)($reply['supplier']??'Supplier'),0,130);
+            $status=str_replace('_',' ',(string)$reply['availability']);
+            $price=trim((string)($reply['unit_price']??''));
+            $currency=trim((string)($reply['currency']??''));
+            $summary='- '.$seller.' | '.$status;
+            if($price!==''&&preg_match('/^\\d{1,9}(?:\\.\\d{1,4})?$/D',$price)
+                &&preg_match('/^[A-Z]{3}$/D',$currency))
+                $summary.=' | unit price '.$price.' '.$currency;
+            $lead=trim((string)($reply['lead_time']??''));
+            if($lead!=='')$summary.=' | indicated lead time '.substr($lead,0,100);
+            $body[]=$summary;
+            $responseCount++;
+        }
+        $body[]='';
+    }
+    if($responseCount===0)return null;
+    $body[]='The information above reflects supplier responses, not independently verified stock, a binding offer or a guaranteed delivery date.';
+    $body[]='Any resulting purchase, if pursued, is arranged directly between the buyer and the independent supplier.';
+    $body[]='Please let us know if you would like to be introduced to a relevant supplier.';
+    $body[]='';
+    // The existing Mail Center appends the approved corporate signature.
+    return [
+        'to'=>$email,
+        'subject'=>'AURENOEVA | Supplier update | '.substr($reference,0,120),
+        'body'=>implode("\n",$body),
+        'response_count'=>$responseCount,
+        'send_allowed'=>false
+    ];
+}
