@@ -20,7 +20,9 @@ function begin(){
     '<div id="aur-fast-feedback" class="aur-fast-feedback" role="status" aria-live="polite"></div>'+
     '<div id="aur-fast-results" class="aur-fast-results" aria-live="polite"></div>'+
     '<div class="aur-fast-lower"><button class="aur-fast-free" type="button" data-aur-action="free"><span data-aur-text="noPart"></span> <span aria-hidden="true">↗</span></button>'+
-    '<button class="aur-fast-cartbutton" type="button" data-aur-action="basket" hidden><span data-aur-text="basket"></span> <b id="aur-fast-count">0</b> <span aria-hidden="true">→</span></button></div>';
+    '<button class="aur-fast-cartbutton" type="button" data-aur-action="basket" aria-label="Enquiry basket">'+
+    '<svg class="aur-fast-basket-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 10 2.1 9h9.8l2.1-9H5zM9 10l3-6 3 6M4 10h16"/></svg>'+
+    '<span data-aur-text="basket"></span> <b id="aur-fast-count">0</b> <span aria-hidden="true">→</span></button></div>';
   if(isHome){
     var headline=home.querySelector('h1');
     headline.insertAdjacentElement('afterend',root);
@@ -67,6 +69,9 @@ function begin(){
       feedback=root.querySelector('#aur-fast-feedback'),cartbutton=root.querySelector('.aur-fast-cartbutton'),
       cartcount=root.querySelector('#aur-fast-count'),form=backdrop.querySelector('form'),
       selected=backdrop.querySelector('#aur-fast-selected'),sendstatus=backdrop.querySelector('#aur-fast-sendstatus');
+  // Mount directly under body: the fixed basket is not clipped by any hero/grid container.
+  document.body.appendChild(cartbutton);
+  cartbutton.addEventListener('click',function(){openDrawer();});
   var found=[],items=[],freeText='',timer=null,seq=0,requestInProgress=false,lastFocus=null;
   // Match the established AURENOEVA catalogue selection store used by site.js.
   // Quantities live alongside each selected identity; no server-side session or login.
@@ -88,8 +93,9 @@ function begin(){
     try{localStorage.setItem(BASKET_KEY,JSON.stringify(items.map(function(i){
       return Object.assign({},i.p,{aur_quantity:i.qty});
     }).slice(0,20)));}catch(e){}
-    cartbutton.hidden=items.length===0&&!freeText.trim();
+    cartbutton.hidden=false;
     cartcount.textContent=String(items.length+(freeText.trim()?1:0));
+    cartbutton.setAttribute('aria-label',tx('basket')+' · '+cartcount.textContent);
   }
   var strings={
    searchLabel:['Find industrial and technical parts','Industrie- und technische Ersatzteile finden'],
@@ -100,8 +106,9 @@ function begin(){
    noMatch:['No exact result? Send us your description and we will source it.','Kein eindeutiger Treffer? Wir suchen anhand Ihrer Beschreibung.'],
    searchError:['Catalogue search is temporarily unavailable. You can still send a sourcing request.','Katalogsuche vorübergehend nicht erreichbar. Sie können dennoch eine Anfrage senden.'],
    found:['Matching catalogue parts','Passende Katalogteile'],
+   selected:['Added to your basket. Continue browsing or open Basket at the top.','Zum Anfragekorb hinzugefügt. Weiter suchen oder oben den Anfragekorb öffnen.'],
    noPart:["Can't find your part? Request sourcing","Teil nicht gefunden? Beschaffung anfragen"],
-   basket:['Your enquiry','Ihre Anfrage'],
+   basket:['Basket','Anfragekorb'],
    freeBadge:['FREE · NO REGISTRATION','KOSTENLOS · OHNE REGISTRIERUNG'],
    drawerTitle:['Request a quotation','Angebot anfragen'],
    addMore:['Add another part','Weiteres Teil hinzufügen'],
@@ -121,7 +128,8 @@ function begin(){
    sending:['Sending your enquiry…','Anfrage wird gesendet …'],
    submitted:['Enquiry sent. Your reference: ','Anfrage versendet. Ihre Referenz: '],
    sendError:['Your enquiry was not confirmed as sent. Please retry, or contact info@aurenoeva.com.','Der Versand wurde nicht bestätigt. Bitte erneut versuchen oder info@aurenoeva.com kontaktieren.'],
-   select:['Request quote','Angebot anfragen'],
+   select:['+ Add to basket','+ Zum Anfragekorb'],
+   inBasket:['✓ In basket · View','✓ Im Anfragekorb · Ansehen'],
    added:['Added','Hinzugefügt'],
    price:['Price on request','Preis auf Anfrage'],
    publicPrice:['Public seller price','Öffentlicher Anbieterpreis'],
@@ -153,9 +161,11 @@ function begin(){
       markup='<div class="aur-fast-resulttitle">'+esc(tx('found'))+'</div>';
       found.forEach(function(p,i){
         var exists=items.some(function(x){return x.id===identity(p);});
-        markup+='<article class="aur-fast-result"><div class="aur-fast-resultcopy"><b>'+esc(p.manufacturer||'')+' · '+esc(p.model||p.part_number||'')+'</b>'+
+        markup+='<article class="aur-fast-result'+(exists?' aur-fast-inbasket':'')+'" data-aur-search-card="'+i+'" tabindex="0" aria-label="'+
+          esc(p.manufacturer||'')+' '+esc(p.model||p.part_number||'')+' — '+esc(tx(exists?'inBasket':'select'))+'">'+
+          '<div class="aur-fast-resultcopy"><b>'+esc(p.manufacturer||'')+' · '+esc(p.model||p.part_number||'')+'</b>'+
           '<small>'+esc(short(p.description||p.category,180))+'</small><div class="aur-fast-price">'+fmtPrice(p)+'</div></div>'+
-          '<button type="button" class="aur-fast-select" data-aur-pick="'+i+'">'+esc(tx(exists?'added':'select'))+' <span aria-hidden="true">→</span></button></article>';
+          '<button type="button" class="aur-fast-select" data-aur-pick="'+i+'">'+esc(tx(exists?'inBasket':'select'))+' <span aria-hidden="true">→</span></button></article>';
       });
     }
     results.innerHTML=markup;
@@ -195,7 +205,12 @@ function begin(){
       '<textarea id="aur-fast-freevalue" maxlength="1000" rows="2">'+esc(freeText)+'</textarea></label></div>';
     selected.innerHTML=html;
   }
-  function openDrawer(){if(!items.length&&!freeText){freeText=short(input.value,1000);}if(!items.length&&!freeText){status(tx('empty'));input.focus();return;}
+  function openDrawer(){
+    if(!items.length&&!freeText.trim()&&!input.value.trim()){
+      status(tx('empty'));root.scrollIntoView({behavior:'smooth',block:'center'});input.focus();return;
+    }
+    if(!items.length&&!freeText.trim())freeText=short(input.value,1000);
+    if(!items.length&&!freeText.trim()){status(tx('empty'));input.focus();return;}
     if(form.querySelector('.aur-fast-fields').hidden){form.reset();form.querySelector('.aur-fast-fields').hidden=false;form.querySelector('.aur-fast-details').hidden=false;form.querySelector('.aur-fast-another').hidden=false;form.querySelector('[type="submit"]').hidden=false;}
     renderBasket();sendstatus.textContent='';lastFocus=document.activeElement;backdrop.hidden=false;document.body.classList.add('aur-fast-dialog-open');
     var focus= form.querySelector('[name="email"]');if(focus)focus.focus();
@@ -212,7 +227,12 @@ function begin(){
     if(openImmediately)openDrawer();
     return true;
   }
-  function choose(i){return addToBasket(found[i],true);}
+  function choose(i){
+    var product=found[i];if(!product)return false;
+    if(items.some(function(x){return x.id===identity(product);}))openDrawer();
+    else if(addToBasket(product,false))status(tx('selected'));
+    return true;
+  }
 
   // Sector cards now OPEN their live catalogue rather than merely changing an
   // invisible legacy wizard field. Browse and add parts on the homepage.
@@ -272,13 +292,28 @@ function begin(){
       if(chip){sectorState.category=chip.dataset.aurCategory;sectorState.products=[];sectorState.page=0;
         drawSectorCategories();loadSector(0);return;}
       var pick=event.target.closest('[data-aur-sector-pick]');
-      if(pick){var product=sectorState.products[Number(pick.dataset.aurSectorPick)];
-        if(addToBasket(product,false)){
+      var card=event.target.closest('[data-aur-sector-card]');
+      if(pick||card){
+        // Supplier-source links must remain navigable, never add a product by accident.
+        if(!pick&&event.target.closest('a,button,input,select,textarea'))return;
+        var index=Number((pick||card).dataset.aurSectorPick||(pick||card).dataset.aurSectorCard);
+        var product=sectorState.products[index];
+        if(!product)return;
+        if(items.some(function(x){return x.id===identity(product);}))openDrawer();
+        else if(addToBasket(product,false)){
           drawSectorProducts();
           sectorPanel.querySelector('#aur-fast-sectorstatus').textContent=sectorTx('selected');
         }
-        return;}
+        return;
+      }
       if(event.target.closest('.aur-fast-sector-more'))loadSector(sectorState.page+1);
+    });
+    sectorPanel.addEventListener('keydown',function(event){
+      var card=event.target.closest('[data-aur-sector-card]');
+      if(card&&event.target===card&&(event.key==='Enter'||event.key===' ')){
+        event.preventDefault();
+        card.click();
+      }
     });
   }
   function openSector(sector){
@@ -310,10 +345,12 @@ function begin(){
     var list=sectorPanel.querySelector('#aur-fast-sectorparts');
     list.innerHTML=sectorState.products.map(function(p,i){
       var added=items.some(function(x){return x.id===identity(p);});
-      return '<article class="aur-fast-sectorpart"><div><strong>'+esc(p.manufacturer||'')+' · '+esc(p.model||p.part_number||'')+
+      return '<article class="aur-fast-sectorpart'+(added?' aur-fast-inbasket':'')+'" data-aur-sector-card="'+i+
+        '" tabindex="0" aria-label="'+esc(p.manufacturer||'')+' '+esc(p.model||p.part_number||'')+' — '+esc(tx(added?'inBasket':'select'))+'">'+
+        '<div class="aur-fast-sectorcopy"><strong>'+esc(p.manufacturer||'')+' · '+esc(p.model||p.part_number||'')+
         '</strong><p>'+esc(short(p.description||p.category,180))+'</p><div class="aur-fast-price">'+fmtPrice(p)+'</div></div>'+
-        '<button type="button" class="aur-fast-select" data-aur-sector-pick="'+i+'" '+(added?'disabled':'')+'>'+
-        esc(tx(added?'added':'select'))+' <span aria-hidden="true">→</span></button></article>';
+        '<button type="button" class="aur-fast-select" data-aur-sector-pick="'+i+'">'+
+        esc(tx(added?'inBasket':'select'))+' <span aria-hidden="true">→</span></button></article>';
     }).join('');
     sectorPanel.querySelector('.aur-fast-sector-more').hidden=!sectorState.hasMore;
     sectorPanel.querySelector('.aur-fast-sector-more').textContent=sectorTx('more');
@@ -374,6 +411,7 @@ function begin(){
     var pageCopy=isHome?['#sectors .stage-title','#sectors .stage-help','.sector-feature-intro h3']:['.page-hero h1','.page-hero .eyebrow','.page-hero p'];
     pageCopy.forEach(function(q){var el=document.querySelector(q);if(el)el.textContent=de()?el.dataset.de:el.dataset.en;});
     root.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
+    cartbutton.querySelector('[data-aur-text]').textContent=tx('basket');
     backdrop.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
     input.placeholder=de()?'z. B. Siemens 6ES7, Festo, Dichtung, Laborgerät':'e.g. Siemens 6ES7, Festo, seal, laboratory equipment';
     renderResults();renderBasket();if(typeof updateSectorLanguage==='function')updateSectorLanguage();
@@ -381,10 +419,20 @@ function begin(){
   root.addEventListener('click',function(e){
     var pick=e.target.closest('[data-aur-pick]');
     if(pick){choose(Number(pick.dataset.aurPick));return;}
+    var card=e.target.closest('[data-aur-search-card]');
+    if(card&&!e.target.closest('a,button,input,textarea,select')){
+      choose(Number(card.dataset.aurSearchCard));return;
+    }
     var action=e.target.closest('[data-aur-action]');if(!action)return;
     if(action.dataset.aurAction==='search'){clearTimeout(timer);search();}
     if(action.dataset.aurAction==='free'){freeText=short(input.value,1000)||' ';openDrawer();}
     if(action.dataset.aurAction==='basket')openDrawer();
+  });
+  results.addEventListener('keydown',function(e){
+    var card=e.target.closest('[data-aur-search-card]');
+    if(card&&e.target===card&&(e.key==='Enter'||e.key===' ')){
+      e.preventDefault();choose(Number(card.dataset.aurSearchCard));
+    }
   });
   backdrop.addEventListener('click',function(e){
     if(e.target===backdrop){closeDrawer();return;}
