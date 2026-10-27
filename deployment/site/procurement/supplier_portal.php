@@ -313,6 +313,7 @@ $replyChoices=is_array($rfqPreview)?aur_reply_choices($rfqPreview):[];
 $replyByRow=[];
 foreach($savedReplies as $reply)if(is_array($reply))$replyByRow[(int)($reply['source_row']??0)][]=$reply;
 $quotedItemCount=count($replyByRow);
+$buyerDraft=aur_reply_buyer_draft($result,$savedReplies);
 $mailEvents=aur_mail_case_events($aurStore,(string)$result['reference']);
 $mailState=aur_mail_state($aurStore);
 $mailCounts=['QUOTE_RECEIVED'=>0,'CLARIFICATION_REQUIRED'=>0,'DELIVERY_FAILED'=>0,'ALTERNATIVE_OFFERED'=>0];
@@ -351,6 +352,16 @@ Mailbox sync: <strong><?=aur_escape((string)($mailState['status']??'NOT_SYNCED')
 <span class="pill"><b><?=count($result['payload']['sourcing_lines']??[])-$quotedItemCount?></b> awaiting responses</span>
 </p>
 <?php if(isset($_GET['response_saved'])):?><p role="status"><b>Supplier reply saved against the original equipment item.</b></p><?php endif;?>
+<?php if(is_array($buyerDraft)): ?>
+<div style="background:#edf5ef;border:1px solid #c8dcd0;border-radius:12px;padding:16px 18px;margin:18px 0">
+<b>Buyer follow-up ready for review</b>
+<p class="muted"><?= (int)$buyerDraft['response_count'] ?> supplier-item response(s) matched to this case. The suggested email includes original quantities and supplier-reported prices where available. It is not a verified offer and has <strong>not</strong> been sent.</p>
+<button type="button" id="aur-prepare-buyer-reply"
+ data-buyer-to="<?=aur_escape((string)$buyerDraft['to'])?>"
+ data-buyer-subject="<?=aur_escape((string)$buyerDraft['subject'])?>"
+ data-buyer-body="<?=aur_escape((string)$buyerDraft['body'])?>">Review buyer update in Mail Center →</button>
+</div>
+<?php endif; ?>
 <?php if($replyChoices):?>
 <details class="aux-disclosure">
 <summary>Record a supplier quotation or availability reply</summary>
