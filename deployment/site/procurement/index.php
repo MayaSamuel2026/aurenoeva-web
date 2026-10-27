@@ -214,6 +214,32 @@ $catalogueSnapshotCount = null;
 $catalogueSnapshotSectors = [];
 $catalogueSnapshotCategories = [];
 $catalogueSnapshotManufacturers = [];
+// The website catalogue now has 49 technical categories across seven industries.
+// These facet counts are separate from the historical single-sector allocation.
+// Keep this taxonomy aligned with the verified catalogue-sync.php allowlist.
+$catalogueFacetTaxonomy = [
+    'laboratory'=>['Mass spectrometry','Chromatography / HPLC / GC','Spectroscopy','Sample preparation','Balances & weighing','Incubation / ovens / environmental','General laboratory equipment'],
+    'test'=>['Oscilloscopes','Spectrum / signal analyzers','Signal sources / generators','Meters & power analyzers','RF / microwave','Calibration equipment','Data acquisition'],
+    'medical'=>['Diagnostic equipment','Imaging & visualization','Patient monitoring','Laboratory / pathology','Surgical / procedural','Sterilization & reprocessing','Other medical equipment'],
+    'industrial'=>['PLC / control modules','Drives / servo / motion','Motors / gearboxes','Sensors / instrumentation','Pneumatics / hydraulics','Robotics / automation','Machine / process equipment'],
+    'energy'=>['Transformers','Switchgear & protection','Generators','Power conversion / inverters','Power quality / monitoring','Turbine / plant components','Storage / auxiliary systems'],
+    'marine'=>['Engines & propulsion','Pumps / fluid systems','Electrical & switchgear','Navigation / instrumentation','Deck machinery','HVAC / refrigeration','Safety / auxiliary systems'],
+    'aviation'=>['Avionics','Electrical components','Hydraulic / pneumatic','Engine / powerplant components','Landing gear / actuation','Ground support / test equipment','Traceable specialist components'],
+];
+$catalogueSectorNames = [
+    'laboratory'=>'Laboratory','test'=>'Test & Measurement','medical'=>'Medical',
+    'industrial'=>'Industrial','energy'=>'Energy','marine'=>'Marine','aviation'=>'Aviation',
+    'unclassified'=>'Unclassified / historical',
+];
+$catalogueFacetCategories = [];
+$catalogueFacetIndustries = [];
+foreach ($catalogueFacetTaxonomy as $industry => $categories) {
+    $catalogueFacetCategories[$industry] = array_fill_keys($categories, 0);
+    $catalogueFacetIndustries[$industry] = 0;
+}
+$catalogueFacetClassified = 0;
+$catalogueFacetMulti = 0;
+$catalogueFacetAssignments = 0;
 $catalogueSnapshotUpdated = null;
 $catalogueVendorTotal = 0;
 $catalogueVendorWithContact = 0;
@@ -246,6 +272,26 @@ if ($isAdmin && is_file($catalogueSnapshotFile)) {
                 ($catalogueSnapshotCategories[$sector][$category] ?? 0) + 1;
             $maker = trim((string)($item['manufacturer'] ?? ''));
             if ($maker !== '') $catalogueSnapshotManufacturers[$maker] = true;
+            // One canonical product counts once within each independently supported
+            // industry, even when multiple categories or duplicate facets are present.
+            $supportedIndustries = [];
+            $facets = is_array($item['classifications'] ?? null) ? $item['classifications'] : [];
+            foreach ($facets as $facet) {
+                if (!is_array($facet)) continue;
+                $industry = (string)($facet['industry'] ?? '');
+                $technicalCategory = (string)($facet['category'] ?? '');
+                if (isset($supportedIndustries[$industry])
+                    || !isset($catalogueFacetCategories[$industry][$technicalCategory])
+                    || ($facet['method'] ?? '') !== 'technical-facets/1'
+                    || ($facet['confidence'] ?? '') !== 'MATCHED_TEXT'
+                    || ($facet['evidence_url'] ?? '') !== ($item['source_ref'] ?? '')) continue;
+                $supportedIndustries[$industry] = true;
+                $catalogueFacetIndustries[$industry]++;
+                $catalogueFacetCategories[$industry][$technicalCategory]++;
+                $catalogueFacetAssignments++;
+            }
+            if ($supportedIndustries) $catalogueFacetClassified++;
+            if (count($supportedIndustries) > 1) $catalogueFacetMulti++;
         }
     }
 }
@@ -632,6 +678,23 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 .aur-metric{display:flex;flex-direction:column;gap:2px}.aur-metric strong{font-size:25px;line-height:1.3;font-variant-numeric:tabular-nums}
 .aur-metric small{font-size:12px;color:#5c6a64}.aur-next{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px;padding:12px 15px;border-radius:9px;background:#f0f4f1}
 .aur-next p{margin:0;font-size:14px}.aur-next a{font-weight:700;text-decoration:underline}
+.aur-catalogue-facet-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.aur-catalogue-facet-metrics>div{padding:14px;background:#f2f7f4;border:1px solid #dbe7df;border-radius:11px}
+.aur-catalogue-facet-metrics strong{display:block;font-size:24px;line-height:1.35;font-variant-numeric:tabular-nums;color:#143f38}
+.aur-catalogue-facet-metrics span{font-size:12px;color:#536d62}
+.aur-catalogue-facet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:15px 0}
+.aur-catalogue-facet-sector{border:1px solid #d8e4de;border-radius:11px;background:#fcfdfc;min-width:0}
+.aur-catalogue-facet-sector[open]{background:white;border-color:#a8c1b4}
+.aur-catalogue-facet-sector summary{cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 16px;color:#133e35}
+.aur-catalogue-facet-sector summary:focus-visible,.aur-catalogue-primary-breakdown summary:focus-visible{outline:3px solid #95bcb0;outline-offset:2px}
+.aur-catalogue-facet-sector-name{font-weight:750}.aur-catalogue-facet-sector-name small,.aur-catalogue-facet-sector-count small{display:block;color:#668077;font-weight:450;font-size:11px;margin-top:3px}
+.aur-catalogue-facet-sector-count{text-align:right;font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}
+.aur-catalogue-facet-rows{padding:2px 16px 12px}
+.aur-catalogue-facet-rows>div{display:flex;justify-content:space-between;gap:16px;border-top:1px solid #edf0ed;padding:9px 0;font-size:12px;align-items:center}
+.aur-catalogue-facet-rows strong{white-space:nowrap;font-variant-numeric:tabular-nums;color:#143f38}
+.aur-catalogue-primary-breakdown{margin-top:17px;border-top:1px solid #e3eae5;padding-top:13px}
+.aur-catalogue-primary-breakdown summary{cursor:pointer;font-weight:650;color:#164a3d}
+@media(max-width:680px){.aur-catalogue-facet-grid{grid-template-columns:1fr}.aur-catalogue-facet-metrics{grid-template-columns:1fr 1fr}.aur-catalogue-facet-metrics strong{font-size:21px}}
 .aur-step-label{display:inline-block;color:#466055;font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
 #aur-upload{border-color:#cadbd1}#aur-upload form{margin-top:16px}
 #destination-screen,#supplier-search-controls,#supplier-dashboard,#aur-rfq-approval,#aur-send-status{scroll-margin-top:18px}
@@ -1034,13 +1097,34 @@ Registered with Amtsgericht Koblenz | HRA 23554
 <p>Searchable products in the website's private catalogue: <strong><?= $catalogueSnapshotCount === null ? 'Not synchronized' : (int)$catalogueSnapshotCount ?></strong>.</p>
 <p class="muted">Snapshot updated: <?= aur_escape((string)($catalogueSnapshotUpdated ?? 'not yet synchronized')) ?>. Products: <?= (int)($catalogueSnapshotCount ?? 0) ?> · Manufacturers: <?= count($catalogueSnapshotManufacturers) ?>. Counts refer to searchable product identities, not stock.</p>
 <?php if ($catalogueSnapshotCount !== null): ?>
-<table style="width:100%;max-width:500px;border-collapse:collapse">
-<thead><tr><th style="text-align:left">Sector</th><th style="text-align:right">Products</th></tr></thead>
-<tbody>
-<?php foreach (['laboratory'=>'Laboratory','test'=>'Test & Measurement','medical'=>'Medical','industrial'=>'Industrial','energy'=>'Energy','marine'=>'Marine','aviation'=>'Aviation','unclassified'=>'Unclassified / historical'] as $sectorKey=>$sectorName): ?>
+<p class="muted">Technical classification uses product evidence from the synchronized catalogue. The 49 categories below include zero-count categories; a product can belong to several industries without becoming a duplicate product.</p>
+<div class="aur-catalogue-facet-metrics">
+<div><strong><?=number_format($catalogueFacetClassified, 0, '.', ',')?></strong><span>Evidence-classified products</span></div>
+<div><strong><?=number_format($catalogueFacetMulti, 0, '.', ',')?></strong><span>Products in multiple industries</span></div>
+<div><strong><?=number_format($catalogueFacetAssignments, 0, '.', ',')?></strong><span>Technical industry assignments</span></div>
+</div>
+<div class="aur-catalogue-facet-grid">
+<?php foreach ($catalogueFacetTaxonomy as $industryKey => $technicalCategories): ?>
+<details class="aur-catalogue-facet-sector">
+<summary><span class="aur-catalogue-facet-sector-name"><?=aur_escape($catalogueSectorNames[$industryKey])?><small><?=count($technicalCategories)?> technical categories</small></span>
+<span class="aur-catalogue-facet-sector-count"><?=number_format($catalogueFacetIndustries[$industryKey], 0, '.', ',')?><small>classified products</small></span></summary>
+<div class="aur-catalogue-facet-rows">
+<?php foreach ($technicalCategories as $technicalCategory): ?>
+<div><span><?=aur_escape($technicalCategory)?></span><strong><?=number_format($catalogueFacetCategories[$industryKey][$technicalCategory], 0, '.', ',')?></strong></div>
+<?php endforeach; ?>
+</div>
+</details>
+<?php endforeach; ?>
+</div>
+<details class="aur-catalogue-primary-breakdown"><summary>Historical primary-sector allocation (<?=number_format($catalogueSnapshotCount, 0, '.', ',')?> unique products)</summary>
+<table style="width:100%;max-width:550px;border-collapse:collapse">
+<thead><tr><th style="text-align:left">Sector</th><th style="text-align:right">Products</th></tr></thead><tbody>
+<?php foreach ($catalogueSectorNames as $sectorKey=>$sectorName): ?>
 <tr><td style="padding:5px 0"><?=aur_escape($sectorName)?></td><td style="text-align:right"><?= (int)($catalogueSnapshotSectors[$sectorKey] ?? 0) ?></td></tr>
 <?php endforeach; ?>
 </tbody></table>
+<p class="muted">These original sector assignments partition the catalogue and sum to the unique product total. The evidence-based industry counts above can overlap.</p>
+</details>
 <p class="muted">Worldwide supplier master: <strong><?= (int)$catalogueVendorTotal ?></strong> vendor websites · <strong><?= (int)$catalogueVendorWithContact ?></strong> contactable records · <strong><?= (int)$catalogueVendorProductLinks ?></strong> retained vendor–product relationships. Contact status and product evidence remain separate from available stock.</p>
 <p><a href="?export_catalogue=1" style="font-weight:600;text-decoration:underline">Download catalogue CSV — published products, models and source links</a></p>
 <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Products by sector and subcategory</summary>
