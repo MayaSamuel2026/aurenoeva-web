@@ -109,6 +109,27 @@ function aur_browse_category(array $part): string {
     return in_array($cat, $allowed[$sector], true) ? $cat : 'General laboratory equipment';
 }
 
+/**
+ * For newly classified items, return the category supported by evidence for
+ * the requested industry, not the original crawler search sector. On records
+ * without technical evidence, leave legacy discovery available but unclassified.
+ */
+function aur_browse_sector_category(array $part,string $requested): ?string {
+    if (isset($part['classifications']) && is_array($part['classifications'])) {
+        foreach ($part['classifications'] as $facet) {
+            if (is_array($facet) && ($facet['industry']??'')===$requested
+                && ($facet['method']??'')==='technical-facets/1')
+                return (string)($facet['category']??'');
+        }
+        if (($part['classification_status']??'')==='EVIDENCE_MATCHED')
+            return null; // Positive evidence links this part to other industries.
+        if (($part['sector']??'')===$requested)
+            return ''; // Legacy unclassified record; do not claim a category.
+        return null;
+    }
+    return ($part['sector']??'')===$requested ? aur_browse_category($part) : null;
+}
+
 /** Expire source offers at read time, including between 30-minute snapshots. */
 function aur_browse_public_offers(array $part): array {
     $raw = $part['public_offers'] ?? [];
@@ -151,12 +172,13 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
     $clip = static fn(string $s, int $n): string => function_exists('mb_substr') ? mb_substr($s,0,$n,'UTF-8') : substr($s,0,$n);
     $q = $lower(trim($query));
     foreach ($catalogue['items'] as $part) {
-        if (!is_array($part) || ($part['sector'] ?? '') !== $sector || !aur_browse_relevant($part)) continue;
+        if (!is_array($part) || !aur_browse_relevant($part)) continue;
+        $cat = aur_browse_sector_category($part,$sector);
+        if ($cat === null) continue;
         $id = (string)($part['canonical_id'] ?? '');
         $maker = trim((string)($part['manufacturer'] ?? ''));
         $model = trim((string)($part['model'] ?? ''));
         if (!preg_match('/^AUR-P-[A-F0-9]{20}$/D', $id) || $maker === '' || $model === '') continue;
-        $cat = aur_browse_category($part);
         $key = $cat === '' ? '__other' : $cat;
         $counts[$key] = ($counts[$key] ?? 0) + 1;
         ++$sectorTotal;
@@ -172,6 +194,8 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
                 'description' => $clip((string)($part['description'] ?? ''),220),
                 'sector' => $sector,
                 'category' => $cat,
+                'classifications' => is_array($part['classifications']??null) ? $part['classifications'] : [],
+                'classification_status' => (string)($part['classification_status']??'LEGACY'),
                 'part_number' => '',
                 'identifier_type' => 'MODEL',
                 'relationship_type' => 'CANDIDATE',

@@ -63,6 +63,51 @@ function aur_catalogue_public_offers(array $item): array {
     return array_values($valid);
 }
 
+/**
+ * Preserve only independently reproducible technical facets. A crawler search
+ * category is not evidence; every facet must cite text on this product record
+ * and exactly the product's HTTPS source page. No client/vendor data is copied.
+ */
+function aur_catalogue_classifications(array $part,string $source):array {
+    $valid=[];
+    $allowed=[
+        'laboratory'=>['Mass spectrometry','Chromatography / HPLC / GC','Spectroscopy','Sample preparation','Balances & weighing','Incubation / ovens / environmental','General laboratory equipment'],
+        'test'=>['Oscilloscopes','Spectrum / signal analyzers','Signal sources / generators','Meters & power analyzers','RF / microwave','Calibration equipment','Data acquisition'],
+        'medical'=>['Diagnostic equipment','Imaging & visualization','Patient monitoring','Laboratory / pathology','Surgical / procedural','Sterilization & reprocessing','Other medical equipment'],
+        'industrial'=>['PLC / control modules','Drives / servo / motion','Motors / gearboxes','Sensors / instrumentation','Pneumatics / hydraulics','Robotics / automation','Machine / process equipment'],
+        'energy'=>['Transformers','Switchgear & protection','Generators','Power conversion / inverters','Power quality / monitoring','Turbine / plant components','Storage / auxiliary systems'],
+        'marine'=>['Engines & propulsion','Pumps / fluid systems','Electrical & switchgear','Navigation / instrumentation','Deck machinery','HVAC / refrigeration','Safety / auxiliary systems'],
+        'aviation'=>['Avionics','Electrical components','Hydraulic / pneumatic','Engine / powerplant components','Landing gear / actuation','Ground support / test equipment','Traceable specialist components'],
+    ];
+    $legacy=(string)($part['sector']??'');
+    $raw=is_array($part['classifications']??null)?$part['classifications']:[];
+    foreach(array_slice($raw,0,7) as $entry){
+        if(!is_array($entry))continue;
+        $industry=(string)($entry['industry']??'');
+        $category=(string)($entry['category']??'');
+        $field=(string)($entry['evidence_field']??'');
+        $term=trim((string)($entry['evidence_term']??''));
+        $context=trim((string)($entry['context_term']??''));
+        if(!isset($allowed[$industry]) || isset($valid[$industry]) ||
+           !in_array($category,$allowed[$industry],true) ||
+           ($entry['method']??'')!=='technical-facets/1' ||
+           ($entry['evidence_url']??'')!==$source ||
+           !in_array($field,['model','description'],true) ||
+           $term==='' || strlen($term)>75 || strlen($context)>75 ||
+           stripos((string)($part[$field]??''),$term)===false ||
+           ($legacy!==$industry && ($context==='' ||
+            stripos((string)($part['model']??'').' '.(string)($part['description']??''),$context)===false)))
+            continue;
+        $valid[$industry]=[
+            'industry'=>$industry,'category'=>$category,
+            'evidence_url'=>$source,'evidence_field'=>$field,
+            'evidence_term'=>$term,'context_term'=>$context,
+            'method'=>'technical-facets/1','confidence'=>'MATCHED_TEXT'
+        ];
+    }
+    return array_values($valid);
+}
+
 function aur_catalogue_clean_snapshot(string $body): array {
     if ($body === '' || strlen($body) > 256000000) throw new RuntimeException('snapshot_size');
     $raw = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -89,6 +134,7 @@ function aur_catalogue_clean_snapshot(string $body): array {
             || !is_array($url) || strtolower((string)($url['scheme'] ?? '')) !== 'https'
             || empty($url['host']) || isset($url['user']) || isset($url['pass'])) continue;
         $publicOffers = aur_catalogue_public_offers($p);
+        $facets = aur_catalogue_classifications($p,$source);
         $items[$id] = [
             'canonical_id' => $id,
             'manufacturer' => $manufacturer,
@@ -100,6 +146,9 @@ function aur_catalogue_clean_snapshot(string $body): array {
             'last_seen' => aur_catalogue_utf8_cut((string)($p['last_seen'] ?? ''), 40),
             'lifecycle_status' => 'UNVERIFIED',
             'price_status' => $publicOffers ? 'PUBLIC_OFFER' : 'ON_REQUEST',
+            'classifications' => $facets,
+            'industries' => array_column($facets,'industry'),
+            'classification_status' => $facets ? 'EVIDENCE_MATCHED' : 'UNCLASSIFIED',
             'public_offers' => $publicOffers
         ];
     }
