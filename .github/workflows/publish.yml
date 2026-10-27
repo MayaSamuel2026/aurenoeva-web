@@ -21,6 +21,8 @@ on:
       - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/catalogue-browser/**'
+      - 'hotfix/buyer-flow/**'
+      - 'tests/test_buyer_flow.js'
       - 'hotfix/v8.2.6.8/index.html'
       - 'hotfix/v8.2.6.5/site.js'
       - 'hotfix/de-language-refinement/apply.py'
