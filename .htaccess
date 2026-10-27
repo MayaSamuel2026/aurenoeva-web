@@ -1,3 +1,14 @@
+# AURENOEVA search-engine entry routes; preserve the existing site and basket.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^sitemap\.xml$ seo.php?feed=index [L,NC]
+RewriteRule ^sitemaps/taxonomy-(en|de)\.xml$ seo.php?feed=taxonomy&lang=$1 [L,NC]
+RewriteRule ^sitemaps/products-(en|de)-([1-9][0-9]*)\.xml$ seo.php?feed=products&lang=$1&page=$2 [L,NC]
+RewriteRule ^(en|de)/(parts|teile)/([a-z0-9-]+)/?$ seo.php?lang=$1&kind=product&key=$3 [L,NC]
+RewriteRule ^(en|de)/(manufacturers|hersteller)/([a-z0-9-]+)/?$ seo.php?lang=$1&kind=manufacturer&key=$3 [L,NC]
+RewriteRule ^(en|de)/(categories|kategorien)/(laboratory|test|medical|industrial|energy|marine|aviation)/([a-z0-9-]+)/?$ seo.php?lang=$1&kind=category&sector=$3&key=$4 [L,NC]
+</IfModule>
+
 Options -Indexes
 DirectoryIndex index.html index.php
 
