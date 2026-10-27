@@ -278,7 +278,9 @@ function aur_case_list(string $store): array {
         try {
             $case=aur_case_read($store,pathinfo($path,PATHINFO_FILENAME));
             $out[]=['reference'=>$case['reference'],'country'=>$case['country'],
-                'line_count'=>$case['line_count'],'created_at'=>$case['created_at']];
+                'line_count'=>$case['line_count'],'created_at'=>$case['created_at'],
+                'source'=>(string)($case['source']??'UPLOAD'),
+                'buyer_company'=>substr((string)($case['buyer']['company']??''),0,180)];
         } catch (Throwable $e) {error_log('AURENOEVA case list: corrupted record');}
     }
     return ['ok'=>true,'cases'=>$out];
