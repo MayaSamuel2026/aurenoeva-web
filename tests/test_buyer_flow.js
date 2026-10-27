@@ -63,4 +63,7 @@ assert.ok(css.includes('margin-left:auto!important;') && css.includes('margin-ri
 assert.ok(css.includes('@media (min-width:761px)'),'mobile compact header layout is preserved');
 assert.ok(css.includes('.header-inner > .aur-fast-cartbutton [data-aur-text]'), 'small-screen basket shows icon and count without crowding menu');
 assert.ok(css.includes('max-width:145px!important'), 'mobile logo and basket fit together');
+assert.ok(js.includes('canonical_id:short(p.canonical_id,220),quantity:i.qty'), 'WP09 must submit each part quantity as a structured field');
+assert.ok(php.includes('aur_public_case_capture'), 'WP09 submits to the existing private procurement case system');
+assert.ok(php.includes("'quantity'=>$quantityValue"), 'WP09 server normalizes per-line quantities');
 console.log('AURENOEVA_ONE_PAGE_BUYER_FLOW=PASS');
