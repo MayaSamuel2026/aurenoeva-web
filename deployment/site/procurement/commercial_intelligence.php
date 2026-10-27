@@ -154,8 +154,8 @@ function aur_ci_report(string $store):array {
     foreach(($activity['days']??[]) as $day=>$row)if(preg_match('/^\d{4}-\d{2}-\d{2}$/D',(string)$day)
       &&is_array($row))$recent[]=['date'=>$day,'search'=>(int)($row['search']??0),
         'basket_add'=>(int)($row['basket_add']??0)];
-    $cases=[];$sent=0;$responded=0;$casesSent=0;$casesReplied=0;
-    $supplierSent=[];$supplierResponded=[];$withDraft=0;$caseCap=false;
+    $cases=[];$sent=0;$responded=0;$quoted=0;$casesSent=0;$casesReplied=0;$casesQuoted=0;
+    $supplierSent=[];$supplierResponded=[];$supplierQuoted=[];$withDraft=0;$caseCap=false;
     $casePaths=glob($store.'/cases/AUR-??-*.json')?:[];
     if(count($casePaths)>1000)$caseCap=true;
     foreach(array_slice($casePaths,0,1000) as $casePath){
@@ -163,7 +163,7 @@ function aur_ci_report(string $store):array {
         try{
             $case=aur_case_read($store,pathinfo($casePath,PATHINFO_FILENAME));
             $ref=(string)$case['reference'];
-            $caseSent=[];$caseReplies=[];
+            $caseSent=[];$caseReplies=[];$caseQuotes=[];
             $drafts=aur_vendor_rfq_list($store,$case);
             if($drafts)$withDraft++;
             foreach($drafts as $row){
@@ -179,11 +179,19 @@ function aur_ci_report(string $store):array {
             foreach($replyRows as $entry){
                 if(!is_array($entry))continue;
                 $email=strtolower(trim((string)($entry['email']??'')));
-                if(isset($caseSent[$email])){$caseReplies[$email]=true;$supplierResponded[$email]=true;}
+                if(isset($caseSent[$email])){
+                    $caseReplies[$email]=true;$supplierResponded[$email]=true;
+                    if(in_array(($entry['availability']??''),['QUOTED','ALTERNATIVE_OFFERED'],true)
+                       &&(float)($entry['unit_price']??0)>0
+                       &&preg_match('/^[A-Z]{3}$/D',(string)($entry['currency']??''))){
+                        $caseQuotes[$email]=true;$supplierQuoted[$email]=true;
+                    }
+                }
             }
             if($caseSent)$casesSent++;
             if($caseReplies)$casesReplied++;
-            $sent+=count($caseSent);$responded+=count($caseReplies);
+            if($caseQuotes)$casesQuoted++;
+            $sent+=count($caseSent);$responded+=count($caseReplies);$quoted+=count($caseQuotes);
             $cases[$ref]=['reference'=>$ref,'created_at'=>(string)($case['created_at']??'')];
         }catch(Throwable $e){error_log('AURENOEVA commercial case count: '.get_class($e));}
     }
@@ -212,10 +220,13 @@ function aur_ci_report(string $store):array {
       'industries'=>array_values($industries),
       'activity'=>['days'=>$recent,'definition'=>'Anonymous recorded browser search submissions and additions; not unique visitors or successful purchases.'],
       'suppliers'=>['discovered'=>$suppliers,'contactable'=>$contactable,
-        'rfq_recipients'=>count($supplierSent),'responded'=>count($supplierResponded)],
+        'rfq_recipients'=>count($supplierSent),'responded'=>count($supplierResponded),
+        'quoted'=>count($supplierQuoted)],
       'funnel'=>['enquiries'=>count($cases),'draft_prepared'=>$withDraft,
         'supplier_contacted'=>$casesSent,'supplier_replied'=>$casesReplied,
+        'cases_with_priced_quote'=>$casesQuoted,
         'sent_supplier_pairs'=>$sent,'responded_supplier_pairs'=>$responded,
+        'quoted_supplier_pairs'=>$quoted,
         'verified_purchases'=>$purchases,'verified_no_purchase'=>$noPurchases,
         'coverage_limited'=>$caseCap],
       'outcome_case_options'=>array_values(array_map(static fn($c)=>$c['reference'],$cases)),
@@ -223,6 +234,7 @@ function aur_ci_report(string $store):array {
         'pricing'=>'Unique searchable products with a publicly evidenced seller offer observed within the last 14 days.',
         'freshness'=>'Unique searchable products last seen within the last 30 days.',
         'responses'=>'One responding supplier email per enquiry with a saved structured supplier reply; not every unrelated mailbox message.',
+        'quotations'=>'Priced QUOTED or ALTERNATIVE_OFFERED supplier responses with ISO currency, counted once per supplier and enquiry.',
         'transactions'=>'Only staff-confirmed buyer outcomes with a retained private evidence reference; no transaction inferred from an RFQ.']
     ];
 }
