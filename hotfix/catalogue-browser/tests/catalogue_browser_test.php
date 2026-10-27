@@ -136,6 +136,10 @@ try {
        count($sea['items'][0]['public_offers'])!==1 ||
        $sea['items'][0]['classifications'][0]['industry']!=='industrial')
         throw new RuntimeException('multi_industry_evidence_or_offer_regression');
+    if(aur_browse_relevant([
+        "manufacturer"=>"Gabor","model"=>"81.390.61","sector"=>"marine",
+        "source_ref"=>"https://www.gabor.com/de_de/p/eleganter-pump-creme~p22573003"]))
+        throw new RuntimeException("footwear_returned_as_marine_pump");
     // Restore full fixture for the remaining assertions.
     file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$items],
         JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
