@@ -43,8 +43,25 @@ try {
          'source_url'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35',
          'currency'=>'EUR','amount'=>1,'observed_at'=>gmdate('c')],
     ];
+    $offerExample['items'][0]['sector']='medical';
+    $offerExample['items'][0]['classifications']=[[
+        'industry'=>'medical','category'=>'Surgical / procedural',
+        'method'=>'technical-facets/1',
+        'evidence_url'=>'https://www.mindray.com/en/products/anesthesia/wato-ex-35',
+        'evidence_field'=>'description','evidence_term'=>'Anaesthesia',
+        'context_term'=>'','confidence'=>'MATCHED_TEXT']];
+    $offerExample['items'][0]['classifications'][]=[
+        'industry'=>'aviation','category'=>'Avionics',
+        'method'=>'technical-facets/1',
+        'evidence_url'=>'https://evil.example.com/not-the-product',
+        'evidence_field'=>'description','evidence_term'=>'Anaesthesia',
+        'context_term'=>'aviation','confidence'=>'MATCHED_TEXT'];
     [$priceClean,$priceCount] = aur_catalogue_clean_snapshot(json_encode($offerExample, JSON_THROW_ON_ERROR));
     $publicItem = json_decode($priceClean,true,512,JSON_THROW_ON_ERROR)['items'][0];
+    if (count($publicItem['classifications'])!==1 ||
+        $publicItem['industries']!==['medical'] ||
+        $publicItem['classifications'][0]['category']!=='Surgical / procedural')
+        throw new RuntimeException('classification_source_sanitization_failed');
     if ($priceCount!==1 || $publicItem['price_status']!=='PUBLIC_OFFER'
         || count($publicItem['public_offers'])!==1
         || $publicItem['public_offers'][0]['amount']!==1200.5
@@ -74,6 +91,14 @@ try {
         ['canonical_id'=>'AUR-P-'.str_repeat('C',20), 'manufacturer'=>'Garmin',
          'model'=>'GPSMAP 9217xsv', 'sector'=>'marine',
          'category'=>'Navigation / instrumentation',
+         'description'=>'Marine navigation radar receiver',
+         'classification_status'=>'EVIDENCE_MATCHED',
+         'classifications'=>[[
+             'industry'=>'marine','category'=>'Navigation / instrumentation',
+             'method'=>'technical-facets/1',
+             'evidence_url'=>'https://www.garmin.com/en-US/p/2001334/',
+             'evidence_field'=>'description','evidence_term'=>'navigation',
+             'context_term'=>'Marine','confidence'=>'MATCHED_TEXT']],
          'source_ref'=>'https://www.garmin.com/en-US/p/2001334/']
     ]];
     $reconciled = aur_catalogue_write_snapshot(json_encode($next), $private);
