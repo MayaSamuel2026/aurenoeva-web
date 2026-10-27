@@ -41,7 +41,7 @@ assert.ok(js.includes("data-aur-sector-pick"),'allow category products to be add
 assert.ok(js.includes('if(page===0)sectorState.products=[]'),'new filter replaces results');
 assert.ok(js.includes('sectorState.epoch'),'reject stale catalogue responses');
 assert.ok(js.includes("Date.parse(x.observed_at||'')")&&js.includes('Date.now()-14*86400000'),'restored public prices expire independently of persisted part identities');
-assert.ok(css.includes('position:fixed')&&css.includes('.aur-fast-sectorparts'),'basket remains reachable while browsing');
+assert.ok(css.includes('.aur-fast-sectorparts')&&css.includes('Header-integrated enquiry basket'),'basket remains reachable in the sticky site header');
 // Previously product actions were pushed outside the viewport. Keep both pathways usable.
 assert.ok(js.includes("select:['+ Add to basket','+ Zum Anfragekorb']"),'explicit Add to basket EN/DE label');
 assert.ok(js.includes('data-aur-sector-card'), 'whole sector product card is clickable');
@@ -50,10 +50,14 @@ assert.ok(js.includes("event.target.closest('a,button,input,select,textarea')"),
 assert.ok(js.includes("data-aur-sector-pick"),'visible sector button remains a direct action');
 assert.ok(js.includes("if(items.some(function(x){return x.id===identity(product);}))openDrawer()"),'repeated selection opens existing basket without duplicate');
 assert.ok(js.includes("cartbutton.addEventListener('click',function(){openDrawer();})"),'basket works when mounted outside search container');
-assert.ok(js.includes('document.body.appendChild(cartbutton)'), 'fixed basket is not clipped by homepage layout');
+assert.ok(js.includes("brand.insertAdjacentElement('afterend',cartbutton)"), 'basket is mounted immediately after logo and before Home');
+assert.ok(js.includes("document.querySelector('.site-header .header-inner, #site-header .header-inner')"),'homepage and secondary page headers supported');
+assert.ok(!js.includes('document.body.appendChild(cartbutton)'), 'basket is no longer floating outside site header');
 assert.ok(js.includes("cartbutton.hidden=false"),'basket shows even before first selection');
 assert.ok(js.includes("cartbutton.querySelector('[data-aur-text]').textContent=tx('basket')"), 'basket remains bilingual');
 assert.ok(css.includes('.aur-fast-sectorpart .aur-fast-select') && css.includes('visibility:visible!important'), 'button never depends on hover or clipped right edge');
 assert.ok(css.includes('flex-direction:column') && css.includes('width:100%!important'), 'product actions stack inside their cards');
-assert.ok(css.includes('left:50%!important') && css.includes('top:94px!important'), 'prominent basket is centered below desktop menu');
+assert.ok(css.includes('position:static!important') && css.includes('transform:none!important'), 'basket is inline in the existing header, not an overlay');
+assert.ok(css.includes('.header-inner > .aur-fast-cartbutton [data-aur-text]'), 'small-screen basket shows icon and count without crowding menu');
+assert.ok(css.includes('max-width:145px!important'), 'mobile logo and basket fit together');
 console.log('AURENOEVA_ONE_PAGE_BUYER_FLOW=PASS');
