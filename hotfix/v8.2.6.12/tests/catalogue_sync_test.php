@@ -216,6 +216,21 @@ try {
         throw new RuntimeException('bulk_failure_overwrote_last_good');
     @unlink(aur_bulk_path($private,$shortHash));
 
+    // An authoritative full snapshot may shrink only when a documented source
+    // withdrawal accompanies it. The historical record is preserved upstream.
+    $verified=['schema'=>'aurenoeva-catalogue/1',
+        'items'=>array_slice($whole['items'],0,3),
+        'catalogue_health'=>['lifecycle_version'=>1,'source_links'=>4,
+            'confirmed_withdrawn_links'=>1,'confirmed_withdrawn_products'=>1]];
+    $verifiedBytes=json_encode($verified,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    $verifiedSha=hash('sha256',$verifiedBytes);
+    aur_bulk_begin($private,$verifiedSha,strlen($verifiedBytes));
+    aur_bulk_chunk($private,$verifiedSha,0,$verifiedBytes);
+    if(aur_bulk_commit($private,$verifiedSha,strlen($verifiedBytes),3)['records']!==3
+       || count(aur_catalogue_snapshot_search('MAGNETOM Lumina')??[])!==0
+       || count(aur_catalogue_snapshot_search('WATO EX-35')??[])!==1)
+        throw new RuntimeException('evidenced_withdrawal_not_reflected_publicly');
+
     echo "AURENOEVA_CATALOGUE_HTTPS_SYNC_AND_SEARCH=PASS\n";
 } finally {
     @unlink($private . '/catalogue-public.json');
