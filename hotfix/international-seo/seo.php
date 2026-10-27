@@ -185,16 +185,14 @@ function aur_seo_read_rows(string $path): Generator {
         }
     } finally { fclose($handle); }
 }
-function aur_seo_head(string $language, string $title, string $description, string $canonical, array $schema): void {
-    $alternate = str_starts_with($canonical, AUR_SEO_BASE . '/en/')
-        ? str_replace(AUR_SEO_BASE . '/en/', AUR_SEO_BASE . '/de/', $canonical)
-        : str_replace(AUR_SEO_BASE . '/de/', AUR_SEO_BASE . '/en/', $canonical);
-    // Slugs/paths can differ between locales; hreflang is rendered by callers instead.
+function aur_seo_head(string $language, string $title, string $description, string $canonical, array $schema, array $alternates): void {
     echo '<!doctype html><html lang="'.aur_seo_h($language).'"><head><meta charset="utf-8">' .
         '<meta name="viewport" content="width=device-width,initial-scale=1">' .
         '<meta name="description" content="'.aur_seo_h($description).'">' .
         '<meta name="robots" content="index,follow,max-snippet:-1">' .
         '<link rel="canonical" href="'.aur_seo_h($canonical).'">' .
+        '<link rel="alternate" hreflang="en" href="'.aur_seo_h($alternates['en']).'">' .
+        '<link rel="alternate" hreflang="de" href="'.aur_seo_h($alternates['de']).'">' .
         '<title>'.aur_seo_h($title).'</title>' .
         '<link rel="icon" href="/assets/img/brand/favicon-32.png">' .
         '<link rel="stylesheet" href="/assets/css/site.css">' .
@@ -344,7 +342,11 @@ function aur_seo_page(array $index,string $productsFile): void {
            'url'=>$canonical,'description'=>$description]
         : ['@context'=>'https://schema.org','@type'=>'CollectionPage','name'=>$title,'url'=>$canonical,'description'=>$description];
     header('Cache-Control: public, max-age=300');
-    aur_seo_head($language,$title,$description,$canonical,$schema);
+    if ($page > 1) header('X-Robots-Tag: noindex, follow');
+    aur_seo_head($language,$title,$description,$canonical,$schema,[
+        'en'=>AUR_SEO_BASE.aur_seo_route('en',$kind,$selected),
+        'de'=>AUR_SEO_BASE.aur_seo_route('de',$kind,$selected)
+    ]);
     $home=$de?'Startseite':'Home';
     echo '<main class="seo-shell"><div class="seo-breadcrumb"><a href="/">'.$home.'</a> / '.aur_seo_h($typeLabel).'</div>' .
         '<article class="seo-card"><span class="seo-tag">'.aur_seo_h($typeLabel).'</span>' .
@@ -402,10 +404,16 @@ function aur_seo_page(array $index,string $productsFile): void {
     echo '</article>'; aur_seo_footer($language);
 }
 
+if (defined('AUR_SEO_LIBRARY_ONLY')) return;
 try {
     $snapshot=aur_seo_path();
     if (!$snapshot) throw new RuntimeException('catalogue_unavailable');
     $index=aur_seo_index($snapshot);
+    // The reused browser library sets JSON/noindex headers for its own API.
+    // This HTML/XML entrypoint must explicitly restore the correct response type.
+    header_remove('X-Robots-Tag');
+    header_remove('Content-Type');
+    header_remove('Cache-Control');
     $productsFile=dirname($snapshot).'/seo-index-products.jsonl';
     if (isset($_GET['feed'])) aur_seo_sitemap($index,$productsFile);
     else aur_seo_page($index,$productsFile);
