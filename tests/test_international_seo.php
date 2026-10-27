@@ -20,13 +20,15 @@ $products = [
   'description'=>'Valve for machine automation','source_ref'=>'https://example.com/industrial/b',
   'sector'=>'industrial','category'=>'Pneumatics / hydraulics','classification_status'=>'UNCLASSIFIED',
   'classifications'=>[]],
- ['canonical_id'=>'WRONG','manufacturer'=>'Unknown','model'=>'No-index','sector'=>'industrial'],
+ ['canonical_id'=>'AUR-P-11111111111111111111','manufacturer'=>'Other','model'=>'No-index','sector'=>'industrial'],
 ];
 $snapshot = $root.'/private/catalogue-public.json';
 file_put_contents($snapshot,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$products,'availability_notice'=>'Identity only'],
  JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
 $stream=iterator_to_array(aur_seo_products_from_json($snapshot));
 if (count($stream)!==3 || $stream[1]['model'] !== 'VUVG 42 "special"') throw new RuntimeException('stream_json');
+if (aur_seo_source_note('Find more about AR2400 Great price Official supplier Request A quote Today!') !== '') throw new RuntimeException('supplier_ad_leak');
+if (!aur_seo_indexable($products[0]) || aur_seo_indexable($products[2])) throw new RuntimeException('seo_quality_gate');
 $idx=aur_seo_index($snapshot);
 if ($idx['count']!==2 || ($idx['makers']['Festo']??0)!==2 ||
  ($idx['categories']['industrial|Pneumatics / hydraulics']??0)!==1) throw new RuntimeException('index_counts');
