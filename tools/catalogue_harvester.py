@@ -449,9 +449,11 @@ def verify_source_listings(db, url, found_product_ids, checked_at, http_status=2
         checks=int(record["missing_checks"])+1
         confirmed=(checks>=2 and elapsed>=86400)
         state="WITHDRAWN" if confirmed else "RECHECK_REQUIRED"
+        # A definite missing source is sufficient to SUSPEND its price now.
+        # Retire the product listing only after the second dated observation.
+        db.execute("UPDATE public_offers SET active=0 WHERE product_id=? AND source_url=?",(key,url))
         if state=="WITHDRAWN" and record["listing_status"]!="WITHDRAWN":
             withdrawn+=1
-            db.execute("UPDATE public_offers SET active=0 WHERE product_id=? AND source_url=?",(key,url))
         db.execute("""UPDATE vendor_product_evidence SET listing_status=?,missing_checks=?,
                       first_missing_at=?,last_checked_at=?,last_http_status=?,
                       withdrawn_at=? WHERE product_id=? AND source_url=?""",
