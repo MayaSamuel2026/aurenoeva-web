@@ -53,6 +53,7 @@
         ['Supplier RFQs prepared',f.draft_prepared],
         ['Enquiries with supplier contact',f.supplier_contacted],
         ['Enquiries with supplier reply',f.supplier_replied],
+        ['Enquiries with priced supplier quote',f.cases_with_priced_quote],
         ['Verified purchases',f.verified_purchases]
       ];
       const funnel=$('ci-funnel');funnel.replaceChildren();
@@ -66,8 +67,10 @@
       });
       $('ci-supplier-summary').textContent=fmt(s.discovered)+' supplier websites discovered · '+
         fmt(s.contactable)+' with published email · '+fmt(s.rfq_recipients)+
-        ' distinct suppliers contacted · '+fmt(s.responded)+' with structured responses';
+        ' distinct suppliers contacted · '+fmt(s.responded)+' with structured responses · '+fmt(s.quoted)+' with priced quotations';
       $('ci-response-rate').textContent=pct(f.responded_supplier_pairs,f.sent_supplier_pairs);
+      $('ci-quote-rate').textContent=pct(f.quoted_supplier_pairs,f.sent_supplier_pairs);
+      $('ci-quote-note').textContent=fmt(f.quoted_supplier_pairs)+' supplier–enquiry pairs with a saved priced quote or priced alternative.';
       $('ci-response-note').textContent=fmt(f.responded_supplier_pairs)+' responding supplier–enquiry pairs / '+
         fmt(f.sent_supplier_pairs)+' SMTP-accepted supplier–enquiry pairs. Multiple parts and drafts do not inflate the denominator.';
       $('ci-case-cap').hidden=!f.coverage_limited;
