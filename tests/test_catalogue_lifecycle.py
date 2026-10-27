@@ -103,6 +103,7 @@ class LifecycleTests(unittest.TestCase):
             self.assertEqual(doc["items"][0]["canonical_id"],self.other)
             self.assertEqual(doc["catalogue_health"]["confirmed_withdrawn_products"],1)
             self.assertEqual(doc["catalogue_health"]["confirmed_withdrawn_links"],1)
+            self.assertEqual(list(doc)[-1],"public_stats")  # Public counter tail parser
             self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],2)
 
 
