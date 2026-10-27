@@ -331,3 +331,17 @@ body.aur-fast-dialog-open{overflow:hidden}
   .site-header .brand-logo{width:124px!important}
   #site-header .header-inner .brand-primary-logo{max-width:124px!important;width:124px!important}
 }
+
+/* Center the basket in the unused space between the logo and Home.
+   Keep the right-side navigation exactly where it was, without a floating element. */
+@media (min-width:761px){
+  .site-header .header-inner > .aur-fast-cartbutton,
+  #site-header .header-inner > .aur-fast-cartbutton{
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+  .site-header .header-inner > .nav,
+  #site-header .header-inner > .nav{
+    margin-left:0!important;
+  }
+}
