@@ -1100,7 +1100,8 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <p class="ci-muted" id="ci-case-cap" hidden>More than 1,000 cases exist; this view covers the first 1,000 only. Funnel figures are incomplete.</p></section>
 <section class="ci-section"><h3>Supplier participation & quotations</h3>
 <p class="ci-insight" id="ci-supplier-summary">Loading saved supplier data…</p>
-<p><strong id="ci-response-rate">—</strong> quotation response coverage</p>
+<p><strong id="ci-response-rate">—</strong> supplier response rate</p>
+<p><strong id="ci-quote-rate">—</strong> priced quotation rate</p><p class="ci-muted" id="ci-quote-note"></p>
 <p class="ci-muted" id="ci-response-note"></p>
 <p class="ci-muted">Only stored structured supplier responses are counted. SMTP acceptance is not delivery confirmation or a response.</p></section>
 </div>
