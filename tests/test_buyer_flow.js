@@ -58,6 +58,9 @@ assert.ok(js.includes("cartbutton.querySelector('[data-aur-text]').textContent=t
 assert.ok(css.includes('.aur-fast-sectorpart .aur-fast-select') && css.includes('visibility:visible!important'), 'button never depends on hover or clipped right edge');
 assert.ok(css.includes('flex-direction:column') && css.includes('width:100%!important'), 'product actions stack inside their cards');
 assert.ok(css.includes('position:static!important') && css.includes('transform:none!important'), 'basket is inline in the existing header, not an overlay');
+assert.ok(css.includes('Center the basket in the unused space between the logo and Home.'),'basket positioning intent is documented');
+assert.ok(css.includes('margin-left:auto!important;') && css.includes('margin-right:auto!important;') && css.includes('margin-left:0!important;'), 'basket occupies balanced header whitespace and Home remains right-aligned');
+assert.ok(css.includes('@media (min-width:761px)'),'mobile compact header layout is preserved');
 assert.ok(css.includes('.header-inner > .aur-fast-cartbutton [data-aur-text]'), 'small-screen basket shows icon and count without crowding menu');
 assert.ok(css.includes('max-width:145px!important'), 'mobile logo and basket fit together');
 console.log('AURENOEVA_ONE_PAGE_BUYER_FLOW=PASS');
