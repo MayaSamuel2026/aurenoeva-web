@@ -19,6 +19,7 @@ on:
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
       - 'hotfix/v8.2.6.11/catalogue-search.php'
       - 'hotfix/v8.2.6.10/catalogue_local.php'
+      - 'hotfix/v8.2.6.10/catalogue_local.php'
       - 'hotfix/catalogue-browser/**'
       - 'hotfix/v8.2.6.8/index.html'
       - 'hotfix/v8.2.6.5/site.js'
@@ -26,6 +27,8 @@ on:
       - 'tests/test_catalogue_publish.py'
       - 'tests/test_catalogue_harvester.py'
       - 'tools/catalogue_prices.py'
+      - 'tools/catalogue_classification.py'
+      - 'tests/test_catalogue_classification.py'
       - 'tests/test_catalogue_prices.py'
       - 'tools/catalogue_harvester.py'
       - 'tools/catalogue_publish.py'
@@ -231,7 +234,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/catalogue_prices.py tools/catalogue_harvester.py tools/catalogue_publish.py
+          python3 -m py_compile tools/catalogue_prices.py tools/catalogue_classification.py tools/catalogue_harvester.py tools/catalogue_publish.py
           bash -n ops/activate-harvester-v4.sh ops/repair-large-catalogue-publish.sh
           python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
           php hotfix/v8.2.6.11/tests/catalogue_snapshot_test.php
