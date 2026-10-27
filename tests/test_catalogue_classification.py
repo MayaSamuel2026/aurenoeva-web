@@ -3,6 +3,7 @@ import json
 import sqlite3
 import sys
 import tempfile
+from datetime import datetime, timezone
 import unittest
 from pathlib import Path
 
@@ -64,10 +65,11 @@ class ClassificationTests(unittest.TestCase):
     def test_old_products_auto_enriched_in_existing_publisher(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/"snapshot.json"
+            observed=datetime.now(timezone.utc).isoformat()
             old={**BASE,"public_offers":[{
                 "seller_website":"example.com","seller_name":"Example seller",
                 "source_url":SOURCE,"currency":"EUR","amount":100.5,
-                "observed_at":"2026-10-27T08:00:00Z"}]}
+                "observed_at":observed}]}
             path.write_text(json.dumps({"schema":"aurenoeva-catalogue/1","items":[old]}))
             body,n=normalized_snapshot(path)
             item=json.loads(body)["items"][0]
