@@ -174,6 +174,7 @@ function begin(){
     selected.innerHTML=html;
   }
   function openDrawer(){if(!items.length&&!freeText){freeText=short(input.value,1000);}if(!items.length&&!freeText){status(tx('empty'));input.focus();return;}
+    if(form.querySelector('.aur-fast-fields').hidden){form.reset();form.querySelector('.aur-fast-fields').hidden=false;form.querySelector('.aur-fast-details').hidden=false;form.querySelector('.aur-fast-another').hidden=false;form.querySelector('[type="submit"]').hidden=false;}
     renderBasket();sendstatus.textContent='';lastFocus=document.activeElement;backdrop.hidden=false;document.body.classList.add('aur-fast-dialog-open');
     var focus= form.querySelector('[name="email"]');if(focus)focus.focus();
   }
@@ -191,7 +192,7 @@ function begin(){
     if(pick){choose(Number(pick.dataset.aurPick));return;}
     var action=e.target.closest('[data-aur-action]');if(!action)return;
     if(action.dataset.aurAction==='search'){clearTimeout(timer);search();}
-    if(action.dataset.aurAction==='free'){freeText=short(input.value,1000);openDrawer();}
+    if(action.dataset.aurAction==='free'){freeText=short(input.value,1000)||' ';openDrawer();}
     if(action.dataset.aurAction==='basket')openDrawer();
   });
   backdrop.addEventListener('click',function(e){
@@ -208,7 +209,7 @@ function begin(){
   form.addEventListener('submit',async function(e){
     e.preventDefault();if(requestInProgress)return;
     var free=selected.querySelector('#aur-fast-freevalue');if(free)freeText=short(free.value,1000);
-    if(!items.length&&!freeText){sendstatus.textContent=tx('empty');return;}
+    if(!items.length&&!freeText.trim()){sendstatus.textContent=tx('empty');return;}
     if(!form.reportValidity())return;
     var detailLines=items.map(function(i){return short(i.p.manufacturer,80)+' '+short(i.p.model||i.p.part_number,100)+' — '+i.qty+' pcs';});
     var note=short(form.elements.requirement.value,2500);
