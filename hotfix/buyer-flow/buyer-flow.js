@@ -69,6 +69,9 @@ function begin(){
       feedback=root.querySelector('#aur-fast-feedback'),cartbutton=root.querySelector('.aur-fast-cartbutton'),
       cartcount=root.querySelector('#aur-fast-count'),form=backdrop.querySelector('form'),
       selected=backdrop.querySelector('#aur-fast-selected'),sendstatus=backdrop.querySelector('#aur-fast-sendstatus');
+  // Mount directly under body: the fixed basket is not clipped by any hero/grid container.
+  document.body.appendChild(cartbutton);
+  cartbutton.addEventListener('click',function(){openDrawer();});
   var found=[],items=[],freeText='',timer=null,seq=0,requestInProgress=false,lastFocus=null;
   // Match the established AURENOEVA catalogue selection store used by site.js.
   // Quantities live alongside each selected identity; no server-side session or login.
@@ -408,6 +411,7 @@ function begin(){
     var pageCopy=isHome?['#sectors .stage-title','#sectors .stage-help','.sector-feature-intro h3']:['.page-hero h1','.page-hero .eyebrow','.page-hero p'];
     pageCopy.forEach(function(q){var el=document.querySelector(q);if(el)el.textContent=de()?el.dataset.de:el.dataset.en;});
     root.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
+    cartbutton.querySelector('[data-aur-text]').textContent=tx('basket');
     backdrop.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
     input.placeholder=de()?'z. B. Siemens 6ES7, Festo, Dichtung, Laborgerät':'e.g. Siemens 6ES7, Festo, seal, laboratory equipment';
     renderResults();renderBasket();if(typeof updateSectorLanguage==='function')updateSectorLanguage();
