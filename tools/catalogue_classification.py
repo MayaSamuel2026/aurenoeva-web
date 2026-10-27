@@ -90,6 +90,15 @@ RULES = {
 }
 
 
+# Shared part types are not enough to establish sector-specific suitability.
+# Even the inherited crawl sector is merely a discovery hint for these types.
+CONTEXT_REQUIRED = {
+    "aviation": {"Electrical components", "Hydraulic / pneumatic", "Engine / powerplant components"},
+    "marine": {"Pumps / fluid systems", "Electrical & switchgear", "Navigation / instrumentation",
+               "HVAC / refrigeration", "Safety / auxiliary systems"},
+    "medical": {"Diagnostic equipment"},
+}
+
 def classify(record: dict) -> list[dict]:
     """Conservative, reproducible classifications with explicit evidence field."""
     source = str(record.get("source_ref") or record.get("source_url") or "")
@@ -107,6 +116,8 @@ def classify(record: dict) -> list[dict]:
         if industry != hint and not match_context:
             continue
         for category, pattern in RULES[industry]:
+            if not match_context and category in CONTEXT_REQUIRED.get(industry, ()):
+                continue
             found_model = re.search(pattern, model, re.I)
             found_desc = re.search(pattern, description, re.I) if not found_model else None
             found = found_model or found_desc
