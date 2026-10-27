@@ -260,6 +260,8 @@ function begin(){
         if(sector)openSector(sector);
       });
       card.setAttribute('aria-label',(de()?'Katalog öffnen: ':'Browse catalogue: ')+card.dataset.sector);
+      var cue=card.querySelector('.card-link');
+      if(cue){cue.dataset.en='Browse parts';cue.dataset.de='Teile ansehen';cue.textContent=de()?cue.dataset.de:cue.dataset.en;}
     });
     var query=sectorPanel.querySelector('#aur-fast-sectorquery'),debounce;
     query.addEventListener('input',function(){clearTimeout(debounce);debounce=setTimeout(function(){
@@ -358,6 +360,11 @@ function begin(){
   function updateSectorLanguage(){
     if(!sectorPanel||sectorPanel.hidden)return;
     sectorPanel.querySelector('#aur-fast-sectortitle').textContent=sectorTx('heading')+sectorName(sectorState.sector);
+    sectorPanel.querySelector('#aur-fast-sectorcount').textContent=sectorState.total?
+      sectorState.total.toLocaleString(de()?'de-DE':'en-GB')+' '+sectorTx('result'):'';
+    document.querySelectorAll('.card-grid .sector-card .card-link').forEach(function(el){
+      el.textContent=de()?el.dataset.de:el.dataset.en;
+    });
     sectorPanel.querySelector('#aur-fast-sectorquery').placeholder=sectorTx('search');
     sectorPanel.querySelector('#aur-fast-sectorquery').setAttribute('aria-label',sectorTx('search'));
     drawSectorCategories();drawSectorProducts();
