@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /procurement/
+Disallow: /catalogue-sync.php
+Disallow: /catalogue-browse.php
+Disallow: /catalogue-search.php
+Disallow: /catalogue-count.php
+Disallow: /catalogue-translate.php
+Disallow: /requirement-submit.php
+Disallow: /contact-submit.php
+Disallow: /*?q=
+Disallow: /*?page=
+Sitemap: https://aurenoeva.com/sitemap.xml
