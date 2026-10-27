@@ -25,6 +25,7 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.robotparser import RobotFileParser
 from xml.etree import ElementTree as ET
+from catalogue_classification import init_classifications, store_classifications, enrich_rows
 
 SCHEMA = "aurenoeva-catalogue/1"
 AGENT = "AurenoevaCatalogueBot/1.0 (+https://aurenoeva.com/)"
@@ -156,6 +157,7 @@ def init_db(conn):
       new_products INTEGER NOT NULL DEFAULT 0, state TEXT NOT NULL DEFAULT 'RUNNING'
     );
     """)
+    init_classifications(conn)
     # Additive migration: preserve all existing products, primary keys and crawl history.
     existing = {row[1] for row in conn.execute("PRAGMA table_info(products)")}
     for column in ("sector", "category"):
@@ -362,6 +364,7 @@ def write_product(conn, p, now):
       sector=CASE WHEN excluded.sector<>'' THEN excluded.sector ELSE products.sector END,
       category=CASE WHEN excluded.category<>'' THEN excluded.category ELSE products.category END""",
       {**p, "sector": p.get("sector", ""), "category": p.get("category", ""), "now": now})
+    store_classifications(conn, p, now)
     # A product page does not imply supplier inventory or stock.
     conn.execute("""INSERT OR IGNORE INTO inventory
         (product_id,supplier_id,reported_status,verification_state)
@@ -518,6 +521,7 @@ def export_public(conn, target):
           model, description, source_url AS source_ref, sector, category,
           'CANDIDATE' AS relationship_type, lifecycle_status, last_seen
           FROM products ORDER BY manufacturer,model""")]
+    enrich_rows(rows)
     # Historical crawls may contain broad page headings (e.g. 'Surgical carts').
     # They remain available for private review, but cannot be sold as models.
     generic = {"surgical carts", "surgical cart", "equipment", "products",
