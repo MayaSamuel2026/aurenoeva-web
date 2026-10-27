@@ -47,7 +47,7 @@ function aur_public_case_lines(array $contract): array {
         // A free-text sourcing request is still a usable, reviewable case line.
         $lines[]=[
             'source_row'=>2,'customer_item_number'=>1,'option_group'=>'ITEM-01',
-            'option_type'=>'REQUESTED','description_original'=>mb_substr($description,0,500,'UTF-8'),
+            'option_type'=>'REQUESTED','description_original'=>function_exists('mb_substr')?mb_substr($description,0,500,'UTF-8'):substr($description,0,500),
             'quantity'=>null,'canonical_part_id'=>null,
             'technical_status'=>'UNRESOLVED','rfq_status'=>'NOT_SENT'
         ];
