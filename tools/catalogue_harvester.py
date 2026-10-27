@@ -406,6 +406,20 @@ def seeds(db,config):
                         "search",sector,category)
                 enqueue(db,"https://lite.duckduckgo.com/lite/?"+urlencode({"q":q}),
                         "search_ddg",sector,category)
+    # Homepage's 12 additional industries and 18 product families are now
+    # active discovery topics, not merely links to an already indexed catalogue.
+    # Search keywords are NOT product evidence: leave legacy sector/category
+    # empty until the fetched product itself supplies verifiable technical text.
+    for target in config.get("discovery_targets", []):
+        if not isinstance(target, dict) or target.get("group") not in ("industry", "product_family"):
+            continue
+        for phrase in target.get("queries", [])[:3]:
+            if not isinstance(phrase, str) or not 10 <= len(phrase) <= 180:
+                continue
+            enqueue(db,"https://www.bing.com/search?"+urlencode({"q":phrase,"format":"rss"}),
+                    "search")
+            enqueue(db,"https://lite.duckduckgo.com/lite/?"+urlencode({"q":phrase}),
+                    "search_ddg")
     for src in config.get("sources",[]):
         if not src.get("active",True):continue
         sector=src.get("sector","");category=src.get("category","")
