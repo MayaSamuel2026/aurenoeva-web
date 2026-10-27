@@ -17,7 +17,7 @@ function aur_public_case_lines(array $contract): array {
     foreach($selected as $index=>$part){
         if(!is_array($part))throw new InvalidArgumentException('invalid_public_part');
         $maker=trim((string)($part['manufacturer']??''));
-        $model=trim((string)($part['part_number']?:($part['model']??'')));
+        $model=trim((string)(($part['part_number']??'')?:($part['model']??'')));
         $canonical=trim((string)($part['canonical_id']??''));
         $description=trim($maker.' '.$model);
         if($description==='')$description=trim((string)($part['description']??''));
@@ -29,7 +29,7 @@ function aur_public_case_lines(array $contract): array {
         $lines[]=[
             'source_row'=>$i+1,'customer_item_number'=>$i,
             'option_group'=>sprintf('ITEM-%02d',$i),'option_type'=>'REQUESTED',
-            'description_original'=>mb_substr($description,0,500,'UTF-8'),
+            'description_original'=>function_exists('mb_substr')?mb_substr($description,0,500,'UTF-8'):substr($description,0,500),
             'quantity'=>$qty,
             'canonical_part_id'=>preg_match('/^AUR-P-[A-F0-9]{20}$/D',$canonical)?$canonical:null,
             'technical_status'=>'UNRESOLVED','rfq_status'=>'NOT_SENT',
@@ -83,8 +83,7 @@ function aur_public_case_capture(string $store,array $contract): array {
     try{
         if(is_file($path)){
             $existing=aur_case_read($store,$reference);
-            if(($existing['source_sha256']??'')!==$digest
-               || ($existing['public_contract_id']??'')!==($contract['contract_id']??''))
+            if(($existing['source_sha256']??'')!==$digest)
                 throw new RuntimeException('public_case_reference_conflict');
             return $existing;
         }
