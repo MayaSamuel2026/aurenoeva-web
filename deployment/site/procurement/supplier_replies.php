@@ -141,7 +141,7 @@ function aur_reply_buyer_draft(array $case,array $responses):?array {
     return [
         'to'=>$email,
         'subject'=>'AURENOEVA | Supplier update | '.substr($reference,0,120),
-        'body'=>implode("\\n",$body),
+        'body'=>implode("\n",$body),
         'response_count'=>$responseCount,
         'send_allowed'=>false
     ];
