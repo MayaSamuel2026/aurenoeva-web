@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 import sqlite3
 from catalogue_prices import attach_offers, sanitize_offers
+from catalogue_classification import enrich_rows
 import subprocess
 import tempfile
 from urllib.parse import urlsplit, urlencode
@@ -164,6 +165,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
             "public_offers": sanitize_offers(value.get("public_offers"), ident),
             "last_seen": str(value.get("last_seen", ""))[:35],
         }
+    enrich_rows(list(records.values()))
     for record in records.values():
         if record["public_offers"]:
             record["price_status"] = "PUBLIC_OFFER"
@@ -226,6 +228,7 @@ def make_full_database_export(db_path: Path, dest: Path) -> dict:
         raise RuntimeError("canonical_catalogue_database_empty")
     with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True, timeout=15) as db:
         attach_offers(db, rows)
+    enrich_rows(rows)
     data = {"schema": SCHEMA, "items": rows,
             "source_catalogue_stats": {"db_products": len(rows)}}
     dest.parent.mkdir(parents=True, exist_ok=True)
