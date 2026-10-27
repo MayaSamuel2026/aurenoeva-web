@@ -607,7 +607,13 @@ $rfqPreview=null;
 $supplierResearchMode='';
 if ($isAdmin && is_array($result) && isset($result['reference'])) {
     try {
-        $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+        // Website guests may leave the destination unspecified. Do not
+        // invent a country or mislabel this as a screening-system failure.
+        if(($result['country']??'')==='ZZ'){
+            $countryScreenError='Destination country not yet supplied. Select the actual country below before approving any supplier RFQs.';
+        } else {
+            $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+        }
     } catch (Throwable $e) {
         error_log('AURENOEVA country screening: '.get_class($e));
         $countryScreenError='Country screening could not be recorded. Supplier requests must not be dispatched until the case can be screened.';
