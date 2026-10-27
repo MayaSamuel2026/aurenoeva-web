@@ -425,8 +425,27 @@ function aur_bulk_commit(string $directory,string $sha,int $bytes,int $count):ar
             throw new RuntimeException('bulk_snapshot_schema');
         if(aur_bulk_count($file)!==$count)
             throw new RuntimeException('bulk_count_mismatch');
-        if(is_file($target)&&aur_bulk_count($target)>$count)
-            throw new RuntimeException('bulk_count_regression');
+        if(is_file($target)){
+            $oldCount=aur_bulk_count($target);
+            if($oldCount>$count){
+                // Full authoritative snapshots may SHRINK only when the crawler
+                // reports evidence-backed withdrawal and the drop stays bounded.
+                // A partial/malformed upload cannot silently erase the catalogue.
+                $fp=@fopen($file,'rb');
+                if(!$fp)throw new RuntimeException('bulk_snapshot_unreadable');
+                $tailLength=min($bytes,4096);
+                fseek($fp,-$tailLength,SEEK_END);
+                $tail=(string)fread($fp,$tailLength);
+                fclose($fp);
+                $confirmed=0;
+                if(preg_match('/"catalogue_health":\\{"lifecycle_version":1,([^}]{0,3000})\\}/',$tail,$match)
+                   &&preg_match('/"confirmed_withdrawn_products":([0-9]+)/',$match[1],$amount))
+                    $confirmed=(int)$amount[1];
+                $drop=$oldCount-$count;
+                if($confirmed<$drop || $drop>max(500,(int)floor($oldCount*0.05)))
+                    throw new RuntimeException('bulk_count_regression');
+            }
+        }
         @chmod($file,0600);
         if(!@rename($file,$target))
             throw new RuntimeException('bulk_write_failed');
