@@ -18,15 +18,15 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/tools" "$WORK/config" "$WORK/tests" "$WORK/ops"
 BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/main
 for file in \
-  tools/catalogue_harvester.py tools/catalogue_publish.py \
+  tools/catalogue_harvester.py tools/catalogue_publish.py tools/catalogue_classification.py \
   tools/catalogue_auto_update.py config/catalogue_harvester.json \
   ops/aurenoeva-catalogue.service ops/aurenoeva-catalogue.timer \
-  tests/test_catalogue_harvester.py tests/test_catalogue_publish.py \
+  tests/test_catalogue_harvester.py tests/test_catalogue_publish.py tests/test_catalogue_classification.py \
   tests/test_catalogue_auto_update.py; do
   curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 60 \
     "$BASE/$file" -o "$WORK/$file"
 done
-python3 -m py_compile "$WORK/tools/catalogue_harvester.py" "$WORK/tools/catalogue_publish.py" "$WORK/tools/catalogue_auto_update.py"
+python3 -m py_compile "$WORK/tools/catalogue_harvester.py" "$WORK/tools/catalogue_publish.py" "$WORK/tools/catalogue_classification.py" "$WORK/tools/catalogue_auto_update.py"
 python3 -m json.tool "$WORK/config/catalogue_harvester.json" >/dev/null
 (cd "$WORK" && python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v)
 echo "=== STOP AND RETIRE ORIGINAL CRAWLER ==="
@@ -49,6 +49,7 @@ fi
 for file in "$UNIT" "/etc/systemd/system/$TIMER" "$APP/tools/catalogue_publish.py";do
  if [[ -f "$file" ]];then cp -a "$file" "$file.before-harvester-v4-$TS";fi
 done
+install -m 0644 "$WORK/tools/catalogue_classification.py" "$APP/tools/catalogue_classification.py"
 install -m 0644 "$WORK/tools/catalogue_harvester.py" "$APP/tools/catalogue_harvester.py"
 install -m 0644 "$WORK/tools/catalogue_publish.py" "$APP/tools/catalogue_publish.py"
 install -m 0644 "$WORK/tools/catalogue_auto_update.py" "$APP/tools/catalogue_auto_update.py"

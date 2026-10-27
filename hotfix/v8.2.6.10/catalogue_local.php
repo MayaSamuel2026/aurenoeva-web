@@ -45,9 +45,19 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
         $id = trim((string)($p['canonical_id'] ?? ''));
         $sector = trim((string)($p['sector'] ?? ''));
         $productCategory = trim((string)($p['category'] ?? ''));
-        // Historical snapshots without classification remain findable.
-        if ($industry !== '' && $sector !== '' && strcasecmp($industry, $sector) !== 0) continue;
-        if ($category !== '' && $productCategory !== '' && strcasecmp($category, $productCategory) !== 0) continue;
+        // Multi-industry evidence takes precedence over a crawler's initial sector.
+        // Historical snapshots without the new fields remain searchable.
+        if ($industry !== '' && function_exists('aur_browse_sector_category')) {
+            $facetCategory = aur_browse_sector_category($p, $industry);
+            if ($facetCategory === null) continue;
+            $sector = $industry;
+            if (isset($p['classifications']) && is_array($p['classifications'])) {
+                $productCategory = $facetCategory;
+            }
+        } elseif ($industry !== '' && $sector !== '' && strcasecmp($industry, $sector) !== 0) {
+            continue;
+        }
+        if ($category !== '' && strcasecmp($category, $productCategory) !== 0) continue;
         // Old crawls may include broad catalogue headings, not actual models.
         $generic = ['surgical carts','surgical cart','products','dental units',
                     'medical devices','dental equipment','equipment','catalogue',
@@ -74,6 +84,8 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
             'model' => $clip($model, 160),
             'sector' => $sector,
             'category' => $productCategory,
+            'classifications' => is_array($p['classifications']??null) ? $p['classifications'] : [],
+            'classification_status' => (string)($p['classification_status']??'LEGACY'),
             'part_number' => '',
             'description' => $clip(trim((string)($p['description'] ?? '')), 240),
             'identifier_type' => 'MODEL',
