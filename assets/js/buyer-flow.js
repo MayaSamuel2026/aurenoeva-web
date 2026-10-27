@@ -166,7 +166,7 @@ function begin(){
     var html='';
     items.forEach(function(i,k){
       html+='<div class="aur-fast-line"><div class="aur-fast-linecopy"><b>'+esc(i.p.manufacturer)+' · '+esc(i.p.model||i.p.part_number)+'</b>'+
-        '<span>'+esc(tx('price'))+'</span></div><label>'+esc(tx('qty'))+'<input type="number" min="1" max="999999" step="1" value="'+i.qty+'" data-aur-qty="'+k+'"></label>'+
+        '<span>'+fmtPrice(i.p)+'</span></div><label>'+esc(tx('qty'))+'<input type="number" min="1" max="999999" step="1" value="'+i.qty+'" data-aur-qty="'+k+'"></label>'+
         '<button type="button" class="aur-fast-remove" data-aur-remove="'+k+'" aria-label="'+esc(tx('remove'))+'">×</button></div>';
     });
     if(freeText)html+='<div class="aur-fast-freetext"><b>'+esc(tx('freeItem'))+'</b><label>'+esc(tx('description'))+
@@ -181,6 +181,8 @@ function begin(){
   function closeDrawer(){if(requestInProgress)return;var f=selected.querySelector('#aur-fast-freevalue');if(f)freeText=short(f.value,1000);backdrop.hidden=true;document.body.classList.remove('aur-fast-dialog-open');if(lastFocus&&lastFocus.isConnected)lastFocus.focus();}
   function choose(i){var p=found[i];if(!p)return;var id=identity(p);if(!items.some(function(x){return x.id===id;})){if(items.length>=20){status(tx('maxItems'));return;}items.push({id:id,p:p,qty:1});}renderResults();openDrawer();}
   function i18n(){
+    var pageCopy=isHome?['#sectors .stage-title','#sectors .stage-help','.sector-feature-intro h3']:['.page-hero h1','.page-hero .eyebrow','.page-hero p'];
+    pageCopy.forEach(function(q){var el=document.querySelector(q);if(el)el.textContent=de()?el.dataset.de:el.dataset.en;});
     root.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
     backdrop.querySelectorAll('[data-aur-text]').forEach(function(x){x.textContent=tx(x.dataset.aurText);});
     input.placeholder=de()?'z. B. Siemens 6ES7, Festo, Dichtung, Laborgerät':'e.g. Siemens 6ES7, Festo, seal, laboratory equipment';
