@@ -360,6 +360,56 @@ foreach(($priceReminder['messages']??[]) as $oneReminder) {
 <p>Prepare short follow-ups using <strong>each supplier's own original equipment lines</strong>.
 The original recipient ledger, buyer item numbers and model specifications are preserved.
 Drafting does not send email. No newly researched contacts are added.</p>
+<?php
+$aurReminderSmtpReady=aur_vendor_rfq_smtp_ready();
+$aurReminderSmtpVerified=aur_vendor_rfq_mail_verified($aurStore);
+$aurReminderSmtpTest=aur_vendor_rfq_smoke_status($aurStore);
+?>
+<?php if(!$aurReminderSmtpVerified):?>
+<div class="aur-workflow-note" id="aur-reminder-smtp-check" role="status" style="margin:16px 0">
+<h3 style="margin-top:0">Enable supplier sending · Verify AURENOEVA SMTP</h3>
+<?php if(!$aurReminderSmtpReady):?>
+<p><strong>The website SMTP connection is not configured.</strong>
+The Mail Center may be connected separately, but RFQ messages use the website's own authenticated Hostinger SMTP connection.
+<a href="#aur-mail-settings">Open Administration → AURENOEVA supplier mailbox</a>,
+save the SMTP mailbox password there, then return here to run the internal test.</p>
+<?php else:?>
+<p>The website has SMTP credentials, but it has no current successful internal send test.
+The test approval expires after 24 hours or whenever the SMTP password changes.
+Run the test below; <strong>the only recipient is info@aurenoeva.com</strong>, never a supplier.</p>
+<form method="post" action="/procurement/" id="aur-reminder-smtp-test-form" style="margin:12px 0">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<input type="hidden" name="smtp_return" value="reminders">
+<button type="submit" name="send_test_rfq" value="1">Run internal SMTP test · No supplier contacted</button>
+</form>
+<?php endif;?>
+<?php if(isset($_GET['smtp_test'])):?>
+<?php if($_GET['smtp_test']==='failed'):?>
+<p role="alert"><strong>SMTP test did not pass.</strong> Check the recorded stage and code below, and correct the mailbox configuration before trying again.</p>
+<?php elseif($_GET['smtp_test']==='error'):?>
+<p role="alert"><strong>SMTP test could not execute.</strong> Please inspect the website mailbox settings. No supplier was contacted.</p>
+<?php endif;?>
+<?php endif;?>
+<?php if(is_array($aurReminderSmtpTest)):?>
+<p class="muted">Last test: <?=aur_escape((string)($aurReminderSmtpTest['checked_at']??'Unknown'))?> UTC
+· <?=aur_escape((string)($aurReminderSmtpTest['status']??'UNKNOWN'))?>
+<?php if(is_array($aurReminderSmtpTest['transport_result']??null)):?>
+· SMTP stage <?=aur_escape((string)($aurReminderSmtpTest['transport_result']['stage']??'UNKNOWN'))?>
+· code <?=(int)($aurReminderSmtpTest['transport_result']['code']??0)?>
+<?php endif;?>.</p>
+<?php else:?>
+<p class="muted">No previous internal SMTP test is recorded on the website.</p>
+<?php endif;?>
+</div>
+<?php else:?>
+<p role="status" id="aur-reminder-smtp-check"><strong>Website SMTP test passed.</strong>
+You can review and send explicitly selected supplier reminders, subject to the existing compliance requirements.
+<?php if(isset($_GET['smtp_test'])&&$_GET['smtp_test']==='passed'):?>
+The internal test was accepted by the sending server; check the AURENOEVA inbox for its diagnostic message.
+<?php endif;?>
+</p>
+<?php endif;?>
 <?php if($priceReminder===null):?>
 <?php if($primaryRfq!==null):?>
 <form method="post" action="/procurement/">
