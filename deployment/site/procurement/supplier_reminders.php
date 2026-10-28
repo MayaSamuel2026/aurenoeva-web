@@ -152,7 +152,8 @@ function aur_price_reminder_prepare(string $store,array $case):array {
             } else {
                 $safety='READY_FOR_OWNER_REVIEW';
             }
-            if($selection['duplicate_pairs'])$safety='DUPLICATE_QUANTITY_REVIEW';
+            if($selection['duplicate_pairs'] && $safety!=='DELIVERY_FAILED_REVIEW')
+                $safety='DUPLICATE_QUANTITY_REVIEW';
             $messages[]=$details+[
               'recipient_token'=>hash('sha256',$email),
               'source_draft_id'=>(string)$original['draft_id'],
