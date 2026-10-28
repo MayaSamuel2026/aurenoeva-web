@@ -763,7 +763,9 @@
       "role": "supplier",
       "allowed_hosts": [
         "www.onergys.de",
-        "www.onergys.com"
+        "onergys.de",
+        "www.onergys.com",
+        "onergys.com"
       ],
       "seeds": [
         "https://www.onergys.de/",
@@ -806,11 +808,12 @@
         "/en/deals-specials/"
       ],
       "follow_regex": "^/(?:motortechnik|anlagentechnik|elektrotechnik|wartung-service|motoren|topseller|hersteller|aktionen|en/engine-technology|en/plant-technology|en/electrical-engineering|en/maintenance-service|en/engines|en/brands|en/deals-specials)/.*\\.html$",
-      "max_depth": 5,
+      "max_depth": 9,
       "refresh_hours": 24,
       "sector": "energy",
       "category": "Turbine / plant components",
-      "priority": true
+      "priority": true,
+      "discover_robots_sitemaps": true
     },
     {
       "id": "power-gaskets-contasan",
