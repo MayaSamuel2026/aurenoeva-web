@@ -432,13 +432,27 @@ if ($isAdmin) {
             aur_denied(503,'Unused RFQ cleanup could not be completed. Sent email evidence is preserved.');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_rfq'])) {
+        // SMTP is tested by THIS authenticated website, using the exact
+        // supplier transport, and the diagnostic recipient is always our own
+        // mailbox. Testing never triggers a supplier dispatch.
+        $ref=trim((string)($_POST['case_ref']??''));
+        $returnToReminders=(($_POST['smtp_return']??'')==='reminders'
+            && preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$ref));
+        $smtpTestOutcome='error';
         try {
             $testStatus=aur_vendor_rfq_send_smoke_test($aurStore);
-            $ref=trim((string)($_POST['case_ref']??''));
-            $result=$ref!==''?aur_case_read($aurStore,$ref):aur_case_list($aurStore);
+            $smtpTestOutcome=aur_vendor_rfq_mail_verified($aurStore)?'passed':'failed';
+            if(!$returnToReminders)
+                $result=$ref!==''?aur_case_read($aurStore,$ref):aur_case_list($aurStore);
         } catch(Throwable $e) {
-            error_log('AURENOEVA SMTP test: '.get_class($e));
-            aur_denied(503,'Dummy RFQ transport test unavailable; no supplier contacted');
+            error_log('AURENOEVA SMTP test: '.get_class($e).' '.substr($e->getMessage(),0,100));
+            if(!$returnToReminders)
+                aur_denied(503,'Internal website SMTP test could not run; no supplier contacted');
+        }
+        if($returnToReminders) {
+            header('Location: /procurement/?case='.rawurlencode($ref)
+                .'&smtp_test='.$smtpTestOutcome.'#aur-price-reminders',true,303);
+            exit;
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['scan_worldwide'])) {
         try {
