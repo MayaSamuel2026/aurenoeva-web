@@ -106,9 +106,7 @@ function aur_price_reminder_text(array $case,array $original,array $selection):a
         ."This is a non-binding information request, not an order. Any eventual "
         ."purchase would be agreed directly between buyer and supplier, subject "
         ."to the necessary trade and regulatory checks.\n\n"
-        ."Thank you for your assistance.\n\n"
-        ."Kind regards,\nAURENOEVA Purchasing\n"
-        ."Operated by NOEVA Systems e.K.\ninfo@aurenoeva.com\n";
+        .aur_procurement_signed_closing('en',$email)."\n";
     return ['subject'=>$subject,'body'=>$body,'supplier_name'=>$name,'to'=>$email];
 }
 
@@ -185,8 +183,7 @@ function aur_price_reminder_kombimed_german(array $case,array $msg):array {
         ."Diese Anfrage ist unverbindlich und stellt keine Bestellung dar. "
         ."Etwaige Geschäfte erfolgen direkt zwischen Käufer und Verkäufer, "
         ."vorbehaltlich erforderlicher handels- und regulatorischer Prüfungen.\n\n"
-        ."Mit freundlichen Grüßen\nAURENOEVA Einkauf\n"
-        ."Ein Geschäftsbereich von NOEVA Systems e.K.\ninfo@aurenoeva.com\n";
+        .aur_procurement_signed_closing('de',(string)$msg['to'])."\n";
     return [
       'subject'=>'Freundliche Erinnerung | AURENOEVA RFQ '.$ref.' | Preise und Lieferzeiten',
       'body'=>$body,
