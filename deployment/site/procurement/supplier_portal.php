@@ -338,6 +338,137 @@ $acceptedWithoutProof=(!$isSmtpConfirmed&&($msg['status']??'')==='ACCEPTED_BY_MA
 <?php endif;?>
 
 
+
+<?php
+// The reminder source is the saved original per-recipient RFQ ledger, NEVER
+// newly discovered candidate suppliers or a reconstructed mailing list.
+try {$priceReminder=aur_price_reminder_read($aurStore,$result);}
+catch(Throwable $e) {
+    error_log('AURENOEVA price reminder readback: '.get_class($e));
+    $priceReminder=null;
+}
+$reminderPending=0;$reminderAccepted=0;$reminderUncertain=0;
+foreach(($priceReminder['messages']??[]) as $oneReminder) {
+    switch((string)($oneReminder['status']??'')){
+      case 'DRAFT':$reminderPending++;break;
+      case 'ACCEPTED_BY_MAIL_TRANSPORT':$reminderAccepted++;break;
+      default:$reminderUncertain++;break;
+    }
+}
+?>
+<section class="card" id="aur-price-reminders" style="margin-top:22px">
+<h2>Individual supplier reminders · Price &amp; delivery time</h2>
+<p>Prepare short follow-ups using <strong>each supplier's own original equipment lines</strong>.
+The original recipient ledger, buyer item numbers and model specifications are preserved.
+Drafting does not send email. No newly researched contacts are added.</p>
+<?php if($priceReminder===null):?>
+<?php if($primaryRfq!==null):?>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_price_reminders" value="1">Prepare individual reminder drafts (do not send)</button>
+</form>
+<p class="muted">Only suppliers recorded as accepted by the original sending server qualify.
+Unconfirmed or bounced original messages need separate investigation; no invented recipients or repeat sends.</p>
+<?php else:?>
+<p role="status">No saved original supplier dispatch is available for this case. An authenticated original RFQ must exist before supplier-specific reminders can be prepared.</p>
+<?php endif;?>
+<?php else:?>
+<p role="status"><b><?=count($priceReminder['messages'])?></b> individualized drafts prepared.
+<b><?=$reminderAccepted?></b> SMTP-accepted, <b><?=$reminderPending?></b> awaiting your review,
+<b><?=$reminderUncertain?></b> uncertain/failed (no automatic retry).</p>
+<p class="muted"><?=(int)($priceReminder['excluded_unconfirmed_original_recipients']??0)?>
+original recipient(s) excluded because the original transport is unconfirmed;
+<?=(int)($priceReminder['excluded_missing_line_mapping']??0)?> excluded due to missing source-row mapping.
+These are not silently treated as contacted suppliers.</p>
+<?php if(isset($_GET['reminders_sent'])):?>
+<p role="status"><?= (int)$_GET['reminders_sent'] ?> reminder transport attempt(s) completed in your selected batch.
+Acceptance is not proof of delivery. Check the saved individual status before another batch.</p>
+<?php endif;?>
+<form method="post" action="/procurement/" id="aur-price-reminders-form">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<div class="scroll"><table>
+<thead><tr><th>Send</th><th>Supplier / actual recipient</th><th>Source items</th><th>Review status</th><th>Transport</th></tr></thead>
+<tbody>
+<?php foreach($priceReminder['messages'] as $msg):
+  $pending=($msg['status']??'')==='DRAFT';
+  $bounced=($msg['review_status']??'')==='DELIVERY_FAILED_REVIEW';
+  $review=(string)($msg['review_status']??'');
+  $checked=$pending&&$review==='READY_FOR_OWNER_REVIEW';
+  $itemNumbers=[];
+  foreach(($msg['lines']??[]) as $item)foreach(($item['buyer_items']??[]) as $num)$itemNumbers[(int)$num]=true;
+  ksort($itemNumbers);
+?>
+<tr>
+<td>
+<?php if($pending&&!$bounced):?>
+<input type="checkbox" name="reminder_targets[]" value="<?=aur_escape((string)$msg['recipient_token'])?>" <?=$checked?'checked':''?> aria-label="Select <?=aur_escape((string)$msg['supplier_name'])?>">
+<?php else:?><span class="muted">—</span><?php endif;?>
+</td>
+<td><b><?=aur_escape((string)$msg['supplier_name'])?></b>
+<div class="muted"><?=aur_escape((string)$msg['to'])?></div></td>
+<td><?=aur_escape(implode(', ',array_keys($itemNumbers)))?>
+<div class="muted"><?=count($msg['lines']??[])?> distinct model line(s)</div></td>
+<td>
+<?php if($review==='DUPLICATE_QUANTITY_REVIEW'):?>
+<b>Duplicate references · verify required</b>
+<?php elseif($review==='SUPPLIER_ALREADY_RESPONDED_REVIEW'):?>
+<b>Supplier already replied · check correspondence</b>
+<?php elseif($bounced):?>
+<b>Delivery failure · address held</b>
+<?php else:?>Ready for review<?php endif;?>
+<?php if(!empty($msg['reply_classifications'])):?>
+<div class="muted">Mailbox: <?=aur_escape(implode(', ',$msg['reply_classifications']))?></div>
+<?php endif;?>
+</td>
+<td><?=aur_escape((string)($msg['status']??'UNKNOWN'))?>
+<?php if(!empty($msg['sent_at'])):?><div class="muted"><?=aur_escape((string)$msg['sent_at'])?></div><?php endif;?>
+</td></tr>
+<?php endforeach;?>
+</tbody></table></div>
+<?php foreach($priceReminder['messages'] as $msg):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)$msg['supplier_name'])?> · Review exact individual reminder</summary>
+<p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p>
+<p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
+<p><b>Original RFQ source:</b> <?=aur_escape((string)$priceReminder['original_draft_id'])?> · 
+<?=aur_escape((string)($msg['original_sent_at']??'date unconfirmed'))?></p>
+<?php if(!empty($msg['duplicate_pairs'])):?>
+<p role="alert"><b>Duplicate equipment reference:</b>
+<?php foreach($msg['duplicate_pairs'] as $pair):?>
+customer items <?=aur_escape(implode(' / ',array_map('strval',$pair['customer_items']??[])))?>;
+<?php endforeach;?>
+The reminder asks for unit price only and leaves the combined required quantity unconfirmed.
+Do not assume separate units without buyer clarification.</p>
+<?php endif;?>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:490px;overflow:auto;padding:16px;background:#f2f5f3"><?=aur_escape((string)$msg['body'])?></pre>
+</details>
+<?php endforeach;?>
+<?php if($reminderPending>0):?>
+<label style="display:block;margin:12px 0">
+<input type="checkbox" name="manual_review" value="1" required>
+I have checked the selected recipients, original RFQ lines, destination and compliance requirements, and explicitly authorize these information-only reminders.
+</label>
+<label style="display:block;margin:12px 0">
+<input type="checkbox" name="reply_review_ack" value="1" required>
+I have checked existing replies and any possible duplicate quantities, including messages sent manually outside this control center. I understand uncertain sends are never automatically retried.
+</label>
+<button type="submit" name="send_price_reminders" value="1"
+ <?=(!aur_vendor_rfq_mail_verified($aurStore)||!empty($result['country_preflight']['enhanced_review'])||empty($result['country_preflight']['destination_country']))?'disabled':''?>>
+Approve and send selected reminders (up to 3 per action)
+</button>
+<?php if(!aur_vendor_rfq_mail_verified($aurStore)):?>
+<p role="alert">Sending is disabled until an authenticated AURENOEVA mailbox test succeeds. Draft previews remain available.</p>
+<?php endif;?>
+<p class="muted">Only checked suppliers are contacted. Suppliers who already responded are unchecked by default; delivery failures cannot be selected. Already attempted reminders cannot be sent again through this control.</p>
+<?php else:?>
+<p role="status">No unsent reminders remain. The historical supplier dispatch ledger is unchanged.</p>
+<?php endif;?>
+</form>
+<?php endif;?>
+</section>
+
 <?php
 // Source-of-truth quotations live in the private case, not in crawler data.
 try {$savedReplies=aur_reply_read($aurStore,$result);}
