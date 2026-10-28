@@ -77,6 +77,22 @@ try {
     aur_vendor_rfq_write($root.'/supplier-rfqs/aurenoeva-mail-smoke.json',$testRecord);
     assert_smtp(!aur_vendor_rfq_mail_verified($root),'expired SMTP test must not authorize future supplier mail');
 
+    // Internal reminder CTA must invoke the same authenticated self-test,
+    // with CSRF and case continuity, NOT a supplier send or direct SMTP bypass.
+    $portal=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php');
+    $entry=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
+    assert_smtp(str_contains($portal,'id="aur-reminder-smtp-test-form"') &&
+      str_contains($portal,'name="send_test_rfq"') &&
+      str_contains($portal,'name="smtp_return" value="reminders"') &&
+      str_contains($portal,'name="csrf"') &&
+      str_contains($portal,'aur_vendor_rfq_mail_verified($aurStore)') &&
+      str_contains($portal,'Sending is disabled until an authenticated AURENOEVA mailbox test succeeds'),
+      'Reminder SMTP verification CTA must retain authenticated mail safety gate');
+    assert_smtp(str_contains($entry,"(\$_POST['smtp_return']??'')==='reminders'") &&
+      str_contains($entry,'aur_vendor_rfq_send_smoke_test($aurStore)') &&
+      str_contains($entry,"'&smtp_test='.\$smtpTestOutcome.'#aur-price-reminders'") &&
+      !str_contains($entry,'aur_vendor_rfq_send_smoke_test($aurStore,static'),
+      'Website SMTP test must return to reminders without supplier dispatch');
     $missing=aur_vendor_rfq_status_summary(['messages'=>[
         ['status'=>'ACCEPTED_BY_MAIL_TRANSPORT'],
         ['status'=>'TRANSPORT_FAILED_OR_UNCONFIRMED'],
