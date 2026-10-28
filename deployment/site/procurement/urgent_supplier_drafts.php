@@ -246,3 +246,70 @@ function aur_urgent_supplier_prepare(string $store,array $case):array {
         return aur_urgent_supplier_saved($store,$case)??$index;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
+
+
+/**
+ * Explicit administrator-only recompose of STILL-UNSENT urgent RFQ messages.
+ * Preserve original recipients, source-row mappings, previous transport states
+ * and any accepted/ambiguous attempt; do not create a new RFQ or send email.
+ */
+function aur_urgent_supplier_refresh_signatures(string $store,array $case):array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)
+        throw new InvalidArgumentException('wrong_urgent_case');
+    $indexFile=aur_urgent_supplier_index_path($store,$case);
+    $lock=@fopen($indexFile.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))
+        throw new RuntimeException('urgent_supplier_lock_unavailable');
+    try {
+        $index=aur_urgent_supplier_saved($store,$case);
+        if($index===null)throw new InvalidArgumentException('urgent_supplier_draft_missing');
+        $draftId=(string)$index['draft_id'];
+        $draftPath=aur_vendor_rfq_path($store,(string)$case['reference'],$draftId);
+        $sendLock=@fopen($draftPath.'.lock','c');
+        if(!$sendLock||!flock($sendLock,LOCK_EX))
+            throw new RuntimeException('urgent_supplier_send_lock_unavailable');
+        try {
+            $draft=aur_vendor_rfq_read($store,$case,$draftId);
+            $byEmail=[];
+            foreach(aur_urgent_supplier_plans($case) as $plan)
+                $byEmail[strtolower(trim((string)$plan['vendor']['email']))]=$plan;
+            $changed=0;$unchangedSent=0;$unmatched=0;
+            foreach($draft['messages'] as $i=>$old) {
+                if(!is_array($old))continue;
+                if(($old['status']??'')!=='DRAFT'
+                    ||!empty($old['attempted_at'])
+                    ||!empty($old['sent_at'])
+                    ||!empty($old['transport_result'])) {
+                    $unchangedSent++;continue;
+                }
+                $email=strtolower(trim((string)($old['to']??'')));
+                $plan=$byEmail[$email]??null;
+                if($plan===null){$unmatched++;continue;}
+                $oldRows=array_map(static fn($line)=>(int)($line['source_row']??0),
+                    (array)($old['items']??[]));
+                $expectedRows=array_map(static fn($line)=>(int)($line['source_row']??0),
+                    $plan['rows']);
+                sort($oldRows);sort($expectedRows);
+                if($oldRows!==$expectedRows){$unmatched++;continue;}
+                $fresh=aur_urgent_supplier_compose($case,$plan);
+                // Revision is limited to wording, never routing, status or provenance.
+                if(($old['body']??'')!==$fresh['body']
+                    ||($old['subject']??'')!==$fresh['subject']) {
+                    $draft['messages'][$i]['body']=$fresh['body'];
+                    $draft['messages'][$i]['subject']=$fresh['subject'];
+                    $draft['messages'][$i]['language']=$fresh['language'];
+                    $draft['messages'][$i]['signature_revision']='LEGAL_FOOTER_CITY_V2';
+                    $changed++;
+                }
+            }
+            if($changed>0)aur_vendor_rfq_write($draftPath,$draft);
+            return [
+                'draft_id'=>$draftId,
+                'updated_unsent'=>$changed,
+                'untouched_attempted'=>$unchangedSent,
+                'unmatched_draft_lines'=>$unmatched,
+                'total'=>count($draft['messages']??[])
+            ];
+        }finally{flock($sendLock,LOCK_UN);fclose($sendLock);}
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
