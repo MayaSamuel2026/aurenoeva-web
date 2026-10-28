@@ -148,8 +148,7 @@ function aur_urgent_supplier_compose(array $case,array $plan):array {
             ."Dies ist eine unverbindliche Informationsanfrage und keine Bestellung. "
             ."Jeder spätere Kauf erfolgt unmittelbar zwischen Käufer und Verkäufer und setzt alle erforderlichen Export-, Sanktions-, "
             ."Import- und Medizinprodukteprüfungen voraus.\n\n"
-            ."Vielen Dank und freundliche Grüße\nAURENOEVA Einkauf\n"
-            ."NOEVA Systems e.K. | info@aurenoeva.com\n";
+            .aur_procurement_signed_closing('de',(string)$vendor['email'])."\n";
     } else {
         $body.="For now, we need only unit price and currency, estimated lead time, "
             ."equipment condition (new/used/refurbished) and actual availability. "
@@ -158,8 +157,7 @@ function aur_urgent_supplier_compose(array $case,array $plan):array {
             ."Please quote alternatives separately; they are not additional confirmed quantities.\n\n"
             ."This is a non-binding information enquiry, not an order. Any subsequent purchase would be made directly "
             ."between buyer and supplier, subject to all applicable sanctions, export, import and medical-device controls.\n\n"
-            ."Thank you and kind regards,\nAURENOEVA Purchasing\n"
-            ."Operated by NOEVA Systems e.K. | info@aurenoeva.com\n";
+            .aur_procurement_signed_closing('en',(string)$vendor['email'])."\n";
     }
     $message['subject']=$subject;
     $message['body']=$body;
