@@ -16,12 +16,16 @@ $valid=['send_key'=>str_repeat('a',32),'to'=>'supplier@example.com',
     'subject'=>'Re: AUR-UZ-1A04A7909185FACD','body'=>'Quotation received.'];
 mailcenter_assert(aur_mailcenter_validate_send($valid)['to']==='supplier@example.com',
     'Valid manual message rejected');
+mailcenter_assert(aur_mailcenter_validate_send(array_merge($valid,['language'=>'de']))['language']==='de'
+    && aur_mailcenter_validate_send($valid)['language']==='en',
+    'Mail Center signature language missing or default changed');
 foreach([
  ['to'=>"supplier@example.com\r\nBcc: attacker@example.com"],
  ['to'=>'supplier@example.com,other@example.com'],
  ['subject'=>"subject\r\nBcc: attacker@example.com"],
  ['body'=>''],
  ['send_key'=>'invalid-key'],
+ ['language'=>'fr'],
 ] as $bad){
     try{aur_mailcenter_validate_send(array_merge($valid,$bad));
         throw new RuntimeException('Unsafe manual mail accepted');}
@@ -94,6 +98,29 @@ mailcenter_assert(str_contains(aur_mailcenter_logo_url(),'/procurement/aurenoeva
 mailcenter_assert(str_contains(aur_mailcenter_signature_plain(),'AURENOEVA Purchasing') &&
     str_contains(aur_mailcenter_signature_plain(),'NOEVA Systems e.K.'),
     'Fixed mail signature missing');
+mailcenter_assert(str_contains(aur_mailcenter_signature_plain(),'Commercial register')
+    && str_contains(aur_mailcenter_signature_plain(),'Registered with Amtsgericht Koblenz')
+    && str_contains(aur_mailcenter_signature_plain(),'Marienburger Straße 16')
+    && str_contains(aur_mailcenter_signature_plain(),'56112 Lahnstein')
+    && str_contains(aur_mailcenter_signature_plain(),'HRA 23554'),
+    'English legal signature not complete');
+mailcenter_assert(str_contains(aur_mailcenter_signature_plain('de'),'Handelsregister')
+    && str_contains(aur_mailcenter_signature_plain('de'),'Eingetragen beim Amtsgericht Koblenz')
+    && str_contains(aur_mailcenter_signature_plain('de'),'Deutschland')
+    && str_contains(aur_mailcenter_signature_plain('de'),'HRA 23554'),
+    'German legal signature not complete');
+mailcenter_assert(aur_procurement_verified_city('info@heinemann-ent.de')==='Kaltenkirchen'
+    && aur_procurement_verified_city('info.emea@pentaxmedical.com')==='Hamburg'
+    && aur_procurement_verified_city('info@smdmedical.ch')==='St. Gallen'
+    && aur_procurement_verified_city('sales@kombi-med.com')==='Dortmund'
+    && aur_procurement_verified_city('supplier@example.com')==='',
+    'Verified supplier-city map unexpectedly changed');
+mailcenter_assert(str_contains(aur_procurement_signed_closing('de','info@smdmedical.ch'),
+      'Herzliche Grüße nach St. Gallen')
+    && str_contains(aur_procurement_signed_closing('de','other@example.com'),
+      'Herzliche Grüße\n\n')
+    && !str_contains(aur_procurement_signed_closing('de','other@example.com'),' nach '),
+    'Unverified city is improperly added to the German courtesy closing');
 $rich=aur_mailcenter_validate_send(array_merge($valid,[
     'body'=>"Dear Shaun,\nThe item is confirmed.",
     'body_html'=>'Dear Shaun,<br>The item is <strong>confirmed</strong>.'
@@ -101,6 +128,14 @@ $rich=aur_mailcenter_validate_send(array_merge($valid,[
 mailcenter_assert($rich['body_html']==='Dear Shaun,<br>The item is <strong>confirmed</strong>.',
     'Emphasis was not retained');
 $document=aur_mailcenter_html_document($rich['body_html']);
+$documentGerman=aur_mailcenter_html_document($rich['body_html'],'de');
+mailcenter_assert(str_contains($documentGerman,'Handelsregister')
+    && str_contains($documentGerman,'Eingetragen beim Amtsgericht Koblenz')
+    && str_contains($documentGerman,'HRA 23554'),
+    'Fixed German HTML legal signature missing');
+mailcenter_assert(str_contains($ui,'name="language" id="aur-mail-language"')
+    && str_contains($js,"signatureLanguage?.addEventListener('change', showSignatureLanguage)"),
+    'Mail Center cannot select or preview the German legal signature');
 mailcenter_assert(str_contains($document,'font-size:11pt') &&
     str_contains($document,'Arial,Helvetica,sans-serif') &&
     str_contains($document,'cid:aurenoeva-logo@aurenoeva.com') &&
