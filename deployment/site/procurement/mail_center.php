@@ -34,10 +34,14 @@ function aur_mailcenter_validate_send(array $input):array {
         throw new InvalidArgumentException('invalid_mail_subject');
     if($body===''||strlen($body)>50000||str_contains($body,"\0"))
         throw new InvalidArgumentException('invalid_mail_body');
+    $language=strtolower(trim((string)($input['language']??'en')));
+    if(!in_array($language,['en','de'],true))
+        throw new InvalidArgumentException('invalid_mail_signature_language');
     $rich=trim((string)($input['body_html']??''));
     $safeRich=$rich!==''?aur_mailcenter_clean_rich_text($rich,$body)
         :nl2br(htmlspecialchars($body,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'),false);
-    return ['to'=>$to,'subject'=>$subject,'body'=>$body,'body_html'=>$safeRich,'send_key'=>$key];
+    return ['to'=>$to,'subject'=>$subject,'body'=>$body,'body_html'=>$safeRich,
+        'language'=>$language,'send_key'=>$key];
 }
 
 /** Mail attachments are stored privately by the immutable send key, not publicly accessible. */
@@ -358,11 +362,12 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $logoFile=__DIR__.'/aurenoeva-logo.png';
         if(!is_file($logoFile)||is_link($logoFile))
             throw new RuntimeException('mail_logo_asset_unavailable');
-        $plain=$send['body']."\n\n".aur_mailcenter_signature_plain();
-        $formatted=aur_mailcenter_html_document($send['body_html']);
+        $plain=$send['body']."\n\n".aur_mailcenter_signature_plain($send['language']);
+        $formatted=aur_mailcenter_html_document($send['body_html'],$send['language']);
         $smtpId=$id.'@aurenoeva.com';
         $entry=['id'=>$id,'to'=>$send['to'],'subject'=>$send['subject'],
-            'body'=>$plain,'body_html'=>$formatted,'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
+            'body'=>$plain,'body_html'=>$formatted,'language'=>$send['language'],
+            'created_at'=>gmdate('c'),'status'=>'IN_FLIGHT',
             'smtp_message_id'=>$smtpId,'logo'=>aur_mailcenter_logo_url(),
             'font'=>'Arial, Helvetica, sans-serif','font_size'=>'11pt',
             'attachments'=>$attachmentMetadata];
