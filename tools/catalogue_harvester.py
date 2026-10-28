@@ -90,6 +90,10 @@ def public_dns(host):
 class SafeRedirect(HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,url):
         public_url(url);public_dns(hostof(url))
+        # An ONERGYS URL must never be treated as ONERGYS product evidence
+        # when a redirect ends at an unrelated third-party page.
+        if hostof(req.full_url) in ONERGYS_HOSTS and hostof(url) not in ONERGYS_HOSTS:
+            raise ValueError("onergys_source_redirect_outside_approved_hosts")
         return super().redirect_request(req,fp,code,msg,headers,url)
 OPENER=build_opener(SafeRedirect())
 def fetch(url,kind="page"):
