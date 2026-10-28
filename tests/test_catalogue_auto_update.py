@@ -10,12 +10,40 @@ import catalogue_auto_update as updater
 SHA="a"*40
 
 class AutomaticCatalogueUpdateTests(unittest.TestCase):
-    def test_production_receipt_selects_qualified_source_without_actions_api(self):
+    def test_production_receipt_is_safe_fallback_when_github_api_fails(self):
         receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         with patch.object(updater,"get_bytes",return_value=receipt) as read:
-            with patch.object(updater,"get_json",side_effect=AssertionError("API must not be needed")):
+            with patch.object(updater,"get_json",side_effect=OSError("API unavailable")):
                 self.assertEqual(updater.qualified_sha(),SHA)
         self.assertIn("/production/VERSION.txt",read.call_args.args[0])
+
+    def test_later_green_qualification_upgrades_without_full_site_release(self):
+        green="b"*40
+        receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
+        def api(url):
+            if "/actions/runs" in url:
+                return {"workflow_runs":[
+                    {"name":"AURENOEVA private procurement qualification",
+                     "head_sha":green,"head_branch":"main","event":"push",
+                     "status":"completed","conclusion":"success"}]}
+            if "/compare/" in url:
+                self.assertIn(SHA+"..."+green,url)
+                return {"status":"ahead"}
+            raise AssertionError("unanticipated API request")
+        with patch.object(updater,"get_bytes",return_value=receipt):
+            with patch.object(updater,"get_json",side_effect=api):
+                self.assertEqual(updater.qualified_sha(),green)
+        def downgrade(url):
+            if "/actions/runs" in url:
+                return {"workflow_runs":[
+                    {"name":"AURENOEVA private procurement qualification",
+                     "head_sha":green,"head_branch":"main","event":"push",
+                     "status":"completed","conclusion":"success"}]}
+            if "/compare/" in url:return {"status":"behind"}
+            raise AssertionError("unanticipated API request")
+        with patch.object(updater,"get_bytes",return_value=receipt):
+            with patch.object(updater,"get_json",side_effect=downgrade):
+                self.assertEqual(updater.qualified_sha(),SHA)
 
     def test_qualification_chooses_latest_successful_main_revision(self):
         sha_new = SHA
