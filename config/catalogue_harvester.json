@@ -813,7 +813,8 @@
       "sector": "energy",
       "category": "Turbine / plant components",
       "priority": true,
-      "discover_robots_sitemaps": true
+      "discover_robots_sitemaps": true,
+      "coverage_revision": "onergys-full-tree-pagination-20261028-v2"
     },
     {
       "id": "power-gaskets-contasan",
