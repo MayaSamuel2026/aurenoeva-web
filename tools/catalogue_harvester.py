@@ -520,6 +520,62 @@ def verify_source_listings(db, url, found_product_ids, checked_at, http_status=2
                        WHERE product_id=? AND lifecycle_status='WITHDRAWN'""",(key,))
     return withdrawn
 
+def onergys_source_status(db,now=None):
+    """Inspectable actual ONERGYS progress, not the shop's advertised count.
+
+    Read the authoritative existing SQLite source ledger only. Source-specific
+    rates, stalled URLs, active evidence and pricing are never inferred from
+    total AURENOEVA catalogue size or from the supplier's marketing claims.
+    """
+    hosts=tuple(sorted(ONERGYS_HOSTS))
+    bind=",".join("?" for _ in hosts)
+    cutoff=stamp((now or clock())-timedelta(days=14))
+    due_at=stamp(now or clock())
+    summary={}
+    counts={
+        "evidenced_distinct_parts":
+            ("SELECT COUNT(DISTINCT product_id) FROM vendor_product_evidence "
+             "WHERE website IN ("+bind+")",hosts),
+        "active_distinct_parts":
+            ("SELECT COUNT(DISTINCT product_id) FROM vendor_product_evidence "
+             "WHERE website IN ("+bind+") AND listing_status='ACTIVE'",hosts),
+        "withdrawn_seller_listings":
+            ("SELECT COUNT(*) FROM vendor_product_evidence "
+             "WHERE website IN ("+bind+") AND listing_status='WITHDRAWN'",hosts),
+        "pending_recheck_listings":
+            ("SELECT COUNT(*) FROM vendor_product_evidence "
+             "WHERE website IN ("+bind+") AND listing_status='RECHECK_REQUIRED'",hosts),
+        "checked_last_14_days":
+            ("SELECT COUNT(DISTINCT product_id) FROM vendor_product_evidence "
+             "WHERE website IN ("+bind+") AND last_checked_at>=?",hosts+(cutoff,)),
+        "fetched_pages":
+            ("SELECT COUNT(*) FROM vendor_leads WHERE website IN ("+bind+") "
+             "AND checked='SITE_FETCHED'",hosts),
+        "latest_fetched_at":
+            ("SELECT MAX(last_seen) FROM vendor_leads WHERE website IN ("+bind+") "
+             "AND checked='SITE_FETCHED'",hosts),
+        "active_recent_public_offers":
+            ("SELECT COUNT(*) FROM public_offers WHERE seller_website IN ("+bind+") "
+             "AND active=1 AND observed_at>=?",hosts+(cutoff,))
+    }
+    for label,(sql,params) in counts.items():
+        summary[label]=db.execute(sql,params).fetchone()[0]
+    queued=db.execute("SELECT url,kind,due,failures,last_error FROM harvest_queue "
+                      "WHERE url LIKE 'https://%.onergys.de/%' OR "
+                      "url LIKE 'https://onergys.de/%' OR "
+                      "url LIKE 'https://%.onergys.com/%' OR "
+                      "url LIKE 'https://onergys.com/%'").fetchall()
+    summary["queued_urls"]=len(queued)
+    summary["due_urls"]=sum(row["due"]<=due_at for row in queued)
+    summary["failed_urls"]=sum(row["failures"]>0 for row in queued)
+    summary["discovered_pagination_urls"]=sum(
+        row["kind"]=="page" and any(k.lower()=="pgnr" for k,_ in
+             parse_qsl(urlsplit(row["url"]).query)) for row in queued)
+    summary["pending_sitemaps"]=sum(row["kind"]=="sitemap" and
+        row["due"]<=due_at for row in queued)
+    summary["source_hosts"]=list(hosts)
+    return summary
+
 def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     try:public_url(url)
     except ValueError:return 0
@@ -934,6 +990,7 @@ def main():
                     "retrying_urls":db.execute("SELECT COUNT(*) FROM harvest_queue WHERE failures>0").fetchone()[0],
                     "top_errors":top_errors,
                     "top_failed_hosts":top_failed_hosts,
+                    "onergys":onergys_source_status(db),
                     "recent_runs":last},ensure_ascii=False))
                 return 0
             try:
