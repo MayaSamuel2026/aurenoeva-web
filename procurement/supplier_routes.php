@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Sources are supplier-owned public product/portfolio and contact pages.
  * A category route is never represented as confirmation of the requested SKU.
  */
-const AUR_SUPPLIER_ROUTE_VERSION='2026-10-21.5-directory';
+const AUR_SUPPLIER_ROUTE_VERSION='2026-10-28.1-urgent-rfq-exact-model';
 
 function aur_supplier_route_directory(): array {
     return [
@@ -135,6 +135,82 @@ function aur_supplier_international_contacts(string $description):array {
         'phone'=>'+971 50 313 7086','url'=>'https://www.novosic.com/contact/',
         'scope'=>'Dubai multi-brand medical equipment export sourcing; exact model not verified',
         'pattern'=>'/.+/us','grade'=>'GLOBAL_CATEGORY_ENQUIRY_UNVERIFIED_MODEL'],
+      // Urgent follow-on for Uzbekistan buyer RFQ AUR-UZ-1A04A7909185FACD.
+      // Primary supplier-owned product & contact evidence checked 28 Oct 2026.
+      // Existing original recipients are deliberately NOT duplicated here.
+      // A matching catalogue page is NOT proof of stock, export rights, or a quote.
+      'drgem-global-kr'=>[
+        'name'=>'DRGEM Global Sales (manufacturer)','country'=>'KR',
+        'email'=>'sales@drgemhealthcare.com','phone'=>'+82 70 8230 8423',
+        'url'=>'https://www.drgemhealthcare.com/diamond/',
+        'scope'=>'Buyer #1 DRGEM DIAMOND; exact Classic Expert 52kW configuration needs confirmation. Official DRGEM product and sales source.',
+        'pattern'=>'/\b(?:DRGEM|DIAMOND)\b/ui','grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
+      'medicinos-lt'=>[
+        'name'=>'UAB Medicinos iranga','country'=>'LT',
+        'email'=>'info@medicinosiranga.com','phone'=>'+370 614 24164',
+        'url'=>'https://medicinosiranga.com/en/produkto-kategorija/ultrasound-equipment/',
+        'scope'=>'Buyer #3 Samsung Z20, #4 Samsung V8 and #5 Samsung V6 separately listed. Exact probes/software/options must be checked.',
+        'pattern'=>'/\b(?:Z20|V8|V6)\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'smdmedical-ch'=>[
+        'name'=>'SMD Medical AG','country'=>'CH',
+        'email'=>'info@smdmedical.ch','phone'=>'+41 71 666 78 78',
+        'url'=>'https://smdmedical.ch/en/products/samsung-hera-z20',
+        'scope'=>'Buyer #3 Samsung HERA Z20 model shown on product page; required probe and option bundle unverified.',
+        'pattern'=>'/\b(?:HERA\s+)?Z20\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'opptica-lv'=>[
+        'name'=>'Opptica / OC VISION','country'=>'LV',
+        'email'=>'opptica@ocvision.eu','phone'=>'+371 26011632',
+        'url'=>'https://opptica.eu/en/huvitz/',
+        'scope'=>'Buyer #19 Huvitz HRK-1 and #20 Huvitz HNT-1/1P listed; exact requested tonometer suffix and export rights to confirm.',
+        'pattern'=>'/\b(?:HRK[\s.-]*1|HNT[\s.-]*1)\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'uandi-nl'=>[
+        'name'=>'U & I Optic Instrument','country'=>'NL',
+        'email'=>'info@uandiopticinstrument.com','phone'=>'+31 6 4082 1781',
+        'url'=>'https://www.uandiopticinstrument.com/listings/8726074-demo-2018-haag-streit-octopus-600',
+        'scope'=>'Buyer #21 Haag-Streit Octopus 600 direct seller listing (2018 demo); Basic specification and updated stock/price to confirm.',
+        'pattern'=>'/\bOctopus\s*600\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'mandarin-sg'=>[
+        'name'=>'Mandarin Opto-Medic','country'=>'SG',
+        'email'=>'inquiry@mandarinoptomedic.com','phone'=>'+65 6747 8777',
+        'url'=>'https://www.mandarinoptomedic.com/products/p/haag-streit-octopus-600',
+        'scope'=>'Buyer #21 Haag-Streit Octopus 600 on company-owned product page; Basic configuration needs confirmation.',
+        'pattern'=>'/\bOctopus\s*600\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'haag-uk'=>[
+        'name'=>'Haag-Streit UK (manufacturer channel)','country'=>'GB',
+        'email'=>'info.unitedkingdom@haag-streit.com','phone'=>'+44 1279 883720',
+        'url'=>'https://uk.haag-streit.com/products/categories/speciality-diagnostics/perimetry/octopus-600',
+        'scope'=>'Buyer #21 Octopus 600, official manufacturer country channel; request appropriate Uzbekistan distributor.',
+        'pattern'=>'/\bOctopus\s*600\b/ui','grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
+      'bhmedical-ae'=>[
+        'name'=>'BH Medical Equipment','country'=>'AE',
+        'email'=>'sales@bhmedicalequip.com','phone'=>'+971 58 294 1644',
+        'url'=>'https://bhmedicalequip.com/products/drager-savina-ventilator-3',
+        'scope'=>'Buyer #27 Drager Savina refurbished listed by Sharjah trader; requested 2010-2013 manufacture year not verified.',
+        'pattern'=>'/\bSavina\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'phase-us'=>[
+        'name'=>'Phase Medical Partners','country'=>'US',
+        'email'=>'sales@phasemedicalpartners.com','phone'=>'+1 602 842 5433',
+        'url'=>'https://www.phasemedicalpartners.com/products/mindray-wato-ex-35-anesthesia-machine/',
+        'scope'=>'Buyer #26 Mindray WATO EX-35 quote-only listing. 2 units and all 3-gas/AGSS/vaporizer options require check; no manufacturer authorization assumed.',
+        'pattern'=>'/\bWATO[\s.-]*EX[\s.-]*35\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'sakomed-us'=>[
+        'name'=>'SakoMed Biomedical Services','country'=>'US',
+        'email'=>'info@sakomed.com','phone'=>'+1 844 433 7256',
+        'url'=>'https://sakomed.com/products/electrosurgical-units/covidien-valleylab-ls10-vessel-sealing-generator/',
+        'scope'=>'Buyer #11 Valleylab LS10 VLLS10GEN listed; new/refurbished, 240V, original accessories and export terms to check.',
+        'pattern'=>'/\b(?:VLLS10GEN|LigaSure|Valleylab|LS10)\b/ui','grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'heinemann-de'=>[
+        'name'=>'Heinemann HNO Medizintechnik GmbH (manufacturer)','country'=>'DE',
+        'email'=>'info@heinemann-ent.de','phone'=>'+49 4191 95379 0',
+        'url'=>'https://www.heinemann-ent.de/en/behandlungseinheiten/modula-europa/',
+        'scope'=>'Buyer #16 MODULA Europa ENT unit official producer; 0100-30000 configuration, electric chair and endoscopy options to confirm.',
+        'pattern'=>'/\b(?:Heinemann|MODULA[\s.-]*Europa)\b/ui','grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
+      'pentax-emea-de'=>[
+        'name'=>'PENTAX Medical EMEA (manufacturer channel)','country'=>'DE',
+        'email'=>'info.emea@pentaxmedical.com','phone'=>'+49 40 56192 0',
+        'url'=>'https://events-fr.pentaxmedical.com/jfhod-2026',
+        'scope'=>'Buyer #14 PENTAX VIVIDEO CP-1000 / VNL9-CP ENT system; exact product registration documented, ask EMEA for authorized Uzbekistan channel.',
+        'pattern'=>'/\b(?:PENTAX|CP[\s.-]*1000|VNL9[\s.-]*CP)\b/ui','grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
       'termedis-pl'=>[
         'name'=>'TerMedis','country'=>'PL','email'=>'export@termedis.pl',
         'phone'=>'+48 603 398 840','url'=>'https://www.termedis.pl/export',
