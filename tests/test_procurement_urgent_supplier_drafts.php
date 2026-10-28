@@ -40,6 +40,11 @@ try {
     urgent_check(count($plans)===12,'must have precisely 12 new supplier plans');
     urgent_check(count(array_unique(array_map(static fn($p)=>$p['vendor']['email'],$plans)))===12,
       'supplier emails not deduplicated');
+    $cityByEmail=[
+        'info@heinemann-ent.de'=>'Kaltenkirchen',
+        'info.emea@pentaxmedical.com'=>'Hamburg',
+        'info@smdmedical.ch'=>'St. Gallen'
+    ];
     $locales=[];
     $foundIds=[];
     foreach($plans as $plan) {
@@ -57,6 +62,25 @@ try {
         urgent_check($composed['to']===$email,'outgoing email mismatch');
         urgent_check($composed['status']==='DRAFT','draft unexpectedly sent');
         urgent_check($composed['language']===$lang,'saved draft language mismatch');
+        urgent_check(str_contains($composed['body'],'NOEVA Systems e.K.')
+            && str_contains($composed['body'],'Marienburger Straße 16')
+            && str_contains($composed['body'],'56112 Lahnstein')
+            && str_contains($composed['body'],'HRA 23554'),
+            'Mandatory business signature incomplete');
+        if($lang==='de') {
+            urgent_check(str_contains($composed['body'],'Handelsregister')
+                && str_contains($composed['body'],'Eingetragen beim Amtsgericht Koblenz')
+                && str_contains($composed['body'],'Herzliche Grüße nach '.($cityByEmail[$email]??'')),
+                'German city or legal register line missing: '.$email);
+            urgent_check(!str_contains($composed['body'],'Mit freundlichen Grüßen')
+                && !str_contains($composed['body'],'Vielen Dank und freundliche Grüße'),
+                'Old generic German closing remains');
+        }else {
+            urgent_check(str_contains($composed['body'],'Commercial register')
+                && str_contains($composed['body'],'Registered with Amtsgericht Koblenz')
+                && str_contains($composed['body'],'Thank you and kind regards,'),
+                'English legal footer incomplete');
+        }
         if($lang==='de'){
             urgent_check(str_contains($composed['body'],'Sehr geehrtes Vertriebsteam')
                 && str_contains($composed['subject'],'Preisanfrage')
@@ -84,6 +108,24 @@ try {
     $draft=aur_vendor_rfq_read($root,$case,$saved['draft_id']);
     urgent_check($draft['information_only']===true && $draft['template_version']==='pricing-rfq-v3',
         'draft does not use established controlled RFQ transport');
+    $firstAddress=(string)$draft['messages'][0]['to'];
+    $beforeBody=(string)$draft['messages'][0]['body'];
+    // Simulate a pre-existing unsent draft prepared with the old signature:
+    // the owner can refresh only unattempted text, without creating new mail.
+    $draft['messages'][0]['body']="OLDER UNSENT SIGNATURE";
+    aur_vendor_rfq_write(aur_vendor_rfq_path($root,AUR_URGENT_RFQ_REF,$saved['draft_id']),$draft);
+    $refresh=aur_urgent_supplier_refresh_signatures($root,$case);
+    urgent_check($refresh['updated_unsent']===1
+       && $refresh['untouched_attempted']===0,
+       'Legacy unsent signature was not safely updated');
+    $reloaded=aur_vendor_rfq_read($root,$case,$saved['draft_id']);
+    urgent_check($reloaded['messages'][0]['body']===$beforeBody
+       && $reloaded['messages'][0]['to']===$firstAddress
+       && $reloaded['messages'][0]['status']==='DRAFT',
+       'Safe signature refresh modified draft recipient or content');
+    $secondRefresh=aur_urgent_supplier_refresh_signatures($root,$case);
+    urgent_check($secondRefresh['updated_unsent']===0,
+       'Signature update is not idempotent');
     $again=aur_urgent_supplier_prepare($root,$case);
     urgent_check($again['draft_id']===$saved['draft_id'],
         'repeated preparation created duplicate outbox');
@@ -109,6 +151,13 @@ try {
     $remaining=aur_vendor_rfq_status_summary($first);
     urgent_check($remaining['remaining']===9 && $remaining['accepted']===3,
         'SMTP transport ledger did not correctly count accepted and unsent');
+    $afterSend=aur_vendor_rfq_read($root,$case,$saved['draft_id']);
+    $sentBody=(string)$afterSend['messages'][0]['body'];
+    $noRewrite=aur_urgent_supplier_refresh_signatures($root,$case);
+    urgent_check($noRewrite['untouched_attempted']===3
+       && $noRewrite['updated_unsent']===0
+       && aur_vendor_rfq_read($root,$case,$saved['draft_id'])['messages'][0]['body']===$sentBody,
+       'Sent/attempted supplier email was modified by signature refresh');
     $stored=aur_urgent_supplier_saved($root,$case);
     urgent_check($stored['messages'][0]['status']==='ACCEPTED_BY_MAIL_TRANSPORT'
          && $stored['messages'][3]['status']==='DRAFT','per-supplier states are not durable');
