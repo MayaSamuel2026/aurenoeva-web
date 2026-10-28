@@ -5,6 +5,7 @@ declare(strict_types=1);
  * Case records + original evidence live in ONE directory, outside public_html.
  * No Python process, external service, or duplicate CRM.
  */
+require_once __DIR__.'/rfq_duplicates.php';
 const AUR_MAX_BYTES = 20000000;
 const AUR_MAX_ROWS = 5000;
 
@@ -237,7 +238,8 @@ function aur_case_import(string $store,string $source,string $country,string $or
             'counts'=>['numbered_requirements'=>count(array_unique(array_column($lines,'customer_item_number'))),
               'equipment_entries'=>count($lines),'alternative_options'=>count(array_filter($lines,
                 static fn(array $line):bool=>$line['option_type']==='ALTERNATIVE'))],
-            'sourcing_lines'=>$lines];
+            'sourcing_lines'=>$lines,
+            'line_review'=>aur_rfq_line_review($lines)];
         $case=['ok'=>true,'reference'=>$reference,'country'=>$country,'source_sha256'=>$digest,
             'original_name'=>basename($originalName),'created_at'=>gmdate('c'),
             'line_count'=>count($lines),'requirements'=>$payload['counts']['numbered_requirements'],
