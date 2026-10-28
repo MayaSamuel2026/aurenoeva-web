@@ -22,7 +22,7 @@ for file in \
   tools/catalogue_auto_update.py config/catalogue_harvester.json \
   ops/aurenoeva-catalogue.service ops/aurenoeva-catalogue.timer \
   tests/test_catalogue_harvester.py tests/test_catalogue_publish.py tests/test_catalogue_classification.py \
-  tests/test_catalogue_auto_update.py tests/test_catalogue_prices.py tests/test_catalogue_lifecycle.py; do
+  tests/test_catalogue_auto_update.py tests/test_catalogue_prices.py tests/test_catalogue_lifecycle.py tests/test_catalogue_onergys_coverage.py; do
   curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 60 \
     "$BASE/$file" -o "$WORK/$file"
 done
