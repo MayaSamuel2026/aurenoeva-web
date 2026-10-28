@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import fcntl, gzip, hashlib, html, io, ipaddress, json, os, re, socket, sqlite3, subprocess, time
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlencode, urlsplit, urljoin, parse_qs, unquote
+from urllib.parse import urlencode, urlsplit, urljoin, urlunsplit, parse_qs, parse_qsl, unquote
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from urllib.error import HTTPError, URLError
 from urllib.robotparser import RobotFileParser
@@ -25,6 +25,47 @@ SECTORS=("laboratory","test","medical","industrial","energy","marine","aviation"
 GENERIC={"products","catalog","catalogue","home","all products","equipment","solutions",
          "medical equipment","dental units","surgical carts","devices","parts","accessories"}
 ROBOTS={}
+# ONERGYS has parallel DE/EN domains; source configuration explicitly approves
+# both. Product identity remains OEM+MPN, never the reseller's product SKU.
+ONERGYS_HOSTS=frozenset(("onergys.de","www.onergys.de","onergys.com","www.onergys.com"))
+ONERGYS_MAX_PAGE=2000
+
+def onergys_canonical_url(url):
+    """Drop session/tracking/filter states; retain only bounded category page."""
+    if hostof(url) not in ONERGYS_HOSTS:return url
+    parsed=urlsplit(url)
+    if re.search(r"/(?:account|login|register|checkout|basket|cart|wishlist|my-plant)(?:/|$)",
+                 parsed.path,re.I):return ""
+    pages=[val for key,val in parse_qsl(parsed.query,keep_blank_values=True)
+           if key.lower()=="pgnr"]
+    if pages:
+        if len(pages)!=1 or not re.fullmatch(r"[0-9]{1,5}",pages[0]):return ""
+        number=int(pages[0])
+        if number<1 or number>ONERGYS_MAX_PAGE:return ""
+        query=urlencode({"pgNr":number}) if number>1 else ""
+    else:query=""
+    return urlunsplit((parsed.scheme,parsed.netloc,parsed.path,query,""))
+
+def sitemap_entries(body):
+    """Use XML structure, not extension, to distinguish sitemap indexes."""
+    root=ET.fromstring(body)
+    name=root.tag.rsplit("}",1)[-1].lower()
+    if name not in ("urlset","sitemapindex"):return []
+    kind="sitemap" if name=="sitemapindex" else "page"
+    return [(kind,node.text.strip()) for elem in root for node in elem
+            if node.tag.rsplit("}",1)[-1].lower()=="loc" and node.text]
+
+def robots_sitemap_urls(body):
+    """Only Sitemap declarations; never crawl robots disallow/allow routes."""
+    return list(dict.fromkeys(
+        line.strip().split(":",1)[1].strip()
+        for line in body.splitlines()
+        if re.match(r"(?i)^\s*sitemap\s*:",line)))[:50]
+
+def same_source_hosts(parent_host,child_host,source_host_groups):
+    if parent_host==child_host:return True
+    return child_host in source_host_groups.get(parent_host,())
+
 def clock():return datetime.now(timezone.utc).replace(microsecond=0)
 def stamp(t=None):return (t or clock()).isoformat().replace("+00:00","Z")
 def txt(x,n=240):return " ".join(str(x or "").split())[:n]
@@ -53,7 +94,7 @@ class SafeRedirect(HTTPRedirectHandler):
 OPENER=build_opener(SafeRedirect())
 def fetch(url,kind="page"):
     public_url(url);public_dns(hostof(url))
-    if kind not in ("search","search_ddg"):
+    if kind not in ("search","search_ddg","robots"):
         host=hostof(url)
         if host not in ROBOTS:
             r=RobotFileParser()
@@ -541,6 +582,11 @@ def seeds(db,config):
         maker=src.get("manufacturer","")
         for url in src.get("seeds",[]):enqueue(db,url,"page",sector,category,maker)
         for url in src.get("sitemap_seeds",[]):enqueue(db,url,"sitemap",sector,category,maker)
+        if src.get("discover_robots_sitemaps"):
+            for host in src.get("allowed_hosts",[]):
+                if isinstance(host,str) and re.fullmatch(r"[a-zA-Z0-9.-]+",host):
+                    enqueue(db,"https://"+host+"/robots.txt","robots",
+                            sector,category,maker)
         # Model hints are configured manufacturer part identities, not product proof.
         # Search exact manufacturer/model pairs to discover independent suppliers;
         # only fetched product pages can become catalogue records.
@@ -556,10 +602,7 @@ def seeds(db,config):
                         "search_ddg",sector,category)
     db.commit()
 def sitemap_urls(body):
-    root=ET.fromstring(body);urls=[]
-    for loc in root.iter():
-        if loc.tag.rsplit("}",1)[-1]=="loc" and loc.text:urls.append(loc.text.strip())
-    return urls
+    return [url for _,url in sitemap_entries(body)]
 def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
         progress=None,progress_interval=300):
     seeds(db,config);started=time.monotonic();seen=stamp()
@@ -573,16 +616,27 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     # and ERSAAL's /kategorien/ catalogue hierarchy.
     follow_by_host={}
     patterns_by_host={}
+    depth_by_host={}
+    source_host_groups={}
     for source in config.get("sources",[]):
         if not source.get("active",True):continue
+        # Bind the full declared set, not just hosts that happen to have seeds.
+        # This permits a DE->EN link only if both domains belong to a
+        # configured source (ONERGYS) and still pass the approved path rules.
+        hosts={str(h).lower() for h in source.get("allowed_hosts",[])
+               if isinstance(h,str) and re.fullmatch(r"[a-zA-Z0-9.-]+",h)}
         for seed_url in source.get("seeds",[])+source.get("sitemap_seeds",[]):
-            host=hostof(seed_url)
+            hosts.add(hostof(seed_url))
+        depth=min(12,max(1,int(source.get("max_depth",5))))
+        for host in hosts:
+            source_host_groups.setdefault(host,set()).update(hosts)
+            depth_by_host[host]=max(depth_by_host.get(host,5),depth)
             follow_by_host.setdefault(host,set()).update(
-                str(p) for p in source.get("follow_paths",[]) if str(p).startswith("/")
+                str(p) for p in source.get("follow_paths",[])
+                if isinstance(p,str) and p.startswith("/")
             )
             pattern=source.get("follow_regex","")
-            if pattern:
-                patterns_by_host.setdefault(host,set()).add(pattern)
+            if pattern:patterns_by_host.setdefault(host,set()).add(pattern)
     # A configured manufacturer pattern is a discovery route, not a product claim.
     patterns_by_host={host:[re.compile(p,re.I) for p in patterns]
                       for host,patterns in patterns_by_host.items()}
@@ -603,8 +657,8 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # leads, without starving fresh sitemaps and worldwide searches.
             # The previous absolute search-first sort could repeatedly consume
             # the run budget before an already-discovered product was fetched.
-            buckets=(("page", 65), ("sitemap", 20), ("search", 10),
-                     ("search_ddg", 5))
+            buckets=(("page", 60), ("sitemap", 20), ("robots", 5),
+                     ("search", 10), ("search_ddg", 5))
             counts=[left*share//100 for _,share in buckets]
             for i in range(left-sum(counts)):
                 counts[i%len(counts)]+=1
@@ -652,7 +706,9 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                     if kind in ("search","search_ddg"):
                         links=search_links(body,kind)
                     elif kind=="sitemap":
-                        links=sitemap_urls(body)
+                        links=sitemap_entries(body)
+                    elif kind=="robots":
+                        links=robots_sitemap_urls(body)
                     else:
                         products,links,_=parse_page(body,url,row["maker"],row["sector"],row["category"])
                     if kind=="page":
@@ -700,12 +756,24 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                               VALUES(?,?,?,?,?,?) ON CONFLICT(website,evidence_url) DO UPDATE SET last_seen=excluded.last_seen""",
                               (hostof(link),row["sector"],row["category"],link,t,t))
                             stats["vendor_leads"]+=1
-                    elif kind=="sitemap" and row["depth"]<6:
-                        for link in links[:50000]:  # standard sitemap URL ceiling; queue is durable
+                    elif kind=="robots":
+                        # The source's published sitemap locations are authoritative;
+                        # do not guess sitemap names or wander into other domains.
+                        for link in links:
                             try:public_url(link)
                             except ValueError:continue
-                            if hostof(link)!=hostof(url):continue
-                            childkind="sitemap" if urlsplit(link).path.lower().endswith((".xml",".xml.gz")) else "page"
+                            if not same_source_hosts(hostof(url),hostof(link),source_host_groups):
+                                continue
+                            stats["new_urls"]+=enqueue(db,link,"sitemap",
+                                row["sector"],row["category"],row["maker"],0)
+                    elif kind=="sitemap" and row["depth"]<6:
+                        for childkind,link in links[:50000]:
+                            link=onergys_canonical_url(link)
+                            if not link:continue
+                            try:public_url(link)
+                            except ValueError:continue
+                            if not same_source_hosts(hostof(url),hostof(link),source_host_groups):
+                                continue
                             if childkind=="page":
                                 path=urlsplit(link).path.lower()
                                 ordinary=any(s in path for s in
@@ -714,15 +782,25 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                                 patterned=any(p.match(urlsplit(link).path) for p in patterns_by_host.get(hostof(link),()))
                                 if not (ordinary or explicit or patterned):continue
                             stats["new_urls"]+=enqueue(db,link,childkind,row["sector"],row["category"],row["maker"],row["depth"]+1)
-                    elif kind=="page" and row["depth"]<5:
+                    elif kind=="page" and row["depth"]<depth_by_host.get(hostof(url),5):
                         prefixes=follow_by_host.get(hostof(url),set())
                         max_links=2500 if urlsplit(url).path.rstrip("/") in (
                            "/manufacturers","/en/hersteller","/en/kategorien") else 1000
+                        # ONERGYS has thousands of paginated category listings.
+                        # Ensure page-2 links are not crowded out by global nav
+                        # and related-product links. The job still enforces its
+                        # existing total page/time budgets.
+                        if hostof(url) in ONERGYS_HOSTS:
+                            max_links=4000
+                            links=sorted(links[:12000],key=lambda link:
+                                0 if re.search(r"(?:[?&]|&amp;)pgNr=",link,re.I) else 1)
                         for link in links[:max_links]:
-                            dest=urljoin(url,link).split("#")[0]
+                            dest=onergys_canonical_url(urljoin(url,link).split("#")[0])
+                            if not dest:continue
                             try:public_url(dest)
                             except ValueError:continue
-                            if hostof(dest)!=hostof(url):continue
+                            if not same_source_hosts(hostof(url),hostof(dest),source_host_groups):
+                                continue
                             path=urlsplit(dest).path.lower()
                             default=any(key in path for key in
                               ("/product","/item","/catalog","/part","/equipment","/device","/shop","/p/"))
