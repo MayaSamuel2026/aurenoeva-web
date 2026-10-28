@@ -279,9 +279,15 @@ def parse_page(body,url,maker,sector,category):
                 part=re.search(r"\b"+re.escape(maker_name)+
                     r"\s+([A-Z0-9][A-Z0-9./_-]*\d[A-Z0-9./_-]*)",
                     heading,re.I)
-                model=part.group(1) if part else "ONERGYS-"+sku.group(1)
-            special_description=txt(heading+"; ONERGYS article: "+sku.group(1),240)
-            products=[(maker_name,model,"SUPPLIER_PART_PAGE")]
+                # A reseller article number is NOT a manufacturer MPN.
+                # If the brand is a different OEM and the headline does not
+                # prove its model, retain supplier-page evidence but never
+                # invent the synthetic OEM part "ONERGYS-<retailer SKU>".
+                model=part.group(1) if part else (
+                    "SKU-"+sku.group(1) if maker_name.casefold()=="onergys" else "")
+            if model:
+                special_description=txt(heading+"; ONERGYS article: "+sku.group(1),240)
+                products=[(maker_name,model,"SUPPLIER_PART_PAGE")]
     # On ERSAAL the seller is not the manufacturer. Extract an exact MPN
     # only from a product-detail page where the brand and MPN are both
     # explicitly visible in the title/heading; do not invent ERSAAL as OEM.
