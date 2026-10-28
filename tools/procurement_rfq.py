@@ -12,6 +12,8 @@ import json
 import re
 from pathlib import Path
 
+from procurement_intake import review_duplicate_lines
+
 SOURCES = {
     "dual_use": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
     "sanctions": "https://finance.ec.europa.eu/eu-and-world/sanctions-restrictive-measures/overview-sanctions-and-related-resources_en",
@@ -84,6 +86,9 @@ def review(case: dict, evidence: dict | None = None, *, today: dt.date | None = 
         raise ValueError("empty_case")
 
     findings: list[str] = []
+    line_review = review_duplicate_lines(case["sourcing_lines"])
+    if line_review["requires_review"]:
+        findings.append("Duplicate or redundant equipment lines require buyer clarification before supplier dispatch.")
     blocking = [key for key in BLOCKING_FLAGS if evidence.get(key) is True]
     if blocking:
         findings.extend("BLOCK: " + key for key in blocking)
@@ -185,6 +190,7 @@ def rfq_draft(case: dict, assessment: dict, *, supplier: dict | None = None) -> 
             + DISCLOSURE
         ),
         "lines": lines,
+        "line_review": review_duplicate_lines(case["sourcing_lines"]),
         "supplier_costs_public": False,
         "internal_commission_shared_with_supplier": False,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
