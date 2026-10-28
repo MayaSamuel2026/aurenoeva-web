@@ -617,6 +617,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     follow_by_host={}
     patterns_by_host={}
     depth_by_host={}
+    refresh_by_host={}
     source_host_groups={}
     for source in config.get("sources",[]):
         if not source.get("active",True):continue
@@ -628,9 +629,11 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
         for seed_url in source.get("seeds",[])+source.get("sitemap_seeds",[]):
             hosts.add(hostof(seed_url))
         depth=min(12,max(1,int(source.get("max_depth",5))))
+        refresh=min(14*24,max(12,int(source.get("refresh_hours",96))))
         for host in hosts:
             source_host_groups.setdefault(host,set()).update(hosts)
             depth_by_host[host]=max(depth_by_host.get(host,5),depth)
+            refresh_by_host[host]=min(refresh_by_host.get(host,96),refresh)
             follow_by_host.setdefault(host,set()).update(
                 str(p) for p in source.get("follow_paths",[])
                 if isinstance(p,str) and p.startswith("/")
@@ -807,8 +810,19 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                             patterned=any(p.match(urlsplit(dest).path) for p in patterns_by_host.get(hostof(dest),()))
                             if not (default or any(path.startswith(pref.lower()) for pref in prefixes) or patterned):
                                 continue
-                            stats["new_urls"]+=enqueue(db,dest,"page",row["sector"],row["category"],row["maker"],row["depth"]+1)
-                    due=stamp(clock()+timedelta(hours=48 if kind in ("search","search_ddg") else 96))
+                            # OXID pagination is a lateral step within the same
+                            # category, NOT another level of category nesting.
+                            # Otherwise 600-page sections stop after page 9.
+                            same_category_page=(hostof(url) in ONERGYS_HOSTS
+                                and urlsplit(dest).path==urlsplit(url).path
+                                and any(key.lower()=="pgnr" for key,_ in
+                                        parse_qsl(urlsplit(dest).query)))
+                            next_depth=row["depth"] if same_category_page else row["depth"]+1
+                            stats["new_urls"]+=enqueue(db,dest,"page",row["sector"],row["category"],row["maker"],next_depth)
+                    refresh=refresh_by_host.get(hostof(url),96)
+                    due=stamp(clock()+timedelta(hours=(
+                        48 if kind in ("search","search_ddg") else
+                        168 if kind=="robots" else refresh)))
                     db.execute("UPDATE harvest_queue SET due=?,failures=0,last_error='' WHERE url=?",(due,url))
                 except HTTPError as e:
                     # Two 404/410 observations >=24h apart retire just this seller
