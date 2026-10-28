@@ -481,7 +481,7 @@ if ($isAdmin) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
             aur_price_reminder_kombimed_translate($aurStore,$result,
-                trim((string)($_POST['recipient_token']??'')));
+                trim((string)($_POST['translate_price_reminder']??'')));
             header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
                 .'&reminders_language=de#aur-price-reminders',true,303);
             exit;
