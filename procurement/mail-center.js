@@ -21,6 +21,32 @@
     const richEditor = root.querySelector('#aur-mail-rich-editor');
     const normalButton = root.querySelector('#aur-mail-normal');
     const boldButton = root.querySelector('#aur-mail-bold');
+
+    const signatureLanguage = root.querySelector('#aur-mail-language');
+    const signaturePreview = root.querySelector('.aur-mail-signature');
+    // Only server-owned fixed legal strings; no email HTML is rendered.
+    function showSignatureLanguage() {
+      if (!signaturePreview || !signatureLanguage) return;
+      const german = signatureLanguage.value === 'de';
+      const lines = german
+        ? ['AURENOEVA Einkauf','NOEVA Systems e.K.','Marienburger Straße 16',
+           '56112 Lahnstein','Deutschland','','Handelsregister',
+           'Eingetragen beim Amtsgericht Koblenz','HRA 23554','',
+           'info@aurenoeva.com | https://aurenoeva.com']
+        : ['AURENOEVA Purchasing','NOEVA Systems e.K.','Marienburger Straße 16',
+           '56112 Lahnstein','Germany','','Commercial register',
+           'Registered with Amtsgericht Koblenz','HRA 23554','',
+           'info@aurenoeva.com | https://aurenoeva.com'];
+      signaturePreview.replaceChildren();
+      lines.forEach((line, index) => {
+        if (index > 0) signaturePreview.appendChild(document.createElement('br'));
+        const node = document.createElement(index === 0 ? 'strong' : 'span');
+        node.textContent = line;
+        signaturePreview.appendChild(node);
+      });
+    }
+    signatureLanguage?.addEventListener('change', showSignatureLanguage);
+
     const csrf = document.querySelector('input[name="csrf"]')?.value;
     let folder = 'INBOX', page = 1, current = null, messages = [], more = false;
 
@@ -182,6 +208,7 @@
       list.hidden = true;
       editor.hidden = false;
       compose.reset();
+      showSignatureLanguage();
       richEditor.replaceChildren();
       boldButton.setAttribute('aria-pressed','false');
       attachmentsInput.setCustomValidity('');
