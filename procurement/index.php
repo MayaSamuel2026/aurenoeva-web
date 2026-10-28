@@ -477,6 +477,19 @@ if ($isAdmin) {
                     ?'No original SMTP-accepted supplier recipients with saved item assignments were found.'
                     :'Review the original saved RFQ and retry. No supplier was contacted.');
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['translate_price_reminder'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            aur_price_reminder_kombimed_translate($aurStore,$result,
+                trim((string)($_POST['translate_price_reminder']??'')));
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
+                .'&reminders_language=de#aur-price-reminders',true,303);
+            exit;
+        }catch(Throwable $e) {
+            error_log('AURENOEVA KombiMED reminder language: '.get_class($e));
+            $supplierDiscoveryMessage='Die deutsche Fassung konnte nicht gespeichert werden. '
+                .'Bitte kontrollieren Sie den Entwurf. Es wurde keine E-Mail gesendet.';
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_price_reminders'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));

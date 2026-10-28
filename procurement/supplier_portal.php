@@ -431,6 +431,13 @@ Acceptance is not proof of delivery. Check the saved individual status before an
 <summary><?=aur_escape((string)$msg['supplier_name'])?> · Review exact individual reminder</summary>
 <p><b>To:</b> <?=aur_escape((string)$msg['to'])?></p>
 <p><b>Subject:</b> <?=aur_escape((string)$msg['subject'])?></p>
+<?php if(strtolower(trim((string)($msg['to']??'')))==='sales@kombi-med.com' && ($msg['status']??'')==='DRAFT'):?>
+<?php if(($msg['language']??'')==='de'):?>
+<p role="status"><b>Deutschsprachige Fassung gespeichert.</b> Bitte die gesamte Geräteliste und den Hinweis zu Position 12/22 kontrollieren, bevor Sie den Versand freigeben.</p>
+<?php else:?>
+<button type="submit" name="translate_price_reminder" value="<?=aur_escape((string)$msg['recipient_token'])?>" formnovalidate>Deutsche Fassung für KombiMED vorbereiten (ohne Versand)</button>
+<?php endif;?>
+<?php endif;?>
 <p><b>Original RFQ source:</b> <?=aur_escape((string)$priceReminder['original_draft_id'])?> · 
 <?=aur_escape((string)($msg['original_sent_at']??'date unconfirmed'))?></p>
 <?php if(!empty($msg['duplicate_pairs'])):?>
