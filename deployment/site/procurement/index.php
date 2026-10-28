@@ -28,6 +28,7 @@ require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
+require_once __DIR__ . '/supplier_reminders.php';
 require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/supplier_inbox.php';
@@ -461,6 +462,39 @@ if ($isAdmin) {
                 exit;
             }
             aur_denied(503,'worldwide research temporarily unavailable; original enquiry preserved');
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_price_reminders'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $prepared=aur_price_reminder_prepare($aurStore,$result);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
+                .'&reminders_prepared=1#aur-price-reminders',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA price reminder preparation: '.get_class($e).' '.substr($e->getMessage(),0,100));
+            $supplierDiscoveryMessage='Price reminders were not prepared: '
+                .(in_array($e->getMessage(),['no_original_rfq_ledger','no_confirmed_supplier_recipients'],true)
+                    ?'No original SMTP-accepted supplier recipients with saved item assignments were found.'
+                    :'Review the original saved RFQ and retry. No supplier was contacted.');
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_price_reminders'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+            $targets=$_POST['reminder_targets']??[];
+            if(!is_array($targets))throw new InvalidArgumentException('invalid_reminder_selection');
+            $sent=aur_price_reminder_send($aurStore,$result,$targets,
+                ($_POST['manual_review']??'')==='1',
+                ($_POST['reply_review_ack']??'')==='1');
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
+                .'&reminders_sent='.(int)($sent['processed_this_request']??0).'#aur-price-reminders',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA price reminder dispatch: '.get_class($e).' '.substr($e->getMessage(),0,100));
+            $supplierDiscoveryMessage='No price reminder batch was released: '
+                .(in_array($e->getMessage(),['rfq_smtp_test_required','rfq_smtp_not_configured'],true)
+                    ?'Recheck the authenticated mailbox and perform a new internal SMTP test.'
+                    :'Review selected suppliers, prior replies, duplicate quantities and legal release conditions.');
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
         try {
