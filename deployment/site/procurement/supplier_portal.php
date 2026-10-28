@@ -395,7 +395,7 @@ Acceptance is not proof of delivery. Check the saved individual status before an
   $pending=($msg['status']??'')==='DRAFT';
   $bounced=($msg['review_status']??'')==='DELIVERY_FAILED_REVIEW';
   $review=(string)($msg['review_status']??'');
-  $checked=$pending&&$review==='READY_FOR_OWNER_REVIEW';
+  $checked=false; // Explicit per-supplier selection; never preselect a recent manual correspondent.
   $itemNumbers=[];
   foreach(($msg['lines']??[]) as $item)foreach(($item['buyer_items']??[]) as $num)$itemNumbers[(int)$num]=true;
   ksort($itemNumbers);
@@ -461,7 +461,7 @@ Approve and send selected reminders (up to 3 per action)
 <?php if(!aur_vendor_rfq_mail_verified($aurStore)):?>
 <p role="alert">Sending is disabled until an authenticated AURENOEVA mailbox test succeeds. Draft previews remain available.</p>
 <?php endif;?>
-<p class="muted">Only checked suppliers are contacted. Suppliers who already responded are unchecked by default; delivery failures cannot be selected. Already attempted reminders cannot be sent again through this control.</p>
+<p class="muted">Only suppliers you explicitly select are contacted; none are preselected. Check any manual correspondence (especially recent reminders) before selecting. Delivery failures cannot be selected. Already attempted reminders cannot be sent again through this control.</p>
 <?php else:?>
 <p role="status">No unsent reminders remain. The historical supplier dispatch ledger is unchanged.</p>
 <?php endif;?>
