@@ -130,7 +130,9 @@ function aur_price_reminder_kombimed_german(array $case,array $msg):array {
         if(preg_match('/\bds[\W_]*surg[\W_]*150\b/iu',$spec)) {
             if($dssurg===null) {
                 $dssurg=$item;
-                $dssurg['duplicate_quantity_unresolved']=false;
+                $dssurg['duplicate_quantity_unresolved']=
+                    ($item['duplicate_quantity_unresolved']??false)
+                    ||count(array_unique((array)($item['buyer_items']??[])))>1;
             } else {
                 $dssurg['buyer_items']=array_values(array_unique(array_merge(
                     (array)$dssurg['buyer_items'],(array)($item['buyer_items']??[]))));
