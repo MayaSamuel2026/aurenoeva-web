@@ -81,7 +81,7 @@ try{
  for($i=1;$i<=44;$i++){
     $case44['payload']['sourcing_lines'][]=[
       'source_row'=>$i+1,'customer_item_number'=>$i,'quantity'=>($i%3)+1,
-      'description_original'=>$i%2?'Mindray WATO EX-35 anesthesia workstation':'Hospital operating-room equipment',
+      'description_original'=>($i%2?'Mindray WATO EX-35 anesthesia workstation':'Hospital operating-room equipment').' (distinct client line '.$i.')',
       'option_type'=>'REQUESTED'];
  }
  $fortyFourIntl=aur_supplier_preview($case44);
