@@ -44,7 +44,7 @@ permissions:
   contents: read
 concurrency:
   group: aurenoeva-private-procurement-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -62,7 +62,7 @@ jobs:
           python3 -m compileall -q tools/catalogue_worker.py tools/catalogue_harvester.py tools/catalogue_publish.py tools/catalogue_auto_update.py
           grep -Fq 'ExecStartPre=-+/usr/bin/python3 /opt/aurenoeva/tools/catalogue_auto_update.py' ops/aurenoeva-catalogue.service
           grep -Fq 'CATALOGUE_AUTO_UPDATE_BOOTSTRAP=PASS' ops/activate-harvester-v4.sh
-          python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
+          timeout --kill-after=10s 180s python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v
       - name: Configure current PHP with ZIP and XML
         uses: shivammathur/setup-php@v2
         with:
