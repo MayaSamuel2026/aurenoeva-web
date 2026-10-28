@@ -1043,6 +1043,24 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original enquiry</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
+<?php
+$aurLineReview=aur_rfq_line_review($result['payload']['sourcing_lines']??[]);
+if($aurLineReview['requires_review']):
+?>
+<section class="card" id="rfq-duplicate-review" role="alert" style="border:1px solid #d7a24d">
+<h3>RFQ equipment duplication review required</h3>
+<p>The original customer file is preserved unchanged. These potential duplicate entries must be checked before including both in the same supplier quotation. Alternative models within one customer item remain quotation options, not additional purchases.</p>
+<ul>
+<?php foreach($aurLineReview['duplicate_pairs'] as $flag): ?>
+<li><strong><?=aur_escape(str_replace('_',' ',(string)$flag['kind']))?></strong>:
+customer items <?= (int)$flag['customer_items'][0] ?> and <?= (int)$flag['customer_items'][1] ?>,
+source rows <?= (int)$flag['source_rows'][0] ?> and <?= (int)$flag['source_rows'][1] ?>.
+</li>
+<?php endforeach; ?>
+</ul>
+<p>Verify whether the buyer really requires separate quantities. If an entry is redundant, correct the source spreadsheet and upload it as a new case before including both entries in a fresh supplier RFQ. No existing sent email is modified.</p>
+</section>
+<?php endif; ?>
 <details aria-labelledby="original-equipment-heading" id="original-rfq-equipment" class="aux-disclosure"><summary id="original-equipment-heading">Original requested equipment — <?= (int)($result['line_count']??0) ?> saved entries</summary>
 <p class="muted">This is your original uploaded customer enquiry, stored in the case record. It is always displayed, independently of worldwide supplier discovery, and is not overwritten by new research.</p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment / original specification</th><th>Quantity</th><th>Option</th></tr></thead><tbody>
