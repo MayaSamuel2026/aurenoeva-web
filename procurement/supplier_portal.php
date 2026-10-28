@@ -249,6 +249,16 @@ There are <?=count($aurUrgentMessages)?> supplier-specific emails in the additio
 <?php if(!empty($aurUrgentSaved['skipped_existing_recipients'])):?>
 <p role="alert"><?=count($aurUrgentSaved['skipped_existing_recipients'])?> contact(s) were not reimported because they already appear in the original supplier outbox.</p>
 <?php endif;?>
+<?php if(isset($_GET['signatures_updated'])):?>
+<p role="status"><strong><?= (int)$_GET['signatures_updated'] ?> unsent email(s) updated with the bilingual NOEVA legal signature.</strong>
+Previously attempted/sent emails were not altered.</p>
+<?php endif;?>
+<form method="post" action="/procurement/" style="margin:10px 0">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="refresh_urgent_supplier_signatures" value="1">Update legal signatures in unsent drafts · Do not send</button>
+</form>
+<p class="muted">Updates only pending draft email text. The existing supplier list, buyer item mappings, quantities and SMTP-accepted records stay unchanged.</p>
 <p><a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurUrgentSaved['draft_id'])?>#aur-rfq-approval">Open the saved supplier draft and review/approve sending in batches of 3 →</a></p>
 <?php endif;?>
 <details class="aux-disclosure" <?=!is_array($aurUrgentSaved)?'open':''?>>
