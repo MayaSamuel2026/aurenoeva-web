@@ -524,6 +524,22 @@ if ($isAdmin) {
                     ?'Recheck the authenticated mailbox and perform a new internal SMTP test.'
                     :'Review selected suppliers, prior replies, duplicate quantities and legal release conditions.');
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_urgent_supplier_signatures'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $revision=aur_urgent_supplier_refresh_signatures($aurStore,$case);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$revision['draft_id'])
+                .'&signatures_updated='.(int)$revision['updated_unsent']
+                .'#aur-urgent-supplier-rfqs',true,303);
+            exit;
+        }catch(Throwable $e) {
+            error_log('AURENOEVA urgent signature revision: '.get_class($e).' '.substr($e->getMessage(),0,70));
+            $supplierDiscoveryMessage='The unsent RFQ signatures could not be refreshed. '
+                .'No supplier email was sent; existing sent records remain unchanged.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
+            catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_urgent_supplier_rfqs'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
