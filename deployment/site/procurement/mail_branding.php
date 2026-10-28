@@ -83,6 +83,12 @@ function aur_mailcenter_html_document(string $safeRichText,string $language='en'
     $legal=explode("\n",aur_procurement_legal_signature($language),2);
     $signature='<strong>'.htmlspecialchars($legal[0],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').'</strong><br>'.
         nl2br(htmlspecialchars($legal[1]??'',ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'),false);
+    // Preserve clickable addresses; all replacement values are fixed server data.
+    $signature=str_replace(
+        'info@aurenoeva.com | https://aurenoeva.com',
+        '<a href="mailto:info@aurenoeva.com" style="color:#19493f">info@aurenoeva.com</a> | '.
+        '<a href="https://aurenoeva.com" style="color:#19493f">aurenoeva.com</a>',
+        $signature);
     $logo='cid:aurenoeva-logo@aurenoeva.com';
     return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'.
         '<body style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;color:#202b2b;margin:0;padding:0">'.
