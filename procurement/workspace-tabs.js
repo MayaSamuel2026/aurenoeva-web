@@ -54,6 +54,8 @@
       suppliers.style.removeProperty('padding-top');
       move(suppliers, panels.suppliers, true);
     }
+    const reminders = document.getElementById('aur-price-reminders');
+    if (reminders) move(reminders, panels.rfq, true);
     const approvals = document.getElementById('aur-rfq-approval');
     if (approvals) move(approvals, panels.rfq, true);
     const replies = document.getElementById('supplier-replies');
@@ -65,7 +67,7 @@
     move(cardWithTitle('Supplier research'), panels.suppliers);
     if (!suppliers && panels.suppliers.childElementCount === 0)
       panels.suppliers.innerHTML = '<div class="card"><h2>Suppliers</h2><p>Open a saved enquiry to review supplier research.</p></div>';
-    if (!approvals && !replies)
+    if (!reminders && !approvals && !replies)
       panels.rfq.innerHTML = '<div class="card"><h2>RFQ & replies</h2><p>No supplier RFQ is available for this enquiry yet.</p></div>';
 
     // Diagnostics, catalogue administration and historical counts stay separate.
@@ -79,8 +81,9 @@
     actions.className = 'aur-quick-actions';
     actions.setAttribute('aria-label', 'Common procurement tasks');
     const links = document.getElementById('aur-send-status')
-      ? [['Review sent RFQ', '#aur-send-status'], ['Supplier replies', '#supplier-replies'],
-         ['Supplier selection', '#supplier-dashboard'], ['Original equipment', '#original-rfq-equipment']]
+      ? [['Prepare supplier reminders', '#aur-price-reminders'], ['Review sent RFQ', '#aur-send-status'],
+         ['Supplier replies', '#supplier-replies'], ['Supplier selection', '#supplier-dashboard'],
+         ['Original equipment', '#original-rfq-equipment']]
       : [['Upload an enquiry', '#aur-upload'], ['Select suppliers', '#supplier-dashboard']];
     for (const [label, href] of links) {
       if (!document.getElementById(href.slice(1))) continue;

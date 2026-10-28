@@ -28,6 +28,7 @@ require_once __DIR__ . '/supplier_discovery.php';
 require_once __DIR__ . '/supplier_routes.php';
 require_once __DIR__ . '/supplier_worldwide.php';
 require_once __DIR__ . '/supplier_rfq.php';
+require_once __DIR__ . '/supplier_reminders.php';
 require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/supplier_inbox.php';
@@ -462,6 +463,39 @@ if ($isAdmin) {
             }
             aur_denied(503,'worldwide research temporarily unavailable; original enquiry preserved');
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_price_reminders'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $prepared=aur_price_reminder_prepare($aurStore,$result);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
+                .'&reminders_prepared=1#aur-price-reminders',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA price reminder preparation: '.get_class($e).' '.substr($e->getMessage(),0,100));
+            $supplierDiscoveryMessage='Price reminders were not prepared: '
+                .(in_array($e->getMessage(),['no_original_rfq_ledger','no_confirmed_supplier_recipients'],true)
+                    ?'No original SMTP-accepted supplier recipients with saved item assignments were found.'
+                    :'Review the original saved RFQ and retry. No supplier was contacted.');
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_price_reminders'])) {
+        try {
+            $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
+            $targets=$_POST['reminder_targets']??[];
+            if(!is_array($targets))throw new InvalidArgumentException('invalid_reminder_selection');
+            $sent=aur_price_reminder_send($aurStore,$result,$targets,
+                ($_POST['manual_review']??'')==='1',
+                ($_POST['reply_review_ack']??'')==='1');
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference'])
+                .'&reminders_sent='.(int)($sent['processed_this_request']??0).'#aur-price-reminders',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA price reminder dispatch: '.get_class($e).' '.substr($e->getMessage(),0,100));
+            $supplierDiscoveryMessage='No price reminder batch was released: '
+                .(in_array($e->getMessage(),['rfq_smtp_test_required','rfq_smtp_not_configured'],true)
+                    ?'Recheck the authenticated mailbox and perform a new internal SMTP test.'
+                    :'Review selected suppliers, prior replies, duplicate quantities and legal release conditions.');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_vendor_rfqs'])) {
         try {
             $result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
@@ -862,6 +896,8 @@ elseif(!$aurHasDraft){$aurNext='Find suppliers and prepare enquiries';$aurNextLi
 elseif($aurDraftStatus==='DRAFT_REVIEW'){
     $aurNext=aur_vendor_rfq_mail_verified($aurStore)?'Review and approve RFQs':'Complete internal mailbox test';
     $aurNextLink=aur_vendor_rfq_mail_verified($aurStore)?'#aur-rfq-approval':'#aur-mail-settings';
+}elseif(($aurProof['smtp_250_confirmed']??0)>0){
+    $aurNext='Prepare individual supplier reminders';$aurNextLink='#aur-price-reminders';
 }else{$aurNext='Inspect saved sending status';$aurNextLink='#aur-send-status';}
 ?>
 <?php
@@ -1330,4 +1366,4 @@ Registered with Amtsgericht Koblenz | HRA 23554
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=1"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=3"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=3"></script><?php endif; ?></body></html>
