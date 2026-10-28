@@ -79,7 +79,10 @@ function aur_mailcenter_clean_rich_text(string $html,string $plain):string {
     if($readable!==$expected)throw new InvalidArgumentException('mail_text_format_mismatch');
     return $clean;
 }
-function aur_mailcenter_html_document(string $safeRichText):string {
+function aur_mailcenter_html_document(string $safeRichText,string $language='en'):string {
+    $legal=explode("\n",aur_procurement_legal_signature($language),2);
+    $signature='<strong>'.htmlspecialchars($legal[0],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').'</strong><br>'.
+        nl2br(htmlspecialchars($legal[1]??'',ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'),false);
     $logo='cid:aurenoeva-logo@aurenoeva.com';
     return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'.
         '<body style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;color:#202b2b;margin:0;padding:0">'.
@@ -90,15 +93,6 @@ function aur_mailcenter_html_document(string $safeRichText):string {
         '<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;white-space:normal">'.
         $safeRichText.'</td></tr>'.
         '<tr><td style="padding-top:24px;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55">'.
-        '<strong>AURENOEVA Purchasing</strong><br>'.
-        'NOEVA Systems e.K.<br>'.
-        'Marienburger Straße 16<br>'.
-        '56112 Lahnstein<br>'.
-        'Germany<br><br>'.
-        'Commercial register<br>'.
-        'Registered with Amtsgericht Koblenz<br>'.
-        'HRA 23554<br><br>'.
-        '<a href="mailto:info@aurenoeva.com" style="color:#19493f">info@aurenoeva.com</a> | '.
-        '<a href="https://aurenoeva.com" style="color:#19493f">aurenoeva.com</a><br>'.
+        $signature.
         '</td></tr></table></body></html>';
 }
