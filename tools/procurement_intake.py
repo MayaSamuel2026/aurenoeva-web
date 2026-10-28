@@ -158,6 +158,51 @@ def parse_rows(rows: list[list[str]]) -> list[dict]:
     return lines
 
 
+
+def review_duplicate_lines(lines: list[dict]) -> dict:
+    """Flag probable repeated equipment without changing buyer rows or quantities."""
+    prepared = []
+    pairs = []
+    for index, line in enumerate(lines):
+        description = str(line.get("description_original") or "")
+        normalized = " ".join(re.findall(r"[^\\W_]+", description.casefold(), flags=re.UNICODE))
+        if not normalized:
+            continue
+        prepared.append({
+            "row": int(line.get("source_row") or (index + 1)),
+            "item": int(line.get("customer_item_number") or 0),
+            "alt": line.get("option_type") == "ALTERNATIVE",
+            "normalized": normalized, "words": set(normalized.split()),
+        })
+    for i, left in enumerate(prepared):
+        for right in prepared[i + 1:]:
+            same_item = left["item"] == right["item"]
+            exact = left["normalized"] == right["normalized"]
+            if same_item and not exact:
+                continue
+            kind = None
+            if exact:
+                kind = "REDUNDANT_ALTERNATIVE" if same_item else "EXACT_DUPLICATE"
+            elif not same_item and not left["alt"] and not right["alt"]:
+                first, second = left["words"], right["words"]
+                if min(len(first), len(second)) >= 8 and len(first & second) / len(first | second) >= 0.92:
+                    kind = "POSSIBLE_DUPLICATE"
+            if kind:
+                pairs.append({
+                    "kind": kind,
+                    "source_rows": [left["row"], right["row"]],
+                    "customer_items": [left["item"], right["item"]],
+                })
+    return {
+        "schema": "aurenoeva-rfq-line-review/1",
+        "source_line_count": len(lines),
+        "alternative_options": sum(x.get("option_type") == "ALTERNATIVE" for x in lines),
+        "duplicate_pairs": pairs,
+        "flagged_source_rows": sorted({row for pair in pairs for row in pair["source_rows"]}),
+        "requires_review": bool(pairs),
+    }
+
+
 def build_payload(source: Path, case_reference: str, country: str) -> dict:
     if source.stat().st_size > MAX_BYTES:
         raise ValueError("input_too_large")
@@ -191,6 +236,7 @@ def build_payload(source: Path, case_reference: str, country: str) -> dict:
             "equipment_entries": len(items),
             "alternative_options": sum(x["option_type"] == "ALTERNATIVE" for x in items),
         },
+        "line_review": review_duplicate_lines(items),
         "sourcing_lines": items,
     }
 
