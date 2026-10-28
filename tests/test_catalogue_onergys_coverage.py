@@ -174,7 +174,8 @@ class OnergysCoverageTests(unittest.TestCase):
             config={"categories":{},"sources":[source]}
             seeds(db,config)
             row=db.execute("SELECT * FROM harvest_queue WHERE url=?",(old,)).fetchone()
-            self.assertLessEqual(row["due"],datetime.now(timezone.utc).isoformat())
+            scheduled=datetime.fromisoformat(row["due"].replace("Z","+00:00"))
+            self.assertLessEqual(scheduled,datetime.now(timezone.utc))
             self.assertEqual(row["failures"],3)
             self.assertEqual(row["last_error"],"OLD_BACKOFF_EVIDENCE")
             self.assertEqual(db.execute("SELECT due FROM harvest_queue WHERE url=?",
