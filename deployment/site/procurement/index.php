@@ -1311,6 +1311,10 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <input type="hidden" name="send_key" value="">
 <label>To <input name="to" type="email" required maxlength="254" autocomplete="email"></label>
 <label>Subject <input name="subject" required maxlength="250"></label>
+<label>Signature language <select name="language" id="aur-mail-language" aria-label="Outgoing legal signature language">
+<option value="en" selected>English</option>
+<option value="de">Deutsch</option>
+</select></label>
 <label>Attachments <input id="aur-mail-attachments" name="attachments[]" type="file" multiple aria-describedby="aur-mail-attachment-hint"></label>
 <p id="aur-mail-attachment-hint" class="muted">Up to 5 files · maximum 8 MB each · 10 MB total. PDF, spreadsheets, images and other common file types.</p>
 <p id="aur-mail-selected-files" class="muted" role="status" aria-live="polite"></p>
@@ -1327,10 +1331,14 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
   aria-multiline="true" spellcheck="true" data-placeholder="Write your message…"></div>
 <div class="aur-mail-signature" aria-label="Fixed signature">
 <strong>AURENOEVA Purchasing</strong><br>
-Operated by NOEVA Systems e.K.<br>
-Marienburger Straße 16 | 56112 Lahnstein | Germany<br>
-info@aurenoeva.com | https://aurenoeva.com<br>
-Registered with Amtsgericht Koblenz | HRA 23554
+NOEVA Systems e.K.<br>
+Marienburger Straße 16<br>
+56112 Lahnstein<br>
+Germany<br><br>
+Commercial register<br>
+Registered with Amtsgericht Koblenz<br>
+HRA 23554<br><br>
+info@aurenoeva.com | https://aurenoeva.com
 </div>
 </div>
 <input type="hidden" name="body" value="">
