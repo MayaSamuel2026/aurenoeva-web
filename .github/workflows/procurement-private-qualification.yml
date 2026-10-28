@@ -71,6 +71,7 @@ jobs:
           php -l deployment/crm/aurenoeva-v1/import.php
           php -l deployment/site/procurement/index.php
           php -l deployment/site/procurement/private_cases.php
+          php -l deployment/site/procurement/rfq_duplicates.php
           php -l deployment/site/procurement/embargo_screen.php
           php -l deployment/site/procurement/supplier_intelligence.php
           php -l deployment/site/procurement/supplier_discovery.php
@@ -92,6 +93,7 @@ jobs:
           php -l deployment/site/procurement/setup-cli.php
           php -l deployment/site/procurement/activate.php
           php tests/test_procurement_hostinger_php.php
+          php tests/test_procurement_rfq_duplicates.php
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
