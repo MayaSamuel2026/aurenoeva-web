@@ -6,6 +6,7 @@ on:
       - 'config/catalogue_harvester.json'
       - 'tests/test_catalogue_*.py'
       - 'deployment/site/procurement/**'
+      - 'tests/test_procurement_urgent_supplier_leads.php'
       - 'tests/test_procurement_worldwide_php.php'
       - 'tests/test_procurement_inbox.php'
       - 'tests/test_procurement_country_preflight.php'
@@ -96,6 +97,7 @@ jobs:
           php tests/test_procurement_hostinger_php.php
           php tests/test_procurement_rfq_duplicates.php
           php tests/test_procurement_price_reminders.php
+          php tests/test_procurement_urgent_supplier_leads.php
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
