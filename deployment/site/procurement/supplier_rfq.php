@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/embargo_screen.php';
+require_once __DIR__.'/rfq_duplicates.php';
 /**
  * Human-approved supplier enquiry outbox in the SAME private case store.
  * Draft -> review -> explicit approve -> SMTP/mail acceptance -> ledger.
@@ -22,7 +23,8 @@ function aur_vendor_rfq_safe_error(Throwable $e):string {
       'commercial_draft_redraft_required','rfq_template_outdated_redraft_required',
       'rfq_smtp_not_configured','rfq_smtp_invalid_configuration',
       'rfq_smtp_test_required','smtp_configuration_unavailable',
-      'rfq_duplicate_risk_acknowledgement_required','rfq_recovery_not_available'
+      'rfq_duplicate_risk_acknowledgement_required','rfq_recovery_not_available',
+      'rfq_duplicate_equipment_review_required'
     ];
     return in_array($e->getMessage(),$allowed,true)?$e->getMessage() :
       ($e instanceof InvalidArgumentException?'invalid_supplier_selection':'private_rfq_storage_or_research_error');
@@ -245,7 +247,11 @@ function aur_vendor_rfq_prepare(string $store,array $case,array $intel,array $se
     }
     if(count($groups)>300)throw new InvalidArgumentException('maximum_300_suppliers_per_batch');
     $messages=[];
-    foreach($groups as $g)$messages[]=aur_vendor_rfq_compose($case,$g['vendor'],array_values($g['rows']));
+    foreach($groups as $g) {
+        $rows=array_values($g['rows']);
+        aur_rfq_assert_no_duplicate_supplier_lines($case,$rows);
+        $messages[]=aur_vendor_rfq_compose($case,$g['vendor'],$rows);
+    }
     $draftId=bin2hex(random_bytes(12));
     $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
         'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],'information_only'=>true,'template_version'=>'pricing-rfq-v3','draft_id'=>$draftId,'created_at'=>gmdate('c'),
@@ -605,6 +611,12 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
     try{
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
+        // Recheck legacy unsent drafts against the current canonical case too.
+        // Already-sent history is immutable, never silently reissued.
+        foreach(($draft['messages']??[]) as $pending) {
+            if(($pending['status']??'')==='DRAFT')
+                aur_rfq_assert_no_duplicate_supplier_lines($case,$pending['items']??[]);
+        }
         // Preserve old commercial workflow drafts but never revive them by mistake.
         // Pricing requests under the new non-binding template remain informational.
         if(($draft['information_only']??false)!==true)
