@@ -211,6 +211,80 @@ try {
 <?php endforeach;?>
 </details>
 </section>
+
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurUrgentPlans=[];$aurUrgentSaved=null;$aurUrgentError='';
+try {
+    $aurUrgentPlans=aur_urgent_supplier_plans($result);
+    $aurUrgentSaved=aur_urgent_supplier_saved($aurStore,$result);
+}catch(Throwable $e){
+    error_log('AURENOEVA urgent RFQ supplier list: '.get_class($e).' '.substr($e->getMessage(),0,120));
+    $aurUrgentError='Original buyer item mapping or persistent draft record needs administrator review.';
+}
+$aurUrgentMessages=[];
+if(is_array($aurUrgentSaved))$aurUrgentMessages=$aurUrgentSaved['messages']??[];
+else foreach($aurUrgentPlans as $aurP)$aurUrgentMessages[]=aur_urgent_supplier_compose($result,$aurP);
+$aurGermanCount=count(array_filter($aurUrgentMessages,static fn($m)=>(string)($m['language']??'')==='de'));
+?>
+<section class="card" id="aur-urgent-supplier-rfqs" style="margin-top:18px">
+<h2>New suppliers · Urgent Uzbekistan RFQ</h2>
+<p>Additional <strong>model-matched</strong> contacts for the existing buyer enquiry. These are new first enquiries, <strong>not reminders</strong>.
+Each supplier receives only its matching original buyer items and exact specifications. German-language drafts are automatically used for suppliers in Germany, Austria and Switzerland.</p>
+<p><span class="pill"><b><?=count($aurUrgentMessages)?></b> individual supplier emails</span>
+<span class="pill"><b><?=$aurGermanCount?></b> German · DE / AT / CH</span>
+<span class="pill"><b><?=count($aurUrgentMessages)-$aurGermanCount?></b> English</span>
+<span class="pill"><b><?=is_array($aurUrgentSaved)?'Saved in the RFQ':'Awaiting import'?></b></span></p>
+<?php if($aurUrgentError!==''):?>
+<p role="alert"><?=aur_escape($aurUrgentError)?> No email has been sent by this preparation control.</p>
+<?php elseif(!is_array($aurUrgentSaved)):?>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_urgent_supplier_rfqs" value="1">Add <?=count($aurUrgentPlans)?> suppliers to this RFQ and save all email drafts · Do not send</button>
+</form>
+<p class="muted">Imports the reviewed suppliers into an additional case-linked RFQ outbox. Original RFQ and 28 October reminder delivery records are not changed. No automatic dispatch, no additional supplier fees.</p>
+<?php else:?>
+<p role="status"><b>Imported and saved.</b> Created <?=aur_escape((string)($aurUrgentSaved['prepared_at']??''))?> UTC.
+There are <?=count($aurUrgentMessages)?> supplier-specific emails in the additional outbox
+(<?=aur_escape((string)($aurUrgentSaved['status']??'UNKNOWN'))?>).</p>
+<?php if(!empty($aurUrgentSaved['skipped_existing_recipients'])):?>
+<p role="alert"><?=count($aurUrgentSaved['skipped_existing_recipients'])?> contact(s) were not reimported because they already appear in the original supplier outbox.</p>
+<?php endif;?>
+<p><a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurUrgentSaved['draft_id'])?>#aur-rfq-approval">Open the saved supplier draft and review/approve sending in batches of 3 →</a></p>
+<?php endif;?>
+<details class="aux-disclosure" <?=!is_array($aurUrgentSaved)?'open':''?>>
+<summary><b>Review each supplier, exact items and language</b> · <?=count($aurUrgentMessages)?> drafts</summary>
+<div class="scroll"><table><thead><tr><th>Company / country</th><th>Buyer items</th><th>Published address</th><th>Language</th><th>State</th></tr></thead><tbody>
+<?php foreach($aurUrgentMessages as $aurM):
+  $aurBuyerItems=[];
+  foreach(($aurM['items']??[]) as $aurItem){
+    foreach(($result['payload']['sourcing_lines']??[]) as $aurSource)
+      if((int)($aurSource['source_row']??0)===(int)($aurItem['source_row']??-1))
+          $aurBuyerItems[(int)($aurSource['customer_item_number']??0)]=true;
+  }
+  ksort($aurBuyerItems);
+?>
+<tr><td><strong><?=aur_escape((string)($aurM['vendor_name']??''))?></strong>
+<div class="muted"><?=aur_escape((string)($aurM['supplier_country']??''))?></div></td>
+<td><?=aur_escape(implode(', ',array_keys($aurBuyerItems)))?></td>
+<td><?=aur_escape((string)($aurM['to']??''))?></td>
+<td><b><?=($aurM['language']??'en')==='de'?'Deutsch':'English'?></b></td>
+<td><?=aur_escape((string)($aurM['status']??'DRAFT'))?></td></tr>
+<?php endforeach;?></tbody></table></div>
+<?php foreach($aurUrgentMessages as $aurM):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)($aurM['vendor_name']??''))?> · <?=($aurM['language']??'en')==='de'?'German':'English'?> · Exact outgoing message</summary>
+<p><b>To:</b> <?=aur_escape((string)($aurM['to']??''))?></p>
+<p><b>Subject:</b> <?=aur_escape((string)($aurM['subject']??''))?></p>
+<p><a target="_blank" rel="noopener noreferrer" href="<?=aur_escape((string)($aurM['source_url']??''))?>">Product / manufacturer evidence ↗</a>. Publication does not confirm stock, export rights or final supplier eligibility.</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)($aurM['body']??''))?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<p class="muted">The authoritative original buyer quantities are retained. Suppliers are not certified as in stock, approved exporters or contracted partners. Sending always requires separate authenticated approval, a current SMTP test and trade-compliance review.</p>
+</section>
+<?php endif;?>
+
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
