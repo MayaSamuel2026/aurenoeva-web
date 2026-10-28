@@ -20,6 +20,10 @@ $cases=[
     'Covidien LigaSure Valleylab LS10 VLLS10GEN generator'=>['global-sakomed-us'],
     'Heinemann Modula-Europa 0100-30000 ENT workstation'=>['global-heinemann-de'],
     'Pentax ENT video system CP-1000 + VNL9-CP'=>['global-pentax-emea-de'],
+    'Anthos A5 Continental dental unit'=>['global-eggert-de'],
+    'Skema 6 SD-9099 dental unit'=>['global-duomed-de'],
+    'Skema 8 6X-9056 dental unit'=>['global-duomed-de'],
+    'CATTANI dental compressor 45 L, 238 L/min'=>['global-mediadental-de'],
 ];
 $sourceBacked=[];
 foreach($cases as $description=>$expectedIds) {
@@ -43,7 +47,7 @@ foreach($cases as $description=>$expectedIds) {
         urgent_assert(in_array($id,array_column($seeded,'id'),true),
             'Curated lead not routed to existing case research: '.$id);
 }
-urgent_assert(count($sourceBacked)===12,'Urgent supplier source count mismatch');
+urgent_assert(count($sourceBacked)===15,'Urgent supplier source count mismatch');
 foreach($sourceBacked as $id=>$lead) {
     urgent_assert(!in_array(strtolower($lead['email']),[
         'info@humanova.ae','sales@kombi-med.com',
