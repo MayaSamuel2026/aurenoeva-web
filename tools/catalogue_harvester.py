@@ -656,6 +656,20 @@ def seeds(db,config):
                         "search",sector,category)
                 enqueue(db,"https://lite.duckduckgo.com/lite/?"+urlencode({"q":query}),
                         "search_ddg",sector,category)
+        # One-time, non-destructive catch-up after a source's catalogue
+        # discovery rules change. Old successful source pages may otherwise
+        # remain four days away even when the source refresh is now 24 hours.
+        revision=src.get("coverage_revision","")
+        if revision:
+            if not isinstance(revision,str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}",revision):
+                raise ValueError("invalid_source_coverage_revision")
+            key="source-coverage-"+str(src["id"])+"-"+revision
+            if not db.execute("SELECT 1 FROM catalogue_lifecycle_meta WHERE key=?",(key,)).fetchone():
+                for host in src.get("allowed_hosts",[]):
+                    if isinstance(host,str) and re.fullmatch(r"[a-zA-Z0-9.-]+",host):
+                        db.execute("UPDATE harvest_queue SET due=? WHERE url LIKE ?",
+                                   (stamp(),"https://"+host+"/%"))
+                db.execute("INSERT INTO catalogue_lifecycle_meta(key) VALUES(?)",(key,))
     db.commit()
 def sitemap_urls(body):
     return [url for _,url in sitemap_entries(body)]
