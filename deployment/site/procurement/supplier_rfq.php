@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/embargo_screen.php';
 require_once __DIR__.'/rfq_duplicates.php';
+require_once __DIR__.'/mail_branding.php';
 /**
  * Human-approved supplier enquiry outbox in the SAME private case store.
  * Draft -> review -> explicit approve -> SMTP/mail acceptance -> ledger.
@@ -202,12 +203,8 @@ function aur_vendor_rfq_compose(array $case,array $vendor,array $lines):array {
     $body.="8. Country of origin, export origin, applicable export classification if known and any sanctions, embargoes, licence, end-user or import restrictions affecting delivery to ".$destination.".\n\n";
     $body.="Please return your quotation within five working days, if possible, and cite RFQ ".$ref." and the buyer item numbers in your reply. If information is not available, please indicate this rather than assuming stock or regulatory clearance.\n\n";
     $body.="This is a request for price and availability information only. It is not a purchase order, acceptance of an offer, commitment to buy or instruction to ship. AURENOEVA does not purchase or resell the goods, negotiate a sale, collect buyer payments or arrange transport. Any subsequent purchase, if pursued, will be contracted directly between the independent buyer and seller and remains subject to all applicable sanctions, export-control, medical-device and import requirements. No restricted transaction or circumvention is authorised by this enquiry.\n\n";
-    $body.="Thank you for your consideration. We look forward to your reply.\n\n";
-    $body.="Kind regards,\nAURENOEVA Purchasing\n";
-    $body.="Operated by NOEVA Systems e.K.\n";
-    $body.="Marienburger Straße 16 | 56112 Lahnstein | Germany\n";
-    $body.="Email: info@aurenoeva.com | https://aurenoeva.com\n";
-    $body.="Registered with Amtsgericht Koblenz | HRA 23554\n";
+    $body.="We look forward to your reply.\n\n";
+    $body.=aur_procurement_signed_closing('en',(string)$vendor['email'])."\n";
     return ['vendor_id'=>(string)$vendor['id'],'vendor_name'=>$name,'to'=>(string)$vendor['email'],
         'source_url'=>(string)($vendor['evidence_url']??''),'subject'=>$subject,'body'=>$body,
         'items'=>array_map(static fn($r)=>['source_row'=>(int)($r['source_row']??0),'description'=>(string)$r['description']],$lines),
