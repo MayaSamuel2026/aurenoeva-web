@@ -63,6 +63,15 @@ try {
     price_check(str_contains($german['messages'][0]['body'],'Die insgesamt benötigte Menge'),'duplicate quantity uncertainty not preserved');
     price_check(str_contains($german['messages'][0]['body'],'MT5000L'),'alternative omitted from German message');
     price_check(str_contains($german['messages'][0]['body'],'Einzelpreis / Währung'),'German quote headings absent');
+    price_check(str_contains($german['messages'][0]['body'],'Herzliche Grüße nach Dortmund')
+        && !str_contains($german['messages'][0]['body'],'Mit freundlichen Grüßen'),
+        'KombiMED German city-based closing missing');
+    price_check(str_contains($german['messages'][0]['body'],'Handelsregister')
+        && str_contains($german['messages'][0]['body'],'Eingetragen beim Amtsgericht Koblenz')
+        && str_contains($german['messages'][0]['body'],'Marienburger Straße 16')
+        && str_contains($german['messages'][0]['body'],'56112 Lahnstein')
+        && str_contains($german['messages'][0]['body'],'HRA 23554'),
+        'KombiMED full German legal signature incomplete');
     price_check(aur_price_reminder_kombimed_translate($store,$case,$token)===$german,'German draft conversion not idempotent');
     price_check((aur_price_reminder_read($store,$case)['messages'][1]['language']??'')==='','other recipient changed by German conversion');
     price_check(aur_vendor_rfq_read($store,$case,$draftId)['messages'][0]['status']==='ACCEPTED_BY_MAIL_TRANSPORT',
