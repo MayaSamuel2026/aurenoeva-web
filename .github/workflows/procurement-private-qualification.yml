@@ -7,6 +7,7 @@ on:
       - 'tests/test_catalogue_*.py'
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_urgent_supplier_leads.php'
+      - 'tests/test_procurement_urgent_supplier_drafts.php'
       - 'tests/test_procurement_worldwide_php.php'
       - 'tests/test_procurement_inbox.php'
       - 'tests/test_procurement_country_preflight.php'
@@ -80,6 +81,7 @@ jobs:
           php -l deployment/site/procurement/supplier_worldwide.php
           php -l deployment/site/procurement/supplier_rfq.php
           php -l deployment/site/procurement/supplier_reminders.php
+          php -l deployment/site/procurement/urgent_supplier_drafts.php
           php -l deployment/site/procurement/supplier_replies.php
           php -l deployment/site/procurement/supplier_inbox_mime.php
           php -l deployment/site/procurement/supplier_inbox_store.php
@@ -98,6 +100,7 @@ jobs:
           php tests/test_procurement_rfq_duplicates.php
           php tests/test_procurement_price_reminders.php
           php tests/test_procurement_urgent_supplier_leads.php
+          php tests/test_procurement_urgent_supplier_drafts.php
           php tests/test_procurement_worldwide_php.php
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
@@ -121,7 +124,7 @@ jobs:
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh
           # Guard against a future release omitting the RFQ/source/search modules.
-          for name in supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_reminders.php supplier_portal.php worldwide.js; do
+          for name in supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_reminders.php urgent_supplier_drafts.php supplier_portal.php worldwide.js; do
             grep -q " $name " .github/workflows/publish.yml
           done
           grep -q 'id="aur-worldwide-scan-all"' deployment/site/procurement/index.php
