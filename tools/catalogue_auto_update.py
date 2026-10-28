@@ -52,30 +52,43 @@ def get_json(url: str) -> dict:
 
 
 def qualified_sha() -> str | None:
-    # The production branch is written only after the existing publish workflow
-    # has completed its catalogue/unit/PHP qualification. Its VERSION.txt
-    # is a small, CDN-served release receipt that avoids anonymous GitHub
-    # Actions API rate limits on the shared Hostinger VPS.
+    """Choose a tested source commit even when unrelated website CI is queued.
+
+    Accept ONLY the latest successful main-branch procurement/catalogue
+    qualification, never unqualified main HEAD. Compare ancestry against the
+    production-pinned release before moving forward. If the API is unreachable
+    preserve that last qualified production receipt (no rollback or guessing).
+    """
+    receipt_sha=None
     try:
-        receipt = get_bytes(f"{RAW}/production/VERSION.txt", limit=512).decode("utf-8")
-        match = re.fullmatch(r"Aurenoeva V[^\n]+ production ([a-f0-9]{40})\s*", receipt)
-        if match:
-            return match.group(1)
-    except (OSError, UnicodeError, ValueError):
+        receipt=get_bytes(f"{RAW}/production/VERSION.txt",limit=512).decode("utf-8")
+        match=re.fullmatch(r"Aurenoeva V[^\n]+ production ([a-f0-9]{40})\s*",receipt)
+        if match:receipt_sha=match.group(1)
+    except (OSError,UnicodeError,ValueError):
         pass
-    # Preserve the historical Actions qualification lookup as a fallback.
-    # An unqualified main HEAD must never silently replace active crawler code.
-    runs = get_json(f"{API}/actions/runs?per_page=100")
-    for run in runs.get("workflow_runs", []):
-        if (isinstance(run, dict)
-            and run.get("name") == "AURENOEVA private procurement qualification"
-            and run.get("head_branch") == "main"
-            and run.get("event") == "push"
-            and run.get("status") == "completed"
-            and run.get("conclusion") == "success"):
-            sha = str(run.get("head_sha", ""))
-            if SHA_PATTERN.fullmatch(sha):
+    try:
+        runs=get_json(f"{API}/actions/runs?per_page=100")
+        for run in runs.get("workflow_runs",[]):
+            if (isinstance(run,dict)
+                and run.get("name")=="AURENOEVA private procurement qualification"
+                and run.get("head_branch")=="main"
+                and run.get("event")=="push"
+                and run.get("status")=="completed"
+                and run.get("conclusion")=="success"):
+                sha=str(run.get("head_sha",""))
+                if not SHA_PATTERN.fullmatch(sha):continue
+                if receipt_sha and sha!=receipt_sha:
+                    # No downgrade or divergent release. Both revisions must
+                    # be proven ancestors on the same existing repository.
+                    compare=get_json(f"{API}/compare/{receipt_sha}...{sha}")
+                    if compare.get("status") not in ("ahead","identical"):
+                        print("CATALOGUE_UPDATE_DEFERRED=NO_FORWARD_QUALIFIED_RELEASE",
+                              flush=True)
+                        return receipt_sha
                 return sha
+    except (OSError,ValueError,KeyError,TypeError):
+        pass
+    if receipt_sha:return receipt_sha
     print("CATALOGUE_UPDATE_DEFERRED=NO_SUCCESSFUL_GITHUB_QUALIFICATION",
           flush=True)
     return None
