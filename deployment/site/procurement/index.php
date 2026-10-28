@@ -1466,4 +1466,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=8"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=3"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=4"></script><?php endif; ?></body></html>
