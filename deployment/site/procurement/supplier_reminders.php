@@ -111,6 +111,126 @@ function aur_price_reminder_text(array $case,array $original,array $selection):a
         ."Operated by NOEVA Systems e.K.\ninfo@aurenoeva.com\n";
     return ['subject'=>$subject,'body'=>$body,'supplier_name'=>$name,'to'=>$email];
 }
+
+/**
+ * German supplier-specific reminder. Always use the saved, originally selected
+ * source rows. This is a LANGUAGE transformation, not another supplier search.
+ * Identical DS.Surg 150 references 12/22 are represented ONCE without
+ * assuming that either the buyer's aggregate quantity is one or two.
+ */
+function aur_price_reminder_kombimed_german(array $case,array $msg):array {
+    if(strtolower(trim((string)($msg['to']??'')))!=='sales@kombi-med.com')
+        throw new InvalidArgumentException('german_version_only_for_kombimed');
+    $original=$msg['lines']??[];
+    if(!is_array($original)||!$original)throw new InvalidArgumentException('empty_supplier_item_mapping');
+    $lines=[];$dssurg=null;
+    foreach($original as $item) {
+        if(!is_array($item))continue;
+        $spec=(string)($item['description']??'');
+        if(preg_match('/\bds[\W_]*surg[\W_]*150\b/iu',$spec)) {
+            if($dssurg===null) {
+                $dssurg=$item;
+                $dssurg['duplicate_quantity_unresolved']=false;
+            } else {
+                $dssurg['buyer_items']=array_values(array_unique(array_merge(
+                    (array)$dssurg['buyer_items'],(array)($item['buyer_items']??[]))));
+                $dssurg['source_rows']=array_values(array_unique(array_merge(
+                    (array)$dssurg['source_rows'],(array)($item['source_rows']??[]))));
+                $dssurg['quantity']=null;
+                $dssurg['duplicate_quantity_unresolved']=true;
+            }
+        }else $lines[]=$item;
+    }
+    if($dssurg!==null)$lines[]=$dssurg;
+    usort($lines,static function($a,$b):int {
+        $aItems=(array)($a['buyer_items']??[]);
+        $bItems=(array)($b['buyer_items']??[]);
+        return ((int)($aItems[0]??0))<=>((int)($bItems[0]??0));
+    });
+    $ref=(string)$case['reference'];
+    $body="Sehr geehrtes KombiMED-Vertriebsteam,\n\n"
+        ."wir möchten freundlich an unsere Anfrage ".$ref." erinnern.\n"
+        ."Für die nachfolgend aufgeführten Medizingeräte benötigen wir "
+        ."vorerst lediglich den Einzelpreis mit Währung sowie die "
+        ."voraussichtliche Lieferzeit für die Lieferung nach Usbekistan.\n\n"
+        ."Auch ein Teilangebot für die von Ihnen lieferbaren Positionen "
+        ."wäre uns sehr willkommen.\n\n"
+        ."GEWÜNSCHTE ANGABEN: EINZELPREIS / WÄHRUNG / LIEFERZEIT\n"
+        .str_repeat('-',61)."\n";
+    foreach($lines as $i=>$item) {
+        $refs=array_values(array_unique(array_map('intval',(array)($item['buyer_items']??[]))));
+        $option=(string)($item['option_type']??'REQUESTED')==='ALTERNATIVE'?' (OPTION/ALTERNATIVE)':'';
+        $qty=($item['duplicate_quantity_unresolved']??false)
+            ?'noch zu bestätigen (Doppeleintrag in der Ursprungsliste)'
+            :(($item['quantity']??null)===null?'noch zu bestätigen':(string)$item['quantity']);
+        $body.=($i+1).'. Kundenposition'.(count($refs)>1?'en ':' ')
+            .implode(', ',$refs).$option."\n"
+            ."   ".trim((string)($item['description']??''))."\n"
+            ."   Menge: ".$qty."\n"
+            ."   Einzelpreis / Währung: __________   Lieferzeit: __________\n\n";
+    }
+    $body.="Die aufgeführten Alternativmodelle sind Wahlmöglichkeiten und "
+        ."keine zusätzlichen Bestellmengen.\n";
+    $ambig=array_filter($lines,static fn($item)=>($item['duplicate_quantity_unresolved']??false));
+    if($ambig)$body.="Der doppelt aufgeführte Artikel DS.Surg 150 "
+        ."(Kundenpositionen 12 und 22) ist für die Preisangabe zusammengefasst. "
+        ."Die insgesamt benötigte Menge wird noch mit dem Käufer geklärt.\n";
+    $body.="\nFalls einzelne Artikel nicht verfügbar sind, genügt uns auch "
+        ."eine kurze Rückmeldung; gleichwertige Alternativen können gerne "
+        ."separat gekennzeichnet werden.\n\n"
+        ."Vielen Dank im Voraus. Wir würden uns über eine kurze Antwort "
+        ."unter Angabe der RFQ-Referenz freuen.\n\n"
+        ."Diese Anfrage ist unverbindlich und stellt keine Bestellung dar. "
+        ."Etwaige Geschäfte erfolgen direkt zwischen Käufer und Verkäufer, "
+        ."vorbehaltlich erforderlicher handels- und regulatorischer Prüfungen.\n\n"
+        ."Mit freundlichen Grüßen\nAURENOEVA Einkauf\n"
+        ."Ein Geschäftsbereich von NOEVA Systems e.K.\ninfo@aurenoeva.com\n";
+    return [
+      'subject'=>'Freundliche Erinnerung | AURENOEVA RFQ '.$ref.' | Preise und Lieferzeiten',
+      'body'=>$body,
+      'language'=>'de',
+      'german_lines'=>$lines,
+    ];
+}
+/**
+ * An authenticated owner action replaces one UNSENT draft with its German
+ * variant. Locked, audited, idempotent; no message is dispatched here.
+ */
+function aur_price_reminder_kombimed_translate(string $store,array $case,string $recipientToken):array {
+    if(!preg_match('/^[a-f0-9]{64}$/D',$recipientToken))
+        throw new InvalidArgumentException('invalid_reminder_selection');
+    $path=aur_price_reminder_path($store,$case);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('reminder_lock_unavailable');
+    try {
+        $data=aur_price_reminder_read($store,$case);
+        if($data===null)throw new InvalidArgumentException('reminder_not_prepared');
+        $found=false;
+        foreach($data['messages'] as $i=>$msg) {
+            if(!hash_equals((string)($msg['recipient_token']??''),$recipientToken))continue;
+            if(strtolower(trim((string)($msg['to']??'')))!=='sales@kombi-med.com')
+                throw new InvalidArgumentException('german_version_only_for_kombimed');
+            if(($msg['status']??'')!=='DRAFT')
+                throw new InvalidArgumentException('reminder_already_attempted_immutable');
+            $found=true;
+            if(($msg['language']??'')==='de')break;
+            $de=aur_price_reminder_kombimed_german($case,$msg);
+            $data['messages'][$i]['original_english']=[
+                'subject'=>(string)($msg['subject']??''),
+                'body'=>(string)($msg['body']??'')];
+            $data['messages'][$i]['subject']=$de['subject'];
+            $data['messages'][$i]['body']=$de['body'];
+            $data['messages'][$i]['language']='de';
+            $data['messages'][$i]['localized_at']=gmdate('c');
+            $data['messages'][$i]['german_lines']=$de['german_lines'];
+            $data['messages'][$i]['review_status']='MANUAL_GERMAN_DRAFT_REVIEW';
+            aur_vendor_rfq_write($path,$data);
+            break;
+        }
+        if(!$found)throw new InvalidArgumentException('unknown_reminder_recipient');
+        return aur_price_reminder_read($store,$case)??$data;
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
 function aur_price_reminder_prepare(string $store,array $case):array {
     $path=aur_price_reminder_path($store,$case);
     $lock=@fopen($path.'.lock','c');
