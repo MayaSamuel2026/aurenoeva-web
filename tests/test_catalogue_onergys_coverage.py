@@ -87,6 +87,15 @@ class OnergysCoverageTests(unittest.TestCase):
         self.assertEqual(extract_public_offers(
             HTML_PRODUCT,PRODUCT,products,datetime.now(timezone.utc).isoformat()),[])
 
+    def test_supplier_sku_is_not_misrepresented_as_an_unproven_oem_mpn(self):
+        ambiguous=('<html><h1>Oil filter element Special Edition</h1>'
+                   '<p>Product number: 30002123</p>'
+                   '<p>Manufacturer: MWM</p></html>')
+        records,_,_=parse_page(ambiguous,PRODUCT,"","energy",
+                               "Turbine / plant components")
+        self.assertEqual(records,[],
+            "Vendor SKU must not masquerade as a fabricated MWM part number")
+
     def test_deep_pagination_discovered_without_consuming_category_depth(self):
         with sqlite3.connect(":memory:") as db:
             db.row_factory=sqlite3.Row
