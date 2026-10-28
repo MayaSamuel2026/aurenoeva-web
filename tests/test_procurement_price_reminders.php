@@ -25,7 +25,7 @@ try {
       'created_at'=>'2026-10-23T10:00:00+00:00',
       'status'=>'TRANSPORT_ACCEPTED',
       'messages'=>[
-        ['to'=>'sales@vendor-a.example','vendor_name'=>'Vendor A',
+        ['to'=>'sales@kombi-med.com','vendor_name'=>'Vendor A',
          'status'=>'ACCEPTED_BY_MAIL_TRANSPORT','sent_at'=>'2026-10-23T10:01:00+00:00',
          'items'=>[['source_row'=>2],['source_row'=>3],['source_row'=>4],['source_row'=>5]]],
         ['to'=>'sales@vendor-b.example','vendor_name'=>'Vendor B',
@@ -55,6 +55,18 @@ try {
     price_check(str_contains($made['messages'][0]['body'],'MT5000L'),'different alternative silently removed');
     price_check($made['messages'][1]['review_status']==='SUPPLIER_ALREADY_RESPONDED_REVIEW','supplier correspondence not flagged');
     price_check(aur_price_reminder_prepare($store,$case)===$made,'repeat draft preparation mutated saved data');
+    $token=$made['messages'][0]['recipient_token'];
+    $german=aur_price_reminder_kombimed_translate($store,$case,$token);
+    price_check(($german['messages'][0]['language']??'')==='de','german draft language not saved');
+    price_check(str_contains($german['messages'][0]['subject'],'Freundliche Erinnerung'),'german subject not prepared');
+    price_check(str_contains($german['messages'][0]['body'],'Kundenpositionen 12, 22'),'duplicate buyer references lost in German translation');
+    price_check(str_contains($german['messages'][0]['body'],'Die insgesamt benötigte Menge'),'duplicate quantity uncertainty not preserved');
+    price_check(str_contains($german['messages'][0]['body'],'MT5000L'),'alternative omitted from German message');
+    price_check(str_contains($german['messages'][0]['body'],'Einzelpreis / Währung'),'German quote headings absent');
+    price_check(aur_price_reminder_kombimed_translate($store,$case,$token)===$german,'German draft conversion not idempotent');
+    price_check((aur_price_reminder_read($store,$case)['messages'][1]['language']??'')==='','other recipient changed by German conversion');
+    price_check(aur_vendor_rfq_read($store,$case,$draftId)['messages'][0]['status']==='ACCEPTED_BY_MAIL_TRANSPORT',
+      'German conversion modified original send receipt');
     $blocked=false;
     try {aur_price_reminder_send($store,$case,[$made['messages'][0]['recipient_token']],false,true,static fn()=>true);}
     catch(InvalidArgumentException $e){$blocked=true;}
@@ -64,11 +76,16 @@ try {
     $sent=aur_price_reminder_send($store,$case,[$target],true,true,
       static function($to,$subject,$body)use(&$count):bool {
           $count++;
-          price_check($to==='sales@vendor-a.example','individual recipient routing wrong');
+          price_check($to==='sales@kombi-med.com','individual recipient routing wrong');
           price_check(str_contains($body,'DS.Surg 150'),'individual item text wrong');
           return true;
       });
     price_check($count===1 && $sent['processed_this_request']===1,'approved selected send did not execute once');
+    $translateAfterSendDenied=false;
+    try {aur_price_reminder_kombimed_translate($store,$case,$target);}
+    catch(InvalidArgumentException $e){$translateAfterSendDenied=$e->getMessage()==='reminder_already_attempted_immutable';}
+    price_check($translateAfterSendDenied,'already attempted reminder allowed to be altered');
+
     price_check(aur_price_reminder_read($store,$case)['messages'][0]['status']==='ACCEPTED_BY_MAIL_TRANSPORT',
       'sent record not persisted');
     $again=aur_price_reminder_send($store,$case,[$target],true,true,
