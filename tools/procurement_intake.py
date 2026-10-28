@@ -165,7 +165,7 @@ def review_duplicate_lines(lines: list[dict]) -> dict:
     pairs = []
     for index, line in enumerate(lines):
         description = str(line.get("description_original") or "")
-        normalized = " ".join(re.findall(r"[^\\W_]+", description.casefold(), flags=re.UNICODE))
+        normalized = " ".join(re.findall(r"[^\W_]+", description.casefold(), flags=re.UNICODE))
         if not normalized:
             continue
         prepared.append({
