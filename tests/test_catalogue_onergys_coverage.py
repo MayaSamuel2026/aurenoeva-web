@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
 from catalogue_harvester import (
     onergys_canonical_url, robots_sitemap_urls, sitemap_entries,
-    same_source_hosts, db_init, parse_page, run, onergys_source_status, pid,
+    same_source_hosts, db_init, parse_page, run, seeds, onergys_source_status, pid,
 )
 from catalogue_prices import extract_public_offers
 
@@ -148,6 +148,43 @@ class OnergysCoverageTests(unittest.TestCase):
             self.assertLess(abs((revisit-datetime.now(timezone.utc)
                                   -timedelta(hours=24)).total_seconds()),30,
                 "Source-configured 24-hour refresh must not become 96 hours")
+
+    def test_existing_source_requeue_once_preserves_history_and_other_vendors(self):
+        with sqlite3.connect(":memory:") as db:
+            db.row_factory=sqlite3.Row
+            db_init(db)
+            delayed=(datetime.now(timezone.utc)+timedelta(days=4)).isoformat()
+            old=ROOT+"?pgNr=14"
+            unrelated="https://other.example.com/product/existing.html"
+            db.execute("""INSERT INTO harvest_queue
+                (url,kind,sector,category,maker,depth,failures,due,last_error)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
+                (old,"page","energy","Parts","",2,3,delayed,"OLD_BACKOFF_EVIDENCE"))
+            db.execute("""INSERT INTO harvest_queue
+                (url,kind,sector,category,maker,depth,failures,due,last_error)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
+                (unrelated,"page","industrial","Parts","",1,0,delayed,""))
+            db.commit()
+            source={
+                "id":"onergys-test","active":True,"manufacturer":"",
+                "seeds":[ROOT],"allowed_hosts":["www.onergys.de"],
+                "coverage_revision":"one-time-20261028",
+                "sector":"energy","category":"Parts"
+            }
+            config={"categories":{},"sources":[source]}
+            seeds(db,config)
+            row=db.execute("SELECT * FROM harvest_queue WHERE url=?",(old,)).fetchone()
+            self.assertLessEqual(row["due"],datetime.now(timezone.utc).isoformat())
+            self.assertEqual(row["failures"],3)
+            self.assertEqual(row["last_error"],"OLD_BACKOFF_EVIDENCE")
+            self.assertEqual(db.execute("SELECT due FROM harvest_queue WHERE url=?",
+                                        (unrelated,)).fetchone()[0],delayed)
+            next_due=(datetime.now(timezone.utc)+timedelta(days=2)).isoformat()
+            db.execute("UPDATE harvest_queue SET due=? WHERE url=?",(next_due,old))
+            seeds(db,config)
+            self.assertEqual(db.execute("SELECT due FROM harvest_queue WHERE url=?",
+                                        (old,)).fetchone()[0],next_due,
+                "Idempotent one-off catch-up must not repeat every 30 minutes")
 
     def test_real_source_entry_prioritizes_all_major_facets(self):
         config=json.loads((Path(__file__).resolve().parents[1]/
