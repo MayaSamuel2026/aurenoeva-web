@@ -35,6 +35,7 @@ on:
       - 'hotfix/de-language-refinement/apply.py'
       - 'tests/test_catalogue_publish.py'
       - 'tests/test_catalogue_harvester.py'
+      - 'tests/test_catalogue_onergys_coverage.py'
       - 'tools/catalogue_prices.py'
       - 'tools/catalogue_classification.py'
       - 'tests/test_catalogue_classification.py'
