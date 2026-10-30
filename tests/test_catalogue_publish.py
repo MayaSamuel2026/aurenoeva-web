@@ -243,7 +243,8 @@ class PublicationTests(unittest.TestCase):
             "non_product_record":1,"invalid_canonical_id":1,
             "missing_manufacturer":1,"missing_model":1,
             "generic_heading":1,"invalid_https_source":1,
-            "duplicate_canonical_id":1,"nontechnical_catalogue_record":0})
+            "duplicate_canonical_id":1,"nontechnical_catalogue_record":0,
+            "withdrawn_all_sources":0})
         self.assertEqual(len(json.loads(payload)["items"]),1)
 
     def test_public_snapshot_drops_generic_and_supplier_private_fields(self):
