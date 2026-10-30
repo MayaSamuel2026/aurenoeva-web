@@ -215,6 +215,29 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "excluded_duplicates": reasons["duplicate_canonical_id"],
                 "excluded_nonrecord": reasons["non_product_record"],
             }
+        crawler = source_stats.get("crawler")
+        if isinstance(crawler, dict):
+            ints = (
+                "crawl_status_version", "crawl_last_run_pages",
+                "crawl_last_run_new_products", "crawl_last_run_failures",
+                "crawl_24h_completed_runs", "crawl_24h_pages",
+                "crawl_24h_new_products", "crawl_24h_failures",
+                "crawl_queue_total", "crawl_queue_due",
+                "crawl_queue_retrying", "crawl_queue_due_pages",
+                "crawl_queue_due_searches"
+            )
+            times = ("crawl_checked_at_utc", "crawl_last_started_at_utc",
+                     "crawl_last_finished_at_utc")
+            if crawler.get("crawl_status_version") == 1:
+                for key in ints:
+                    value = crawler.get(key)
+                    if type(value) is int and 0 <= value <= 1000000000:
+                        payload["public_stats"][key] = value
+                for key in times:
+                    value = crawler.get(key)
+                    if isinstance(value, str) and (value == "" or re.fullmatch(
+                            r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z", value)):
+                        payload["public_stats"][key] = value
     health = raw.get("catalogue_health")
     if isinstance(health, dict) and health.get("lifecycle_version") == 1:
         # Only public-safe aggregates; no supplier contacts or private URLs.
@@ -227,7 +250,71 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
             if type(value) is int and 0 <= value <= 10000000:
                 payload["catalogue_health"][key] = value
         payload["catalogue_health"]["latest_check_at"] = str(health.get("latest_check_at") or "")[:35]
+    if "public_stats" in payload:
+        # The existing website counter reads aggregate metadata from the
+        # bounded tail of the atomic snapshot, so keep it last.
+        payload["public_stats"] = payload.pop("public_stats")
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), len(records)
+
+
+def summarize_crawler_execution(db: sqlite3.Connection) -> dict | None:
+    """Bounded, read-only operational counters from the canonical VPS database.
+
+    Deliberately excludes URLs, hostnames, contacts, errors, tokens and logs.
+    A recent snapshot alone never constitutes evidence that a crawl completed.
+    """
+    tables = {row[0] for row in db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name IN ('harvest_runs','harvest_queue')")}
+    if tables != {'harvest_runs', 'harvest_queue'}:
+        return None
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    stamp = lambda value: value.isoformat().replace("+00:00", "Z")
+    current = stamp(now)
+    since = stamp(now - timedelta(hours=24))
+    try:
+        latest = db.execute(
+            "SELECT started,finished FROM harvest_runs ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        completed = db.execute(
+            """SELECT started,finished,pages,products,failed FROM harvest_runs
+               WHERE finished IS NOT NULL ORDER BY id DESC LIMIT 1"""
+        ).fetchone()
+        daily = db.execute(
+            """SELECT COUNT(*) AS runs,COALESCE(SUM(pages),0) AS pages,
+                      COALESCE(SUM(products),0) AS products,
+                      COALESCE(SUM(failed),0) AS failed
+               FROM harvest_runs WHERE finished>=?""", (since,)
+        ).fetchone()
+        queued = db.execute(
+            """SELECT COUNT(*) AS total,
+                      SUM(CASE WHEN due<=? THEN 1 ELSE 0 END) AS due,
+                      SUM(CASE WHEN failures>0 THEN 1 ELSE 0 END) AS retrying,
+                      SUM(CASE WHEN due<=? AND kind='page' THEN 1 ELSE 0 END) AS due_pages,
+                      SUM(CASE WHEN due<=? AND kind IN ('search','search_ddg')
+                               THEN 1 ELSE 0 END) AS due_searches
+               FROM harvest_queue""", (current,current,current)
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    return {
+        "crawl_status_version": 1,
+        "crawl_checked_at_utc": current,
+        "crawl_last_started_at_utc": str(latest["started"] or "") if latest else "",
+        "crawl_last_finished_at_utc": str(completed["finished"] or "") if completed else "",
+        "crawl_last_run_pages": int(completed["pages"] or 0) if completed else 0,
+        "crawl_last_run_new_products": int(completed["products"] or 0) if completed else 0,
+        "crawl_last_run_failures": int(completed["failed"] or 0) if completed else 0,
+        "crawl_24h_completed_runs": int(daily["runs"] or 0),
+        "crawl_24h_pages": int(daily["pages"] or 0),
+        "crawl_24h_new_products": int(daily["products"] or 0),
+        "crawl_24h_failures": int(daily["failed"] or 0),
+        "crawl_queue_total": int(queued["total"] or 0),
+        "crawl_queue_due": int(queued["due"] or 0),
+        "crawl_queue_retrying": int(queued["retrying"] or 0),
+        "crawl_queue_due_pages": int(queued["due_pages"] or 0),
+        "crawl_queue_due_searches": int(queued["due_searches"] or 0),
+    }
 
 
 def make_full_database_export(db_path: Path, dest: Path) -> dict:
@@ -259,6 +346,7 @@ def make_full_database_export(db_path: Path, dest: Path) -> dict:
     with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True, timeout=15) as db:
         db.row_factory = sqlite3.Row
         attach_offers(db, rows)
+        crawler_status = summarize_crawler_execution(db)
         columns = {col[1] for col in db.execute("PRAGMA table_info(vendor_product_evidence)")}
         if {"listing_status", "last_checked_at"}.issubset(columns):
             limit14 = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
@@ -285,6 +373,8 @@ def make_full_database_export(db_path: Path, dest: Path) -> dict:
             "source_catalogue_stats": {"db_products": len(rows)}}
     if health is not None:
         data["catalogue_health"] = health
+    if crawler_status is not None:
+        data["source_catalogue_stats"]["crawler"] = crawler_status
     dest.parent.mkdir(parents=True, exist_ok=True)
     with dest.open("w", encoding="utf-8") as fp:
         json.dump(data, fp, ensure_ascii=False, separators=(",", ":"))
