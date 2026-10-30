@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Sources are supplier-owned public product/portfolio and contact pages.
  * A category route is never represented as confirmation of the requested SKU.
  */
-const AUR_SUPPLIER_ROUTE_VERSION='2026-10-28.1-urgent-rfq-exact-model';
+const AUR_SUPPLIER_ROUTE_VERSION='2026-10-28.2-urgent-rfq-exact-and-public-price';
 
 function aur_supplier_route_directory(): array {
     return [
@@ -211,6 +211,29 @@ function aur_supplier_international_contacts(string $description):array {
         'url'=>'https://events-fr.pentaxmedical.com/jfhod-2026',
         'scope'=>'Buyer #14 PENTAX VIVIDEO CP-1000 / VNL9-CP ENT system; exact product registration documented, ask EMEA for authorized Uzbekistan channel.',
         'pattern'=>'/\b(?:PENTAX|CP[\s.-]*1000|VNL9[\s.-]*CP)\b/ui','grade'=>'OFFICIAL_MANUFACTURER_CONTACT'],
+      // Additional Europe exact-model leads (28 Oct 2026). Public retail
+      // prices are benchmarks, never confirmed Uzbekistan export offers.
+      'eggert-de'=>[
+        'name'=>'dental EGGERT GmbH','country'=>'DE',
+        'email'=>'anfrage@dental-eggert.de','phone'=>'+49 741 17400 0',
+        'url'=>'https://www.praxiseinrichtung-zahnarzt.de/Behandlungseinheiten/',
+        'scope'=>'Buyer #2 Anthos A5 dental unit officially listed by dealer; exact Continental over-patient configuration and export rights to confirm.',
+        'pattern'=>'/\b(?:Anthos|A5\s+Continental)\b/ui',
+        'grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'duomed-de'=>[
+        'name'=>'Duo Med GmbH','country'=>'DE',
+        'email'=>'info@duo-med.de','phone'=>'+49 8851 9401896',
+        'url'=>'https://www.duo-med.com/c/behandlungseinheiten',
+        'scope'=>'Buyer #32 SKEMA 6 and #33 SKEMA 8 product pages published by authorized Castellini dealer. Listed starting prices are not export quotes; product codes/options to confirm.',
+        'pattern'=>'/\b(?:Skema[\s.-]*(?:6|8)|SD[\s.-]*9099|6X[\s.-]*9056)\b/ui',
+        'grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
+      'mediadental-de'=>[
+        'name'=>'mediaDental','country'=>'DE',
+        'email'=>'info@media-dental.de','phone'=>'+49 511 64214741',
+        'url'=>'https://www.media-dental.de/cattani-3-zylinder-kompressor-MD027-013330',
+        'scope'=>'Buyer #36 Cattani 3-cylinder dental compressor 45L and 238L/min at 5 bar. German retail item listing; 230V/50Hz, dryer, price and Uzbekistan shipment to confirm.',
+        'pattern'=>'/\b(?:CATTANI|3[\s.-]*[Zz]ylinder|238\s*(?:Nl|L)\/min|45\s*(?:L|litre))\b/ui',
+        'grade'=>'EXACT_PRODUCT_LISTED_UNVERIFIED_AVAILABILITY'],
       'termedis-pl'=>[
         'name'=>'TerMedis','country'=>'PL','email'=>'export@termedis.pl',
         'phone'=>'+48 603 398 840','url'=>'https://www.termedis.pl/export',

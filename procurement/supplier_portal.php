@@ -3,6 +3,7 @@ declare(strict_types=1);
 if(!defined('AUR_PROCUREMENT_VIEW')){http_response_code(403);exit;}
 require_once __DIR__.'/supplier_replies.php';
 require_once __DIR__.'/supplier_inbox_store.php';
+require_once __DIR__.'/urgent_supplier_drafts.php';
 $researchRows=is_array($supplierResearch['rows']??null)?$supplierResearch['rows']:[];
 try{$worldStats=aur_worldwide_stats($supplierResearch);}
 catch(Throwable $e){error_log('AURENOEVA vendor stats: '.get_class($e));$worldStats=['scanned'=>0,'total'=>count($researchRows),'unique_vendors'=>0,'new_source_pages'=>0];}
@@ -211,6 +212,7 @@ try {
 <?php endforeach;?>
 </details>
 </section>
+
 <?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
 $aurUrgentPlans=[];$aurUrgentSaved=null;$aurUrgentError='';
 try {
@@ -249,6 +251,7 @@ There are <?=count($aurUrgentMessages)?> supplier-specific emails in the additio
 <?php if(!empty($aurUrgentSaved['skipped_existing_recipients'])):?>
 <p role="alert"><?=count($aurUrgentSaved['skipped_existing_recipients'])?> contact(s) were not reimported because they already appear in the original supplier outbox.</p>
 <?php endif;?>
+
 <?php if(isset($_GET['signatures_updated'])):?>
 <p role="status"><strong><?= (int)$_GET['signatures_updated'] ?> unsent email(s) updated with the bilingual NOEVA legal signature.</strong>
 Previously attempted/sent emails were not altered.</p>
@@ -419,6 +422,7 @@ $acceptedWithoutProof=(!$isSmtpConfirmed&&($msg['status']??'')==='ACCEPTED_BY_MA
 </details>
 </section>
 <?php endif;?>
+
 
 
 <?php

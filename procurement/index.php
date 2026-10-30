@@ -1140,6 +1140,24 @@ Supplier outreach, pricing, shipment and any sanctions clearance are separate co
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original enquiry</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
+<?php
+$aurLineReview=aur_rfq_line_review($result['payload']['sourcing_lines']??[]);
+if($aurLineReview['requires_review']):
+?>
+<section class="card" id="rfq-duplicate-review" role="alert" style="border:1px solid #d7a24d">
+<h3>RFQ equipment duplication review required</h3>
+<p>The original customer file is preserved unchanged. These potential duplicate entries must be checked before including both in the same supplier quotation. Alternative models within one customer item remain quotation options, not additional purchases.</p>
+<ul>
+<?php foreach($aurLineReview['duplicate_pairs'] as $flag): ?>
+<li><strong><?=aur_escape(str_replace('_',' ',(string)$flag['kind']))?></strong>:
+customer items <?= (int)$flag['customer_items'][0] ?> and <?= (int)$flag['customer_items'][1] ?>,
+source rows <?= (int)$flag['source_rows'][0] ?> and <?= (int)$flag['source_rows'][1] ?>.
+</li>
+<?php endforeach; ?>
+</ul>
+<p>Verify whether the buyer really requires separate quantities. If an entry is redundant, correct the source spreadsheet and upload it as a new case before including both entries in a fresh supplier RFQ. No existing sent email is modified.</p>
+</section>
+<?php endif; ?>
 <details aria-labelledby="original-equipment-heading" id="original-rfq-equipment" class="aux-disclosure"><summary id="original-equipment-heading">Original requested equipment — <?= (int)($result['line_count']??0) ?> saved entries</summary>
 <p class="muted">This is your original uploaded customer enquiry, stored in the case record. It is always displayed, independently of worldwide supplier discovery, and is not overwritten by new research.</p>
 <div class="scroll"><table><thead><tr><th>Item</th><th>Requested equipment / original specification</th><th>Quantity</th><th>Option</th></tr></thead><tbody>
@@ -1213,6 +1231,19 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <div class="ci-kpi"><strong id="ci-transactions">—</strong><b>Verified purchases</b><small id="ci-no-sale">Evidence-required outcome verification</small></div>
 </div>
 <p class="ci-muted" id="ci-metadata"></p>
+<section class="ci-section" aria-label="Catalogue freshness and withdrawals">
+<h3>Catalogue health &amp; source verification</h3>
+<p class="ci-muted">Seller-page evidence is distinct from guaranteed stock. Withdrawal requires two source checks at least 24 hours apart. Historical product records and RFQs remain preserved.</p>
+<div class="ci-kpis">
+<div class="ci-kpi"><strong id="ci-source-links">—</strong><b>Supplier-product links tracked</b><small>Separate from unique products</small></div>
+<div class="ci-kpi"><strong id="ci-source-overdue">—</strong><b>Source links overdue 14 days</b><small>Successful product observations</small></div>
+<div class="ci-kpi"><strong id="ci-source-review">—</strong><b>Listings requiring recheck</b><small>First negative observation</small></div>
+<div class="ci-kpi"><strong id="ci-source-withdrawn">—</strong><b>Supplier listings withdrawn</b><small>Confirmed source-specific removals</small></div>
+<div class="ci-kpi"><strong id="ci-products-hidden">—</strong><b>Products hidden from search</b><small>No remaining verified seller listing</small></div>
+<div class="ci-kpi"><strong id="ci-products-overdue">—</strong><b>Product identities over 30 days</b><small>No recent positive source observation</small></div>
+</div>
+<p class="ci-muted" id="ci-source-check">Catalogue lifecycle observations require the current VPS crawler and a published canonical database snapshot.</p>
+</section>
 <div class="ci-two">
 <section class="ci-section"><h3>Catalogue growth</h3><div id="ci-growth"></div><p class="ci-muted" id="ci-history-note"></p></section>
 <section class="ci-section"><div class="ci-heading"><h3>Buyer interest</h3><div class="ci-toolbar">

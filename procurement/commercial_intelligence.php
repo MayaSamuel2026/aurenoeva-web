@@ -208,9 +208,12 @@ function aur_ci_report(string $store):array {
     $contactable=0;
     foreach(($master['vendors']??[]) as $vendor)if(is_array($vendor)
         &&filter_var((string)($vendor['email']??''),FILTER_VALIDATE_EMAIL))$contactable++;
+    $health=is_array($snapshot['catalogue_health']??null)
+       &&($snapshot['catalogue_health']['lifecycle_version']??null)===1
+       ?$snapshot['catalogue_health']:null;
     return [
       'ok'=>true,'as_of'=>gmdate('c'),
-      'catalogue'=>['available'=>$hasSnapshot,'products'=>$hasSnapshot?$total:null,
+      'catalogue'=>['available'=>$hasSnapshot,'health'=>$health,'products'=>$hasSnapshot?$total:null,
         'priced_products'=>$hasSnapshot?$priced:null,'fresh_30d'=>$hasSnapshot?$fresh:null,
         'classified_products'=>$hasSnapshot?$classified:null,'multi_industry'=>$hasSnapshot?$multi:null,
         'unclassified_primary'=>$hasSnapshot?$unclassified:null,
