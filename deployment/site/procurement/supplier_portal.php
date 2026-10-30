@@ -3,6 +3,7 @@ declare(strict_types=1);
 if(!defined('AUR_PROCUREMENT_VIEW')){http_response_code(403);exit;}
 require_once __DIR__.'/supplier_replies.php';
 require_once __DIR__.'/supplier_inbox_store.php';
+require_once __DIR__.'/urgent_supplier_drafts.php';
 $researchRows=is_array($supplierResearch['rows']??null)?$supplierResearch['rows']:[];
 try{$worldStats=aur_worldwide_stats($supplierResearch);}
 catch(Throwable $e){error_log('AURENOEVA vendor stats: '.get_class($e));$worldStats=['scanned'=>0,'total'=>count($researchRows),'unique_vendors'=>0,'new_source_pages'=>0];}
