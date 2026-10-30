@@ -242,9 +242,14 @@ def make_full_database_export(db_path: Path, dest: Path) -> dict:
         with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True,
                              timeout=15) as conn:
             conn.row_factory = sqlite3.Row
+            product_columns = {col[1] for col in conn.execute("PRAGMA table_info(products)")}
+            # Old canonical databases predate lifecycle tracking. Export them
+            # without schema mutation, treating their records as unverified.
+            lifecycle_field = ("lifecycle_status" if "lifecycle_status" in product_columns
+                               else "'UNVERIFIED' AS lifecycle_status")
             rows = [dict(row) for row in conn.execute(
-                """SELECT product_id AS canonical_id,manufacturer,model,description,
-                          source_url AS source_ref,sector,category,last_seen,lifecycle_status
+                f"""SELECT product_id AS canonical_id,manufacturer,model,description,
+                          source_url AS source_ref,sector,category,last_seen,{lifecycle_field}
                    FROM products ORDER BY manufacturer,model""")]
     except sqlite3.Error as exc:
         raise RuntimeError("canonical_catalogue_database_unreadable") from exc
