@@ -93,6 +93,8 @@ class LifecycleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             dbpath=Path(folder)/"catalogue.sqlite3"
             disk=sqlite3.connect(dbpath)
+            # End the write transaction before SQLite online backup; otherwise backup() blocks.
+            self.db.commit()
             self.db.backup(disk)
             disk.close()
             dest=Path(folder)/"snapshot.json"
