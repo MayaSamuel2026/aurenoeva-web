@@ -118,7 +118,7 @@ mailcenter_assert(aur_procurement_verified_city('info@heinemann-ent.de')==='Kalt
 mailcenter_assert(str_contains(aur_procurement_signed_closing('de','info@smdmedical.ch'),
       'Herzliche Grüße nach St. Gallen')
     && str_contains(aur_procurement_signed_closing('de','other@example.com'),
-      'Herzliche Grüße\n\n')
+      'Herzliche Grüße'."\n\n")
     && !str_contains(aur_procurement_signed_closing('de','other@example.com'),' nach '),
     'Unverified city is improperly added to the German courtesy closing');
 $rich=aur_mailcenter_validate_send(array_merge($valid,[
