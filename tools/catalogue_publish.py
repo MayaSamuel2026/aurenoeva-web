@@ -216,7 +216,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "excluded_nonrecord": reasons["non_product_record"],
             }
         crawler = source_stats.get("crawler")
-        if isinstance(crawler, dict):
+        if isinstance(crawler, dict) and "public_stats" in payload:
             ints = (
                 "crawl_status_version", "crawl_last_run_pages",
                 "crawl_last_run_new_products", "crawl_last_run_failures",
@@ -236,7 +236,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 for key in times:
                     value = crawler.get(key)
                     if isinstance(value, str) and (value == "" or re.fullmatch(
-                            r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z", value)):
+                            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", value)):
                         payload["public_stats"][key] = value
     health = raw.get("catalogue_health")
     if isinstance(health, dict) and health.get("lifecycle_version") == 1:
