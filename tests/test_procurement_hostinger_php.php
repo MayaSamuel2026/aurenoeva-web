@@ -40,6 +40,7 @@ try {
     $isolated=$root.'/public_html/procurement';
     mkdir($isolated,0700,true);
     copy(dirname(__DIR__).'/deployment/site/procurement/private_cases.php',$isolated.'/private_cases.php');
+    copy(dirname(__DIR__).'/deployment/site/procurement/rfq_duplicates.php',$isolated.'/rfq_duplicates.php');
     $probe=$root.'/credential_root_probe.php';
     file_put_contents($probe,'<?php $_SERVER["DOCUMENT_ROOT"]='.var_export($_SERVER['DOCUMENT_ROOT'],true).'; require '.var_export($isolated.'/private_cases.php',true).'; echo aur_store_root();');
     $probeOutput=[];$probeExit=1;
