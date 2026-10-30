@@ -69,7 +69,18 @@ class CatalogueTelemetryTests(unittest.TestCase):
             self.assertEqual(doc["public_stats"]["crawl_24h_new_products"],3)
             self.assertEqual(doc["catalogue_health"]["source_links"],4)
             self.assertRegex(published.decode("utf-8"),
-                             r'"public_stats":\\{[^{}]{1,3000}\\}\\}$')
+                             r'"public_stats":\{[^{}]{1,3000}\}\})
+            self.assertNotIn("https://a.example",published.decode("utf-8"))
+
+    def test_legacy_database_without_runs_is_not_misreported(self):
+        with sqlite3.connect(":memory:") as db:
+            db.row_factory=sqlite3.Row
+            self.assertIsNone(summarize_crawler_execution(db))
+
+
+if __name__=="__main__":
+    unittest.main()
+)
             self.assertNotIn("https://a.example",published.decode("utf-8"))
 
     def test_legacy_database_without_runs_is_not_misreported(self):
