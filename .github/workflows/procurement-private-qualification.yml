@@ -32,6 +32,7 @@ on:
       - 'ops/aurenoeva-catalogue.timer'
       - 'config/catalogue_harvester.json'
       - 'tests/test_procurement_*.py'
+      - 'tests/test_procurement_*.php'
       - 'deployment/crm/aurenoeva-v1/import.php'
       - 'deployment/site/procurement/**'
       - 'tests/test_procurement_hostinger_php.php'
