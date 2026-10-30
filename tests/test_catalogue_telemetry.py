@@ -77,16 +77,6 @@ class CatalogueTelemetryTests(unittest.TestCase):
             self.assertIsNone(summarize_crawler_execution(db))
 
 
-if __name__=="__main__":
-    unittest.main()
-)
-            self.assertNotIn("https://a.example",published.decode("utf-8"))
-
-    def test_legacy_database_without_runs_is_not_misreported(self):
-        with sqlite3.connect(":memory:") as db:
-            db.row_factory=sqlite3.Row
-            self.assertIsNone(summarize_crawler_execution(db))
-
 
 if __name__=="__main__":
     unittest.main()
