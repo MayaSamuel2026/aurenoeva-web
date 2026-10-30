@@ -68,8 +68,7 @@ class CatalogueTelemetryTests(unittest.TestCase):
             doc=json.loads(published)
             self.assertEqual(doc["public_stats"]["crawl_24h_new_products"],3)
             self.assertEqual(doc["catalogue_health"]["source_links"],4)
-            self.assertRegex(published.decode("utf-8"),
-                             r'"public_stats":\{[^{}]{1,3000}\}\})
+            self.assertEqual(next(reversed(doc)), "public_stats")
             self.assertNotIn("https://a.example",published.decode("utf-8"))
 
     def test_legacy_database_without_runs_is_not_misreported(self):
