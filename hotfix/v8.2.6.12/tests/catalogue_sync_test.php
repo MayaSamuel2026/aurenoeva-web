@@ -270,6 +270,25 @@ try {
         JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));
     if(aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
         throw new RuntimeException('unexplained_shrink_accepted');
+    // A crawler can add identities while unrelated nontechnical source rows
+    // are newly excluded; the exact growth + reduction must reconcile.
+    $grown=$afterStats;
+    $grown['db_products']=6;
+    $grown['exported_products']=6;
+    $grown['excluded_products']=3;
+    $grown['excluded_nontechnical']=2;
+    $grownPayload=json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>array_slice($whole['items'],0,3),'public_stats'=>$grown],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    file_put_contents($incomingPath,$grownPayload);
+    if(!aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
+        throw new RuntimeException('canonical_growth_plus_reconciled_exclusions_rejected');
+    $grown['excluded_nontechnical']=1;
+    file_put_contents($incomingPath,json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>array_slice($whole['items'],0,3),'public_stats'=>$grown],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));
+    if(aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
+        throw new RuntimeException('unexplained_growth_and_removal_accepted');
     file_put_contents($incomingPath,$filteredPayload);
     $filterHash=hash('sha256',$filteredPayload);
     aur_bulk_begin($private,$filterHash,strlen($filteredPayload));
