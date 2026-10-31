@@ -35,10 +35,10 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
 
     def test_unreachable_github_cannot_downgrade_installed_crawler(self):
         newer="c"*40
-        older=("Aurenoeva V8.2.6.11 production "+SHA+"\\n").encode()
+        older=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         with tempfile.TemporaryDirectory() as temporary:
             state=Path(temporary)
-            (state/"catalogue-qualified-revision.sha").write_text(newer+"\\n")
+            (state/"catalogue-qualified-revision.sha").write_text(newer+"\n")
             with patch.object(updater,"STATE",state):
                 with patch.object(updater,"get_bytes",return_value=older):
                     with patch.object(updater,"get_json",side_effect=OSError("rate limited")):
