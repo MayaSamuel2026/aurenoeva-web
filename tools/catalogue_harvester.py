@@ -588,9 +588,23 @@ def onergys_source_status(db,now=None):
     summary["source_hosts"]=list(hosts)
     return summary
 
+# Explicitly unrelated consumer/information domains must not expand a B2B
+# technical-parts frontier; existing canonical products are never deleted.
+DISCOVERY_EXCLUDED_HOSTS=frozenset((
+    "de.pons.com","pons.com","www.pons.com",
+    "www.langenscheidt.com","langenscheidt.com",
+    "www.deichmann.com","deichmann.com","www.limango.de","limango.de",
+    "www.breuninger.com","breuninger.com","www.lidl.de","lidl.de",
+    "www.gabor.com","gabor.com","www.zalando.de","zalando.de",
+    "www.youtube.com","youtube.com","www.zhihu.com","zhihu.com",
+    "maps.google.de","www.merriam-webster.com","www.britannica.com",
+    "dictionary.cambridge.org","www.heise.de","www.chatgpt.com","chatgpt.com",
+))
+
 def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     try:public_url(url)
     except ValueError:return 0
+    if hostof(url) in DISCOVERY_EXCLUDED_HOSTS:return 0
     db.execute("""INSERT OR IGNORE INTO harvest_queue(url,kind,sector,category,maker,depth,due)
       VALUES(?,?,?,?,?,?,?)""",(url,kind,sector,category,maker,depth,stamp()))
     return db.execute("SELECT changes()").fetchone()[0]
@@ -745,6 +759,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     patterns_by_host={}
     depth_by_host={}
     refresh_by_host={}
+    sitemap_limits_by_host={}
     source_host_groups={}
     for source in config.get("sources",[]):
         if not source.get("active",True):continue
@@ -761,6 +776,9 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             source_host_groups.setdefault(host,set()).update(hosts)
             depth_by_host[host]=max(depth_by_host.get(host,5),depth)
             refresh_by_host[host]=min(refresh_by_host.get(host,96),refresh)
+            sitemap_limits_by_host[host]=min(
+                sitemap_limits_by_host.get(host,50000),
+                max(100,min(50000,int(source.get("max_sitemap_urls",50000)))))
             follow_by_host.setdefault(host,set()).update(
                 str(p) for p in source.get("follow_paths",[])
                 if isinstance(p,str) and p.startswith("/")
@@ -780,7 +798,13 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
         if isinstance(host,str) and re.fullmatch(r"[a-zA-Z0-9.-]+",host)
     })
     priority_remaining=max(1,max_pages//3) if priority_hosts else 0
-    source_hosts=sorted(set(source_host_groups))
+    # Include suppliers with actual product evidence, not arbitrary search
+    # snippets. Reuse the indexed vendor evidence ledger; no full queue scan.
+    proven_hosts=[row[0] for row in db.execute(
+        "SELECT website,COUNT(*) AS n FROM vendor_product_evidence "
+        "GROUP BY website HAVING n>=3 ORDER BY n DESC LIMIT 40")]
+    source_hosts=sorted((set(source_host_groups)|set(proven_hosts))
+                        - DISCOVERY_EXCLUDED_HOSTS)
     batch_round=0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
@@ -910,7 +934,8 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                             stats["new_urls"]+=enqueue(db,link,"sitemap",
                                 row["sector"],row["category"],row["maker"],0)
                     elif kind=="sitemap" and row["depth"]<6:
-                        for childkind,link in links[:50000]:
+                        sitemap_cap=sitemap_limits_by_host.get(hostof(url),50000)
+                        for childkind,link in links[:sitemap_cap]:
                             link=onergys_canonical_url(link)
                             if not link:continue
                             try:public_url(link)
@@ -925,10 +950,15 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                                 patterned=any(p.match(urlsplit(link).path) for p in patterns_by_host.get(hostof(link),()))
                                 if not (ordinary or explicit or patterned):continue
                             stats["new_urls"]+=enqueue(db,link,childkind,row["sector"],row["category"],row["maker"],row["depth"]+1)
-                    elif kind=="page" and row["depth"]<depth_by_host.get(hostof(url),5):
+                    elif kind=="page" and row["depth"]<depth_by_host.get(hostof(url),2):
                         prefixes=follow_by_host.get(hostof(url),set())
-                        max_links=2500 if urlsplit(url).path.rstrip("/") in (
-                           "/manufacturers","/en/hersteller","/en/kategorien") else 1000
+                        # Worldwide search results are leads, not authority to
+                        # recursively mirror millions of unrelated site pages.
+                        # Explicit source catalogues retain their deeper limits.
+                        configured=hostof(url) in source_host_groups
+                        max_links=(2500 if urlsplit(url).path.rstrip("/") in (
+                           "/manufacturers","/en/hersteller","/en/kategorien")
+                           else 1000) if configured else 80
                         # ONERGYS has thousands of paginated category listings.
                         # Ensure page-2 links are not crowded out by global nav
                         # and related-product links. The job still enforces its
