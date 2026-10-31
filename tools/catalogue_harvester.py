@@ -390,6 +390,8 @@ def db_init(db):
       category TEXT NOT NULL DEFAULT '',maker TEXT NOT NULL DEFAULT '',depth INTEGER NOT NULL DEFAULT 0,
       failures INTEGER NOT NULL DEFAULT 0,due TEXT NOT NULL,last_error TEXT NOT NULL DEFAULT '');
     CREATE INDEX IF NOT EXISTS harvest_queue_due ON harvest_queue(due,kind);
+    CREATE TABLE IF NOT EXISTS harvest_source_cursor(
+      host TEXT PRIMARY KEY, last_url TEXT NOT NULL DEFAULT '');
     CREATE TABLE IF NOT EXISTS harvest_runs(
       id INTEGER PRIMARY KEY AUTOINCREMENT,started TEXT NOT NULL,finished TEXT,
       pages INTEGER NOT NULL DEFAULT 0,products INTEGER NOT NULL DEFAULT 0,
@@ -592,6 +594,51 @@ def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     db.execute("""INSERT OR IGNORE INTO harvest_queue(url,kind,sector,category,maker,depth,due)
       VALUES(?,?,?,?,?,?,?)""",(url,kind,sector,category,maker,depth,stamp()))
     return db.execute("SELECT changes()").fetchone()[0]
+def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
+    """Fair, bounded supplier discovery over the EXISTING URL primary-key index.
+
+    No queue deletion, schema rebuild or full-table sort. Each configured host
+    receives at most two source pages per batch; a persistent URL cursor
+    prevents a large supplier directory from starving smaller catalogues.
+    Non-due pages remain queued and are revisited after cursor wraparound.
+    """
+    hosts=sorted(set(hosts))
+    if not hosts or capacity<=0:return []
+    now=at or stamp()
+    output=[]
+    for i in range(len(hosts)):
+        if len(output)>=capacity:break
+        host=hosts[(rotation+i)%len(hosts)]
+        prefix="https://"+host+"/"
+        upper=prefix[:-1]+"0"
+        prior=db.execute("SELECT last_url FROM harvest_source_cursor WHERE host=?",(host,)).fetchone()
+        cursor=prior[0] if prior else ""
+        if cursor and prefix<=cursor<upper:
+            rows=db.execute("""SELECT * FROM harvest_queue
+                WHERE url>? AND url<? ORDER BY url LIMIT 96""",(cursor,upper)).fetchall()
+        else:
+            rows=db.execute("""SELECT * FROM harvest_queue
+                WHERE url>=? AND url<? ORDER BY url LIMIT 96""",(prefix,upper)).fetchall()
+        if not rows:
+            rows=db.execute("""SELECT * FROM harvest_queue
+                WHERE url>=? AND url<? ORDER BY url LIMIT 96""",(prefix,upper)).fetchall()
+        # A host can claim at most two slots, regardless of its queue size.
+        accepted=[]
+        for row in rows:
+            if row["kind"]!="page" or row["due"]>now or row["url"] in selected:
+                continue
+            accepted.append(row)
+            selected.add(row["url"])
+            output.append(row)
+            if len(accepted)>=2 or len(output)>=capacity:break
+        # Do not skip any due URL. Advance past a scan only when none were due.
+        last=accepted[-1]["url"] if accepted else (rows[-1]["url"] if rows else "")
+        db.execute("""INSERT INTO harvest_source_cursor(host,last_url)
+            VALUES(?,?) ON CONFLICT(host) DO UPDATE SET last_url=excluded.last_url""",
+            (host,last))
+    return output
+
+
 def import_existing_rfq_vendors(db, token_path=Path("/var/lib/aurenoeva/catalogue-sync-token")):
     """Reuse existing RFQ websites from PHP host, with no additional auth setup."""
     if not token_path.is_file():return {"status":"NO_EXISTING_SYNC_TOKEN","seeded":0}
@@ -733,6 +780,8 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
         if isinstance(host,str) and re.fullmatch(r"[a-zA-Z0-9.-]+",host)
     })
     priority_remaining=max(1,max_pages//3) if priority_hosts else 0
+    source_hosts=sorted(set(source_host_groups))
+    batch_round=0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
@@ -747,6 +796,17 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                 counts[i%len(counts)]+=1
             rows=[]
             selected=set()
+            # Fetch source-backed product pages before the enormous worldwide
+            # generic backlog. Cap each host to prevent an IFM-like queue spike
+            # or robots denial from consuming an entire 2,500-page run.
+            direct=source_frontier_pages(db,source_hosts,max(1,left*2//3),
+                selected,rotation=rid+batch_round)
+            batch_round+=1
+            rows.extend(direct)
+            available=left-len(rows)
+            counts=[available*share//100 for _,share in buckets]
+            for i in range(available-sum(counts)):
+                counts[i%len(counts)]+=1
             for (kind,_),limit in zip(buckets,counts):
                 if not limit:continue
                 if kind=="page" and priority_remaining:
@@ -901,7 +961,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                             stats["new_urls"]+=enqueue(db,dest,"page",row["sector"],row["category"],row["maker"],next_depth)
                     refresh=refresh_by_host.get(hostof(url),96)
                     due=stamp(clock()+timedelta(hours=(
-                        48 if kind in ("search","search_ddg") else
+                        24 if kind in ("search","search_ddg") else
                         168 if kind=="robots" else refresh)))
                     db.execute("UPDATE harvest_queue SET due=?,failures=0,last_error='' WHERE url=?",(due,url))
                 except HTTPError as e:
