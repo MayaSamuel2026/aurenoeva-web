@@ -47,6 +47,44 @@ try {
     file_put_contents($path,'{"schema":"invalid","items":[]}');
     clearstatcache(true,$path);
     if (aur_catalogue_count_file($path) !== null) throw new RuntimeException('bad schema');
+    if (aur_catalogue_crawler_status(null)['status'] !== 'NOT_INSTRUMENTED')
+        throw new RuntimeException('missing crawl data must not be considered healthy');
+    $now=time();
+    $ts=static fn(int $unix): string => gmdate('Y-m-d\TH:i:s\Z',$unix);
+    $crawl=[
+        'crawl_status_version'=>1,
+        'crawl_checked_at_utc'=>$ts($now),
+        'crawl_last_started_at_utc'=>$ts($now-2400),
+        'crawl_last_finished_at_utc'=>$ts($now-2300),
+        'crawl_24h_completed_runs'=>22,
+        'crawl_24h_new_products'=>42,'crawl_24h_pages'=>1200,
+        'crawl_24h_failures'=>9,'crawl_last_run_new_products'=>3,
+        'crawl_last_run_pages'=>100,'crawl_last_run_failures'=>1,
+        'crawl_queue_total'=>400,'crawl_queue_due'=>50,
+        'crawl_queue_retrying'=>11,'crawl_queue_due_pages'=>40,
+        'crawl_queue_due_searches'=>10
+    ];
+    $healthy=aur_catalogue_crawler_status($crawl,$now);
+    if($healthy['status']!=='RECENTLY_COMPLETED' ||
+       $healthy['new_products_24h']!==42 || $healthy['queue_retrying']!==11)
+        throw new RuntimeException('completed crawler data not available');
+    $stale=$crawl;
+    $stale['crawl_checked_at_utc']=$ts($now-10000);
+    if(aur_catalogue_crawler_status($stale,$now)['status']!=='STALE_TELEMETRY')
+        throw new RuntimeException('stale crawl data reported healthy');
+    $noDiscovery=$crawl;
+    $noDiscovery['crawl_24h_new_products']=0;
+    if(aur_catalogue_crawler_status($noDiscovery,$now)['status']!=='ZERO_NEW_PRODUCTS_24H')
+        throw new RuntimeException('zero product yield not signaled');
+    $noCompletion=$crawl;
+    $noCompletion['crawl_last_finished_at_utc']=$ts($now-11000);
+    if(aur_catalogue_crawler_status($noCompletion,$now)['status']!=='NO_RECENT_COMPLETED_RUN')
+        throw new RuntimeException('stale completed run not signaled');
+    $overdue=$crawl;
+    $overdue['crawl_last_started_at_utc']=$ts($now-4000);
+    $overdue['crawl_last_finished_at_utc']=$ts($now-6000);
+    if(aur_catalogue_crawler_status($overdue,$now)['status']!=='RUN_OVERDUE')
+        throw new RuntimeException('overdue started run not signaled');
     echo "catalogue counter PASS\n";
 } finally {
     foreach (glob($dir.'/*') ?: [] as $file) @unlink($file);
