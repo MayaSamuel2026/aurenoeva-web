@@ -214,6 +214,7 @@ def normalized_snapshot(path: Path, diagnostics: dict | None = None) -> tuple[by
                 "excluded_source": reasons["invalid_https_source"],
                 "excluded_duplicates": reasons["duplicate_canonical_id"],
                 "excluded_nonrecord": reasons["non_product_record"],
+                "excluded_nontechnical": reasons["nontechnical_catalogue_record"],
             }
         crawler = source_stats.get("crawler")
         if isinstance(crawler, dict) and "public_stats" in payload:
