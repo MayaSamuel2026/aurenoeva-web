@@ -234,3 +234,13 @@ its `reconciliation` contains current crawl telemetry with
 `crawl_status_version=1`, and that its database and published counts match
 the new canonical export. Never conflate a green GitHub qualification,
 an installed VPS revision and an acknowledged website publication.
+
+## 31 October 2026 07:23 UTC: recovery installation verified, acceptance pending
+
+- VPS qualified source revision **9e7b08ea2ab62bd7ba940836699ec59e2d78c7b6** was installed. The staged restricted-user tests passed. See [VPS deployment](https://github.com/MayaSamuel2026/noeva-core/actions/runs/41180225475).
+- Both supplier-frontier fairness and nontechnical exclusion attestation are installed. The existing 07:00 UTC crawler process was preserved, so that run cannot prove behavior of the new scheduler.
+- The qualified updater now fetches only the procurement-private-qualification workflow rather than a potentially oversized all-workflow history. The [VPS audit](https://github.com/MayaSamuel2026/noeva-core/actions/runs/41180292964) verified the live targeted GitHub API feed returned PASS and the latest qualified source revision.
+- The website release has passed for this source revision. The latest PHP publication guard permits an exactly reconciled nontechnical reduction even when canonical database identities have grown, and accepts the missing historical withdrawn counter. Ordinary unexpected removals still fail closed.
+- **Full production recovery is NOT yet accepted.** At 07:23 UTC, VPS database=141,738 canonical identities but the public website was still serving a snapshot from 05:47:07 UTC: snapshot canonical identities=141,735, published=140,531 and browse-searchable=139,846. The fair-frontier cursor had zero hosts because the new scheduler had not yet started. [Strict VPS-to-website acceptance run](https://github.com/MayaSamuel2026/noeva-core/actions/runs/41180370100) failed correctly with PUBLIC_CATALOGUE_RECONCILIATION_PENDING.
+- Acceptance after a newly started crawler run: verify its installed release, new URL cursor usage, processed supplier pages, unique product yield, failure rates, updated SQLite export and a website snapshot with reconciliation.db_products equal to the current canonical database count and reconciliation.eligible_products equal to published_parts. The site crawler field must have current operational telemetry.
+- Preserve the existing SQLite catalogue, historical RFQs, supplier relationships and 7.6-million-plus URL backlog throughout recovery; no destructive queue reset or replacement crawler.
