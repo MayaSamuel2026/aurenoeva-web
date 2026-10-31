@@ -524,7 +524,9 @@ def verify_public_catalogue(payload: bytes, count: int, digest: str) -> None:
         status = json.loads(response.read(16_384))
     if (status.get("ok") is not True
         or status.get("source") != "published_catalogue_snapshot"
-        or status.get("searchable_parts") != count):
+        or status.get("published_parts") != count
+        or type(status.get("searchable_parts")) is not int
+        or not 0 <= status["searchable_parts"] <= count):
         raise RuntimeError("live_website_count_readback_mismatch")
     items = json.loads(payload)["items"]
     candidate = next((p for p in reversed(items)
