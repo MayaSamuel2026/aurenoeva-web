@@ -101,7 +101,12 @@ def stage_revision(sha: str, work: Path) -> None:
     for name in FILES + TESTS:
         dest = work / name
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.parent.chmod(0o755)
+        # Every intermediate directory must be traversable by the unprivileged
+        # service account running the staged qualification tests.
+        parent = dest.parent
+        while parent != work:
+            parent.chmod(0o755)
+            parent = parent.parent
         dest.write_bytes(get_bytes(f"{RAW}/{sha}/{quote(name, safe='/')}"))
         dest.chmod(0o644)
     cfg = json.loads((work / "config/catalogue_harvester.json").read_text())
