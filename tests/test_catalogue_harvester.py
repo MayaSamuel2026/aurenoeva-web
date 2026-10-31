@@ -3,7 +3,7 @@ import json,sqlite3,tempfile,sys,unittest
 from urllib.parse import parse_qs,urlsplit
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
-from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds
+from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds,enqueue,source_frontier_pages
 BING="""<?xml version="1.0"?><rss><channel><item>
 <title>WATO EX-35 - Mindray</title>
 <link>https://www.mindray.com/en/products/anesthesia/wato-ex-35</link>
@@ -46,6 +46,34 @@ class Tests(unittest.TestCase):
             parts,_,_=parse_page(page,"https://example.com/product/123",maker,
                                   "laboratory","Chromatography / HPLC / GC")
             self.assertEqual(parts[0]["category"],expected,model)
+
+    def test_fair_source_frontier_does_not_let_one_supplier_monopolize_a_batch(self):
+        for i in range(50):
+            enqueue(self.db,f"https://www.ifm.com/us/en/product/PN{i:04d}","page")
+        for i in range(8):
+            enqueue(self.db,f"https://www.agilent.com/product/1260-{i}","page")
+        initial=self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0]
+        chosen=set()
+        found=source_frontier_pages(self.db,
+            ["www.ifm.com","www.agilent.com"],4,chosen,rotation=0)
+        from collections import Counter
+        from urllib.parse import urlsplit
+        by_host=Counter(urlsplit(row["url"]).hostname for row in found)
+        self.assertEqual(dict(by_host),{"www.agilent.com":2,"www.ifm.com":2})
+        self.assertEqual(len(chosen),4)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],initial)
+        next_batch=source_frontier_pages(self.db,
+            ["www.ifm.com","www.agilent.com"],4,chosen,rotation=1)
+        self.assertEqual(len(next_batch),4)
+        self.assertTrue(set(row["url"] for row in next_batch).isdisjoint(
+            set(row["url"] for row in found)))
+
+    def test_consumer_search_noise_is_not_enqueued(self):
+        before=self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0]
+        self.assertEqual(enqueue(self.db,"https://www.langenscheidt.com/de/woerterbuch","page"),0)
+        self.assertEqual(enqueue(self.db,"https://www.limango.de/shop/shoes/123","page"),0)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],before)
+        self.assertEqual(enqueue(self.db,"https://www.agilent.com/en/product/1260","page"),1)
 
     def test_search_discovery_to_product_vendor_link(self):
         result=run(self.db,self.config,15,30,4,self.crawler)
