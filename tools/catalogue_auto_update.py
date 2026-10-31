@@ -27,7 +27,8 @@ FILES = ("tools/catalogue_harvester.py", "tools/catalogue_publish.py",
          "tools/catalogue_prices.py", "tools/catalogue_classification.py",
          "tools/catalogue_auto_update.py", "config/catalogue_harvester.json")
 TESTS = ("tests/test_catalogue_classification.py", "tests/test_catalogue_prices.py", "tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
-         "tests/test_catalogue_auto_update.py", "tests/test_catalogue_lifecycle.py", "tests/test_catalogue_onergys_coverage.py", "tests/test_catalogue_telemetry.py")
+         "tests/test_catalogue_auto_update.py", "tests/test_catalogue_lifecycle.py", "tests/test_catalogue_onergys_coverage.py", "tests/test_catalogue_telemetry.py",
+         "hotfix/catalogue-discovery/catalogue-discovery.js")
 SHA_PATTERN = re.compile(r"[a-f0-9]{40}\Z")
 
 
