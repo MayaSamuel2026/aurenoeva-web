@@ -10,6 +10,11 @@ import catalogue_auto_update as updater
 SHA="a"*40
 
 class AutomaticCatalogueUpdateTests(unittest.TestCase):
+    def test_staged_offline_tests_include_their_cross_file_fixtures(self):
+        self.assertIn("tests/test_catalogue_telemetry.py",updater.TESTS)
+        self.assertIn("hotfix/catalogue-discovery/catalogue-discovery.js",updater.TESTS)
+        self.assertIn("PYTHONPATH",__import__("inspect").getsource(updater.stage_revision))
+
     def test_production_receipt_is_safe_fallback_when_github_api_fails(self):
         receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         with patch.object(updater,"get_bytes",return_value=receipt) as read:
