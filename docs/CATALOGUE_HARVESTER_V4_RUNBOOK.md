@@ -179,3 +179,58 @@ Evidence: `journalctl -u aurenoeva-catalogue.service` shows
 `CATALOGUE_AUTO_UPDATE=UNCHANGED` for a stable release.
 The existing timer remains 30 minutes. Changes to systemd unit semantics
 still require a privileged release; PHP website deployment remains separate.
+
+
+## Permanent ChatGPT-to-Hostinger VPS status bridge — 31 October 2026
+
+**Do not ask the owner whether Hostinger VPS access exists again.** The owner
+has full Hostinger administration access. A proven, reusable operational bridge
+already exists in `MayaSamuel2026/noeva-core`:
+
+- GitHub Actions workflow:
+  `.github/workflows/aurenoeva-crawler-vps-status.yml`
+- Uses the existing `NOEVA_CORE_VPS_SSH_KEY` GitHub Actions secret and
+  the Hostinger VPS `179.198.203.247` (`srv1958260`).
+- Runs automatically every hour (minute 17), and can be manually dispatched
+  from GitHub Actions; source edits also trigger a qualification readback.
+- Reads `systemctl show`, the journal and SQLite
+  `/var/lib/aurenoeva/catalogue.sqlite3` in **read-only** mode. No new
+  credentials, duplicate crawler, SSH server, database or plugin is required.
+- Retrieve the most recent `AURENOEVA VPS crawler operational status`
+  GitHub Actions run and its job logs using the connected GitHub tool.
+  Parse the lines starting `AURENOEVA_CRAWLER_STATUS_JSON=`,
+  `AURENOEVA_QUEUE_PRIORITY_SAMPLE=`,
+  `AURENOEVA_RECENT_UPDATER_TEST_ERRORS=` and
+  `AURENOEVA_INSTALLED_RELEASE_RECEIPT=`.
+- Distinguish **VPS crawl activity**, **new unique products**,
+  **published catalogue records** and **homepage searchable records**.
+  A fresh website snapshot alone is never crawler-run proof.
+
+**Production findings on 2026-10-31 05:57 UTC**: 141,735 canonical products,
+48 completed runs and 2,837 additions in the prior 24 hours, but the three
+latest completed runs added **zero products**, with 7,616,601 queued URLs and
+16,543 failed requests in 24 hours. The queue showed significant
+`www.ifm.com` concentration in an overdue sample. This is a real
+discovery-productivity issue, not proof of a stopped systemd service.
+The source of excessive failures and any fair-queue repairs must be established
+using VPS evidence, not simply by restarting the crawler.
+
+**Updater/publisher regression remediation on 2026-10-31**:
+`tools/catalogue_auto_update.py` now stages all test fixtures, makes nested
+test directories traversable by the restricted service user, sets the
+isolated test `PYTHONPATH`, and preserves an already installed qualified SHA
+rather than regressing to an older production-site release when GitHub's API is
+unavailable. `tools/catalogue_publish.py` compares the actual
+`published_parts` to the eligible published count; the distinct filtered
+`searchable_parts` count may be smaller. The existing NOEVA→VPS bridge
+installed qualified revision `67950b5aaaa4b021bdff709e49284cc5beda8fe3`
+and the real VPS qualification reported `CATALOGUE_UPDATE_TESTS=PASS`
+and `AURENOEVA_PUBLISH_READBACK_FIX_INSTALLED=PASS` on
+2026-10-31 06:06 UTC.
+
+The website publication must still be verified separately by reading the
+**live** `https://aurenoeva.com/catalogue-count.php` and checking that
+its `reconciliation` contains current crawl telemetry with
+`crawl_status_version=1`, and that its database and published counts match
+the new canonical export. Never conflate a green GitHub qualification,
+an installed VPS revision and an acknowledged website publication.
