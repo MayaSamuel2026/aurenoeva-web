@@ -55,7 +55,7 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
         green="b"*40
         receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         def api(url):
-            if "/actions/runs" in url:
+            if "/actions/workflows/procurement-private-qualification.yml/runs" in url:
                 return {"workflow_runs":[
                     {"name":"AURENOEVA private procurement qualification",
                      "head_sha":green,"head_branch":"main","event":"push",
@@ -68,7 +68,7 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
             with patch.object(updater,"get_json",side_effect=api):
                 self.assertEqual(updater.qualified_sha(),green)
         def downgrade(url):
-            if "/actions/runs" in url:
+            if "/actions/workflows/procurement-private-qualification.yml/runs" in url:
                 return {"workflow_runs":[
                     {"name":"AURENOEVA private procurement qualification",
                      "head_sha":green,"head_branch":"main","event":"push",
@@ -83,7 +83,7 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
         sha_new = SHA
         sha_old = "b" * 40
         def good(url):
-            self.assertIn("/actions/runs?per_page=100", url)
+            self.assertIn("/actions/workflows/procurement-private-qualification.yml/runs?branch=main&per_page=20", url)
             return {"workflow_runs": [
                 {"name":"AURENOEVA private procurement qualification",
                  "head_sha":"c"*40,"head_branch":"main","event":"push",
