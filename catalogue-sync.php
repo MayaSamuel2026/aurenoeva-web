@@ -431,6 +431,11 @@ function aur_bulk_filter_only_reduction(
     $before=aur_bulk_public_stats($current);
     $after=aur_bulk_public_stats($incoming);
     if($before===null||$after===null||$newCount>=$oldCount)return false;
+    // Legacy website snapshots predate the withdrawn-products counter.
+    // Interpret ONLY that absent historical field as zero; the incoming
+    // snapshot must still attest all reasons explicitly.
+    if(!array_key_exists('excluded_withdrawn',$before))
+        $before['excluded_withdrawn']=0;
     $base=['db_products','exported_products','eligible_products','excluded_products',
         'excluded_withdrawn','excluded_invalid_id','excluded_generic',
         'excluded_missing_maker','excluded_missing_model','excluded_source',
