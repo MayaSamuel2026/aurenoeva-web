@@ -33,6 +33,17 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
             for parent in (fixture.parent,fixture.parent.parent,stage):
                 self.assertTrue(parent.stat().st_mode & stat.S_IXOTH)
 
+    def test_unreachable_github_cannot_downgrade_installed_crawler(self):
+        newer="c"*40
+        older=("Aurenoeva V8.2.6.11 production "+SHA+"\\n").encode()
+        with tempfile.TemporaryDirectory() as temporary:
+            state=Path(temporary)
+            (state/"catalogue-qualified-revision.sha").write_text(newer+"\\n")
+            with patch.object(updater,"STATE",state):
+                with patch.object(updater,"get_bytes",return_value=older):
+                    with patch.object(updater,"get_json",side_effect=OSError("rate limited")):
+                        self.assertEqual(updater.qualified_sha(),newer)
+
     def test_production_receipt_is_safe_fallback_when_github_api_fails(self):
         receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         with patch.object(updater,"get_bytes",return_value=receipt) as read:
