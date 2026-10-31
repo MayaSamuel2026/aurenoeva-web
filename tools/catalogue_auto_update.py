@@ -60,6 +60,14 @@ def qualified_sha() -> str | None:
     production-pinned release before moving forward. If the API is unreachable
     preserve that last qualified production receipt (no rollback or guessing).
     """
+    # Never let an older website release overwrite a newer qualified
+    # crawler already installed on this same VPS.
+    installed_sha=None
+    try:
+        prior=(STATE/"catalogue-qualified-revision.sha").read_text().strip()
+        if SHA_PATTERN.fullmatch(prior):installed_sha=prior
+    except (OSError,UnicodeError):
+        pass
     receipt_sha=None
     try:
         receipt=get_bytes(f"{RAW}/production/VERSION.txt",limit=512).decode("utf-8")
@@ -78,17 +86,19 @@ def qualified_sha() -> str | None:
                 and run.get("conclusion")=="success"):
                 sha=str(run.get("head_sha",""))
                 if not SHA_PATTERN.fullmatch(sha):continue
-                if receipt_sha and sha!=receipt_sha:
-                    # No downgrade or divergent release. Both revisions must
-                    # be proven ancestors on the same existing repository.
-                    compare=get_json(f"{API}/compare/{receipt_sha}...{sha}")
+                baseline=installed_sha or receipt_sha
+                if baseline and sha!=baseline:
+                    # Prevent rollback to an older source on an intermittent
+                    # API response, even if production/VERSION lags behind.
+                    compare=get_json(f"{API}/compare/{baseline}...{sha}")
                     if compare.get("status") not in ("ahead","identical"):
                         print("CATALOGUE_UPDATE_DEFERRED=NO_FORWARD_QUALIFIED_RELEASE",
                               flush=True)
-                        return receipt_sha
+                        return baseline
                 return sha
     except (OSError,ValueError,KeyError,TypeError):
         pass
+    if installed_sha:return installed_sha
     if receipt_sha:return receipt_sha
     print("CATALOGUE_UPDATE_DEFERRED=NO_SUCCESSFUL_GITHUB_QUALIFICATION",
           flush=True)
