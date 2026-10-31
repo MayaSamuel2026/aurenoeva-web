@@ -440,8 +440,11 @@ function aur_bulk_filter_only_reduction(
     }
     if(!is_int($after['excluded_nontechnical']??null)
         ||$after['excluded_nontechnical']<0)return false;
-    if($before['db_products']!==$after['db_products']
-        ||$before['exported_products']!==$after['exported_products']
+    // Canonical product growth may occur between two successive snapshots.
+    // A filtered drop is explainable when the new excluded nontechnical
+    // identities account for BOTH that growth and the visible count drop.
+    if($after['db_products']<$before['db_products']
+        ||$after['exported_products']<$before['exported_products']
         ||$before['db_products']!==$before['exported_products']
         ||$after['db_products']!==$after['exported_products']
         ||$before['eligible_products']!==$oldCount
@@ -460,9 +463,10 @@ function aur_bulk_filter_only_reduction(
     $oldNontechnical=$before['excluded_products']-$totals;
     $newNontechnical=$after['excluded_products']-$totals;
     $delta=$oldCount-$newCount;
+    $canonicalGrowth=$after['db_products']-$before['db_products'];
     return $oldNontechnical>=0
         && $newNontechnical===$after['excluded_nontechnical']
-        && $newNontechnical-$oldNontechnical===$delta
+        && $newNontechnical-$oldNontechnical===$delta+$canonicalGrowth
         && $delta<=max(500,(int)floor($oldCount*0.05));
 }
 
