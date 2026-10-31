@@ -27,7 +27,7 @@ FILES = ("tools/catalogue_harvester.py", "tools/catalogue_publish.py",
          "tools/catalogue_prices.py", "tools/catalogue_classification.py",
          "tools/catalogue_auto_update.py", "config/catalogue_harvester.json")
 TESTS = ("tests/test_catalogue_classification.py", "tests/test_catalogue_prices.py", "tests/test_catalogue_harvester.py", "tests/test_catalogue_publish.py",
-         "tests/test_catalogue_auto_update.py", "tests/test_catalogue_lifecycle.py", "tests/test_catalogue_onergys_coverage.py")
+         "tests/test_catalogue_auto_update.py", "tests/test_catalogue_lifecycle.py", "tests/test_catalogue_onergys_coverage.py", "tests/test_catalogue_telemetry.py")
 SHA_PATTERN = re.compile(r"[a-f0-9]{40}\Z")
 
 
@@ -116,7 +116,7 @@ def stage_revision(sha: str, work: Path) -> None:
          "-p", "test_catalogue_*.py", "-v"],
         cwd=work, capture_output=True, text=True, timeout=100, check=False,
         env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1",
-             "HOME": "/tmp"})
+             "HOME": "/tmp", "PYTHONPATH": str(work / "tools")})
     if result.returncode:
         print((result.stdout + "\n" + result.stderr)[-4500:], flush=True)
         raise RuntimeError("qualified_revision_local_regression_failed")
