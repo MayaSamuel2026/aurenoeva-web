@@ -15,6 +15,24 @@ class AutomaticCatalogueUpdateTests(unittest.TestCase):
         self.assertIn("hotfix/catalogue-discovery/catalogue-discovery.js",updater.TESTS)
         self.assertIn("PYTHONPATH",__import__("inspect").getsource(updater.stage_revision))
 
+    def test_isolated_vps_stage_has_traversable_nested_fixtures(self):
+        from unittest.mock import Mock
+        import stat
+        from urllib.parse import unquote
+        root=Path(__file__).resolve().parents[1]
+        def local_asset(url):
+            relative=unquote(url.split("/"+SHA+"/",1)[1])
+            return (root/relative).read_bytes()
+        with tempfile.TemporaryDirectory() as temporary:
+            stage=Path(temporary)
+            with patch.object(updater,"get_bytes",side_effect=local_asset):
+                with patch.object(updater.subprocess,"run",return_value=Mock(returncode=0,stdout="",stderr="")):
+                    updater.stage_revision(SHA,stage)
+            fixture=stage/"hotfix/catalogue-discovery/catalogue-discovery.js"
+            self.assertTrue(fixture.is_file())
+            for parent in (fixture.parent,fixture.parent.parent,stage):
+                self.assertTrue(parent.stat().st_mode & stat.S_IXOTH)
+
     def test_production_receipt_is_safe_fallback_when_github_api_fails(self):
         receipt=("Aurenoeva V8.2.6.11 production "+SHA+"\n").encode()
         with patch.object(updater,"get_bytes",return_value=receipt) as read:
