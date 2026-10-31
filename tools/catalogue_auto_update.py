@@ -76,7 +76,10 @@ def qualified_sha() -> str | None:
     except (OSError,UnicodeError,ValueError):
         pass
     try:
-        runs=get_json(f"{API}/actions/runs?per_page=100")
+        # Fetch only the catalogue qualification workflow: the all-workflow
+        # response regularly exceeds the old 1 MB API limit and silently
+        # leaves production pinned to the previous qualified revision.
+        runs=get_json(f"{API}/actions/workflows/procurement-private-qualification.yml/runs?branch=main&per_page=20")
         for run in runs.get("workflow_runs",[]):
             if (isinstance(run,dict)
                 and run.get("name")=="AURENOEVA private procurement qualification"
