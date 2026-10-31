@@ -231,6 +231,55 @@ try {
        || count(aur_catalogue_snapshot_search('WATO EX-35')??[])!==1)
         throw new RuntimeException('evidenced_withdrawal_not_reflected_publicly');
 
+    // A change in a confirmed nontechnical source filter may reduce public
+    // browse counts without changing even one canonical VPS database identity.
+    // Accept only an exactly reconciled and bounded exclusion delta.
+    $otherReasons=['excluded_withdrawn'=>0,'excluded_invalid_id'=>0,
+        'excluded_generic'=>1,'excluded_missing_maker'=>0,
+        'excluded_missing_model'=>0,'excluded_source'=>0,
+        'excluded_duplicates'=>0,'excluded_nonrecord'=>0];
+    $priorStats=['db_products'=>5,'exported_products'=>5,
+        'eligible_products'=>4,'excluded_products'=>1]+$otherReasons;
+    $afterStats=['db_products'=>5,'exported_products'=>5,
+        'eligible_products'=>3,'excluded_products'=>2,
+        'excluded_nontechnical'=>1]+$otherReasons;
+    $priorPayload=json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>$whole['items'],'public_stats'=>$priorStats],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    $filteredPayload=json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>array_slice($whole['items'],0,3),'public_stats'=>$afterStats],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    $priorPath=$private.'/catalogue-public.json';
+    $incomingPath=$root.'/filtered-candidate.json';
+    file_put_contents($priorPath,$priorPayload);
+    file_put_contents($incomingPath,$filteredPayload);
+    if(!aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
+        throw new RuntimeException('verified_nontechnical_filter_delta_rejected');
+    $wrongDatabase=$afterStats;
+    $wrongDatabase['db_products']=6;
+    $wrongPayload=json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>array_slice($whole['items'],0,3),'public_stats'=>$wrongDatabase],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    file_put_contents($incomingPath,$wrongPayload);
+    if(aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
+        throw new RuntimeException('changed_canonical_database_accepted_as_filter_delta');
+    $wrongExclusion=$afterStats;
+    $wrongExclusion['excluded_nontechnical']=0;
+    file_put_contents($incomingPath,json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>array_slice($whole['items'],0,3),'public_stats'=>$wrongExclusion],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));
+    if(aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
+        throw new RuntimeException('unexplained_shrink_accepted');
+    file_put_contents($incomingPath,$filteredPayload);
+    $filterHash=hash('sha256',$filteredPayload);
+    aur_bulk_begin($private,$filterHash,strlen($filteredPayload));
+    aur_bulk_chunk($private,$filterHash,0,$filteredPayload);
+    if(aur_bulk_commit($private,$filterHash,strlen($filteredPayload),3)['records']!==3
+       ||hash_file('sha256',$priorPath)!==$filterHash
+       ||count(aur_catalogue_snapshot_search('MAGNETOM Lumina')??[])!==0)
+        throw new RuntimeException('reconciled_filter_delta_not_published');
+    @unlink($incomingPath);
+
     echo "AURENOEVA_CATALOGUE_HTTPS_SYNC_AND_SEARCH=PASS\n";
 } finally {
     @unlink($private . '/catalogue-public.json');
