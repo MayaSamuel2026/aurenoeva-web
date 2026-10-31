@@ -146,6 +146,70 @@ function aur_catalogue_public_stats(string $path, int $publishedCount): ?array {
     return $v;
 }
 
+/** One stable, public-safe read-only crawler status contract.
+ * A fresh publication alone is NOT proof that the harvester ran.
+ * Never expose raw URLs, exception details, contacts, or VPS credentials.
+ */
+function aur_catalogue_crawler_status(?array $stats, ?int $now = null): array {
+    $missing=['status'=>'NOT_INSTRUMENTED',
+        'reason'=>'no_crawler_run_evidence_in_snapshot'];
+    if (!is_array($stats) || ($stats['crawl_status_version']??null)!==1) return $missing;
+    $keys=['crawl_24h_completed_runs','crawl_24h_new_products',
+        'crawl_24h_pages','crawl_24h_failures','crawl_last_run_new_products',
+        'crawl_last_run_pages','crawl_last_run_failures',
+        'crawl_queue_total','crawl_queue_due','crawl_queue_retrying',
+        'crawl_queue_due_pages','crawl_queue_due_searches'];
+    foreach($keys as $key) {
+        if (!is_int($stats[$key]??null) || $stats[$key]<0 ||
+            $stats[$key]>1000000000)
+            return ['status'=>'INVALID_TELEMETRY','reason'=>'invalid_crawler_counter'];
+    }
+    $checked=(string)($stats['crawl_checked_at_utc']??'');
+    $started=(string)($stats['crawl_last_started_at_utc']??'');
+    $finished=(string)($stats['crawl_last_finished_at_utc']??'');
+    foreach([$checked,$started,$finished] as $stamp) {
+        if ($stamp!=='' && !preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/D',$stamp))
+            return ['status'=>'INVALID_TELEMETRY','reason'=>'invalid_crawler_timestamp'];
+    }
+    $checkedTime=strtotime($checked);
+    $finishedTime=$finished!==''?strtotime($finished):false;
+    $startedTime=$started!==''?strtotime($started):false;
+    $now=$now??time();
+    $result=[
+        'status'=>'UNKNOWN','observed_at_utc'=>$checked,
+        'last_started_at_utc'=>$started,
+        'last_completed_at_utc'=>$finished,
+        'completed_runs_24h'=>$stats['crawl_24h_completed_runs'],
+        'new_products_24h'=>$stats['crawl_24h_new_products'],
+        'processed_pages_24h'=>$stats['crawl_24h_pages'],
+        'failed_pages_24h'=>$stats['crawl_24h_failures'],
+        'last_run_new_products'=>$stats['crawl_last_run_new_products'],
+        'last_run_pages'=>$stats['crawl_last_run_pages'],
+        'last_run_failures'=>$stats['crawl_last_run_failures'],
+        'queue_total'=>$stats['crawl_queue_total'],
+        'queue_due'=>$stats['crawl_queue_due'],
+        'queue_retrying'=>$stats['crawl_queue_retrying'],
+        'queue_due_pages'=>$stats['crawl_queue_due_pages'],
+        'queue_due_searches'=>$stats['crawl_queue_due_searches']
+    ];
+    if($checkedTime===false || $checkedTime>$now+300)
+        $result['status']='INVALID_TELEMETRY';
+    elseif($checkedTime<$now-7200)
+        $result['status']='STALE_TELEMETRY';
+    elseif($finishedTime===false || $finishedTime>$now+300 ||
+           $finishedTime<$now-7200)
+        $result['status']='NO_RECENT_COMPLETED_RUN';
+    elseif($startedTime!==false && $startedTime>$finishedTime &&
+           $startedTime<$now-3600)
+        $result['status']='RUN_OVERDUE';
+    elseif($stats['crawl_24h_new_products']===0 &&
+           $stats['crawl_24h_pages']>=500)
+        $result['status']='ZERO_NEW_PRODUCTS_24H';
+    else
+        $result['status']='RECENTLY_COMPLETED';
+    return $result;
+}
+
 /** Snapshot modification time is a publication freshness signal, not a crawl timestamp. */
 function aur_catalogue_snapshot_updated_at(string $path): ?string {
     clearstatcache(true, $path);
@@ -182,7 +246,11 @@ try {
         'snapshot_updated_at_utc'=>aur_catalogue_snapshot_updated_at($real),
         'stock_verified'=>false,'source'=>'published_catalogue_snapshot'];
     $stats=aur_catalogue_public_stats($real,$count);
-    if ($stats!==null) $payload['reconciliation']=$stats;
+    $payload['crawler']=aur_catalogue_crawler_status($stats);
+    if ($stats!==null) {
+        $reconciliation=array_filter($stats,static fn($k)=>!str_starts_with((string)$k,'crawl_'),ARRAY_FILTER_USE_KEY);
+        $payload['reconciliation']=$reconciliation;
+    }
     echo json_encode($payload,JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
     http_response_code(503);
