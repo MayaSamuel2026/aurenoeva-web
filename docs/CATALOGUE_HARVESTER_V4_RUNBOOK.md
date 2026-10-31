@@ -244,3 +244,35 @@ an installed VPS revision and an acknowledged website publication.
 - **Full production recovery is NOT yet accepted.** At 07:23 UTC, VPS database=141,738 canonical identities but the public website was still serving a snapshot from 05:47:07 UTC: snapshot canonical identities=141,735, published=140,531 and browse-searchable=139,846. The fair-frontier cursor had zero hosts because the new scheduler had not yet started. [Strict VPS-to-website acceptance run](https://github.com/MayaSamuel2026/noeva-core/actions/runs/41180370100) failed correctly with PUBLIC_CATALOGUE_RECONCILIATION_PENDING.
 - Acceptance after a newly started crawler run: verify its installed release, new URL cursor usage, processed supplier pages, unique product yield, failure rates, updated SQLite export and a website snapshot with reconciliation.db_products equal to the current canonical database count and reconciliation.eligible_products equal to published_parts. The site crawler field must have current operational telemetry.
 - Preserve the existing SQLite catalogue, historical RFQs, supplier relationships and 7.6-million-plus URL backlog throughout recovery; no destructive queue reset or replacement crawler.
+
+## 31 October 2026 07:42 UTC: verified productive crawl and live website
+
+The newly deployed supplier-fair crawler began its first run at 07:30:23 UTC.
+By 07:41 UTC its SQLite harvest ledger recorded 792 processed pages,
+61 new unique product identities, 251 failed requests, and persistent
+source-frontier cursor activity across 36 supplier hosts. Newly discovered
+products span medical, test, industrial, and laboratory categories.
+
+Live HTTPS catalogue readback at 07:42 UTC confirmed an atomic site snapshot
+updated at 07:37:16 UTC. The publication reconciled 141,774 canonical
+identities at export, 139,915 published products, 139,882 searchable
+products, and crawler status RECENTLY_COMPLETED. The canonical VPS DB
+had already grown to 141,803 during the ongoing run: a 29-product
+expected difference between two independently timed measurements.
+
+The permanent hourly NOEVA CORE crawler status workflow now verifies
+installed scheduler/publisher, qualified-update feed, live SQLite crawl
+activity, source-frontier cursor and per-source yield, the website
+snapshot freshness within two hours, and exact internal publication
+accounting: exported_products=db_products, eligible_products plus
+excluded_products equals exported_products, eligible_products equals
+published_parts. Do NOT require equality with simultaneously changing
+live SQLite counts. Any stale or inconsistent website snapshot must
+fail the hourly check instead of silently reporting success.
+
+Verified run: https://github.com/MayaSamuel2026/noeva-core/actions/runs/41181622197
+
+The 7.6m+ historical URL backlog remains intact. Fair and selective
+discovery is now productive, but the backlog and HTTP failure rate
+still need ongoing monitoring. No product stock or seller offer
+availability is inferred from mere crawler discovery.
