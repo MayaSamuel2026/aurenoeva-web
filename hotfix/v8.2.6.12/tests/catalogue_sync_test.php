@@ -289,6 +289,17 @@ try {
         JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));
     if(aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
         throw new RuntimeException('unexplained_growth_and_removal_accepted');
+    // Historical published snapshots had no excluded_withdrawn field.
+    // Preserve safe migration while still requiring a full new attestation.
+    $legacyPrior=$priorStats;
+    unset($legacyPrior['excluded_withdrawn']);
+    file_put_contents($priorPath,json_encode(['schema'=>'aurenoeva-catalogue/1',
+        'items'=>$whole['items'],'public_stats'=>$legacyPrior],
+        JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));
+    file_put_contents($incomingPath,$grownPayload);
+    if(!aur_bulk_filter_only_reduction($priorPath,$incomingPath,4,3))
+        throw new RuntimeException('legacy_snapshot_growth_and_filter_rejected');
+    file_put_contents($priorPath,$priorPayload);
     file_put_contents($incomingPath,$filteredPayload);
     $filterHash=hash('sha256',$filteredPayload);
     aur_bulk_begin($private,$filterHash,strlen($filteredPayload));
