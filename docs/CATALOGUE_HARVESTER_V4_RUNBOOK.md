@@ -276,3 +276,29 @@ The 7.6m+ historical URL backlog remains intact. Fair and selective
 discovery is now productive, but the backlog and HTTP failure rate
 still need ongoing monitoring. No product stock or seller offer
 availability is inferred from mere crawler discovery.
+
+### Strict independent recovery acceptance — PASS, 07:42:47 UTC
+
+The NOEVA CORE production acceptance workflow completed successfully:
+https://github.com/MayaSamuel2026/noeva-core/actions/runs/41181613240
+
+Verified together in one read-only VPS-to-HTTPS audit:
+- Installed qualified SHA 9e7b08ea2ab62bd7ba940836699ec59e2d78c7b6.
+- Supplier-fair frontier enabled, with 36 persisted supplier cursors.
+- The 07:30:23 UTC crawler run had added 65 canonical product identities
+  while still running (828 pages processed, 257 failed).
+- Canonical SQLite at acceptance: 141,803 products.
+- Fresh public snapshot at 07:37:16 UTC: 141,774 canonical at export;
+  139,915 published, 139,882 searchable, 1,859 accounted exclusions
+  (including 1,858 nontechnical and 1 generic).
+- Public crawler telemetry present, status RECENTLY_COMPLETED.
+- Published snapshot internally reconciled, with expected 29-product
+  newer live SQLite delta while discovery was actively running.
+- The separate hourly status workflow also passed its permanent
+  publication freshness and consistency gate:
+  https://github.com/MayaSamuel2026/noeva-core/actions/runs/41181622197
+
+Recovery is ACCEPTED for production crawler operation, genuine new-product
+discovery, authenticated publication and operational monitoring. Do not
+interpret it as completion of the historic 7.6-million-URL backlog or
+elimination of the elevated HTTP failure rate.
