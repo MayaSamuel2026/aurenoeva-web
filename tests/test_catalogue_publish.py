@@ -104,7 +104,7 @@ class PublicationTests(unittest.TestCase):
             if "catalogue-count.php" in request.full_url:
                 actions.append("public_count")
                 return Response({"ok":True,"source":"published_catalogue_snapshot",
-                                 "searchable_parts":1800})
+                                 "published_parts":1800,"searchable_parts":1797})
             if "catalogue-search.php" in request.full_url:
                 actions.append("public_search")
                 item=json.loads(uploaded)["items"][-1]
