@@ -402,6 +402,70 @@ function aur_bulk_count(string $file):int {
     }finally{fclose($fp);}
     return $count;
 }
+/** Read only authenticated aggregate reconciliation from the validated atomic
+ * snapshot tail. No full product-list decode or exposure of supplier data.
+ */
+function aur_bulk_public_stats(string $file):?array {
+    $bytes=@filesize($file);
+    if(!is_int($bytes)||$bytes<40)return null;
+    $fp=@fopen($file,'rb');
+    if(!$fp)return null;
+    try{
+        if(fseek($fp,max(0,$bytes-4096),SEEK_SET)!==0)return null;
+        $tail=stream_get_contents($fp,4096);
+    }finally{fclose($fp);}
+    if(!is_string($tail)||!preg_match('/"public_stats"\\s*:\\s*(\\{[^{}]{1,3000}\\})\\s*\\}\\s*$/s',$tail,$match))
+        return null;
+    $stats=json_decode($match[1],true);
+    return is_array($stats)?$stats:null;
+}
+
+/** Permit a bounded, *explained* reduction in public search inventory only
+ * when the canonical DB is unchanged and source-backed nontechnical
+ * exclusions have risen by exactly the same number. Otherwise fail closed.
+ * Historical canonical IDs and customer RFQs remain untouched on the VPS.
+ */
+function aur_bulk_filter_only_reduction(
+    string $current,string $incoming,int $oldCount,int $newCount
+):bool {
+    $before=aur_bulk_public_stats($current);
+    $after=aur_bulk_public_stats($incoming);
+    if($before===null||$after===null||$newCount>=$oldCount)return false;
+    $base=['db_products','exported_products','eligible_products','excluded_products',
+        'excluded_withdrawn','excluded_invalid_id','excluded_generic',
+        'excluded_missing_maker','excluded_missing_model','excluded_source',
+        'excluded_duplicates','excluded_nonrecord'];
+    foreach([$before,$after] as $stats)foreach($base as $key) {
+        if(!is_int($stats[$key]??null)||$stats[$key]<0)return false;
+    }
+    if(!is_int($after['excluded_nontechnical']??null)
+        ||$after['excluded_nontechnical']<0)return false;
+    if($before['db_products']!==$after['db_products']
+        ||$before['exported_products']!==$after['exported_products']
+        ||$before['db_products']!==$before['exported_products']
+        ||$after['db_products']!==$after['exported_products']
+        ||$before['eligible_products']!==$oldCount
+        ||$after['eligible_products']!==$newCount
+        ||$before['excluded_products']!==$before['exported_products']-$oldCount
+        ||$after['excluded_products']!==$after['exported_products']-$newCount)
+        return false;
+    $other=['excluded_withdrawn','excluded_invalid_id','excluded_generic',
+            'excluded_missing_maker','excluded_missing_model','excluded_source',
+            'excluded_duplicates','excluded_nonrecord'];
+    $totals=0;
+    foreach($other as $key) {
+        if($before[$key]!==$after[$key])return false;
+        $totals+=$after[$key];
+    }
+    $oldNontechnical=$before['excluded_products']-$totals;
+    $newNontechnical=$after['excluded_products']-$totals;
+    $delta=$oldCount-$newCount;
+    return $oldNontechnical>=0
+        && $newNontechnical===$after['excluded_nontechnical']
+        && $newNontechnical-$oldNontechnical===$delta
+        && $delta<=max(500,(int)floor($oldCount*0.05));
+}
+
 function aur_bulk_commit(string $directory,string $sha,int $bytes,int $count):array {
     $file=aur_bulk_path($directory,$sha);
     $target=$directory.'/catalogue-public.json';
@@ -442,7 +506,10 @@ function aur_bulk_commit(string $directory,string $sha,int $bytes,int $count):ar
                    &&preg_match('/"confirmed_withdrawn_products":([0-9]+)/',$match[1],$amount))
                     $confirmed=(int)$amount[1];
                 $drop=$oldCount-$count;
-                if($confirmed<$drop || $drop>max(500,(int)floor($oldCount*0.05)))
+                $bounded=$drop<=max(500,(int)floor($oldCount*0.05));
+                $filtered=$bounded && aur_bulk_filter_only_reduction(
+                    $target,$file,$oldCount,$count);
+                if(!$bounded || ($confirmed<$drop && !$filtered))
                     throw new RuntimeException('bulk_count_regression');
             }
         }
