@@ -22,6 +22,29 @@ class Tests(unittest.TestCase):
         if kind=="search_ddg":return '<a href="https://www.mindray.com/en/products/anesthesia/wato-ex-35">Mindray</a>'
         if url.endswith("/wato-ex-35"):return PRODUCT
         raise TimeoutError("independent failure")
+    def test_unqualified_worldwide_lead_is_observed_but_never_mirrored(self):
+        # A global search result is a single-page lead, not permission to
+        # expand arbitrary directory/shop links across an unrelated website.
+        # Direct, evidence-backed products on that lead must still be kept.
+        url="https://unconfigured.example.com/catalogue"
+        self.assertEqual(enqueue(self.db,url,"page","industrial","Machine / process equipment"),1)
+        body=('<html><h1>Industrial catalogue</h1>'
+              '<script type="application/ld+json">'
+              '{"@type":"Product","brand":"Example OEM","mpn":"AX-12345",'
+              '"description":"Industrial control unit"}'
+              '</script>'
+              '<a href="/shop/related-1">Related 1</a>'
+              '<a href="/product/related-2">Related 2</a></html>')
+        output=run(self.db,{"categories":{},"sources":[]},1,15,1,
+                   lambda fetched,kind: body)
+        self.assertEqual(output["processed"],1)
+        self.assertEqual(output["new_products"],1)
+        self.assertEqual(output["new_urls"],0)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],1)
+        self.assertEqual(self.db.execute(
+            "SELECT manufacturer,model FROM products").fetchone(),
+            ("Example OEM","AX-12345"))
+
     def test_clear_consumer_noise_is_not_a_technical_product(self):
         self.assertFalse(technical_product_relevance("laboratory","978-3-12-562482-5",
                          "https://de.pons.com/shop/grammatik/978-3-12-562482-5"))
