@@ -60,8 +60,13 @@ $directoryDe=aur_seo_route('de','directory',[]);
 $_SERVER['REQUEST_URI']=$directoryDe;
 $_GET=['lang'=>'de','kind'=>'directory'];
 ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$dirDeHtml=ob_get_clean();
-if (!str_contains($dirDeHtml,'Technische Ersatzteile') || !str_contains($dirDeHtml,'/de/hersteller/'))
+if (!str_contains($dirDeHtml,'Technische Ersatzteile') || !str_contains($dirDeHtml,'/de/hersteller/') ||
+    !str_contains($dirDeHtml,'Pneumatik und Hydraulik') || str_contains($dirDeHtml,'>Pneumatics / hydraulics<'))
     throw new RuntimeException('directory_de');
+if (aur_seo_category_label('Pneumatics / hydraulics','en') !== 'Pneumatics / hydraulics' ||
+    aur_seo_category_label('Balances & weighing','de') !== 'Waagen und Wägetechnik' ||
+    aur_seo_category_label('Chromatography / HPLC / GC','de') !== 'Chromatographie / HPLC / GC')
+    throw new RuntimeException('category_translation');
 
 $maker=aur_seo_route('de','manufacturer',['manufacturer'=>'Festo']);
 $_SERVER['REQUEST_URI']=$maker;
@@ -75,6 +80,21 @@ $_GET=['lang'=>'en','kind'=>'category','sector'=>'industrial','key'=>basename(tr
 ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$html=ob_get_clean();
 if (!str_contains($html,'Pneumatics / hydraulics') || !str_contains($html,'DSBC-32-100'))
  throw new RuntimeException('category_page');
+$catDe=aur_seo_route('de','category',['sector'=>'industrial','category'=>'Pneumatics / hydraulics']);
+$_SERVER['REQUEST_URI']=$catDe;
+$_GET=['lang'=>'de','kind'=>'category','sector'=>'industrial','key'=>basename(trim($catDe,'/'))];
+ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$html=ob_get_clean();
+if (!str_contains($html,'<h1>Pneumatik und Hydraulik</h1>') ||
+    !str_contains($html,'<title>Pneumatik und Hydraulik | AURENOEVA</title>') ||
+    !str_contains($html,'DSBC-32-100') || !str_contains($html,'rel="canonical"') ||
+    !str_contains($html,aur_seo_taxon('Pneumatics / hydraulics')))
+ throw new RuntimeException('category_page_de');
+$productDe=aur_seo_route('de','product',$first);
+$_SERVER['REQUEST_URI']=$productDe;
+$_GET=['lang'=>'de','kind'=>'product','key'=>basename(trim($productDe,'/'))];
+ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$html=ob_get_clean();
+if (!str_contains($html,'Pneumatik und Hydraulik') || str_contains($html,'>Pneumatics / hydraulics<'))
+ throw new RuntimeException('product_related_category_de');
 $_GET=['feed'=>'index'];ob_start();aur_seo_sitemap($idx,$root.'/private/seo-index-products.jsonl');$xml=ob_get_clean();
 if (!str_contains($xml,'products-de-1.xml') || !str_contains($xml,'taxonomy-en.xml'))
  throw new RuntimeException('sitemap_index');

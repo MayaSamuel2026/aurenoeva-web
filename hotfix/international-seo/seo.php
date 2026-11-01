@@ -21,6 +21,63 @@ function aur_seo_slug(string $value): string {
 function aur_seo_taxon(string $value): string {
     return aur_seo_slug($value) . '-' . substr(hash('sha256', $value), 0, 10);
 }
+/** Keep catalogue taxonomy IDs and SEO slugs language-neutral; translate display text only. */
+function aur_seo_category_label(string $category, string $language): string {
+    if ($language !== 'de') return $category;
+    static $de = [
+        'Chromatography / HPLC / GC' => 'Chromatographie / HPLC / GC',
+        'Mass spectrometry' => 'Massenspektrometrie',
+        'Spectroscopy' => 'Spektroskopie',
+        'Sample preparation' => 'Probenvorbereitung',
+        'Balances & weighing' => 'Waagen und Wägetechnik',
+        'Incubation / ovens / environmental' => 'Inkubatoren, Öfen und Umweltsimulation',
+        'General laboratory equipment' => 'Allgemeine Laborausstattung',
+        'Oscilloscopes' => 'Oszilloskope',
+        'Spectrum / signal analyzers' => 'Spektrum- und Signalanalysatoren',
+        'Signal sources / generators' => 'Signalquellen und Generatoren',
+        'Meters & power analyzers' => 'Messgeräte und Leistungsanalysatoren',
+        'RF / microwave' => 'HF- und Mikrowellentechnik',
+        'Calibration equipment' => 'Kalibriertechnik',
+        'Data acquisition' => 'Datenerfassung',
+        'Diagnostic equipment' => 'Diagnostikgeräte',
+        'Imaging & visualization' => 'Bildgebung und Visualisierung',
+        'Patient monitoring' => 'Patientenüberwachung',
+        'Laboratory / pathology' => 'Labordiagnostik und Pathologie',
+        'Surgical / procedural' => 'Chirurgie und Behandlungstechnik',
+        'Sterilization & reprocessing' => 'Sterilisation und Aufbereitung',
+        'Other medical equipment' => 'Sonstige Medizintechnik',
+        'PLC / control modules' => 'SPS- und Steuerungsmodule',
+        'Drives / servo / motion' => 'Antriebs-, Servo- und Bewegungstechnik',
+        'Motors / gearboxes' => 'Motoren und Getriebe',
+        'Sensors / instrumentation' => 'Sensorik und Messtechnik',
+        'Pneumatics / hydraulics' => 'Pneumatik und Hydraulik',
+        'Robotics / automation' => 'Robotik und Automatisierung',
+        'Machine / process equipment' => 'Maschinen- und Prozessanlagen',
+        'Transformers' => 'Transformatoren',
+        'Switchgear & protection' => 'Schalt- und Schutztechnik',
+        'Generators' => 'Generatoren',
+        'Power conversion / inverters' => 'Stromumwandlung und Wechselrichter',
+        'Power quality / monitoring' => 'Netzqualität und Überwachung',
+        'Turbine / plant components' => 'Turbinen- und Anlagenkomponenten',
+        'Storage / auxiliary systems' => 'Energiespeicher und Hilfssysteme',
+        'Engines & propulsion' => 'Motoren und Antriebssysteme',
+        'Pumps / fluid systems' => 'Pumpen und Fluidsysteme',
+        'Electrical & switchgear' => 'Elektrotechnik und Schaltanlagen',
+        'Navigation / instrumentation' => 'Navigation und Instrumentierung',
+        'Deck machinery' => 'Decksmaschinen',
+        'HVAC / refrigeration' => 'Klima-, Lüftungs- und Kältetechnik',
+        'Safety / auxiliary systems' => 'Sicherheits- und Hilfssysteme',
+        'Avionics' => 'Avionik',
+        'Electrical components' => 'Elektrische Komponenten',
+        'Hydraulic / pneumatic' => 'Hydraulik und Pneumatik',
+        'Engine / powerplant components' => 'Triebwerks- und Antriebskomponenten',
+        'Landing gear / actuation' => 'Fahrwerke und Betätigungssysteme',
+        'Ground support / test equipment' => 'Bodengeräte und Prüftechnik',
+        'Traceable specialist components' => 'Rückverfolgbare Spezialkomponenten',
+    ];
+    return $de[$category] ?? $category;
+}
+
 function aur_seo_route(string $language, string $type, array $row): string {
     $base = '/' . $language . '/';
     if ($type === 'directory') return $base . ($language === 'de' ? 'katalog/' : 'catalogue/');
@@ -351,7 +408,7 @@ function aur_seo_directory(array $index, string $language): void {
       foreach($groups[$sector] as [$category,$count]) {
         $href=aur_seo_route($language,'category',['sector'=>$sector,'category'=>$category]);
         echo '<div class="seo-item"><a href="'.aur_seo_h($href).'">'
-          .aur_seo_h($category).'</a><small>'.number_format($count).' '
+          .aur_seo_h(aur_seo_category_label($category,$language)).'</a><small>'.number_format($count).' '
           .($de?'Katalogreferenzen':'catalogue references').'</small></div>';
       }
       echo '</div>';
@@ -456,7 +513,7 @@ function aur_seo_page(array $index,string $productsFile): void {
         }
     }
     $name=$kind==='product' ? $selected['manufacturer'].' '.$selected['model'] :
-        ($kind==='manufacturer' ? $selected['manufacturer'] : $selected['category']);
+        ($kind==='manufacturer' ? $selected['manufacturer'] : aur_seo_category_label($selected['category'],$language));
     $typeLabel=$kind==='product' ? ($de?'Technisches Produkt':'Technical product') :
         ($kind==='manufacturer' ? ($de?'Hersteller':'Manufacturer') : ($de?'Technische Kategorie':'Technical category'));
     $title=$name.' | AURENOEVA';
@@ -528,7 +585,7 @@ function aur_seo_page(array $index,string $productsFile): void {
              aur_seo_h($selected['manufacturer']).'</a></div>';
         foreach (array_slice($selected['facets'],0,3) as $facet) {
             echo '<div class="seo-item"><a href="'.aur_seo_h(aur_seo_route($language,'category',$facet)).'">' .
-                aur_seo_h($facet['category']).'</a></div>';
+                aur_seo_h(aur_seo_category_label($facet['category'],$language)).'</a></div>';
         }
         echo '</div>';
     }
