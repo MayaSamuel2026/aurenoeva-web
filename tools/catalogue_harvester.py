@@ -601,6 +601,43 @@ DISCOVERY_EXCLUDED_HOSTS=frozenset((
     "dictionary.cambridge.org","www.heise.de","www.chatgpt.com","chatgpt.com",
 ))
 
+def suppress_legacy_non_technical_frontier(db, now=None):
+    """One-time, reversible scheduling deferral, never a catalogue deletion.
+
+    Older queue entries predate the nontechnical-host admission filter.
+    Move only these documented unrelated hosts out of the active crawl
+    horizon; keep every URL, supplier evidence row and canonical identity.
+    Bounded primary-key URL ranges avoid sorting/scanning the 7m+ queue.
+    """
+    key="legacy-nontechnical-hosts-deferred-v1"
+    if db.execute("SELECT 1 FROM catalogue_lifecycle_meta WHERE key=?",(key,)).fetchone():
+        return 0
+    until=stamp((now or clock())+timedelta(days=3650))
+    changed=0
+    for host in sorted(DISCOVERY_EXCLUDED_HOSTS):
+        prefix="https://"+host+"/"
+        upper=prefix[:-1]+"0"
+        db.execute("""UPDATE harvest_queue SET due=?
+            WHERE url>=? AND url<? AND due<?""",(until,prefix,upper,until))
+        changed+=db.execute("SELECT changes()").fetchone()[0]
+    db.execute("INSERT INTO catalogue_lifecycle_meta(key) VALUES(?)",(key,))
+    db.commit()
+    return changed
+
+
+def retry_wait_seconds(error, prior_failures):
+    """Respect access restrictions instead of retrying them every few hours."""
+    if isinstance(error,PermissionError) and str(error) in (
+        "robots_denied","robots_disallowed"):
+        return 14*24*3600
+    if isinstance(error,HTTPError):
+        if error.code in (401,403):return 72*3600
+        if error.code==429:return 24*3600
+    if isinstance(error,(UnicodeEncodeError,)):
+        return 30*24*3600
+    return min(12*3600,15*60*(2**min(max(prior_failures,0),5)))
+
+
 def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     try:public_url(url)
     except ValueError:return 0
@@ -746,6 +783,10 @@ def sitemap_urls(body):
     return [url for _,url in sitemap_entries(body)]
 def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
         progress=None,progress_interval=300):
+    legacy_deferred=suppress_legacy_non_technical_frontier(db)
+    if legacy_deferred:
+        print(json.dumps({"event":"CATALOGUE_LEGACY_NONTECHNICAL_QUEUE_DEFERRED",
+            "urls":legacy_deferred,"deleted":0}),flush=True)
     seeds(db,config);started=time.monotonic();seen=stamp()
     last_progress_at=started
     last_published_new=0
@@ -1002,7 +1043,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                         due=stamp(clock()+timedelta(hours=48))
                     else:
                         retry=row["failures"]+1
-                        wait=min(12*3600,15*60*(2**min(retry-1,5)))
+                        wait=retry_wait_seconds(e,row["failures"])
                         due=stamp(clock()+timedelta(seconds=wait))
                     db.execute("UPDATE harvest_queue SET due=?,failures=failures+1,last_error=? WHERE url=?",
                                (due,txt("HTTP "+str(e.code),180),url))
@@ -1010,7 +1051,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                 except Exception as e:
                     # Every failure affects exactly this URL; no quarantine/dead-end.
                     retry=row["failures"]+1
-                    wait=min(12*3600,15*60*(2**min(retry-1,5)))
+                    wait=retry_wait_seconds(e,row["failures"])
                     due=stamp(clock()+timedelta(seconds=wait))
                     db.execute("UPDATE harvest_queue SET due=?,failures=?,last_error=? WHERE url=?",
                                (due,retry,txt(type(e).__name__+": "+str(e),180),url))
