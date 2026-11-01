@@ -224,8 +224,17 @@
             draft_id:draftId,manual_review:true,selected_indices:selected})
         });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || result.ok !== true)
-          throw new Error('Batch not confirmed ('+response.status+'). Reload the saved RFQ before retrying.');
+        if (!response.ok || result.ok !== true) {
+          const reasons={
+            rfq_smtp_test_required:'The internal mailbox test did not pass. Open Mail settings and check the SMTP connection.',
+            rfq_smtp_not_configured:'The sending mailbox is not configured. Open Mail settings.',
+            refresh_german_supplier_wording_first:'German draft text is outdated. Click Update unsent German email wording above the list.',
+            select_one_to_three_suppliers:'Please select one, two or three unsent recipients.',
+            selected_supplier_already_attempted:'One of the selected suppliers has already been attempted. Reload the saved RFQ before proceeding.',
+            destination_requires_sanctions_review:'Sending remains on hold for the required destination and trade-compliance review.'
+          };
+          throw new Error((reasons[result.error]||('Batch not confirmed ('+response.status+'): '+(result.error||'check saved status'))));
+        }
         if (Number(result.progress?.processed_this_request)!==selected.length)
           throw new Error('Selected count does not match saved send receipt.');
         const verified=await readSavedLedger(caseRef,draftId);
