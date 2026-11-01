@@ -831,13 +831,17 @@ jobs:
             "logo":"https://aurenoeva.com/assets/img/brand/aurenoeva-logo-approved.png"}
           tags='<link rel="canonical" href="https://aurenoeva.com/">\n'+(
             '<script type="application/ld+json">'+json.dumps(schema,separators=(',',':'))+'</script>\n')
-          # Link the site's existing footer to the canonical EN/DE directory.
-          # Links are server-rendered HTML, not JavaScript-only navigation.
-          footer_anchor='<a href="industries.html" data-en="Technical sectors" data-de="Technische Bereiche"></a>'
-          assert html.count(footer_anchor)==1
-          footer_links=('<a href="/en/catalogue/" lang="en">English product catalogue</a>\n'
-                        '<a href="/de/katalog/" lang="de">Deutscher Produktkatalog</a>')
-          html=html.replace(footer_anchor,footer_anchor+'\n'+footer_links,1)
+          # Insert source-visible catalogue links once at the HTML footer boundary.
+          # This survives earlier homepage transformations without depending on
+          # an exact internal footer link or another independent UI implementation.
+          assert html.count('</footer>')==1
+          directory_links=(
+            '<div class="wrap"><nav aria-label="Technical catalogue" '
+            'style="padding:12px 0 20px;display:flex;flex-wrap:wrap;gap:20px">'
+            '<a href="/en/catalogue/" lang="en">English product catalogue</a>'
+            '<a href="/de/katalog/" lang="de">Deutscher Produktkatalog</a>'
+            '</nav></div>')
+          html=html.replace('</footer>',directory_links+'</footer>',1)
           home.write_text(html.replace('</head>',tags+'</head>',1),encoding='utf-8')
           PY
           php -l "$RUNNER_TEMP/source/site/seo.php"
