@@ -236,35 +236,7 @@ function aur_mailcenter_rfq_sent(string $store):array {
  * Archive failure never causes a second SMTP send or overwrites local evidence.
  */
 function aur_mailcenter_archive_imap(string $raw):string {
-    if(strlen($raw)>14000000)return 'TOO_LARGE_FOR_SENT_ARCHIVE';
-    $cfg=aur_vendor_rfq_smtp_config();
-    $folder='{imap.hostinger.com:993/imap/ssl/validate-cert}INBOX.Sent';
-    if(function_exists('imap_open')&&function_exists('imap_append')){
-        $mail=@imap_open($folder,$cfg['user'],$cfg['pass'],0,1);
-        if($mail){
-            try{return @imap_append($mail,$folder,$raw)?'ARCHIVED':'NOT_ARCHIVED';}
-            finally{imap_close($mail);}
-        }
-    }
-    if(!function_exists('curl_init'))return 'IMAP_APPEND_NOT_AVAILABLE';
-    $fp=fopen('php://temp','w+b');
-    if(!$fp)return 'IMAP_APPEND_NOT_AVAILABLE';
-    try{
-        fwrite($fp,$raw);rewind($fp);
-        $curl=curl_init('imaps://imap.hostinger.com/INBOX.Sent');
-        if(!$curl)return 'IMAP_APPEND_NOT_AVAILABLE';
-        try{
-            curl_setopt_array($curl,[
-                CURLOPT_USERNAME=>$cfg['user'],CURLOPT_PASSWORD=>$cfg['pass'],
-                CURLOPT_UPLOAD=>true,CURLOPT_INFILE=>$fp,
-                CURLOPT_INFILESIZE=>strlen($raw),
-                CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,
-                CURLOPT_TIMEOUT=>25,CURLOPT_SSL_VERIFYPEER=>true,
-                CURLOPT_SSL_VERIFYHOST=>2,
-            ]);
-            return curl_exec($curl)!==false?'ARCHIVED':'NOT_ARCHIVED';
-        }finally{curl_close($curl);}
-    }finally{fclose($fp);}
+    return aur_vendor_rfq_archive_sent_imap($raw);
 }
 
 function aur_mailcenter_list(string $store,string $folder,int $page):array {
@@ -379,19 +351,9 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         $entry['smtp_code']=(int)($transport['code']??0);
         $entry['smtp_stage']=(string)($transport['stage']??'');
         $entry['smtp_outcome']=(string)($transport['outcome']??'');
-        // Mail Center local record is authoritative even when Hostinger's Sent
-        // folder cannot accept an IMAP copy. Never repeat a supplier send.
-        $entry['imap_sent_archive']='NOT_ATTEMPTED';
-        if($entry['status']==='SMTP_ACCEPTED'){
-            try{
-                $mime=aur_vendor_rfq_smtp_payload($send['to'],$send['subject'],$plain,
-                    $smtpId,$attached,$formatted,$logoFile);
-                $entry['imap_sent_archive']=aur_mailcenter_archive_imap(substr($mime,0,-1));
-            }catch(Throwable $e){
-                $entry['imap_sent_archive']='NOT_ARCHIVED';
-                error_log('AURENOEVA IMAP Sent archive: '.get_class($e));
-            }
-        }
+        // The shared authenticated SMTP transport archives the exact MIME
+        // once to IMAP Sent. Never append a second copy from Mail Center.
+        $entry['imap_sent_archive']=(string)($transport['imap_sent_archive']??'NOT_ARCHIVED');
         $entries[count($entries)-1]=$entry;
         aur_mailcenter_write_local($store,$entries);
         return ['ok'=>$entry['status']==='SMTP_ACCEPTED','status'=>$entry['status'],
