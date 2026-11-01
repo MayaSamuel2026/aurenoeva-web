@@ -991,15 +991,18 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                                 patterned=any(p.match(urlsplit(link).path) for p in patterns_by_host.get(hostof(link),()))
                                 if not (ordinary or explicit or patterned):continue
                             stats["new_urls"]+=enqueue(db,link,childkind,row["sector"],row["category"],row["maker"],row["depth"]+1)
-                    elif kind=="page" and row["depth"]<depth_by_host.get(hostof(url),2):
+                    elif (kind=="page" and hostof(url) in source_host_groups
+                          and row["depth"]<depth_by_host.get(hostof(url),2)):
+                        # Source qualification is required BEFORE following site links.
+                        # Worldwide searches yield single-page leads; following
+                        # arbitrary same-host links created a multi-million-URL
+                        # frontier without establishing any product relevance.
+                        # Qualified catalogues still receive their configured depth,
+                        # path, sitemap and pagination rules.
                         prefixes=follow_by_host.get(hostof(url),set())
-                        # Worldwide search results are leads, not authority to
-                        # recursively mirror millions of unrelated site pages.
-                        # Explicit source catalogues retain their deeper limits.
-                        configured=hostof(url) in source_host_groups
                         max_links=(2500 if urlsplit(url).path.rstrip("/") in (
                            "/manufacturers","/en/hersteller","/en/kategorien")
-                           else 1000) if configured else 80
+                           else 1000)
                         # ONERGYS has thousands of paginated category listings.
                         # Ensure page-2 links are not crowded out by global nav
                         # and related-product links. The job still enforces its
