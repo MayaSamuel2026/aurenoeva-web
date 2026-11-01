@@ -657,14 +657,18 @@ if ($isAdmin) {
             $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
             aur_embargo_assert_dispatch_ready($result);
             $draftId=trim((string)($_POST['draft_id']??''));
-            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
+            $selected=($_POST['selected_indices']??null);
+            if($selected!==null&&!is_array($selected))
+                throw new InvalidArgumentException('invalid_checked_supplier_list');
+            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,
+                ($_POST['manual_review']??'')==='1',null,3,$selected);
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
                     'progress'=>$dispatch['dispatch_progress']??null],JSON_THROW_ON_ERROR);
                 exit;
             }
-            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#supplier-history',true,303);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#aur-rfq-approval',true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ dispatch: '.get_class($e).' '.substr($e->getMessage(),0,120));
@@ -1495,5 +1499,5 @@ info@aurenoeva.com | https://aurenoeva.com
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=8"></script>
+<script defer src="/procurement/worldwide.js?v=9"></script>
 <?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=4"></script><?php endif; ?></body></html>
