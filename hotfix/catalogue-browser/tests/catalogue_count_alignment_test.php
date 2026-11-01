@@ -40,6 +40,33 @@ try {
         throw new RuntimeException("count_not_reconciled:$raw/$visible/$browsed");
     if(aur_browse_snapshot($path,'laboratory','', 'Tribesigns')['total']!==0)
         throw new RuntimeException('consumer_furniture_visible');
+    // A cross-industry part counts once toward unique searchable identities
+    // but appears once in each evidence-backed sector browser.
+    $fixture[]=[
+        'canonical_id'=>'AUR-P-'.str_repeat('5',20),
+        'manufacturer'=>'HydroWorks','model'=>'HP-20',
+        'description'=>'Industrial and marine hydraulic pump',
+        'sector'=>'industrial','category'=>'Pneumatics / hydraulics',
+        'source_ref'=>'https://example.com/products/hp-20',
+        'classification_status'=>'EVIDENCE_MATCHED',
+        'classifications'=>[
+            ['industry'=>'industrial','category'=>'Pneumatics / hydraulics',
+             'method'=>'technical-facets/1'],
+            ['industry'=>'marine','category'=>'Pumps / fluid systems',
+             'method'=>'technical-facets/1']
+        ]
+    ];
+    file_put_contents($path,json_encode(['schema'=>'aurenoeva-catalogue/1','items'=>$fixture],
+        JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
+    clearstatcache(true,$path);
+    $counts=aur_catalogue_browse_counts_file($path,5);
+    $browsed=aur_browse_snapshot($path,'laboratory')['sector_total']
+            +aur_browse_snapshot($path,'medical')['sector_total']
+            +aur_browse_snapshot($path,'industrial')['sector_total']
+            +aur_browse_snapshot($path,'marine')['sector_total'];
+    if(($counts['visible']??null)!==3 || ($counts['sector_entries']??null)!==4
+        ||$browsed!==4 || aur_catalogue_visible_count_file($path,5)!==3)
+        throw new RuntimeException('multi_sector_unique_and_browse_counts_diverged');
     echo "AURENOEVA_VISIBLE_COUNT_AND_CONSUMER_FILTER=PASS\n";
 }finally{
     foreach(glob($dir.'/*')?:[] as $file) @unlink($file);
