@@ -52,7 +52,7 @@ $_SERVER['REQUEST_URI']=$directory;
 $_GET=['lang'=>'en','kind'=>'directory'];
 ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$dirHtml=ob_get_clean();
 foreach (['Technical product catalogue','/en/manufacturers/','/en/categories/industrial/',
-          'Oil, gas & petrochemicals','not separately verified product classifications',
+          'Oil, gas &amp; petrochemicals','not separately verified product classifications',
           'hreflang="de"','Start a sourcing enquiry'] as $text) {
     if (!str_contains($dirHtml,$text)) throw new RuntimeException('directory_'.$text);
 }
