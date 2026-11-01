@@ -57,8 +57,9 @@ try {
         &&str_contains($archiveFunction,'CURLOPT_SSL_VERIFYPEER'),
         'Sent archive must use authenticated, certificate-verified IMAP append');
     $mailCenter=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail_center.php');
-    assert_smtp(str_contains($mailCenter,"$"+"entry['imap_sent_archive']=(string)($"+"transport['imap_sent_archive']??'NOT_ARCHIVED')")
-        &&!str_contains($mailCenter,"$"+"entry['imap_sent_archive']=aur_mailcenter_archive_imap("),
+    assert_smtp(str_contains($mailCenter,"entry['imap_sent_archive']=(string)")
+        &&str_contains($mailCenter,"transport['imap_sent_archive']??'NOT_ARCHIVED'")
+        &&!str_contains($mailCenter,"entry['imap_sent_archive']=aur_mailcenter_archive_imap("),
         'Mail Center should reuse shared archive result, not save a second copy');
     $smtpExchange=substr($source,strpos($source,'function aur_vendor_rfq_smtp_exchange('),
         strpos($source,'function aur_vendor_rfq_send_transport_detail(')-
