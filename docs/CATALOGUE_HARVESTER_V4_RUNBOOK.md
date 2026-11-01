@@ -302,3 +302,42 @@ Recovery is ACCEPTED for production crawler operation, genuine new-product
 discovery, authenticated publication and operational monitoring. Do not
 interpret it as completion of the historic 7.6-million-URL backlog or
 elimination of the elevated HTTP failure rate.
+
+## 1 November 2026 — Non-destructive backlog and failure-rate optimization
+
+Live VPS baseline at 07:34 UTC: 149,992 canonical SQLite products;
+148,118 publicly published, 147,996 searchable, and a freshly verified
+publication from 07:27 UTC. The previous 24h had 8,239 new products,
+67,176 processed pages and 19,628 failures across 48 completed runs.
+The latest three completed runs had 590 failures from 2,484 pages
+(23.8%). The original queue had 7,654,498 retained URL records.
+
+Qualified harvester revision 35844cbb5bc57b8504031ef05651af2f23762651
+passed the restricted-user regression suite and was installed on the VPS
+at 07:33 UTC via the established NOEVA CORE GitHub-to-Hostinger bridge.
+No running crawler or SQLite catalogue was restarted or replaced.
+Deployment evidence:
+https://github.com/MayaSamuel2026/noeva-core/actions/runs/41285231270
+
+The new harvester adds a one-time, version-keyed scheduling deferral for
+historical URLs on confirmed unrelated consumer/information domains.
+It leaves every queued URL, canonical identity, source evidence and RFQ
+record intact; deferred legacy URLs remain inspectable. Previously
+excluded host seeds remain filtered as before. Robots-denied and
+robots-disallowed URLs now cool down for 14 days; 401/403 for 72 hours;
+429 for 24 hours; transient network failures retain the pre-existing
+bounded exponential policy, and 404/410 source-withdrawal checks retain
+their separate two-observation lifecycle.
+
+The first run applying the legacy queue deferral had not yet started at
+07:34 UTC: its versioned migration receipt was correctly absent.
+Do not claim a reduction in HTTP failures or backlog due counts until
+a subsequent production run records CATALOGUE_LEGACY_NONTECHNICAL_QUEUE_DEFERRED
+and the hourly audit shows legacy_deferral_applied=true.
+The same hourly audit now reports host-specific retained/due URL counts,
+last-three-run failure percentage, and fails if sustained failures
+exceed 60% across at least 1,500 pages. This is intentionally an
+operational check, not a claim that supplier sites provide live stock.
+
+Read-only production verification:
+https://github.com/MayaSamuel2026/noeva-core/actions/runs/41285293664
