@@ -87,6 +87,18 @@ function aur_staff_procurement_json_post(string $body):array {
             throw new InvalidArgumentException('invalid_dashboard_draft');
         $post['draft_id']=$request['draft_id'];
         $post['manual_review']=($request['manual_review']??false)===true?'1':'0';
+        if(array_key_exists('selected_indices',$request)) {
+            $selection=$request['selected_indices'];
+            if(!is_array($selection)||!array_is_list($selection)
+                ||count($selection)<1||count($selection)>3)
+                throw new InvalidArgumentException('invalid_dashboard_supplier_selection');
+            foreach($selection as $index)
+                if(!is_int($index)||$index<0||$index>999)
+                    throw new InvalidArgumentException('invalid_dashboard_supplier_index');
+            if(count(array_unique($selection))!==count($selection))
+                throw new InvalidArgumentException('duplicate_dashboard_supplier_index');
+            $post['selected_indices']=$selection;
+        }
         $post['send_vendor_rfqs']='1';
         return $post;
     }

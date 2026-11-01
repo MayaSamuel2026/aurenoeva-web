@@ -177,6 +177,21 @@
   const sendForm = document.getElementById('aur-vendor-send-form');
   const sendButton = document.getElementById('aur-send-all-rfqs');
   const sendProgress = document.getElementById('aur-send-progress');
+  const shortChecks = [...document.querySelectorAll('.aur-short-batch-select')];
+  const shortCount = document.getElementById('aur-short-batch-selection');
+  if (shortChecks.length && shortCount) {
+    const updateShortSelection=() => {
+      const checked=shortChecks.filter(c=>c.checked);
+      if (checked.length>3) {
+        checked[checked.length-1].checked=false;
+      }
+      const count=shortChecks.filter(c=>c.checked).length;
+      shortCount.textContent=count+' of 3 selected. Only checked recipients will be sent.';
+    };
+    shortChecks.forEach(c=>c.addEventListener('change',updateShortSelection));
+    updateShortSelection();
+  }
+
   if (sendForm && sendButton && sendProgress) {
     sendForm.addEventListener('submit', async event => {
     if (!sendForm.reportValidity()) return;
@@ -189,6 +204,45 @@
     if (!csrf || !caseRef || !draftId || total <= 0) {
       sendProgress.textContent = 'RFQ information unavailable; reload the saved draft.';
       sendButton.disabled = false; return;
+    }
+    // Short supplier round is one user-selected batch only. Never auto-loop
+    // through the unselected recipients as the original bulk send does.
+    if (sendForm.dataset.selectedOnly === '1') {
+      const selected = [...sendForm.querySelectorAll('.aur-short-batch-select:checked')]
+        .map(check => Number(check.value));
+      if (selected.length < 1 || selected.length > 3 ||
+          new Set(selected).size !== selected.length) {
+        sendProgress.textContent = 'Please tick 1 to 3 unsent supplier emails.';
+        sendButton.disabled = false;
+        return;
+      }
+      try {
+        const response = await fetch('/procurement/', {
+          method:'POST',credentials:'same-origin',
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
+            draft_id:draftId,manual_review:true,selected_indices:selected})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok !== true)
+          throw new Error('Batch not confirmed ('+response.status+'). Reload the saved RFQ before retrying.');
+        if (Number(result.progress?.processed_this_request)!==selected.length)
+          throw new Error('Selected count does not match saved send receipt.');
+        const verified=await readSavedLedger(caseRef,draftId);
+        if (Number(verified.progress?.accepted)!==Number(result.progress?.accepted) ||
+            Number(verified.progress?.remaining)!==Number(result.progress?.remaining))
+          throw new Error('Saved recipient ledger differs from the send response.');
+        renderSavedLedger(verified);
+        window.location.assign('/procurement/?case='+encodeURIComponent(caseRef)+
+          '&draft='+encodeURIComponent(draftId)+'&ledger_refreshed=1#aur-rfq-approval');
+      } catch (error) {
+        sendProgress.textContent='Batch result requires review: '+
+          (error.message||'Unknown transport outcome')+
+          ' Do not send again until you reload and inspect the saved recipient statuses.';
+        // Failed HTTP responses may follow an accepted SMTP send.
+        sendButton.disabled=true;
+      }
+      return;
     }
     try {
       for (let i = 0; i < Math.ceil(total / 3) + 2; i++) {

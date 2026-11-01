@@ -599,7 +599,7 @@ function aur_vendor_rfq_delivery_breakdown(array $draft):array {
     }
     return $result;
 }
-function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3):array {
+function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3,?array $selectedIndices=null):array {
     aur_embargo_assert_dispatch_ready($case);
     if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
     if($batchLimit<1||$batchLimit>5)throw new InvalidArgumentException('invalid_outbox_batch_size');
@@ -608,6 +608,34 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
     if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('rfq_send_lock_unavailable');
     try{
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
+        // November short supplier outbox requires a deliberately checked batch.
+        // Other existing supplier RFQs retain their historical send behavior.
+        $selectedOnly=(($draft['source']??'')==='CURATED_SHORT_ROUND_2026_11_01');
+        $selection=[];
+        if($selectedOnly) {
+            if(!is_array($selectedIndices)||count($selectedIndices)<1
+               ||count($selectedIndices)>3||!array_is_list($selectedIndices))
+                throw new InvalidArgumentException('select_one_to_three_suppliers');
+            foreach($selectedIndices as $rawIndex) {
+                if(!is_int($rawIndex)
+                   &&(!is_string($rawIndex)||!preg_match('/^(0|[1-9][0-9]{0,3})$/D',$rawIndex)))
+                    throw new InvalidArgumentException('invalid_supplier_selection');
+                $i=(int)$rawIndex;
+                if(isset($selection[$i])||!isset($draft['messages'][$i]))
+                    throw new InvalidArgumentException('invalid_or_duplicate_supplier_selection');
+                $message=$draft['messages'][$i];
+                if(($message['status']??'')!=='DRAFT'||!empty($message['attempted_at'])
+                   ||!empty($message['sent_at'])||!empty($message['transport_result'])
+                   ||!empty($message['smtp_message_id']))
+                    throw new InvalidArgumentException('selected_supplier_already_attempted');
+                if(($message['language']??'')==='de' &&
+                   !str_contains((string)($message['body']??''),'wir interessieren uns für '))
+                    throw new InvalidArgumentException('refresh_german_supplier_wording_first');
+                $selection[$i]=true;
+            }
+        } elseif($selectedIndices!==null) {
+            throw new InvalidArgumentException('selected_batch_only_for_short_supplier_round');
+        }
         // Recheck legacy unsent drafts against the current canonical case too.
         // Already-sent history is immutable, never silently reissued.
         foreach(($draft['messages']??[]) as $pending) {
@@ -651,6 +679,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         }
         $sentThisRequest=0;
         foreach($draft['messages'] as $i=>$message) {
+            if($selectedOnly&&!isset($selection[$i]))continue;
             if(($message['status']??'')!=='DRAFT')continue;
             if($sentThisRequest>=$batchLimit)break;
             // Persist first. Unknown/failed outcomes never retry automatically.
