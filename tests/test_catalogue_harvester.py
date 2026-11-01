@@ -102,7 +102,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(retry_wait_seconds(HTTPError("https://example.com",403,"",{},None),0),72*3600)
         self.assertEqual(retry_wait_seconds(HTTPError("https://example.com",429,"",{},None),0),24*3600)
         self.assertEqual(retry_wait_seconds(TimeoutError("temporary"),0),900)
-        self.assertEqual(retry_wait_seconds(TimeoutError("temporary"),7),12*3600)
+        self.assertEqual(retry_wait_seconds(TimeoutError("temporary"),7),8*3600)
 
     def test_robots_disallowed_page_is_retried_after_two_weeks(self):
         from datetime import datetime,timezone,timedelta
