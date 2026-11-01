@@ -398,14 +398,47 @@ try {
 <p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
 <?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<form method="post" action="/procurement/" id="aur-vendor-send-form" data-total="<?=count($rfqPreview['messages']??[])?>">
+<?php $aurShortBatch=(($rfqPreview['source']??'')==='CURATED_SHORT_ROUND_2026_11_01'); ?>
+<?php $aurShortPending=array_filter($rfqPreview['messages']??[],static fn($m)=>(string)($m['status']??'')==='DRAFT'); ?>
+<?php $aurShortNeedsRevision=$aurShortBatch && count(array_filter(
+    $aurShortPending,static fn($m)=>($m['language']??'')==='de'
+        &&!str_contains((string)($m['body']??''),'wir interessieren uns für ')
+))>0; ?>
+<form method="post" action="/procurement/" id="aur-vendor-send-form"
+      data-total="<?=count($rfqPreview['messages']??[])?>" data-selected-only="<?=$aurShortBatch?'1':'0'?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
+<?php if($aurShortBatch):?>
+<h3>Select suppliers to send · Maximum 3 at a time</h3>
+<p>Tick one, two or three <b>unsent</b> suppliers below. Only those checked will receive emails. Each click sends <b>one batch only</b>; repeat after checking the updated saved statuses.</p>
+<?php if($aurShortNeedsRevision):?>
+<p role="alert"><b>German wording update required:</b> Some unsent drafts still contain the earlier formulation. <a href="#aur-nov-short-supplier-rfqs">Open the short supplier drafts</a> and click “Refresh friendly wording” before sending.</p>
+<?php endif;?>
+<div class="scroll">
+<table><thead><tr><th>Select</th><th>Supplier</th><th>Email</th><th>Saved status</th></tr></thead>
+<tbody>
+<?php foreach(($rfqPreview['messages']??[]) as $aurIndex=>$aurMsg):
+    $aurIsUnsent=(($aurMsg['status']??'')==='DRAFT'
+       &&empty($aurMsg['attempted_at'])&&empty($aurMsg['transport_result'])); ?>
+<tr>
+<td><input type="checkbox" class="aur-short-batch-select" name="selected_indices[]"
+    value="<?=(int)$aurIndex?>" <?=$aurIsUnsent?'':'disabled'?>
+    aria-label="Select <?=aur_escape((string)($aurMsg['vendor_name']??'supplier'))?>"></td>
+<td><b><?=aur_escape((string)($aurMsg['vendor_name']??''))?></b>
+<details><summary>Preview message</summary><p><b>Subject:</b> <?=aur_escape((string)($aurMsg['subject']??''))?></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;padding:10px;background:#f2f5f3"><?=aur_escape((string)($aurMsg['body']??''))?></pre></details></td>
+<td><?=aur_escape((string)($aurMsg['to']??''))?></td>
+<td><?=aur_escape((string)($aurMsg['status']??'UNKNOWN'))?></td>
+</tr>
+<?php endforeach;?>
+</tbody></table></div>
+<p id="aur-short-batch-selection" role="status"><b>0 of 3</b> recipients selected.</p>
+<?php endif;?>
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
-<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs" <?=(!aur_vendor_rfq_mail_verified($aurStore)||empty($result['country_preflight']['destination_country'])||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>>Approve and send <?=count($rfqPreview['messages']??[])?> supplier enquiries →</button>
+<button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs"
+<?=(!aur_vendor_rfq_mail_verified($aurStore)||empty($result['country_preflight']['destination_country'])||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated||$aurShortNeedsRevision)?'disabled':''?>><?=$aurShortBatch?'Send selected suppliers · Max 3':'Approve and send '.count($rfqPreview['messages']??[]).' supplier enquiries'?> →</button>
 <?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
-<p role="status" id="aur-send-progress" class="muted">One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.</p>
+<p role="status" id="aur-send-progress" class="muted"><?=$aurShortBatch?'One click sends at most three checked recipients. No other suppliers are contacted.':'One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.'?></p>
 <p><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Refresh the saved recipient ledger</a> if progress stops or the page appears stale.</p>
 </form>
 <?php else: ?><p>Accepted messages remain recorded. The recovery controls below apply only to recipients from this original RFQ whose transport failed or was unconfirmed.</p><?php endif;?>
