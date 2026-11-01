@@ -540,6 +540,21 @@ if ($isAdmin) {
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
             catch(Throwable $ignored){}
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_nov_short_supplier_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $revised=aur_nov_short_refresh_unsent($aurStore,$case);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$revised['draft_id'])
+                .'&short_refreshed='.(int)$revised['updated_unsent']
+                .'#aur-nov-short-supplier-rfqs',true,303);
+            exit;
+        }catch(Throwable $e) {
+            error_log('AURENOEVA supplier tone refresh: '.get_class($e));
+            $supplierDiscoveryMessage='Unsent short emails could not be refreshed. No messages were sent or changed.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
+            catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_nov_short_supplier_rfqs'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));

@@ -328,6 +328,14 @@ try {
 <?php if(!empty($aurNovShortSaved['skipped_existing_recipients'])):?>
 <p><?=count($aurNovShortSaved['skipped_existing_recipients'])?> previously contacted recipient(s) were excluded.</p>
 <?php endif;?>
+<?php if(isset($_GET['short_refreshed'])):?>
+<p role="status"><strong><?= (int)$_GET['short_refreshed'] ?> unsent messages updated.</strong> Previously attempted or sent messages were preserved unchanged.</p>
+<?php endif;?>
+<form method="post" action="/procurement/" style="margin:12px 0">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="refresh_nov_short_supplier_rfqs" value="1">Refresh friendly wording in still-unsent drafts · Do not send</button>
+</form>
 <p><a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurNovShortSaved['draft_id'])?>#aur-rfq-approval"><b>Review saved emails and approve sending in batches of 3 →</b></a></p>
 <?php endif;?>
 <details class="aux-disclosure" open>

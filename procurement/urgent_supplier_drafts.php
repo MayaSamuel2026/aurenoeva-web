@@ -374,9 +374,9 @@ function aur_nov_short_compose(array $case,array $plan):array {
              'email'=>$lead['email'],'evidence_url'=>$lead['url']];
     $mail=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
     if($lead['language']==='de') {
-        $body="Guten Tag,\n\nbitte erstellen Sie uns ein Angebot für ".$lead['request'].".\n\n"
-            ."Die Geräte sind für den Einsatz im Krankenhaus vorgesehen. Der Käufer übernimmt Installation, Einweisung, Schulung, Wartung und technischen Service vor Ort.\n\n"
-            ."Bitte bestätigen Sie Verfügbarkeit, Stückpreis und Lieferzeit.\n\n"
+        $body="Guten Tag,\n\nwir interessieren uns für ".$lead['request']." und würden uns über ein unverbindliches Angebot freuen.\n\n"
+            ."Die Geräte sind für den Einsatz in einem Krankenhaus vorgesehen. Der Käufer übernimmt die Installation, Einweisung und Schulung sowie Wartung und technischen Service vor Ort.\n\n"
+            ."Über eine kurze Rückmeldung zu Verfügbarkeit, Preis und Lieferzeit würden wir uns sehr freuen.\n\n"
             ."Herzliche Grüße\n\n"
             ."AURENOEVA Purchasing\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein, Deutschland\n"
             ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
@@ -449,4 +449,43 @@ function aur_nov_short_prepare(string $store,array $case):array {
         aur_vendor_rfq_write($path,$index);
         return aur_nov_short_saved($store,$case)??$index;
     }finally {flock($lock,LOCK_UN);fclose($lock);}
+}
+
+/** Staff-only: refresh the wording of unsent November emails, never an attempted message. */
+function aur_nov_short_refresh_unsent(string $store,array $case):array {
+    $saved=aur_nov_short_saved($store,$case);
+    if($saved===null)throw new InvalidArgumentException('short_drafts_not_saved');
+    $id=(string)$saved['draft_id'];
+    $path=aur_vendor_rfq_path($store,(string)$case['reference'],$id);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('short_draft_lock_unavailable');
+    try {
+        $draft=aur_vendor_rfq_read($store,$case,$id);
+        if(($draft['source']??'')!=='CURATED_SHORT_ROUND_2026_11_01')
+            throw new RuntimeException('wrong_short_draft_source');
+        $plans=[];
+        foreach(aur_nov_short_plans($case) as $plan)
+            $plans[strtolower($plan['lead']['email'])]=$plan;
+        $changed=0;$attempted=0;
+        foreach($draft['messages'] as $i=>$old) {
+            if(($old['status']??'')!=='DRAFT'||!empty($old['attempted_at'])
+                ||!empty($old['sent_at'])||!empty($old['transport_result'])
+                ||!empty($old['smtp_message_id'])){$attempted++;continue;}
+            $plan=$plans[strtolower((string)($old['to']??''))]??null;
+            if($plan===null)continue;
+            $had=array_map(static fn($x)=>(int)($x['source_row']??0),(array)($old['items']??[]));
+            $expected=array_map(static fn($x)=>(int)$x['source_row'],$plan['rows']);
+            sort($had);sort($expected);
+            if($had!==$expected)continue;
+            $new=aur_nov_short_compose($case,$plan);
+            if(($new['subject']??'')!==($old['subject']??'')
+                ||($new['body']??'')!==($old['body']??'')) {
+                $draft['messages'][$i]['subject']=$new['subject'];
+                $draft['messages'][$i]['body']=$new['body'];
+                $changed++;
+            }
+        }
+        if($changed>0)aur_vendor_rfq_write($path,$draft);
+        return ['draft_id'=>$id,'updated_unsent'=>$changed,'untouched_attempted'=>$attempted];
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
