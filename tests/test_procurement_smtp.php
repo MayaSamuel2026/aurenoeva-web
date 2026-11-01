@@ -22,12 +22,11 @@ try {
     $cfg=aur_vendor_rfq_smtp_config();
     assert_smtp($cfg['host']==='smtp.hostinger.com'&&$cfg['port']===465,'hostinger SMTP config not loaded');
     assert_smtp(aur_vendor_rfq_smtp_ready(),'configured SMTP not recognized');
-    // Exactly one supplier mail is sent to two SMTP envelope recipients:
-    // supplier + undisclosed internal archive. A self-addressed test remains
-    // one recipient. Never leak the internal copy in visible mail headers.
+    // One envelope recipient. Sent archiving uses authenticated IMAP APPEND,
+    // never a blind copy to the same mailbox Inbox.
     $rcpts=aur_vendor_rfq_smtp_envelope_recipients('purchasing@supplier.example');
-    assert_smtp($rcpts===['purchasing@supplier.example','info@aurenoeva.com'],
-        'supplier RFQ must have exactly one invisible internal copy');
+    assert_smtp($rcpts===['purchasing@supplier.example'],
+        'supplier RFQ must not include a copy address in SMTP envelope');
     assert_smtp(aur_vendor_rfq_smtp_envelope_recipients('INFO@AURENOEVA.COM')===
         ['INFO@AURENOEVA.COM'],'internal self-test must not create duplicate recipients');
     try {
@@ -40,12 +39,28 @@ try {
     $smtpPart=substr($source,strpos($source,'function aur_vendor_rfq_send_transport_detail('),
         strpos($source,'function aur_vendor_rfq_send_transport(')-
         strpos($source,'function aur_vendor_rfq_send_transport_detail('));
-    assert_smtp(str_contains($smtpPart,'RCPT_ARCHIVE') &&
-        str_contains($smtpPart,'archive_copy_submitted') &&
+    assert_smtp(!str_contains($smtpPart,'RCPT_ARCHIVE') &&
+        !str_contains($smtpPart,'archive_copy_submitted') &&
         str_contains($smtpPart,"'DATA',[354],'DATA'") &&
+        str_contains($smtpPart,"'imap_sent_archive'") &&
+        str_contains($smtpPart,'aur_vendor_rfq_archive_sent_imap(substr($payload,0,-1))') &&
         !str_contains($smtpPart,"'Bcc:") &&
         !str_contains($smtpPart,"'Cc:"),
-        'internal copy must share original SMTP DATA and stay undisclosed to supplier');
+        'SMTP should send once to supplier and archive the same MIME in Sent');
+    $archiveFunction=substr($source,
+        strpos($source,'function aur_vendor_rfq_archive_sent_imap('),
+        strpos($source,'function aur_vendor_rfq_send_transport_detail(')-
+            strpos($source,'function aur_vendor_rfq_archive_sent_imap('));
+    assert_smtp(str_contains($archiveFunction,'INBOX.Sent')
+        &&str_contains($archiveFunction,'imap_append')
+        &&str_contains($archiveFunction,'CURLOPT_UPLOAD')
+        &&str_contains($archiveFunction,'CURLOPT_SSL_VERIFYPEER'),
+        'Sent archive must use authenticated, certificate-verified IMAP append');
+    $mailCenter=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail_center.php');
+    assert_smtp(str_contains($mailCenter,"entry['imap_sent_archive']=(string)")
+        &&str_contains($mailCenter,"transport['imap_sent_archive']??'NOT_ARCHIVED'")
+        &&!str_contains($mailCenter,"entry['imap_sent_archive']=aur_mailcenter_archive_imap("),
+        'Mail Center should reuse shared archive result, not save a second copy');
     $smtpExchange=substr($source,strpos($source,'function aur_vendor_rfq_smtp_exchange('),
         strpos($source,'function aur_vendor_rfq_send_transport_detail(')-
         strpos($source,'function aur_vendor_rfq_smtp_exchange('));
