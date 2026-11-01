@@ -456,6 +456,38 @@ function aur_vendor_rfq_smtp_payload(string $to,string $subject,string $body,str
     return implode("\r\n",$headers)."\r\n\r\n".$mime.'.';
 }
 
+function aur_vendor_rfq_archive_sent_imap(string $raw):string {
+    if(strlen($raw)>14000000)return 'TOO_LARGE_FOR_SENT_ARCHIVE';
+    $cfg=aur_vendor_rfq_smtp_config();
+    $folder='{imap.hostinger.com:993/imap/ssl/validate-cert}INBOX.Sent';
+    if(function_exists('imap_open')&&function_exists('imap_append')){
+        $mail=@imap_open($folder,$cfg['user'],$cfg['pass'],0,1);
+        if($mail){
+            try{return @imap_append($mail,$folder,$raw)?'ARCHIVED':'NOT_ARCHIVED';}
+            finally{imap_close($mail);}
+        }
+    }
+    if(!function_exists('curl_init'))return 'IMAP_APPEND_NOT_AVAILABLE';
+    $fp=fopen('php://temp','w+b');
+    if(!$fp)return 'IMAP_APPEND_NOT_AVAILABLE';
+    try{
+        fwrite($fp,$raw);rewind($fp);
+        $curl=curl_init('imaps://imap.hostinger.com/INBOX.Sent');
+        if(!$curl)return 'IMAP_APPEND_NOT_AVAILABLE';
+        try{
+            curl_setopt_array($curl,[
+                CURLOPT_USERNAME=>$cfg['user'],CURLOPT_PASSWORD=>$cfg['pass'],
+                CURLOPT_UPLOAD=>true,CURLOPT_INFILE=>$fp,
+                CURLOPT_INFILESIZE=>strlen($raw),
+                CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,
+                CURLOPT_TIMEOUT=>25,CURLOPT_SSL_VERIFYPEER=>true,
+                CURLOPT_SSL_VERIFYHOST=>2,
+            ]);
+            return curl_exec($curl)!==false?'ARCHIVED':'NOT_ARCHIVED';
+        }finally{curl_close($curl);}
+    }finally{fclose($fp);}
+}
+
 function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[],?string $htmlBody=null,?string $inlineLogoFile=null):array {
     $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
         'code'=>0,'response'=>'','outcome'=>'NOT_SENT',
