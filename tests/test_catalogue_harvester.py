@@ -3,7 +3,7 @@ import json,sqlite3,tempfile,sys,unittest
 from urllib.parse import parse_qs,urlsplit
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
-from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds,enqueue,source_frontier_pages,suppress_legacy_non_technical_frontier,retry_wait_seconds
+from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds,enqueue,source_frontier_pages,suppress_legacy_non_technical_frontier,compact_legacy_unqualified_frontier,retry_wait_seconds
 BING="""<?xml version="1.0"?><rss><channel><item>
 <title>WATO EX-35 - Mindray</title>
 <link>https://www.mindray.com/en/products/anesthesia/wato-ex-35</link>
@@ -117,6 +117,49 @@ class Tests(unittest.TestCase):
         self.assertGreater(rows[urls[0]],"2035")
         self.assertGreater(rows[urls[1]],"2035")
         self.assertEqual(rows[urls[2]],past)
+
+    def test_legacy_unqualified_frontier_compacts_only_orphan_work(self):
+        # Only anonymous recursive work from unconfigured sites can disappear.
+        # Configured catalogues, direct leads, named OEM tasks and actual
+        # product evidence are durable across bounded compaction passes.
+        rows=[
+            ("https://unqualified.example.com/shop/orphan-1",1,""),
+            ("https://unqualified.example.com/product/orphan-2",2,""),
+            ("https://unqualified.example.com/product/direct",0,""),
+            ("https://unqualified.example.com/product/oem",2,"Example OEM"),
+            ("https://qualified.example.com/shop/catalogue",2,""),
+            ("https://unqualified.example.com/product/proven",2,""),
+        ]
+        for url,depth,maker in rows:
+            self.db.execute("""INSERT INTO harvest_queue
+                (url,kind,sector,depth,maker,due) VALUES(?,'page','industrial',?,?,?)""",
+                (url,depth,maker,"2026-11-01T00:00:00Z"))
+        proof_url=rows[-1][0]
+        self.db.execute("""INSERT INTO vendor_product_evidence
+            (website,product_id,source_url,manufacturer,model,sector,
+             category,evidence_type,last_seen) VALUES(?,?,?,?,?,?,?,?,?)""",
+            ("unqualified.example.com","AUR-P-EXAMPLE",proof_url,
+             "Example OEM","EX123","industrial","Components",
+             "STRUCTURED_PRODUCT","2026-11-01T00:00:00Z"))
+        self.db.commit()
+        cfg={"sources":[{"id":"qualified","allowed_hosts":["qualified.example.com"],
+                         "seeds":["https://qualified.example.com/shop/catalogue"]}]}
+        removed=0;scanned=0;complete=False
+        for _ in range(8):
+            result=compact_legacy_unqualified_frontier(self.db,cfg,limit=2)
+            removed+=result["removed"];scanned+=result["scanned"]
+            if result["complete"]:
+                complete=True
+                break
+        self.assertTrue(complete)
+        self.assertEqual((scanned,removed),(6,2))
+        kept={row["url"] for row in self.db.execute("SELECT url FROM harvest_queue")}
+        self.assertEqual(kept,{row[0] for row in rows[2:]})
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM vendor_product_evidence").fetchone()[0],1)
+        self.assertEqual(compact_legacy_unqualified_frontier(self.db,cfg),
+                         {"scanned":0,"removed":0,"complete":True})
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],0)
 
     def test_denials_and_rate_limits_get_polite_cooldowns(self):
         from urllib.error import HTTPError
