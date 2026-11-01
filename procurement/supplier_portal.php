@@ -297,6 +297,62 @@ Previously attempted/sent emails were not altered.</p>
 </section>
 <?php endif;?>
 
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurNovShortSaved=null;$aurNovShortError='';$aurNovShortMessages=[];$aurNovShortPlans=[];
+try {
+    $aurNovShortPlans=aur_nov_short_plans($result);
+    $aurNovShortSaved=aur_nov_short_saved($aurStore,$result);
+    if(is_array($aurNovShortSaved))$aurNovShortMessages=$aurNovShortSaved['messages']??[];
+    else foreach($aurNovShortPlans as $plan)$aurNovShortMessages[]=aur_nov_short_compose($result,$plan);
+}catch(Throwable $e) {
+    error_log('AURENOEVA short supplier preview: '.get_class($e).' '.substr($e->getMessage(),0,100));
+    $aurNovShortError='The original equipment mapping or saved draft needs attention.';
+}
+?>
+<section class="card" id="aur-nov-short-supplier-rfqs" style="margin-top:18px">
+<h2>New supplier enquiries · Short emails · 1 November 2026</h2>
+<p>12 researched email contacts and 3 manufacturer contact forms. Each email mentions the hospital setting, local purchaser installation/training/service and asks only for availability, unit price and delivery time. <strong>Destination country and internal RFQ reference are omitted from outgoing subjects and bodies.</strong> Existing recipient records are checked again at preparation.</p>
+<p><span class="pill"><b><?=count($aurNovShortMessages)?></b> email drafts</span>
+<span class="pill"><b>3</b> separate contact forms</span>
+<span class="pill"><b><?=is_array($aurNovShortSaved)?'Saved for review':'Not yet imported'?></b></span></p>
+<?php if($aurNovShortError!==''):?>
+<p role="alert"><?=aur_escape($aurNovShortError)?> No messages have been sent.</p>
+<?php elseif(!is_array($aurNovShortSaved)):?>
+<form method="post" action="/procurement/" style="margin:14px 0">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_nov_short_supplier_rfqs" value="1">Save new supplier email drafts for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><b>Saved in the private RFQ outbox.</b> <?=count($aurNovShortMessages)?> messages, status <?=aur_escape((string)$aurNovShortSaved['status'])?>. No send is initiated by preparation.</p>
+<?php if(!empty($aurNovShortSaved['skipped_existing_recipients'])):?>
+<p><?=count($aurNovShortSaved['skipped_existing_recipients'])?> previously contacted recipient(s) were excluded.</p>
+<?php endif;?>
+<p><a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurNovShortSaved['draft_id'])?>#aur-rfq-approval"><b>Review saved emails and approve sending in batches of 3 →</b></a></p>
+<?php endif;?>
+<details class="aux-disclosure" open>
+<summary><b>Preview all supplier emails</b> · recipient, exact subject and full body</summary>
+<?php foreach($aurNovShortMessages as $message):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)($message['vendor_name']??''))?> · <?=aur_escape((string)($message['to']??''))?> · <?=($message['language']??'en')==='de'?'Deutsch':'English'?> · <?=aur_escape((string)($message['status']??'DRAFT'))?></summary>
+<p><b>To:</b> <?=aur_escape((string)($message['to']??''))?></p>
+<p><b>Subject:</b> <?=aur_escape((string)($message['subject']??''))?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)($message['body']??''))?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<details class="aux-disclosure">
+<summary><b>3 contact-form suppliers</b> · copy the model request manually; these are NOT SMTP drafts</summary>
+<?php foreach(aur_nov_short_contact_forms() as $form):?>
+<p><b><?=aur_escape($form['name'])?></b> · buyer items <?=aur_escape($form['items'])?> ·
+<a href="<?=aur_escape($form['url'])?>" target="_blank" rel="noopener noreferrer">Open manufacturer enquiry form ↗</a><br>
+<small><?=aur_escape($form['request'])?>. Intended for a hospital environment; purchaser handles installation, staff training, maintenance and local technical service. Please confirm availability, unit price and delivery time.</small></p>
+<?php endforeach;?>
+</details>
+<p class="muted">Preparing these drafts does not send them. Actual sending remains subject to the existing authenticated approval, SMTP verification and destination-specific trade-compliance screening. Supplier availability and export eligibility are unverified.</p>
+</section>
+<?php endif;?>
+
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
