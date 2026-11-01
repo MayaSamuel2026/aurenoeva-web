@@ -341,3 +341,26 @@ operational check, not a claim that supplier sites provide live stock.
 
 Read-only production verification:
 https://github.com/MayaSamuel2026/noeva-core/actions/runs/41285293664
+
+### 1 November 2026 07:38 UTC: cross-industry counter and browser repair
+
+Live website release 35844cbb5bc57b8504031ef05651af2f23762651
+initially failed its verification when 147,996 unique searchable identities
+were compared against 148,050 sector appearances. This is a defective
+test assumption, not evidence of 54 lost or duplicated canonical IDs:
+products legitimately appear in more than one evidence-backed industry.
+
+Release 84fed379943b1f68814514e46f2034e614f5cceb now exposes both
+unique searchable_parts and browse_sector_entries, counted from the SAME
+atomic snapshot and cached with the filter checksum and snapshot inode.
+Each of the seven live category browser responses is checked against the
+sector-appearance aggregate, while canonical identities remain unique.
+Offline PHP regression covers a product assigned to two sectors.
+
+Production website release and live EN/DE translation checks PASS:
+https://github.com/MayaSamuel2026/aurenoeva-web/actions/runs/41285562105
+
+Latest tested snapshot: 148,017 unique searchable identities and 148,069
+sector appearances. No canonical identities were deleted to reconcile
+the figures. The concurrent crawler's exclusion/backoff migration still
+requires separate confirmation after a new-version crawl begins.
