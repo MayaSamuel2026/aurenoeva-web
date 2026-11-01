@@ -225,6 +225,49 @@ try {
         'Refresh changed sent email or failed to revise draft');
     urgent_check(aur_nov_short_refresh_unsent($root,$novCase)['updated_unsent']===0,
         'Friendly refresh should be idempotent');
+
+    // Checked batches are exactly the selected 1-3 never an automatic full send.
+    $testSend=[];
+    $sendMock=static function($to,$subject,$body)use(&$testSend):bool {
+        $testSend[]=['to'=>$to,'subject'=>$subject,'body'=>$body];
+        return true;
+    };
+    foreach([null,[],[0,1,2,3],[0,0],[99],['untrusted']] as $badSelection) {
+        $rejected=false;
+        try {
+            aur_vendor_rfq_dispatch($root,$novCase,$novSaved['draft_id'],true,
+                $sendMock,3,$badSelection);
+        }catch(InvalidArgumentException $e){$rejected=true;}
+        urgent_check($rejected,'Short round accepted an unsafe selection');
+    }
+    urgent_check(count($testSend)===0,'Rejected selection sent an email');
+    $selected=[0,2,3];
+    $batch=aur_vendor_rfq_dispatch($root,$novCase,$novSaved['draft_id'],true,
+        $sendMock,3,$selected);
+    urgent_check(count($testSend)===3
+        &&($batch['dispatch_progress']['processed_this_request']??0)===3,
+        'Three selected suppliers were not the entire sending batch');
+    $expectedEmails=array_map(
+      static fn($i)=>(string)$savedAgain['messages'][$i]['to'],$selected);
+    urgent_check(array_column($testSend,'to')===$expectedEmails,
+        'Nonselected supplier was contacted');
+    $after=aur_vendor_rfq_read($root,$novCase,$novSaved['draft_id']);
+    urgent_check(($after['messages'][1]['status']??'')==='DRAFT'
+        &&($after['messages'][7]['body']??'')==='Historic already-attempted text',
+        'Unselected or previously attempted recipient changed');
+    $againSelectionRejected=false;
+    try {aur_vendor_rfq_dispatch($root,$novCase,$novSaved['draft_id'],true,
+        $sendMock,3,[0]);}
+    catch(InvalidArgumentException $e){$againSelectionRejected=true;}
+    urgent_check($againSelectionRejected&&count($testSend)===3,
+        'An already sent recipient was automatically resent');
+    require_once dirname(__DIR__).'/deployment/site/procurement/staff_auth.php';
+    $request=json_encode(['task'=>'send','csrf'=>'test','case_ref'=>AUR_URGENT_RFQ_REF,
+      'draft_id'=>$novSaved['draft_id'],'manual_review'=>true,'selected_indices'=>[1,4,5]]);
+    $parsed=aur_staff_procurement_json_post($request);
+    urgent_check($parsed['selected_indices']===[1,4,5]
+      &&($parsed['send_vendor_rfqs']??'')==='1',
+      'Browser selected recipient list not received by existing action');
     echo "AURENOEVA_URGENT_12_SUPPLIER_DRAFTS=PASS DE=".$locales['de']." EN=".$locales['en']."\n";
 }finally {
     $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
