@@ -690,6 +690,63 @@ def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
     return output
 
 
+
+def compact_legacy_unqualified_frontier(db, config, limit=50000):
+    """Discard obsolete *work items*, never catalogue or supplier evidence.
+
+    Before source-qualified traversal, anonymous search hits could mirror deep
+    same-host links indefinitely. Only depth>0 pages without a manufacturer,
+    outside configured sources, and without an indexed supplier-product proof
+    are orphaned recursion tasks. Keep direct search leads, all configured
+    sources, model-specific tasks, product evidence, and every vendor record.
+
+    Scan the existing SQLite rowid order in bounded batches. A persistent
+    cursor resumes next scheduled run, without a seven-million-row sort, new
+    service, database, or domain-specific blacklist.
+    """
+    done_key="legacy-unqualified-recursion-compacted-v1"
+    cursor_key="__legacy_unqualified_frontier_v1__"
+    if db.execute("SELECT 1 FROM catalogue_lifecycle_meta WHERE key=?",
+                  (done_key,)).fetchone():
+        return {"scanned":0,"removed":0,"complete":True}
+    qualified=set()
+    for source in config.get("sources",[]):
+        if not source.get("active",True):continue
+        qualified.update(str(host).lower() for host in source.get("allowed_hosts",[])
+                         if isinstance(host,str))
+        for uri in source.get("seeds",[])+source.get("sitemap_seeds",[]):
+            if isinstance(uri,str):qualified.add(hostof(uri))
+    previous=db.execute("SELECT last_url FROM harvest_source_cursor WHERE host=?",
+                        (cursor_key,)).fetchone()
+    cursor=int(previous[0]) if previous and str(previous[0]).isdigit() else 0
+    pages=db.execute("""SELECT rowid AS queue_rowid,url,kind,depth,maker
+        FROM harvest_queue WHERE rowid>? ORDER BY rowid LIMIT ?""",
+        (cursor,max(1,int(limit)))).fetchall()
+    orphaned=[]
+    for row in pages:
+        if row["kind"]!="page" or row["depth"]<=0 or row["maker"]:
+            continue
+        if hostof(row["url"]) in qualified:continue
+        # Actual product evidence wins over queue provenance. The existing
+        # source_url index makes this lookup cheap and prevents lost rechecks.
+        if db.execute("SELECT 1 FROM vendor_product_evidence WHERE source_url=? LIMIT 1",
+                      (row["url"],)).fetchone():
+            continue
+        orphaned.append((row["queue_rowid"],))
+    if orphaned:
+        db.executemany("DELETE FROM harvest_queue WHERE rowid=?",orphaned)
+    if pages:
+        db.execute("""INSERT INTO harvest_source_cursor(host,last_url) VALUES(?,?)
+            ON CONFLICT(host) DO UPDATE SET last_url=excluded.last_url""",
+            (cursor_key,str(pages[-1]["queue_rowid"])))
+    complete=len(pages)<max(1,int(limit))
+    if complete:
+        db.execute("INSERT OR IGNORE INTO catalogue_lifecycle_meta(key) VALUES(?)",
+                   (done_key,))
+    db.commit()
+    return {"scanned":len(pages),"removed":len(orphaned),"complete":complete}
+
+
 def import_existing_rfq_vendors(db, token_path=Path("/var/lib/aurenoeva/catalogue-sync-token")):
     """Reuse existing RFQ websites from PHP host, with no additional auth setup."""
     if not token_path.is_file():return {"status":"NO_EXISTING_SYNC_TOKEN","seeded":0}
@@ -787,6 +844,10 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     if legacy_deferred:
         print(json.dumps({"event":"CATALOGUE_LEGACY_NONTECHNICAL_QUEUE_DEFERRED",
             "urls":legacy_deferred,"deleted":0}),flush=True)
+    compacted=compact_legacy_unqualified_frontier(db,config)
+    if compacted["scanned"]:
+        print(json.dumps({"event":"CATALOGUE_LEGACY_UNQUALIFIED_FRONTIER_COMPACTED",
+            **compacted,"catalogue_records_deleted":0}),flush=True)
     seeds(db,config);started=time.monotonic();seen=stamp()
     last_progress_at=started
     last_published_new=0
