@@ -831,17 +831,16 @@ jobs:
             "logo":"https://aurenoeva.com/assets/img/brand/aurenoeva-logo-approved.png"}
           tags='<link rel="canonical" href="https://aurenoeva.com/">\n'+(
             '<script type="application/ld+json">'+json.dumps(schema,separators=(',',':'))+'</script>\n')
-          # Insert source-visible catalogue links once at the HTML footer boundary.
-          # This survives earlier homepage transformations without depending on
-          # an exact internal footer link or another independent UI implementation.
-          assert html.count('</footer>')==1
+          # Keep the catalogue entries in the existing footer menu column.
+          # They inherit .footer-col a (12.5px, matching color and spacing)
+          # rather than rendering as oversized links in an extra footer row.
+          import re
           directory_links=(
-            '<div class="wrap"><nav aria-label="Technical catalogue" '
-            'style="padding:12px 0 20px;display:flex;flex-wrap:wrap;gap:20px">'
-            '<a href="/en/catalogue/" lang="en">English product catalogue</a>'
-            '<a href="/de/katalog/" lang="de">Deutscher Produktkatalog</a>'
-            '</nav></div>')
-          html=html.replace('</footer>',directory_links+'</footer>',1)
+            '<a href="/en/catalogue/" lang="en">English product catalogue</a>\n'
+            '<a href="/de/katalog/" lang="de">Deutscher Produktkatalog</a>')
+          footer_item=re.compile(r'(<a\b[^>]*href="industries\.html"[^>]*></a>)')
+          html, linked=footer_item.subn(lambda match:match.group(1)+'\n'+directory_links,html,count=1)
+          assert linked==1, 'Technical sectors footer link must exist exactly once'
           home.write_text(html.replace('</head>',tags+'</head>',1),encoding='utf-8')
           PY
           php -l "$RUNNER_TEMP/source/site/seo.php"
@@ -851,6 +850,8 @@ jobs:
           grep -q 'rel="canonical"' "$RUNNER_TEMP/source/site/index.html"
           grep -q 'href="/en/catalogue/"' "$RUNNER_TEMP/source/site/index.html"
           grep -q 'href="/de/katalog/"' "$RUNNER_TEMP/source/site/index.html"
+          # Existing footer menu supplies the typography; no separate oversized row.
+          ! grep -q 'aria-label="Technical catalogue"' "$RUNNER_TEMP/source/site/index.html"
           grep -q 'en/catalogue' "$RUNNER_TEMP/source/site/.htaccess"
           # Original homepage, categories, basket, supplier RFQs and staff dashboard remain untouched.
 
