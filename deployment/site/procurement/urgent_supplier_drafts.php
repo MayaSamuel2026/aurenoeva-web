@@ -450,3 +450,42 @@ function aur_nov_short_prepare(string $store,array $case):array {
         return aur_nov_short_saved($store,$case)??$index;
     }finally {flock($lock,LOCK_UN);fclose($lock);}
 }
+
+/** Staff-only: refresh the wording of unsent November emails, never an attempted message. */
+function aur_nov_short_refresh_unsent(string $store,array $case):array {
+    $saved=aur_nov_short_saved($store,$case);
+    if($saved===null)throw new InvalidArgumentException('short_drafts_not_saved');
+    $id=(string)$saved['draft_id'];
+    $path=aur_vendor_rfq_path($store,(string)$case['reference'],$id);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('short_draft_lock_unavailable');
+    try {
+        $draft=aur_vendor_rfq_read($store,$case,$id);
+        if(($draft['source']??'')!=='CURATED_SHORT_ROUND_2026_11_01')
+            throw new RuntimeException('wrong_short_draft_source');
+        $plans=[];
+        foreach(aur_nov_short_plans($case) as $plan)
+            $plans[strtolower($plan['lead']['email'])]=$plan;
+        $changed=0;$attempted=0;
+        foreach($draft['messages'] as $i=>$old) {
+            if(($old['status']??'')!=='DRAFT'||!empty($old['attempted_at'])
+                ||!empty($old['sent_at'])||!empty($old['transport_result'])
+                ||!empty($old['smtp_message_id'])){$attempted++;continue;}
+            $plan=$plans[strtolower((string)($old['to']??''))]??null;
+            if($plan===null)continue;
+            $had=array_map(static fn($x)=>(int)($x['source_row']??0),(array)($old['items']??[]));
+            $expected=array_map(static fn($x)=>(int)$x['source_row'],$plan['rows']);
+            sort($had);sort($expected);
+            if($had!==$expected)continue;
+            $new=aur_nov_short_compose($case,$plan);
+            if(($new['subject']??'')!==($old['subject']??'')
+                ||($new['body']??'')!==($old['body']??'')) {
+                $draft['messages'][$i]['subject']=$new['subject'];
+                $draft['messages'][$i]['body']=$new['body'];
+                $changed++;
+            }
+        }
+        if($changed>0)aur_vendor_rfq_write($path,$draft);
+        return ['draft_id'=>$id,'updated_unsent'=>$changed,'untouched_attempted'=>$attempted];
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
