@@ -194,6 +194,37 @@ try {
     $novAgain=aur_nov_short_prepare($root,$novCase);
     urgent_check($novAgain['draft_id']===$novSaved['draft_id'],
         'November preparation must be idempotent');
+
+    // Friendly German default and controlled revision of already saved emails.
+    $newGerman=array_values(array_filter($novPlans,
+        static fn($p)=>$p['lead']['language']==='de'));
+    urgent_check(count($newGerman)===2,'Expected two German contacts in short round');
+    foreach($newGerman as $plan) {
+        $message=aur_nov_short_compose($novCase,$plan);
+        urgent_check(str_contains($message['body'],'wir interessieren uns für ')
+            &&str_contains($message['body'],'unverbindliches Angebot freuen')
+            &&str_contains($message['body'],'Über eine kurze Rückmeldung'),
+            'German short email is not friendly');
+        urgent_check(!str_contains($message['body'],'bitte erstellen Sie uns ein Angebot'),
+            'Demanding German wording remains');
+    }
+    $novPath=aur_vendor_rfq_path($root,AUR_URGENT_RFQ_REF,$novSaved['draft_id']);
+    $draft=aur_vendor_rfq_read($root,$novCase,$novSaved['draft_id']);
+    $draft['messages'][0]['body']="Guten Tag, bitte erstellen Sie uns ein Angebot.";
+    $draft['messages'][7]['body']="Historic already-attempted text";
+    $draft['messages'][7]['status']='ACCEPTED_BY_MAIL_TRANSPORT';
+    $draft['messages'][7]['attempted_at']=gmdate('c');
+    aur_vendor_rfq_write($novPath,$draft);
+    $refreshed=aur_nov_short_refresh_unsent($root,$novCase);
+    urgent_check($refreshed['updated_unsent']===1
+        &&$refreshed['untouched_attempted']===1,
+        'Friendly refresh must change one unsent draft only');
+    $savedAgain=aur_vendor_rfq_read($root,$novCase,$novSaved['draft_id']);
+    urgent_check(str_contains($savedAgain['messages'][0]['body'],'wir interessieren uns für ')
+        &&$savedAgain['messages'][7]['body']==='Historic already-attempted text',
+        'Refresh changed sent email or failed to revise draft');
+    urgent_check(aur_nov_short_refresh_unsent($root,$novCase)['updated_unsent']===0,
+        'Friendly refresh should be idempotent');
     echo "AURENOEVA_URGENT_12_SUPPLIER_DRAFTS=PASS DE=".$locales['de']." EN=".$locales['en']."\n";
 }finally {
     $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
