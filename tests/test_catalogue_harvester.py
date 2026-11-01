@@ -3,7 +3,7 @@ import json,sqlite3,tempfile,sys,unittest
 from urllib.parse import parse_qs,urlsplit
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
-from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds,enqueue,source_frontier_pages
+from catalogue_harvester import db_init,run,export,pid,parse_page,search_links,technical_product_relevance,seeds,enqueue,source_frontier_pages,suppress_legacy_non_technical_frontier,retry_wait_seconds
 BING="""<?xml version="1.0"?><rss><channel><item>
 <title>WATO EX-35 - Mindray</title>
 <link>https://www.mindray.com/en/products/anesthesia/wato-ex-35</link>
@@ -74,6 +74,50 @@ class Tests(unittest.TestCase):
         self.assertEqual(enqueue(self.db,"https://www.limango.de/shop/shoes/123","page"),0)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],before)
         self.assertEqual(enqueue(self.db,"https://www.agilent.com/en/product/1260","page"),1)
+
+    def test_legacy_non_technical_urls_deferred_once_without_deletion(self):
+        from datetime import datetime,timezone,timedelta
+        past="2026-10-01T00:00:00Z"
+        urls=["https://www.limango.de/shop/123",
+              "https://de.pons.com/shop/456",
+              "https://www.ifm.com/us/en/product/PN1234"]
+        for url in urls:
+            self.db.execute("INSERT INTO harvest_queue(url,kind,due) VALUES(?,'page',?)",
+                            (url,past))
+        self.db.commit()
+        now=datetime(2026,11,1,tzinfo=timezone.utc)
+        n=suppress_legacy_non_technical_frontier(self.db,now)
+        self.assertEqual(n,2)
+        self.assertEqual(suppress_legacy_non_technical_frontier(self.db,now),0)
+        rows={r["url"]:r["due"] for r in self.db.execute("SELECT url,due FROM harvest_queue")}
+        self.assertEqual(len(rows),3)
+        self.assertGreater(rows[urls[0]],"2035")
+        self.assertGreater(rows[urls[1]],"2035")
+        self.assertEqual(rows[urls[2]],past)
+
+    def test_denials_and_rate_limits_get_polite_cooldowns(self):
+        from urllib.error import HTTPError
+        self.assertEqual(retry_wait_seconds(PermissionError("robots_disallowed"),0),14*86400)
+        self.assertEqual(retry_wait_seconds(PermissionError("robots_denied"),2),14*86400)
+        self.assertEqual(retry_wait_seconds(HTTPError("https://example.com",403,"",{},None),0),72*3600)
+        self.assertEqual(retry_wait_seconds(HTTPError("https://example.com",429,"",{},None),0),24*3600)
+        self.assertEqual(retry_wait_seconds(TimeoutError("temporary"),0),900)
+        self.assertEqual(retry_wait_seconds(TimeoutError("temporary"),7),12*3600)
+
+    def test_robots_disallowed_page_is_retried_after_two_weeks(self):
+        from datetime import datetime,timezone,timedelta
+        url="https://www.ifm.com/us/en/product/PN9999"
+        cfg={"categories":{},"sources":[{"id":"ifm","active":True,
+             "allowed_hosts":["www.ifm.com"],"seeds":[url]}]}
+        result=run(self.db,cfg,1,15,1,
+                   lambda url,kind: (_ for _ in ()).throw(PermissionError("robots_disallowed")))
+        self.assertEqual(result["failures"],1)
+        self.assertEqual(result["new_products"],0)
+        stored=self.db.execute("SELECT due,failures FROM harvest_queue WHERE url=?",(url,)).fetchone()
+        self.assertEqual(stored["failures"],1)
+        until=datetime.fromisoformat(stored["due"].replace("Z","+00:00"))
+        self.assertGreater(until-datetime.now(timezone.utc),timedelta(days=13))
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],1)
 
     def test_search_discovery_to_product_vendor_link(self):
         result=run(self.db,self.config,15,30,4,self.crawler)
