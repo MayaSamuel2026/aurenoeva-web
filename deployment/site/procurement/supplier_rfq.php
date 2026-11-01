@@ -344,16 +344,11 @@ function aur_vendor_rfq_smtp_exchange($socket,?string $command,array $expected,s
     return ['ok'=>in_array($code,$expected,true),'stage'=>$stage,'code'=>$code,
         'response'=>$clean!==''?$clean:'smtp_no_response'];
 }
-/**
- * Every supplier RFQ has exactly two SMTP envelope recipients:
- * the supplier and an invisible internal copy to info@aurenoeva.com.
- * Self-addressed diagnostics still have just one envelope recipient.
- */
+/** One SMTP recipient: the intended recipient. Sent records use IMAP APPEND. */
 function aur_vendor_rfq_smtp_envelope_recipients(string $to):array {
     if(filter_var($to,FILTER_VALIDATE_EMAIL)===false ||
        strpbrk($to,"\r\n")!==false)throw new InvalidArgumentException('invalid_recipient');
-    $copy='info@aurenoeva.com';
-    return strcasecmp($to,$copy)===0?[$to]:[$to,$copy];
+    return [$to];
 }
 
 /**
@@ -491,8 +486,8 @@ function aur_vendor_rfq_archive_sent_imap(string $raw):string {
 function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string $body,string $messageId='',array $attachments=[],?string $htmlBody=null,?string $inlineLogoFile=null):array {
     $base=['transport'=>'AUTHENTICATED_SMTP','accepted'=>false,'stage'=>'PREFLIGHT',
         'code'=>0,'response'=>'','outcome'=>'NOT_SENT',
-        'archive_copy_address'=>'info@aurenoeva.com',
-        'archive_rcpt_accepted'=>false,'supplier_rcpt_accepted'=>false];
+        'sent_folder'=>'INBOX.Sent','imap_sent_archive'=>'NOT_ATTEMPTED',
+        'supplier_rcpt_accepted'=>false];
     try {$recipients=aur_vendor_rfq_smtp_envelope_recipients($to);}
     catch(InvalidArgumentException $e){$base['response']='invalid_recipient';return $base;}
     try {$cfg=aur_vendor_rfq_smtp_config();}
@@ -538,17 +533,14 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
             $r=aur_vendor_rfq_smtp_exchange($socket,$command,$codes,$stage);
             if(!$r['ok'])return array_merge($base,$r);
         }
-        // One SMTP DATA transaction for both envelope recipients. The
-        // copy address never appears in To/Cc/Bcc message headers.
-        // If the copy is rejected, do NOT transmit DATA to the supplier.
+        // Only the intended recipient enters the SMTP envelope.
+        // The Sent folder receives the original MIME through authenticated IMAP,
+        // avoiding an invisible self-copy in the Inbox.
         foreach($recipients as $recipient) {
-            $isCopy=strcasecmp($recipient,'info@aurenoeva.com')===0;
-            $stage=$isCopy?'RCPT_ARCHIVE':'RCPT_SUPPLIER';
             $r=aur_vendor_rfq_smtp_exchange(
-                $socket,'RCPT TO:<'.$recipient.'>',[250,251],$stage);
+                $socket,'RCPT TO:<'.$recipient.'>',[250,251],'RCPT_SUPPLIER');
             if(!$r['ok'])return array_merge($base,$r);
-            if($isCopy)$base['archive_rcpt_accepted']=true;
-            else $base['supplier_rcpt_accepted']=true;
+            $base['supplier_rcpt_accepted']=true;
         }
         $r=aur_vendor_rfq_smtp_exchange($socket,'DATA',[354],'DATA');
         if(!$r['ok'])return array_merge($base,$r);
@@ -556,9 +548,18 @@ function aur_vendor_rfq_send_transport_detail(string $to,string $subject,string 
         $r=aur_vendor_rfq_smtp_exchange($socket,$payload,[250],'DATA_ACCEPTANCE');
         $base=array_merge($base,$r);
         $base['accepted']=$r['ok'];
-        $base['archive_copy_submitted']=$r['ok'] && $base['archive_rcpt_accepted'];
         $base['outcome']=$r['ok']?'SMTP_ACCEPTED':
             ($r['code']>=400?'SMTP_REJECTED':'UNCERTAIN_AFTER_DATA');
+        // Never resubmit SMTP if IMAP archival fails: per-recipient ledgers are
+        // authoritative, and the archive result is persisted alongside them.
+        if($r['ok']) {
+            try {
+                $base['imap_sent_archive']=aur_vendor_rfq_archive_sent_imap(substr($payload,0,-1));
+            } catch(Throwable $e) {
+                $base['imap_sent_archive']='NOT_ARCHIVED';
+                error_log('AURENOEVA Sent archive: '.get_class($e));
+            }
+        }
         return $base;
     } finally {
         @fwrite($socket,"QUIT\r\n");
