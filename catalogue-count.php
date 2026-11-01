@@ -69,8 +69,12 @@ function aur_catalogue_count_file(string $path): ?int {
  * The underlying published product set is never modified or silently truncated.
  */
 function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
+    $counts=aur_catalogue_browse_counts_file($path,$rawCount);
+    return $counts['visible']??null;
+}
+function aur_catalogue_browse_counts_file(string $path, int $rawCount): ?array {
     if (!function_exists('aur_browse_relevant')) {
-        if (!is_file(__DIR__.'/catalogue-browse.php')) return $rawCount;
+        if (!is_file(__DIR__.'/catalogue-browse.php')) return ['visible'=>$rawCount,'sector_entries'=>$rawCount];
         if (!defined('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY')) define('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY', true);
         require_once __DIR__.'/catalogue-browse.php';
     }
@@ -88,8 +92,9 @@ function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
         if (is_array($v) && ($v['filter_sha256']??null)===$filterSha
             && ($v['size']??-1)===$stat['size']
             && ($v['mtime']??-1)===$stat['mtime'] && ($v['inode']??-1)===$stat['ino']
-            && is_int($v['count']??null) && $v['count']>=0 && $v['count']<=$rawCount)
-            return $v['count'];
+            && is_int($v['count']??null) && $v['count']>=0 && $v['count']<=$rawCount
+            && is_int($v['sector_entries']??null) && $v['sector_entries'] >= $v['count'])
+            return ['visible'=>$v['count'],'sector_entries'=>$v['sector_entries']];
     }
     $raw=@file_get_contents($path);
     if (!is_string($raw)) return null;
@@ -99,12 +104,21 @@ function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
         || !is_array($data['items']??null)) return null;
     $sectors=['laboratory','test','medical','industrial','energy','marine','aviation'];
     $count=0;
+    $sectorEntries=0;
     foreach ($data['items'] as $p) {
-        if (!is_array($p) || !in_array((string)($p['sector']??''),$sectors,true)
+        if (!is_array($p)
             || !preg_match('/^AUR-P-[A-F0-9]{20}$/D',(string)($p['canonical_id']??''))
             || trim((string)($p['manufacturer']??''))==='' || trim((string)($p['model']??''))===''
             || !aur_browse_relevant($p)) continue;
+        $appearances=0;
+        foreach ($sectors as $sector) {
+            // A single canonical product can be evidence-backed in two or
+            // more industries; the unique counter must not count it twice.
+            if (aur_browse_sector_category($p,$sector)!==null) ++$appearances;
+        }
+        if ($appearances===0) continue;
         ++$count;
+        $sectorEntries+=$appearances;
     }
     unset($data);
     $tmp=@tempnam(dirname($path),'.visible-count-');
@@ -112,11 +126,12 @@ function aur_catalogue_visible_count_file(string $path, int $rawCount): ?int {
         @chmod($tmp,0600);
         $value=json_encode(['filter_sha256'=>$filterSha,
             'size'=>$stat['size'],'mtime'=>$stat['mtime'],
-            'inode'=>$stat['ino'],'count'=>$count],JSON_THROW_ON_ERROR);
+            'inode'=>$stat['ino'],'count'=>$count,
+            'sector_entries'=>$sectorEntries],JSON_THROW_ON_ERROR);
         if (@file_put_contents($tmp,$value,LOCK_EX)!==false) @rename($tmp,$cache);
         if (is_file($tmp)) @unlink($tmp);
     }
-    return $count;
+    return ['visible'=>$count,'sector_entries'=>$sectorEntries];
 }
 
 /** Aggregate reconciliation is embedded at the end of the published JSON.
@@ -239,9 +254,11 @@ try {
     }
     $count = aur_catalogue_count_file($real);
     if ($count === null) throw new RuntimeException('catalogue_unavailable');
-    $visible=aur_catalogue_visible_count_file($real,$count);
-    if ($visible === null) throw new RuntimeException('catalogue_unavailable');
+    $browseCounts=aur_catalogue_browse_counts_file($real,$count);
+    if ($browseCounts === null) throw new RuntimeException('catalogue_unavailable');
+    $visible=$browseCounts['visible'];
     $payload=['ok'=>true,'searchable_parts'=>$visible,
+        'browse_sector_entries'=>$browseCounts['sector_entries'],
         'published_parts'=>$count,'excluded_from_browse'=>$count-$visible,
         'snapshot_updated_at_utc'=>aur_catalogue_snapshot_updated_at($real),
         'stock_verified'=>false,'source'=>'published_catalogue_snapshot'];
