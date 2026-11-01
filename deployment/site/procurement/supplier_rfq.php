@@ -628,6 +628,9 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
                    ||!empty($message['sent_at'])||!empty($message['transport_result'])
                    ||!empty($message['smtp_message_id']))
                     throw new InvalidArgumentException('selected_supplier_already_attempted');
+                if(($message['language']??'')==='de' &&
+                   !str_contains((string)($message['body']??''),'wir interessieren uns für '))
+                    throw new InvalidArgumentException('refresh_german_supplier_wording_first');
                 $selection[$i]=true;
             }
         } elseif($selectedIndices!==null) {
