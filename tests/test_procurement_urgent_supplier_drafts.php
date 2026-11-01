@@ -262,7 +262,7 @@ try {
     urgent_check($againSelectionRejected&&count($testSend)===3,
         'An already sent recipient was automatically resent');
     // A stale German draft must not disable unrelated English recipients.
-    $isolated=$novSaved;
+    $isolated=aur_vendor_rfq_read($root,$novCase,$novSaved['draft_id']);
     $isolated['draft_id']=bin2hex(random_bytes(12));
     $isolated['status']='DRAFT_REVIEW';
     $isolated['approval']=null;
