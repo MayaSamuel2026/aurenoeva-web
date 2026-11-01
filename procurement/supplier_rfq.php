@@ -24,6 +24,9 @@ function aur_vendor_rfq_safe_error(Throwable $e):string {
       'commercial_draft_redraft_required','rfq_template_outdated_redraft_required',
       'rfq_smtp_not_configured','rfq_smtp_invalid_configuration',
       'rfq_smtp_test_required','smtp_configuration_unavailable',
+      'select_one_to_three_suppliers','selected_supplier_already_attempted',
+      'refresh_german_supplier_wording_first',
+      'invalid_or_duplicate_supplier_selection',
       'rfq_duplicate_risk_acknowledgement_required','rfq_recovery_not_available',
       'rfq_duplicate_equipment_review_required'
     ];
@@ -663,6 +666,12 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             foreach($draft['messages'] as $pending) {
                 if(($pending['status']??'')==='DRAFT') {
                     aur_vendor_rfq_smtp_config();
+                    if(!aur_vendor_rfq_mail_verified($store) && $selectedOnly) {
+                        // Before a selected supplier batch, prove SMTP with a
+                        // diagnostic email addressed ONLY to our own mailbox.
+                        // Never mark any supplier attempted if this test fails.
+                        aur_vendor_rfq_send_smoke_test($store);
+                    }
                     if(!aur_vendor_rfq_mail_verified($store))
                         throw new RuntimeException('rfq_smtp_test_required');
                     break;
