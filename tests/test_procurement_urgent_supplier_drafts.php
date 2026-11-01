@@ -161,6 +161,39 @@ try {
     $stored=aur_urgent_supplier_saved($root,$case);
     urgent_check($stored['messages'][0]['status']==='ACCEPTED_BY_MAIL_TRANSPORT'
          && $stored['messages'][3]['status']==='DRAFT','per-supplier states are not durable');
+    // 1 November sourcing round remains private, concise and unsent until approval.
+    $novCase=$original;
+    $novCase['source_sha256']=hash('sha256','november-test-source');
+    foreach([
+        urgent_line(2,'Anthos A5 Continental dental unit',2),
+        urgent_line(6,'MT5000S endoscope washer for one endoscope',6),
+        urgent_line(7,'EVORAY EC-5BD endoscope drying cabinet',7),
+        urgent_line(17,'MediWorks S260S slit lamp',18),
+        urgent_line(30,'New Vatech 16x9 CBCT with cephalostat',30),
+        urgent_line(32,'Castellini Skema 6 SD-9099 dental unit',32),
+        urgent_line(33,'Castellini Skema 8 6X-9056 dental unit',33,2),
+        urgent_line(34,'Euronda E8 24 L autoclave, Euroseal 2001 Plus and Aquadis',34),
+        urgent_line(35,'1.5 T MRI system',35),
+        urgent_line(36,'CATTANI dental compressor 45L 238 L/min',36),
+        urgent_line(38,'CSSD autoclave',38,null)
+    ] as $novLine)$novCase['payload']['sourcing_lines'][]=$novLine;
+    $novPlans=aur_nov_short_plans($novCase);
+    urgent_check(count($novPlans)===12,'November round must contain 12 email leads');
+    urgent_check(count(aur_nov_short_contact_forms())===3,'November round must retain three manual form routes');
+    foreach($novPlans as $plan) {
+        $msg=aur_nov_short_compose($novCase,$plan);
+        urgent_check($msg['status']==='DRAFT','November message was not a draft');
+        urgent_check(!preg_match('/Uzbekistan|Usbekistan|AUR-UZ-1A04A7909185FACD/ui',$msg['body'].' '.$msg['subject']),
+            'Destination exposed in November outgoing message');
+        urgent_check(str_contains($msg['body'],'HRA 23554')
+            && str_contains($msg['body'],'info@aurenoeva.com'),'November footer missing');
+    }
+    $novSaved=aur_nov_short_prepare($root,$novCase);
+    urgent_check(count($novSaved['messages'])===12 && $novSaved['status']==='DRAFT_REVIEW',
+        'November preparation must save all 12 unsent messages');
+    $novAgain=aur_nov_short_prepare($root,$novCase);
+    urgent_check($novAgain['draft_id']===$novSaved['draft_id'],
+        'November preparation must be idempotent');
     echo "AURENOEVA_URGENT_12_SUPPLIER_DRAFTS=PASS DE=".$locales['de']." EN=".$locales['en']."\n";
 }finally {
     $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(

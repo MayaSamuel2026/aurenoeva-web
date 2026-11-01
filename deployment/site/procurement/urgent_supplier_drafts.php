@@ -313,3 +313,140 @@ function aur_urgent_supplier_refresh_signatures(string $store,array $case):array
         }finally{flock($sendLock,LOCK_UN);fclose($sendLock);}
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
+
+
+/* November sourcing round: concise, destination-neutral first enquiries.
+ * A private, case-bound outbox is created only on staff CSRF-protected POST.
+ * Manufacturer contact-form leads are shown separately; no synthetic email addresses.
+ */
+function aur_nov_short_leads():array {
+    return [
+      ['id'=>'bms-de','name'=>'BMS Ultraschall','email'=>'info@bms-ultraschall.de','country'=>'DE','language'=>'de','items'=>[3,4,5],'subject'=>'Preisanfrage – Samsung Z20 / V8 / V6 Ultraschallgeräte','request'=>'Samsung Z20 (Konfiguration 2, CA1-7S/LA2-14A/EA2-11AR/CMV1-10), V8 (4 Sonden, Scherwelle/ECG/Heart Assist) und V6 (3 Sonden), jeweils 1 Gerät','url'=>'https://www.bms-ultraschall.de/samsung-sonoace-medison'],
+      ['id'=>'cattani-it','name'=>'Cattani S.p.A.','email'=>'info@cattani.it','country'=>'IT','language'=>'en','items'=>[36],'subject'=>'Price enquiry – CATTANI dental compressor','request'=>'one CATTANI dental compressor for 3–4 dental units (230 V/50 Hz, dryer, 45 L, 238 L/min at 5 bar; AC 300 or equivalent)','url'=>'https://www.cattani.it/categorie-prodotti/compressori-a-secco-cattani-air-care/'],
+      ['id'=>'euronda-it','name'=>'Euronda S.p.A.','email'=>'info@euronda.com','country'=>'IT','language'=>'en','items'=>[34],'subject'=>'Price enquiry – Euronda E8 / Euroseal / Aquadis','request'=>'one set comprising an Euronda E8 24 L Class B autoclave, Euroseal 2001 Plus sealer and Aquadis distiller','url'=>'https://www.euronda.com/'],
+      ['id'=>'dentreal-tr','name'=>'Dentrealmarket / Anka Tibbi','email'=>'info@dentrealmarket.com','country'=>'TR','language'=>'en','items'=>[34],'subject'=>'Price enquiry – Euronda E8 / Euroseal / Aquadis','request'=>'one set comprising an Euronda E8 24 L Class B autoclave, Euroseal 2001 Plus sealer and Aquadis distiller','url'=>'https://dentrealmarket.com/'],
+      ['id'=>'mediworks-cn','name'=>'Shanghai MediWorks Precision Instruments','email'=>'marketing@mediworks.biz','country'=>'CN','language'=>'en','items'=>[17],'subject'=>'Price enquiry – S260S ophthalmic slit lamp','request'=>'one MediWorks / Dixion S260S ophthalmic slit lamp','url'=>'https://www.mediworks.biz/'],
+      ['id'=>'united-cn','name'=>'United Imaging Healthcare','email'=>'inquiries@united-imaging.com','country'=>'CN','language'=>'en','items'=>[35],'subject'=>'Price enquiry – 1.5 T MRI system','request'=>'one new 1.5 T MRI system','url'=>'https://global.united-imaging.com/'],
+      ['id'=>'steelco-it','name'=>'Steelco','email'=>'info@steelcogroup.com','country'=>'IT','language'=>'en','items'=>[6,7,38],'subject'=>'Price enquiry – Endoscope reprocessing / CSSD','request'=>'one single-endoscope washer-disinfector, one endoscope drying/storage cabinet, and one CSSD autoclave (quantity to be confirmed); comparable alternatives to the specified models are welcome','url'=>'https://www.steelcogroup.com/'],
+      ['id'=>'endomed-de','name'=>'ENDOMED Endoskopie + Hygiene GmbH','email'=>'info@endomed.de','country'=>'DE','language'=>'de','items'=>[6,7],'subject'=>'Preisanfrage – Endoskopaufbereitung / Trocknungsschrank','request'=>'einen Endoskop-Waschdesinfektor für 1 Endoskop und einen Endoskop-Trocknungs-/Lagerschrank, je 1 Stück (auch vergleichbare Alternativen)','url'=>'https://www.endomed.de/'],
+      ['id'=>'immed-gb','name'=>'iM Med Ltd','email'=>'sales@im-med.com','country'=>'GB','language'=>'en','items'=>[6,38],'subject'=>'Price enquiry – Endoscope washer / CSSD','request'=>'one single-endoscope washer-disinfector and a CSSD autoclave (quantity to be confirmed); comparable alternatives are welcome','url'=>'https://www.im-med.com/'],
+      ['id'=>'sogliq-uz','name'=>"Sog'liq Industriyasi",'email'=>'info@sogliqindustriyasi.uz','country'=>'UZ','language'=>'en','items'=>[26,27,38],'subject'=>'Price enquiry – Mindray / Dräger / CSSD','request'=>'two Mindray WATO EX-35 anaesthesia systems, one refurbished Dräger Savina ventilator (2010–2013), and a CSSD autoclave (quantity to be confirmed)','url'=>'https://sogliqindustriyasi.uz/'],
+      ['id'=>'tesla-uz','name'=>'Tesla Medical System','email'=>'sales@teslamed.uz','country'=>'UZ','language'=>'en','items'=>[35],'subject'=>'Price enquiry – 1.5 T MRI system','request'=>'one 1.5 T MRI system','url'=>'https://teslamed.uz/'],
+      ['id'=>'remma-fr','name'=>'Remma','email'=>'contact@remma.fr','country'=>'FR','language'=>'en','items'=>[19,20],'subject'=>'Price enquiry – Huvitz HRK-1 / HNT-1','request'=>'one Huvitz HRK-1 autorefractor/keratometer and one HNT-1 non-contact tonometer (state new/used/refurbished condition)','url'=>'https://remma.fr/en/brand/huvitz']
+    ];
+}
+function aur_nov_short_contact_forms():array {
+    return [
+      ['name'=>'Cefla Medical Equipment','items'=>'2, 32, 33','url'=>'https://www.cefla.com/en/contact/','request'=>'Anthos A5 Continental (1); Castellini Skema 6 SD-9099 (1); Skema 8 6X-9056 (2)'],
+      ['name'=>'VATECH Global','items'=>'30','url'=>'https://www.vatechglobal.com/inquiry','request'=>'new 16 × 9 dental CBCT system with cephalostat (1)'],
+      ['name'=>'Huvitz','items'=>'19, 20','url'=>'https://huvitz.com/ophthalmology-and-optometry/','request'=>'HRK-1 autorefractor/keratometer (1); HNT-1 non-contact tonometer (1)']
+    ];
+}
+function aur_nov_short_plans(array $case):array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF) return [];
+    $source=[];
+    foreach(($case['payload']['sourcing_lines']??[]) as $line) {
+        if(!is_array($line)||($line['option_type']??'REQUESTED')!=='REQUESTED')continue;
+        $key=(int)($line['customer_item_number']??0);
+        if($key>0)$source[$key][]=$line;
+    }
+    $plans=[];$known=[];
+    foreach(aur_nov_short_leads() as $lead) {
+        $to=strtolower($lead['email']);
+        if(filter_var($to,FILTER_VALIDATE_EMAIL)===false||isset($known[$to]))throw new RuntimeException('nov_supplier_invalid_or_duplicate_contact');
+        $known[$to]=true;$rows=[];
+        foreach($lead['items'] as $item) {
+            if(count($source[$item]??[])!==1)throw new RuntimeException('nov_supplier_buyer_item_missing_or_ambiguous_'.$item);
+            $row=$source[$item][0];
+            $rows[]=['source_row'=>(int)$row['source_row'],
+               'customer_item_number'=>$item,
+               'description'=>(string)($row['description_original']??''),
+               'quantity'=>$row['quantity']??null,'option_type'=>'REQUESTED'];
+        }
+        aur_rfq_assert_no_duplicate_supplier_lines($case,$rows);
+        $plans[]=['lead'=>$lead,'rows'=>$rows];
+    }
+    return $plans;
+}
+function aur_nov_short_compose(array $case,array $plan):array {
+    $lead=$plan['lead'];
+    $vendor=['id'=>'nov-20261101-'.$lead['id'],'name'=>$lead['name'],
+             'email'=>$lead['email'],'evidence_url'=>$lead['url']];
+    $mail=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
+    if($lead['language']==='de') {
+        $body="Guten Tag,\n\nbitte erstellen Sie uns ein Angebot für ".$lead['request'].".\n\n"
+            ."Die Geräte sind für den Einsatz im Krankenhaus vorgesehen. Der Käufer übernimmt Installation, Einweisung, Schulung, Wartung und technischen Service vor Ort.\n\n"
+            ."Bitte bestätigen Sie Verfügbarkeit, Stückpreis und Lieferzeit.\n\n"
+            ."Herzliche Grüße\n\n"
+            ."AURENOEVA Purchasing\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein, Deutschland\n"
+            ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
+    } else {
+        $body="Dear Sales Team,\n\nPlease quote ".$lead['request'].".\n\n"
+            ."The equipment is intended for use in a hospital environment. The purchaser will arrange installation, staff training, maintenance and local technical service.\n\n"
+            ."Could you confirm availability, unit price and delivery time?\n\n"
+            ."Thank you and kind regards,\n\n"
+            ."AURENOEVA Purchasing\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein, Germany\n"
+            ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
+    }
+    $mail['body']=$body;$mail['subject']=$lead['subject'];
+    $mail['language']=$lead['language'];
+    $mail['supplier_country']=$lead['country'];
+    $mail['source_grade']='EVIDENCE_BACKED_RESEARCH_CANDIDATE';
+    if(preg_match('/Uzbekistan|Usbekistan|AUR-UZ-1A04A7909185FACD/ui',$body.' '.$mail['subject']))
+        throw new RuntimeException('destination_exposed_in_short_message');
+    return $mail;
+}
+function aur_nov_short_index_path(string $store,array $case):string {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)throw new InvalidArgumentException('wrong_short_supplier_case');
+    return aur_private_directory($store,'supplier-rfqs').'/'.AUR_URGENT_RFQ_REF.'-nov-short-supplier-index.json';
+}
+function aur_nov_short_saved(string $store,array $case):?array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return null;
+    $path=aur_nov_short_index_path($store,$case);
+    if(!is_file($path))return null;
+    if(is_link($path))throw new RuntimeException('unsafe_short_supplier_index');
+    $data=json_decode((string)file_get_contents($path),true,128,JSON_THROW_ON_ERROR);
+    if(!is_array($data)||($data['schema']??'')!=='aurenoeva-short-suppliers/1'
+       ||($data['case_source_sha256']??'')!==($case['source_sha256']??''))
+        throw new RuntimeException('short_supplier_case_source_mismatch');
+    $draft=aur_vendor_rfq_read($store,$case,(string)$data['draft_id']);
+    $data['messages']=$draft['messages'];$data['status']=$draft['status'];
+    return $data;
+}
+function aur_nov_short_prepare(string $store,array $case):array {
+    $path=aur_nov_short_index_path($store,$case);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('short_supplier_lock_unavailable');
+    try {
+        $old=aur_nov_short_saved($store,$case);
+        if($old!==null)return $old;
+        $contacted=[];
+        foreach(aur_vendor_rfq_list($store,$case) as $historical) {
+            $prior=aur_vendor_rfq_read($store,$case,(string)$historical['id']);
+            foreach(($prior['messages']??[]) as $msg) {
+                $email=strtolower(trim((string)($msg['to']??'')));
+                if(filter_var($email,FILTER_VALIDATE_EMAIL))$contacted[$email]=true;
+            }
+        }
+        $messages=[];$skipped=[];
+        foreach(aur_nov_short_plans($case) as $plan) {
+            $to=strtolower($plan['lead']['email']);
+            if(isset($contacted[$to])){$skipped[]=$to;continue;}
+            $messages[]=aur_nov_short_compose($case,$plan);
+        }
+        if(!$messages)throw new RuntimeException('short_supplier_all_already_contacted');
+        $id=bin2hex(random_bytes(12));
+        $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
+           'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],
+           'information_only'=>true,'template_version'=>'pricing-rfq-v3',
+           'draft_id'=>$id,'created_at'=>gmdate('c'),'approval'=>null,
+           'status'=>'DRAFT_REVIEW','source'=>'CURATED_SHORT_ROUND_2026_11_01','messages'=>$messages];
+        aur_vendor_rfq_write(aur_vendor_rfq_path($store,(string)$case['reference'],$id),$draft);
+        $index=['schema'=>'aurenoeva-short-suppliers/1','case_reference'=>$case['reference'],
+          'case_source_sha256'=>$case['source_sha256'],'draft_id'=>$id,
+          'prepared_at'=>gmdate('c'),'supplier_count'=>count($messages),
+          'skipped_existing_recipients'=>$skipped];
+        aur_vendor_rfq_write($path,$index);
+        return aur_nov_short_saved($store,$case)??$index;
+    }finally {flock($lock,LOCK_UN);fclose($lock);}
+}

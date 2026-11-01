@@ -540,6 +540,21 @@ if ($isAdmin) {
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
             catch(Throwable $ignored){}
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_nov_short_supplier_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $prepared=aur_nov_short_prepare($aurStore,$case);
+            // Private draft import only; sending requires a separate staff approval.
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$prepared['draft_id'])
+                .'&short_prepared=1#aur-nov-short-supplier-rfqs',true,303);
+            exit;
+        }catch(Throwable $e) {
+            error_log('AURENOEVA short supplier preparation: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            $supplierDiscoveryMessage='Short supplier emails could not be saved. Existing records were not changed and no emails were sent.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
+            catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_urgent_supplier_rfqs'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
