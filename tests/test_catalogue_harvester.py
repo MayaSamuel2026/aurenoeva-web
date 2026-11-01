@@ -41,8 +41,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(output["new_products"],1)
         self.assertEqual(output["new_urls"],0)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],1)
-        self.assertEqual(self.db.execute(
-            "SELECT manufacturer,model FROM products").fetchone(),
+        self.assertEqual(tuple(self.db.execute(
+            "SELECT manufacturer,model FROM products").fetchone()),
             ("Example OEM","AX-12345"))
 
     def test_clear_consumer_noise_is_not_a_technical_product(self):
