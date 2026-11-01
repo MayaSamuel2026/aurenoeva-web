@@ -657,14 +657,18 @@ if ($isAdmin) {
             $result=aur_embargo_record($aurStore,$result,(string)($result['country']??''));
             aur_embargo_assert_dispatch_ready($result);
             $draftId=trim((string)($_POST['draft_id']??''));
-            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,($_POST['manual_review']??'')==='1');
+            $selected=($_POST['selected_indices']??null);
+            if($selected!==null&&!is_array($selected))
+                throw new InvalidArgumentException('invalid_checked_supplier_list');
+            $dispatch=aur_vendor_rfq_dispatch($aurStore,$result,$draftId,
+                ($_POST['manual_review']??'')==='1',null,3,$selected);
             if(str_contains((string)($_SERVER['HTTP_ACCEPT']??''),'application/json')) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok'=>true,'status'=>$dispatch['status'],
                     'progress'=>$dispatch['dispatch_progress']??null],JSON_THROW_ON_ERROR);
                 exit;
             }
-            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#supplier-history',true,303);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#aur-rfq-approval',true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ dispatch: '.get_class($e).' '.substr($e->getMessage(),0,120));
