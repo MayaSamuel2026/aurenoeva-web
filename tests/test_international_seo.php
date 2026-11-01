@@ -46,6 +46,23 @@ foreach (['hreflang="de"','rel="canonical"','schema.org','"@type":"Product"',
 }
 if (str_contains($html,'"availability"') || str_contains($html,'"offers"'))
  throw new RuntimeException('invented_inventory_or_price');
+
+$directory=aur_seo_route('en','directory',[]);
+$_SERVER['REQUEST_URI']=$directory;
+$_GET=['lang'=>'en','kind'=>'directory'];
+ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$dirHtml=ob_get_clean();
+foreach (['Technical product catalogue','/en/manufacturers/','/en/categories/industrial/',
+          'Oil, gas & petrochemicals','not separately verified product classifications',
+          'hreflang="de"','Start a sourcing enquiry'] as $text) {
+    if (!str_contains($dirHtml,$text)) throw new RuntimeException('directory_'.$text);
+}
+$directoryDe=aur_seo_route('de','directory',[]);
+$_SERVER['REQUEST_URI']=$directoryDe;
+$_GET=['lang'=>'de','kind'=>'directory'];
+ob_start();aur_seo_page($idx,$root.'/private/seo-index-products.jsonl');$dirDeHtml=ob_get_clean();
+if (!str_contains($dirDeHtml,'Technische Ersatzteile') || !str_contains($dirDeHtml,'/de/hersteller/'))
+    throw new RuntimeException('directory_de');
+
 $maker=aur_seo_route('de','manufacturer',['manufacturer'=>'Festo']);
 $_SERVER['REQUEST_URI']=$maker;
 $_GET=['lang'=>'de','kind'=>'manufacturer','key'=>basename(trim($maker,'/'))];
@@ -67,7 +84,7 @@ if (substr_count($xml,'<url>')!==2 || !str_contains($xml,'aur-p-0123456789abcdef
  throw new RuntimeException('product_sitemap');
 $_GET=['feed'=>'taxonomy','lang'=>'de'];
 ob_start();aur_seo_sitemap($idx,$root.'/private/seo-index-products.jsonl');$xml=ob_get_clean();
-if (substr_count($xml,'<url>')!==2 || !str_contains($xml,'/de/kategorien/'))
+if (substr_count($xml,'<url>')!==3 || !str_contains($xml,'/de/kategorien/') || !str_contains($xml,'/de/katalog/'))
  throw new RuntimeException('taxonomy_sitemap');
 foreach (glob($root.'/private/*') as $f) unlink($f);
 foreach (glob($root.'/private/.*') as $f) { if (is_file($f)) unlink($f); }

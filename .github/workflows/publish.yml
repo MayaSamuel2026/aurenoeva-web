@@ -831,6 +831,13 @@ jobs:
             "logo":"https://aurenoeva.com/assets/img/brand/aurenoeva-logo-approved.png"}
           tags='<link rel="canonical" href="https://aurenoeva.com/">\n'+(
             '<script type="application/ld+json">'+json.dumps(schema,separators=(',',':'))+'</script>\n')
+          # Link the site's existing footer to the canonical EN/DE directory.
+          # Links are server-rendered HTML, not JavaScript-only navigation.
+          footer_anchor='<a href="industries.html" data-en="Technical sectors" data-de="Technische Bereiche"></a>'
+          assert html.count(footer_anchor)==1
+          footer_links=('<a href="/en/catalogue/" lang="en">English product catalogue</a>\n'
+                        '<a href="/de/katalog/" lang="de">Deutscher Produktkatalog</a>')
+          html=html.replace(footer_anchor,footer_anchor+'\n'+footer_links,1)
           home.write_text(html.replace('</head>',tags+'</head>',1),encoding='utf-8')
           PY
           php -l "$RUNNER_TEMP/source/site/seo.php"
@@ -838,6 +845,9 @@ jobs:
           grep -q 'sitemap.xml' "$RUNNER_TEMP/source/site/robots.txt"
           grep -q 'seo.php?kind=product' "$RUNNER_TEMP/source/site/.htaccess" || grep -q 'kind=product' "$RUNNER_TEMP/source/site/.htaccess"
           grep -q 'rel="canonical"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'href="/en/catalogue/"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'href="/de/katalog/"' "$RUNNER_TEMP/source/site/index.html"
+          grep -q 'en/catalogue' "$RUNNER_TEMP/source/site/.htaccess"
           # Original homepage, categories, basket, supplier RFQs and staff dashboard remain untouched.
 
       - name: Build clean production branch
@@ -1004,6 +1014,10 @@ jobs:
           assert 'Sitemap: https://aurenoeva.com/sitemap.xml' in robots
           home=get('/')
           assert '<link rel="canonical" href="https://aurenoeva.com/">' in home
+          directory_en=get('/en/catalogue/')
+          directory_de=get('/de/katalog/')
+          assert 'hreflang="de"' in directory_en and 'manufacturer' in directory_en.lower()
+          assert 'hreflang="en"' in directory_de and 'Hersteller' in directory_de
           sitemaps=ET.fromstring(get('/sitemap.xml'))
           ns={'s':'http://www.sitemaps.org/schemas/sitemap/0.9'}
           urls=[n.text for n in sitemaps.findall('.//s:loc',ns)]
