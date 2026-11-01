@@ -23,6 +23,7 @@ function aur_seo_taxon(string $value): string {
 }
 function aur_seo_route(string $language, string $type, array $row): string {
     $base = '/' . $language . '/';
+    if ($type === 'directory') return $base . ($language === 'de' ? 'katalog/' : 'catalogue/');
     if ($type === 'product') {
         return $base . ($language === 'de' ? 'teile/' : 'parts/') .
             aur_seo_slug((string)$row['manufacturer'] . ' ' . (string)$row['model']) . '-' .
@@ -251,6 +252,7 @@ function aur_seo_head(string $language, string $title, string $description, stri
         '<header class="seo-top"><div class="seo-header"><a href="/" aria-label="AURENOEVA Home">' .
         '<img class="seo-logo" src="/assets/img/brand/aurenoeva-logo-approved.png" alt="AURENOEVA"></a>' .
         '<nav class="seo-nav"><a href="/">'.($language==='de'?'Startseite':'Home').'</a>' .
+        '<a href="'.aur_seo_h(aur_seo_route($language,'directory',[])).'">'.($language==='de'?'Katalog':'Catalogue').'</a>' .
         '<a href="/requirement.html">'.($language==='de'?'Anfragekorb öffnen':'Open enquiry basket').'</a>' .
         '<a href="/about.html">'.($language==='de'?'Über uns':'About').'</a></nav></div></header>';
 }
@@ -279,6 +281,7 @@ function aur_seo_sitemap(array $index, string $productsFile): void {
     if (!in_array($language,['en','de'],true)) { http_response_code(404);return; }
     echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
     if ($feed === 'taxonomy') {
+        echo '<url><loc>'.aur_seo_xml(AUR_SEO_BASE.aur_seo_route($language,'directory',[])).'</loc></url>';
         foreach ($index['makers'] as $maker=>$number) {
             echo '<url><loc>'.aur_seo_xml(AUR_SEO_BASE.aur_seo_route($language,'manufacturer',['manufacturer'=>$maker])).'</loc></url>';
         }
@@ -298,6 +301,107 @@ function aur_seo_sitemap(array $index, string $productsFile): void {
     } else { http_response_code(404);return; }
     echo '</urlset>';
 }
+
+/** One human-readable, source-backed entrypoint into the existing SEO taxonomy. */
+function aur_seo_directory(array $index, string $language): void {
+    $de=$language==='de';
+    $canonical=AUR_SEO_BASE.aur_seo_route($language,'directory',[]);
+    $currentPath=(string)(parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)?:'');
+    if ($currentPath!==parse_url($canonical,PHP_URL_PATH)) {
+        header('Location: '.$canonical,true,301);return;
+    }
+    $title=$de?'Technischer Produktkatalog und Hersteller | AURENOEVA'
+              :'Technical product catalogue and manufacturers | AURENOEVA';
+    $description=$de
+      ? 'Technische Bauteile nach Hersteller und Produktkategorie finden. Modellnummern prüfen und eine unverbindliche Beschaffungsanfrage stellen.'
+      : 'Find technical components by manufacturer and verified product category. Review model identifiers and request worldwide sourcing.';
+    $schema=['@context'=>'https://schema.org','@type'=>'CollectionPage',
+      'name'=>$title,'url'=>$canonical,'description'=>$description];
+    header('Cache-Control: public, max-age=300');
+    aur_seo_head($language,$title,$description,$canonical,$schema,[
+      'en'=>AUR_SEO_BASE.aur_seo_route('en','directory',[]),
+      'de'=>AUR_SEO_BASE.aur_seo_route('de','directory',[])]);
+    echo '<main class="seo-shell"><div class="seo-breadcrumb"><a href="/">'
+      .($de?'Startseite':'Home').'</a> / '.($de?'Katalog':'Catalogue').'</div>'
+      .'<article class="seo-card"><span class="seo-tag">'.($de?'Produkt- und Herstellersuche':'Product and manufacturer discovery').'</span>'
+      .'<h1>'.($de?'Technische Ersatzteile und Komponenten finden':'Find technical spare parts and components').'</h1>'
+      .'<p>'.aur_seo_h($description).' '
+      .($de?'Die folgenden Kategorien beruhen auf Produktinformationen aus dem veröffentlichten Katalog.'
+             :'The categories below are based on product evidence in the published catalogue.')
+      .'</p>';
+    $sectors=[
+      'laboratory'=>['Laboratory & analytical','Labor & Analytik'],
+      'test'=>['Test & measurement','Mess- und Prüftechnik'],
+      'medical'=>['Medical equipment','Medizintechnik'],
+      'industrial'=>['Industrial automation','Industrieautomation'],
+      'energy'=>['Energy & power systems','Energie & Stromversorgung'],
+      'marine'=>['Marine equipment','Marinetechnik'],
+      'aviation'=>['Aviation & aerospace','Luftfahrt & Raumfahrt']
+    ];
+    $groups=[];
+    foreach ($index['categories'] as $identity=>$count) {
+      if ((int)$count<1) continue;
+      [$sector,$category]=explode('|',(string)$identity,2);
+      if(isset($sectors[$sector])) $groups[$sector][]=[$category,(int)$count];
+    }
+    echo '<h2>'.($de?'Nach technischer Kategorie':'Browse by technical category').'</h2>';
+    foreach($sectors as $sector=>$names) {
+      if(empty($groups[$sector])) continue;
+      echo '<h3>'.aur_seo_h($names[$de?1:0]).'</h3><div class="seo-list">';
+      foreach($groups[$sector] as [$category,$count]) {
+        $href=aur_seo_route($language,'category',['sector'=>$sector,'category'=>$category]);
+        echo '<div class="seo-item"><a href="'.aur_seo_h($href).'">'
+          .aur_seo_h($category).'</a><small>'.number_format($count).' '
+          .($de?'Katalogreferenzen':'catalogue references').'</small></div>';
+      }
+      echo '</div>';
+    }
+    echo '<h2>'.($de?'Herstellerverzeichnis':'Manufacturer directory').'</h2>'
+      .'<p>'.($de?'Direkt zu Hersteller- und Modellreferenzen aus dem Katalog.'
+                 :'Browse manufacturers and their indexed model references.').'</p><div class="seo-list">';
+    $makers=$index['makers'];
+    arsort($makers,SORT_NUMERIC);
+    foreach(array_slice($makers,0,80,true) as $maker=>$count) {
+      $href=aur_seo_route($language,'manufacturer',['manufacturer'=>(string)$maker]);
+      echo '<div class="seo-item"><a href="'.aur_seo_h($href).'">'.aur_seo_h((string)$maker)
+        .'</a><small>'.number_format((int)$count).' '
+        .($de?'Katalogreferenzen':'catalogue references').'</small></div>';
+    }
+    echo '</div><p>'.($de
+      ? 'Weitere Hersteller finden Sie über die Produktsuche. Die vollständige Herstellerliste ist über die XML-Sitemap auffindbar.'
+      : 'For additional manufacturers, use product search. The full manufacturer directory is discoverable in the XML sitemap.').'</p>';
+    $extra=[
+      ['Oil, gas & petrochemicals','Öl, Gas & Petrochemie','oil gas'],
+      ['Chemicals & process industries','Chemie & Prozessindustrie','chemical'],
+      ['Pharmaceuticals & biotechnology','Pharma & Biotechnologie','pharma'],
+      ['Automotive & electric mobility','Automobil & Elektromobilität','automotive'],
+      ['Rail & transportation','Bahn & Verkehrstechnik','rail'],
+      ['Food & beverage','Lebensmittel & Getränke','food'],
+      ['Agriculture & forestry','Land- & Forstwirtschaft','agriculture'],
+      ['Mining & heavy equipment','Bergbau & Schwermaschinen','mining'],
+      ['Construction & building technology','Bau- & Gebäudetechnik','construction'],
+      ['Water, waste & environment','Wasser, Abfall & Umwelt','water'],
+      ['Electronics & semiconductors','Elektronik & Halbleiter','semiconductor'],
+      ['Logistics & warehousing','Logistik & Lagertechnik','logistics']
+    ];
+    echo '<h2>'.($de?'Weitere Branchen durchsuchen':'Explore additional industries').'</h2><p>'
+      .($de
+        ? 'Diese zwölf Branchen sind Suchthemen im Gesamtkatalog, keine separat nachgewiesenen Produktzuordnungen. Die Suche ist unverbindlich.'
+        : 'These twelve industries are cross-catalogue discovery topics, not separately verified product classifications. Search results require source review.')
+      .'</p><div class="seo-list">';
+    foreach($extra as [$en,$german,$term]) {
+      echo '<div class="seo-item"><a href="/requirement.html?mode=exact&amp;q='.rawurlencode($term).'">'
+        .aur_seo_h($de?$german:$en).'</a><small>'
+        .($de?'Gesamtkatalog durchsuchen':'Search across the catalogue').'</small></div>';
+    }
+    echo '</div><p>'.($de
+       ? 'Ein Katalogeintrag bestätigt weder Lagerbestand noch Lieferzeit oder Verkaufspreis. Liefermöglichkeiten werden nach Ihrer Anfrage geprüft.'
+       : 'Catalogue listings do not confirm stock, lead time or selling price. Sourcing is checked after your enquiry.').'</p>'
+       .'<a class="seo-cta" href="/requirement.html">'
+       .($de?'Beschaffungsanfrage starten':'Start a sourcing enquiry').'</a></article>';
+    aur_seo_footer($language);
+}
+
 function aur_seo_not_found(): never {
     http_response_code(404); header('X-Robots-Tag: noindex');
     echo 'Catalogue page not found / Katalogseite nicht gefunden'; exit;
@@ -307,6 +411,7 @@ function aur_seo_page(array $index,string $productsFile): void {
     $kind=(string)($_GET['kind'] ?? '');
     $key=(string)($_GET['key'] ?? '');
     if (!in_array($language,['en','de'],true) || strlen($key)>220) aur_seo_not_found();
+    if ($kind==='directory') { aur_seo_directory($index,$language);return; }
     $de=$language==='de';
     $selected=null; $items=[]; $matches=0; $page=(int)($_GET['page'] ?? 1);
     if ($page < 1 || $page > 5000) aur_seo_not_found();
@@ -373,7 +478,7 @@ function aur_seo_page(array $index,string $productsFile): void {
         'de'=>AUR_SEO_BASE.aur_seo_route('de',$kind,$selected)
     ]);
     $home=$de?'Startseite':'Home';
-    echo '<main class="seo-shell"><div class="seo-breadcrumb"><a href="/">'.$home.'</a> / '.aur_seo_h($typeLabel).'</div>' .
+    echo '<main class="seo-shell"><div class="seo-breadcrumb"><a href="/">'.$home.'</a> / <a href="'.aur_seo_h(aur_seo_route($language,'directory',[])).'">'.($de?'Katalog':'Catalogue').'</a> / '.aur_seo_h($typeLabel).'</div>' .
         '<article class="seo-card"><span class="seo-tag">'.aur_seo_h($typeLabel).'</span>' .
         '<h1>'.aur_seo_h($name).'</h1><p>'.aur_seo_h($description).'</p>';
     if ($kind==='product') {
