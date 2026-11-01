@@ -261,6 +261,38 @@ try {
     catch(InvalidArgumentException $e){$againSelectionRejected=true;}
     urgent_check($againSelectionRejected&&count($testSend)===3,
         'An already sent recipient was automatically resent');
+    // A stale German draft must not disable unrelated English recipients.
+    $isolated=$novSaved;
+    $isolated['draft_id']=bin2hex(random_bytes(12));
+    $isolated['status']='DRAFT_REVIEW';
+    $isolated['approval']=null;
+    $isolated['messages'][7]['body']='OLD DE wording: Bitte erstellen Sie uns ein Angebot.';
+    $isolated['messages'][7]['status']='DRAFT';
+    $isolated['messages'][7]['attempted_at']=null;
+    $isolated['messages'][7]['sent_at']=null;
+    unset($isolated['messages'][7]['transport_result']);
+    aur_vendor_rfq_write(aur_vendor_rfq_path($root,AUR_URGENT_RFQ_REF,$isolated['draft_id']),$isolated);
+    $isolatedSends=[];
+    $isolatedMock=static function($to,$subject,$body)use(&$isolatedSends):bool {
+        $isolatedSends[]=$to; return true;
+    };
+    $staleRefused=false;
+    try{aur_vendor_rfq_dispatch($root,$novCase,$isolated['draft_id'],true,
+        $isolatedMock,3,[7]);}
+    catch(InvalidArgumentException $e){$staleRefused=$e->getMessage()==='refresh_german_supplier_wording_first';}
+    urgent_check($staleRefused && !$isolatedSends,
+        'Unrefreshed German email should not be sent');
+    aur_vendor_rfq_dispatch($root,$novCase,$isolated['draft_id'],true,
+        $isolatedMock,3,[1]);
+    urgent_check(count($isolatedSends)===1
+        &&$isolatedSends[0]===$isolated['messages'][1]['to'],
+        'Old unrelated German draft incorrectly blocked an English supplier');
+    $portalCode=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php');
+    $dispatchCode=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_rfq.php');
+    urgent_check(str_contains($portalCode,'$aurShortBatch?aur_vendor_rfq_smtp_ready():aur_vendor_rfq_mail_verified($aurStore)')
+        &&str_contains($portalCode,'Update unsent German email wording')
+        &&str_contains($dispatchCode,'aur_vendor_rfq_send_smoke_test($store);'),
+        'Short supplier SMTP recovery or inline German refresh missing');
     require_once dirname(__DIR__).'/deployment/site/procurement/staff_auth.php';
     $request=json_encode(['task'=>'send','csrf'=>'test','case_ref'=>AUR_URGENT_RFQ_REF,
       'draft_id'=>$novSaved['draft_id'],'manual_review'=>true,'selected_indices'=>[1,4,5]]);
