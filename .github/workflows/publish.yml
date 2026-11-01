@@ -934,9 +934,15 @@ jobs:
               if status.get("snapshot_updated_at_utc") != finish.get("snapshot_updated_at_utc") or (
                   status["searchable_parts"] != finish["searchable_parts"]):
                   continue
-              assert sum(breakdown.values()) == status["searchable_parts"], {
-                  "public_counter":status["searchable_parts"],"browsed":sum(breakdown.values())}
+              # Multi-industry technical classifications legitimately make one
+              # canonical identity appear in two sector browsers. Compare the
+              # exact sector-appearance aggregate, not the UNIQUE ID count.
+              assert sum(breakdown.values()) == status["browse_sector_entries"], {
+                  "unique_searchable":status["searchable_parts"],
+                  "sector_entries_expected":status["browse_sector_entries"],
+                  "sector_entries_observed":sum(breakdown.values())}
               assert status["published_parts"] >= status["searchable_parts"], status
+              assert status["browse_sector_entries"] >= status["searchable_parts"], status
               break
           else:
               raise RuntimeError("catalogue_snapshot_changed_during_every_acceptance_scan")
