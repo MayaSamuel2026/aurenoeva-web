@@ -374,9 +374,9 @@ function aur_nov_short_compose(array $case,array $plan):array {
              'email'=>$lead['email'],'evidence_url'=>$lead['url']];
     $mail=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
     if($lead['language']==='de') {
-        $body="Guten Tag,\n\nbitte erstellen Sie uns ein Angebot für ".$lead['request'].".\n\n"
-            ."Die Geräte sind für den Einsatz im Krankenhaus vorgesehen. Der Käufer übernimmt Installation, Einweisung, Schulung, Wartung und technischen Service vor Ort.\n\n"
-            ."Bitte bestätigen Sie Verfügbarkeit, Stückpreis und Lieferzeit.\n\n"
+        $body="Guten Tag,\n\nwir interessieren uns für ".$lead['request']." und würden uns über ein unverbindliches Angebot freuen.\n\n"
+            ."Die Geräte sind für den Einsatz in einem Krankenhaus vorgesehen. Der Käufer übernimmt die Installation, Einweisung und Schulung sowie Wartung und technischen Service vor Ort.\n\n"
+            ."Über eine kurze Rückmeldung zu Verfügbarkeit, Preis und Lieferzeit würden wir uns sehr freuen.\n\n"
             ."Herzliche Grüße\n\n"
             ."AURENOEVA Purchasing\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein, Deutschland\n"
             ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
