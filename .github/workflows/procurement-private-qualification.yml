@@ -106,6 +106,7 @@ jobs:
           php tests/test_procurement_country_preflight.php
           php tests/test_procurement_supplier_replies.php
           php tests/test_procurement_inbox.php
+          php tests/test_procurement_refresh_scheduler.php
           php tests/test_procurement_mail_center.php
           php tests/test_procurement_smtp.php
           php -l hotfix/v8.2.6.10/catalogue_local.php
