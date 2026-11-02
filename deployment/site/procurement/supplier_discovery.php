@@ -224,15 +224,27 @@ function aur_supplier_duckduckgo_search(string $query,string $desc='',?array $ma
     $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_HTTP_CODE);
     curl_close($c);
     if($ok===false||$status!==200||$body==='')throw new RuntimeException('public_search_provider_unavailable');
-    return aur_supplier_duckduckgo_parse($body,9,$desc,$match);
+    return aur_supplier_duckduckgo_parse($body,PHP_INT_MAX,$desc,$match);
 }
 function aur_supplier_discovery_stats(array $intel): array {
     $rows=$intel['global_discovery']['rows']??[];
-    $checked=0;$links=0;
-    foreach ($rows as $r) {
-        if (is_array($r) && ($r['version']??'')===AUR_GLOBAL_DISCOVERY_VERSION && !empty($r['checked_at'])) {$checked++;$links+=count($r['leads']??[]);}
+    $checked=0;$links=0;$pending=0;$providerUnavailable=0;
+    foreach ($intel['rows']??[] as $sourceRow) {
+        $key=(string)($sourceRow['source_row']??'');
+        $r=$rows[$key]??null;
+        if (!is_array($r) || ($r['version']??'')!==AUR_GLOBAL_DISCOVERY_VERSION || empty($r['checked_at'])) {
+            $pending++;
+            continue;
+        }
+        $checked++;
+        $links+=count($r['leads']??[]);
+        if (($r['status']??'')==='PROVIDER_UNAVAILABLE') {
+            $providerUnavailable++;
+            $pending++;
+        }
     }
-    return ['checked'=>$checked,'links'=>$links,'total'=>count($intel['rows']??[])];
+    return ['checked'=>$checked,'links'=>$links,'total'=>count($intel['rows']??[]),
+        'pending'=>$pending,'provider_unavailable'=>$providerUnavailable];
 }
 function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?callable $fetcher=null,?callable $secondaryFetcher=null): array {
     if ($limit<1) throw new InvalidArgumentException('invalid_discovery_batch_size');
@@ -276,7 +288,7 @@ function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?cal
                     if (!is_array($other)) throw new RuntimeException('invalid_second_provider_response');
                     $leads=$other;
                     $provider='DUCKDUCKGO_LITE';
-                    $recovered=$primaryError!=='' && count($leads)>0;
+                    $recovered=count($leads)>0;
                 } catch (Throwable $e) {
                     $secondaryError=get_class($e);
                 }
