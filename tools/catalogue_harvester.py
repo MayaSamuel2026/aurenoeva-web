@@ -911,6 +911,11 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
+            # Due order is served directly by the existing (due,kind) index.
+            # The former (failures,depth,due) ordering built a temporary sort
+            # over millions of due URLs for every small batch, collapsing
+            # product throughput despite a healthy timer and publication.
+            # Fair supplier allocation and per-URL retry delays remain intact.
             # Fair discovery: reserve most requests for existing product-detail
             # leads, without starving fresh sitemaps and worldwide searches.
             # The previous absolute search-first sort could repeatedly consume
@@ -940,7 +945,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                     host_params=tuple("https://"+h+"/%" for h in priority_hosts)
                     favored=db.execute("""SELECT * FROM harvest_queue
                         WHERE due<=? AND kind=? AND ("""+host_where+""")
-                        ORDER BY failures,depth,due LIMIT ?""",
+                        ORDER BY due LIMIT ?""",
                         (stamp(),kind,*host_params,min(limit,priority_remaining))).fetchall()
                     for record in favored:
                         if record["url"] not in selected:
@@ -949,7 +954,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                     limit-=len(favored)
                 if not limit:continue
                 found=db.execute("""SELECT * FROM harvest_queue
-                    WHERE due<=? AND kind=? ORDER BY failures,depth,due
+                    WHERE due<=? AND kind=? ORDER BY due
                     LIMIT ?""",(stamp(),kind,limit)).fetchall()
                 for record in found:
                     if record["url"] not in selected:
@@ -958,7 +963,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # category has few pending URLs.
             if len(rows)<left:
                 for record in db.execute("""SELECT * FROM harvest_queue
-                    WHERE due<=? ORDER BY failures,depth,due LIMIT ?""",
+                    WHERE due<=? ORDER BY due LIMIT ?""",
                     (stamp(),left+len(rows))).fetchall():
                     if record["url"] not in selected:
                         rows.append(record);selected.add(record["url"])
