@@ -1,12 +1,10 @@
 <?php
 declare(strict_types=1);
 /**
- * Hostinger cron entrypoint for incremental worldwide supplier research.
- * Runs only by CLI, writes exclusively to existing private case research files,
- * never emails suppliers or changes legal review/quotes.
- *
- * Suggested Hostinger cron (after deployment verification):
- * php /home/ACCOUNT/domains/aurenoeva.com/public_html/procurement/supplier-refresh-cli.php
+ * Canonical Hostinger CLI refresh: mailbox reconciliation and fair, durable
+ * case-by-case supplier research. No mail dispatch or regulatory clearance.
+ * Every stored case eventually gets a turn; run time is bounded, not catalogue
+ * size, supplier count, or the total number of cases.
  */
 if (PHP_SAPI !== 'cli') {http_response_code(403);exit('Forbidden');}
 require __DIR__.'/private_cases.php';
@@ -14,34 +12,94 @@ require __DIR__.'/supplier_intelligence.php';
 require __DIR__.'/supplier_discovery.php';
 require __DIR__.'/supplier_inbox.php';
 require __DIR__.'/cycle_verification.php';
+
+function aur_refresh_read_state(string $file):array {
+    if (!is_file($file) || is_link($file)) return [];
+    $data=json_decode((string)file_get_contents($file),true);
+    return is_array($data)?$data:[];
+}
+function aur_refresh_write_state(string $file,array $value):void {
+    if (is_link($file)) throw new RuntimeException('unsafe_refresh_state');
+    $tmp=dirname($file).'/.refresh-'.bin2hex(random_bytes(8));
+    $json=json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
+    if (file_put_contents($tmp,$json,LOCK_EX)!==strlen($json)) throw new RuntimeException('refresh_state_write_failed');
+    chmod($tmp,0600);
+    if (!rename($tmp,$file)) { @unlink($tmp);throw new RuntimeException('refresh_state_commit_failed'); }
+}
+function aur_refresh_start_index(array $refs,string $after):int {
+    if ($after==='') return 0;
+    foreach ($refs as $i=>$reference) if (strcmp($reference,$after)>0) return $i;
+    return 0;
+}
+
+$locked=null;
 try {
     $store=aur_store_root();
-    // Reuse the existing scheduled Hostinger job; mailbox failures must not block supplier research.
-    $mail=['status'=>'NOT_RUN'];
-    try{$mail=aur_mail_sync($store,30);}catch(Throwable $e){
-        $mail=['ok'=>false,'error'=>$e->getMessage()];
-        error_log('AURENOEVA scheduled inbox: '.$e->getMessage());
+    $dir=aur_private_directory($store,'supplier-intelligence');
+    $locked=fopen($dir.'/.supplier-refresh.lock','c');
+    if (!$locked || !flock($locked,LOCK_EX|LOCK_NB)) throw new RuntimeException('supplier_refresh_already_running');
+    $started=gmdate('c');
+    $clock=microtime(true);
+    $mail=['ok'=>false,'status'=>'NOT_RUN'];
+    try { $mail=aur_mail_sync($store,30); }
+    catch (Throwable $e) {
+        $mail=['ok'=>false,'status'=>'ERROR','error'=>get_class($e)];
+        error_log('AURENOEVA supplier inbox failure: '.get_class($e));
     }
     $listing=aur_case_list($store);
-    $out=[];$total=0;
-    foreach (array_slice($listing['cases']??[],0,25) as $row) {
-        // Bound a single cron run to at most eight live lookups in total.
-        if ($total>=8) break;
-        $case=aur_case_read($store,(string)$row['reference']);
-        $result=aur_supplier_discover_batch($store,$case,min(2,8-$total));
-        $total+=(int)$result['processed'];
-        $out[]=['case'=>$case['reference'],'checked'=>$result['processed'],
-            'new_unverified_links'=>$result['new_unverified_links'],
-            'provider_failures'=>$result['provider_failures']];
+    $refs=[];
+    foreach ($listing['cases']??[] as $case) {
+        $ref=(string)($case['reference']??'');
+        if ($ref!=='') $refs[$ref]=$ref;
     }
-    // Existing scheduled supplier-refresh job also verifies communication evidence.
-    // The verifier cannot send mail or turn an enquiry into a transaction.
-    $wp09=['status'=>'UNAVAILABLE'];
-    try{$wp09=aur_wp09_cycle_report($store)['summary'];}
-    catch(Throwable $e){error_log('AURENOEVA WP09 cron verification: '.get_class($e));}
-    echo json_encode(['ok'=>true,'checked'=>$total,'cases'=>$out,'supplier_emails_sent'=>0,
-        'legal_clearances_granted'=>0,'inbox'=>$mail,'wp09_verified_cycles'=>$wp09],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
+    $refs=array_values($refs);
+    sort($refs,SORT_STRING);
+    $cursorPath=$dir.'/supplier-refresh-cursor.json';
+    $previous=aur_refresh_read_state($cursorPath);
+    $start=aur_refresh_start_index($refs,(string)($previous['last_reference']??''));
+    $out=[];$checked=0;$visited=0;$caseErrors=0;$providerFailures=0;
+    $last=(string)($previous['last_reference']??'');
+    $count=count($refs);
+    for ($offset=0;$offset<$count;$offset++) {
+        // Bound one cron execution, not the total discovery universe.
+        if ($offset>0 && microtime(true)-$clock>=75) break;
+        $ref=$refs[($start+$offset)%$count];
+        try {
+            $case=aur_case_read($store,$ref);
+            $result=aur_supplier_discover_batch($store,$case,2);
+            $checked+=(int)($result['processed']??0);
+            $providerFailures+=(int)($result['provider_failures']??0);
+            $out[]=['case'=>$ref,'checked'=>(int)($result['processed']??0),
+                'new_unverified_links'=>(int)($result['new_unverified_links']??0),
+                'provider_failures'=>(int)($result['provider_failures']??0)];
+        } catch (Throwable $e) {
+            $caseErrors++;
+            error_log('AURENOEVA supplier case refresh failed '.hash('sha256',$ref).' '.get_class($e));
+            $out[]=['case'=>$ref,'status'=>'ERROR','error_type'=>get_class($e)];
+        }
+        $visited++;
+        $last=$ref;
+        aur_refresh_write_state($cursorPath,['last_reference'=>$last,'updated_at'=>gmdate('c')]);
+    }
+    $wp09=null;
+    try { $wp09=aur_wp09_cycle_report($store)['summary']; }
+    catch (Throwable $e) {error_log('AURENOEVA verification failed: '.get_class($e));}
+    $mailOk=($mail['ok']??false)===true;
+    $ok=$mailOk && is_array($wp09) && $caseErrors===0 && $providerFailures===0;
+    $status=!$ok?'DEGRADED':($visited<$count?'PARTIAL_RUN':'COMPLETE_SWEEP');
+    $report=['ok'=>$ok,'status'=>$status,'started_at'=>$started,'finished_at'=>gmdate('c'),
+        'duration_seconds'=>round(microtime(true)-$clock,2),
+        'total_cases'=>$count,'cases_scanned'=>$visited,'remaining_this_sweep'=>max(0,$count-$visited),
+        'last_reference'=>$last,'checked'=>$checked,'provider_failures'=>$providerFailures,
+        'case_errors'=>$caseErrors,'cases'=>$out,'supplier_emails_sent'=>0,
+        'legal_clearances_granted'=>0,'inbox'=>$mail,
+        'wp09_verified_cycles'=>$wp09??['status'=>'UNAVAILABLE']];
+    aur_refresh_write_state($dir.'/supplier-refresh-latest.json',$report);
+    echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
+    exit($ok?0:2);
 } catch (Throwable $e) {
-    fwrite(STDERR,"AURENOEVA supplier refresh failed: ".get_class($e)."\n");
+    fwrite(STDERR,'AURENOEVA supplier refresh failed: '.get_class($e)."\n");
     exit(1);
+} finally {
+    if (is_resource($locked)) {flock($locked,LOCK_UN);fclose($locked);}
 }
