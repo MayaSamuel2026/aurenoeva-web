@@ -58,6 +58,7 @@ try {
     $previous=aur_refresh_read_state($cursorPath);
     $start=aur_refresh_start_index($refs,(string)($previous['last_reference']??''));
     $out=[];$checked=0;$visited=0;$caseErrors=0;$providerFailures=0;
+    $recoveries=0;$pendingRows=0;$assessedRows=0;$knownRows=0;$unavailableRows=0;
     $last=(string)($previous['last_reference']??'');
     $count=count($refs);
     for ($offset=0;$offset<$count;$offset++) {
@@ -69,9 +70,17 @@ try {
             $result=aur_supplier_discover_batch($store,$case,2);
             $checked+=(int)($result['processed']??0);
             $providerFailures+=(int)($result['provider_failures']??0);
+            $recoveries+=(int)($result['fallback_recoveries']??0);
+            $stats=$result['stats']??[];
+            $pendingRows+=(int)($stats['pending']??0);
+            $assessedRows+=(int)($stats['checked']??0);
+            $knownRows+=(int)($stats['total']??0);
+            $unavailableRows+=(int)($stats['provider_unavailable']??0);
             $out[]=['case'=>$ref,'checked'=>(int)($result['processed']??0),
                 'new_unverified_links'=>(int)($result['new_unverified_links']??0),
-                'provider_failures'=>(int)($result['provider_failures']??0)];
+                'provider_failures'=>(int)($result['provider_failures']??0),
+                'fallback_recoveries'=>(int)($result['fallback_recoveries']??0),
+                'outstanding_checks'=>(int)($stats['pending']??0)];
         } catch (Throwable $e) {
             $caseErrors++;
             error_log('AURENOEVA supplier case refresh failed '.hash('sha256',$ref).' '.get_class($e));
@@ -86,11 +95,14 @@ try {
     catch (Throwable $e) {error_log('AURENOEVA verification failed: '.get_class($e));}
     $mailOk=($mail['ok']??false)===true;
     $ok=$mailOk && is_array($wp09) && $caseErrors===0 && $providerFailures===0;
-    $status=!$ok?'DEGRADED':($visited<$count?'PARTIAL_RUN':'COMPLETE_SWEEP');
+    $status=!$ok?'DEGRADED':($visited<$count || $pendingRows>0?'PARTIAL_RUN':'COMPLETE_SWEEP');
     $report=['ok'=>$ok,'status'=>$status,'started_at'=>$started,'finished_at'=>gmdate('c'),
         'duration_seconds'=>round(microtime(true)-$clock,2),
         'total_cases'=>$count,'cases_scanned'=>$visited,'remaining_this_sweep'=>max(0,$count-$visited),
         'last_reference'=>$last,'checked'=>$checked,'provider_failures'=>$providerFailures,
+        'recovered_by_fallback'=>$recoveries,'source_rows_in_visited_cases'=>$knownRows,
+        'assessed_rows_in_visited_cases'=>$assessedRows,'unresolved_rows_in_visited_cases'=>$pendingRows,
+        'provider_unavailable_rows_in_visited_cases'=>$unavailableRows,
         'case_errors'=>$caseErrors,'cases'=>$out,'supplier_emails_sent'=>0,
         'legal_clearances_granted'=>0,'inbox'=>$mail,
         'wp09_verified_cycles'=>$wp09??['status'=>'UNAVAILABLE']];
