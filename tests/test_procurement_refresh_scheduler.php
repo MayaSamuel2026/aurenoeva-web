@@ -18,7 +18,15 @@ function aur_private_directory(string $store,string $name):string {
 }
 function aur_mail_sync(string $store,int $limit=20):array {
     if (getenv('AUR_REFRESH_TEST_MAIL_FAIL')==='1') throw new RuntimeException('simulated_mailbox_failure');
-    return ['ok'=>true,'status'=>'PASS','more_pending'=>false];
+    if (getenv('AUR_REFRESH_TEST_MAIL_BUSY')==='1')
+        return ['ok'=>true,'busy'=>true,'processed'=>0];
+    static $batch=0;
+    if (getenv('AUR_REFRESH_TEST_MAIL_BACKLOG')==='1') {
+        $batch++;
+        return ['ok'=>true,'status'=>'PASS','processed'=>$batch===1?30:5,
+            'more_pending'=>$batch===1];
+    }
+    return ['ok'=>true,'status'=>'PASS','more_pending'=>false,'processed'=>0];
 }
 function aur_case_list(string $store):array {
     $cases=[];
@@ -62,6 +70,22 @@ try {
     $latest=json_decode(file_get_contents($dir.'/supplier-refresh-latest.json'),true);
     verify_refresh($latest['status']==='DEGRADED','Failure receipt not persisted');
     putenv('AUR_REFRESH_TEST_MAIL_FAIL=0');
+    putenv('AUR_REFRESH_TEST_MAIL_BUSY=1');
+    [$exit,$run]=run_refresh($script);
+    verify_refresh($exit===2 && $run['inbox']['status']==='MAILBOX_BUSY_RETRY_SCHEDULED',
+        'Mailbox busy lock was incorrectly treated as a completed sync');
+    putenv('AUR_REFRESH_TEST_MAIL_BUSY=0');
+    putenv('AUR_REFRESH_TEST_MAIL_BACKLOG=1');
+    [$exit,$run]=run_refresh($script);
+    verify_refresh($exit===0 && $run['inbox']['batches_this_run']===2
+        && $run['inbox']['processed_this_run']===35,'Backlogged mail was not resumed until drained');
+    putenv('AUR_REFRESH_TEST_MAIL_BACKLOG=0');
+    $last=json_decode(file_get_contents($dir.'/supplier-refresh-latest.json'),true);
+    $last['status']='RUNNING'; // simulate abrupt loss after checkpoint
+    file_put_contents($dir.'/supplier-refresh-latest.json',json_encode($last));
+    [$exit,$run]=run_refresh($script);
+    verify_refresh($exit===0 && $run['recovered_interrupted_previous_run']===true,
+        'Interrupted last run was not recognized and recovered');
     putenv('AUR_REFRESH_TEST_PROVIDER_FAIL=1');
     [$exit,$run]=run_refresh($script);
     verify_refresh($exit===2 && $run['provider_failures']===37,
