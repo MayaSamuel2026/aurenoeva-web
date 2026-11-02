@@ -40,12 +40,37 @@ try {
     if (!$locked || !flock($locked,LOCK_EX|LOCK_NB)) throw new RuntimeException('supplier_refresh_already_running');
     $started=gmdate('c');
     $clock=microtime(true);
+    // A crash leaves RUNNING behind. The next scheduled execution resumes
+    // from the durable per-case cursor; it never re-sends supplier emails.
+    $receiptPath=$dir.'/supplier-refresh-latest.json';
+    $priorReceipt=aur_refresh_read_state($receiptPath);
+    $recoveredInterrupted=($priorReceipt['status']??'')==='RUNNING';
+    aur_refresh_write_state($receiptPath,['status'=>'RUNNING',
+        'started_at'=>$started,'last_successful_run_at'=>$priorReceipt['last_successful_run_at']??null,
+        'last_complete_sweep_at'=>$priorReceipt['last_complete_sweep_at']??null]);
     $mail=['ok'=>false,'status'=>'NOT_RUN'];
-    try { $mail=aur_mail_sync($store,30); }
-    catch (Throwable $e) {
-        $mail=['ok'=>false,'status'=>'ERROR','error'=>get_class($e)];
+    $mailBatches=0;$mailProcessed=0;
+    try {
+        do {
+            $part=aur_mail_sync($store,30);
+            $mailBatches++;
+            $mailProcessed+=(int)($part['processed']??0);
+            $mail=$part;
+            if (($part['busy']??false)===true) {
+                $mail['ok']=false;
+                $mail['status']='MAILBOX_BUSY_RETRY_SCHEDULED';
+                break;
+            }
+            if (($part['ok']??false)!==true || empty($part['more_pending'])) break;
+            // A time budget is an execution checkpoint, never an inbox-size limit.
+        } while (microtime(true)-$clock<25);
+    } catch (Throwable $e) {
+        $mail=['ok'=>false,'status'=>'ERROR','error'=>get_class($e),
+            'more_pending'=>true];
         error_log('AURENOEVA supplier inbox failure: '.get_class($e));
     }
+    $mail['batches_this_run']=$mailBatches;
+    $mail['processed_this_run']=$mailProcessed;
     $listing=aur_case_list($store);
     $refs=[];
     foreach ($listing['cases']??[] as $case) {
@@ -95,8 +120,13 @@ try {
     catch (Throwable $e) {error_log('AURENOEVA verification failed: '.get_class($e));}
     $mailOk=($mail['ok']??false)===true;
     $ok=$mailOk && is_array($wp09) && $caseErrors===0 && $providerFailures===0;
-    $status=!$ok?'DEGRADED':($visited<$count || $pendingRows>0?'PARTIAL_RUN':'COMPLETE_SWEEP');
-    $report=['ok'=>$ok,'status'=>$status,'started_at'=>$started,'finished_at'=>gmdate('c'),
+    $status=!$ok?'DEGRADED':($visited<$count || $pendingRows>0 || !empty($mail['more_pending'])?'PARTIAL_RUN':'COMPLETE_SWEEP');
+    $finished=gmdate('c');
+    $report=['ok'=>$ok,'status'=>$status,'started_at'=>$started,'finished_at'=>$finished,
+        'recovered_interrupted_previous_run'=>$recoveredInterrupted,
+        'last_successful_run_at'=>$ok?$finished:($priorReceipt['last_successful_run_at']??null),
+        'last_complete_sweep_at'=>$status==='COMPLETE_SWEEP'
+            ?$finished:($priorReceipt['last_complete_sweep_at']??null),
         'duration_seconds'=>round(microtime(true)-$clock,2),
         'total_cases'=>$count,'cases_scanned'=>$visited,'remaining_this_sweep'=>max(0,$count-$visited),
         'last_reference'=>$last,'checked'=>$checked,'provider_failures'=>$providerFailures,
@@ -106,7 +136,7 @@ try {
         'case_errors'=>$caseErrors,'cases'=>$out,'supplier_emails_sent'=>0,
         'legal_clearances_granted'=>0,'inbox'=>$mail,
         'wp09_verified_cycles'=>$wp09??['status'=>'UNAVAILABLE']];
-    aur_refresh_write_state($dir.'/supplier-refresh-latest.json',$report);
+    aur_refresh_write_state($receiptPath,$report);
     echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
     exit($ok?0:2);
 } catch (Throwable $e) {
