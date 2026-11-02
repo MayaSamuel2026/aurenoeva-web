@@ -234,8 +234,8 @@ function aur_supplier_discovery_stats(array $intel): array {
     }
     return ['checked'=>$checked,'links'=>$links,'total'=>count($intel['rows']??[])];
 }
-function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?callable $fetcher=null): array {
-    if ($limit<1 || $limit>4) throw new InvalidArgumentException('invalid_discovery_batch_size');
+function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?callable $fetcher=null,?callable $secondaryFetcher=null): array {
+    if ($limit<1) throw new InvalidArgumentException('invalid_discovery_batch_size');
     // Reuse the existing authoritative research file; the case is not altered.
     aur_supplier_save($store,$case);
     $reference=(string)$case['reference'];
@@ -247,7 +247,7 @@ function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?cal
         if (!is_array($intel)) throw new RuntimeException('research_not_found');
         if (!isset($intel['global_discovery'])) $intel['global_discovery']=[
             'version'=>AUR_GLOBAL_DISCOVERY_VERSION,'rows'=>[]];
-        $now=time();$processed=0;$new=0;$fail=0;
+        $now=time();$processed=0;$new=0;$fail=0;$recoveries=0;
         foreach ($intel['rows'] as $row) {
             $key=(string)($row['source_row']??'');
             $prior=$intel['global_discovery']['rows'][$key]??null;
@@ -256,19 +256,42 @@ function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?cal
             if (is_array($prior) && ($prior['version']??'')===AUR_GLOBAL_DISCOVERY_VERSION && $now-(int)($prior['checked_timestamp']??0)<$cooldown) continue;
             $desc=(string)($row['description']??'');
             $query=aur_supplier_global_queries($desc,aur_supplier_match($desc))['Worldwide'];
-            $leads=[];$status='SEARCHED_NO_MATCH';
+            $leads=[];$status='SEARCHED_NO_MATCH';$provider='BING_PUBLIC_RSS';
+            $primaryError='';$secondaryError='';$recovered=false;
             try {
                 $xml=$fetcher ? $fetcher($query) : aur_supplier_public_rss($query);
-                $leads=aur_supplier_feed_parse((string)$xml,5,$desc,aur_supplier_match($desc));
-                if ($leads) $status='PUBLIC_LEADS_UNVERIFIED';
+                // Read all qualifying results supplied by the response; no first-five cut-off.
+                $leads=aur_supplier_feed_parse((string)$xml,PHP_INT_MAX,$desc,aur_supplier_match($desc));
             } catch (Throwable $e) {
-                // Do not fabricate matches when the search service fails.
+                $primaryError=get_class($e);
+            }
+            // Recover from a failed or empty primary search through the
+            // already-existing approved second public search provider.
+            // Injected tests never invoke the network without an explicit secondary.
+            if (!$leads && (!$fetcher || $secondaryFetcher!==null)) {
+                try {
+                    $other=$secondaryFetcher
+                        ? $secondaryFetcher($query,$desc,aur_supplier_match($desc))
+                        : aur_supplier_duckduckgo_search($query,$desc,aur_supplier_match($desc));
+                    if (!is_array($other)) throw new RuntimeException('invalid_second_provider_response');
+                    $leads=$other;
+                    $provider='DUCKDUCKGO_LITE';
+                    $recovered=$primaryError!=='' && count($leads)>0;
+                } catch (Throwable $e) {
+                    $secondaryError=get_class($e);
+                }
+            }
+            if ($recovered) $recoveries++;
+            if ($leads) $status='PUBLIC_LEADS_UNVERIFIED';
+            elseif ($primaryError!=='' || $secondaryError!=='') {
+                // Retry unresolved provider outages on the next scheduled cycle.
                 $status='PROVIDER_UNAVAILABLE';$fail++;
             }
             $intel['global_discovery']['rows'][$key]=[
                 'version'=>AUR_GLOBAL_DISCOVERY_VERSION,'status'=>$status,'query'=>$query,
                 'checked_at'=>gmdate('c'),'checked_timestamp'=>$now,
-                'search_provider'=>'BING_PUBLIC_RSS',
+                'search_provider'=>$provider,'primary_error'=>$primaryError,
+                'secondary_error'=>$secondaryError,'recovered_by_fallback'=>$recovered,
                 'leads'=>$leads];
             $processed++;$new+=count($leads);
             if ($processed>=$limit) break;
@@ -285,6 +308,7 @@ function aur_supplier_discover_batch(string $store,array $case,int $limit=2,?cal
             if (!is_array($readback)) throw new RuntimeException('discovery_readback_failed');
         }
         return ['processed'=>$processed,'new_unverified_links'=>$new,'provider_failures'=>$fail,
+                'fallback_recoveries'=>$recoveries,
                 'stats'=>aur_supplier_discovery_stats($intel),'outreach_sent'=>false];
     } finally {flock($lock,LOCK_UN);fclose($lock);}
 }
