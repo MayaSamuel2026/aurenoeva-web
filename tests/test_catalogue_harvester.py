@@ -161,6 +161,29 @@ class Tests(unittest.TestCase):
                          {"scanned":0,"removed":0,"complete":True})
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],0)
 
+    def test_due_queue_selection_uses_existing_index_without_mass_sort(self):
+        # The live frontier has millions of due URLs: repeated temp B-tree
+        # sorts used to consume crawl time rather than fetch product pages.
+        queries=(
+            ("SELECT * FROM harvest_queue WHERE due<=? AND kind=? "
+             "ORDER BY due LIMIT ?",("2026-11-02T20:00:00Z","page",12)),
+            ("SELECT * FROM harvest_queue WHERE due<=? "
+             "ORDER BY due LIMIT ?",("2026-11-02T20:00:00Z",12)),
+            ("SELECT * FROM harvest_queue WHERE due<=? AND kind=? "
+             "AND (url LIKE ? OR url LIKE ?) ORDER BY due LIMIT ?",
+             ("2026-11-02T20:00:00Z","page",
+              "https://www.ifm.com/%","https://www.agilent.com/%",12)),
+        )
+        for query,params in queries:
+            plan=[str(row[3]) for row in self.db.execute(
+                "EXPLAIN QUERY PLAN "+query,params)]
+            self.assertFalse(any("TEMP B-TREE FOR ORDER BY" in step for step in plan),plan)
+            self.assertTrue(any("harvest_queue_due" in step for step in plan),plan)
+        # Keep this inexpensive query contract aligned with the actual
+        # crawler, rather than reintroducing the slow sort in another branch.
+        source=(Path(__file__).resolve().parents[1]/"tools/catalogue_harvester.py").read_text()
+        self.assertNotIn("ORDER BY failures,depth,due",source)
+
     def test_denials_and_rate_limits_get_polite_cooldowns(self):
         from urllib.error import HTTPError
         self.assertEqual(retry_wait_seconds(PermissionError("robots_disallowed"),0),14*86400)
