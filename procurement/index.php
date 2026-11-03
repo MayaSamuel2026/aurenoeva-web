@@ -37,6 +37,7 @@ require_once __DIR__ . '/cycle_verification.php';
 require_once __DIR__ . '/mail_center.php';
 require_once __DIR__ . '/staff_auth.php';
 require_once __DIR__ . '/commercial_intelligence.php';
+require_once __DIR__ . '/quote_comparison.php';
 // The supplier dashboard uses one compact JSON request instead of a large
 // multipart/array form. Same signed-cookie authentication and CSRF validation.
 if (($_SERVER['REQUEST_METHOD']??'')==='POST' &&
@@ -221,6 +222,27 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['rfq'])) {
     header('Content-Length: '.strlen($body));
     echo $body;
     exit;
+}
+
+/* Staff-only private price comparison; records stay anchored to original source rows. */
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' &&
+    (isset($_POST['save_price_offer'])||isset($_POST['delete_price_offer']))) {
+    if(!$isAdmin)aur_denied(401,'authentication required');
+    try {
+        $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+        if(isset($_POST['delete_price_offer'])) {
+            aur_prices_delete($aurStore,$case,trim((string)($_POST['offer_id']??'')));
+            $flag='price_deleted';
+        } else {
+            aur_prices_record($aurStore,$case,$_POST);
+            $flag='price_saved';
+        }
+        header('Location: /procurement/?case='.rawurlencode((string)$case['reference']).'&'.$flag.'=1#aur-quote-comparison',true,303);
+        exit;
+    } catch(Throwable $e) {
+        error_log('AURENOEVA price comparison: '.get_class($e));
+        aur_denied(422,'Price offer could not be saved; check the original row, numeric price, currency and evidence reference.');
+    }
 }
 
 $result = null;
@@ -1259,6 +1281,7 @@ source rows <?= (int)$flag['source_rows'][0] ?> and <?= (int)$flag['source_rows'
 <?php endforeach; ?></tbody></table></div>
 <p class="muted">Saved reference: <?=aur_escape((string)$result['reference'])?> · <a href="?case=<?=rawurlencode((string)$result['reference'])?>">Reload original enquiry</a></p>
 </details>
+<?php aur_prices_panel($aurStore,$result,$csrf); ?>
 <details id="supplier-search-controls" class="aux-disclosure" aria-label="Persistent worldwide supplier search"><summary>Step 3 of 5 · Find additional suppliers worldwide</summary>
 <p>This search remains available alongside the original enquiry, even if supplier research is temporarily unavailable. Previously discovered source links are preserved independently of the uploaded customer specifications.</p>
 <form id="aur-worldwide-scan-form" method="post" action="/procurement/" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
