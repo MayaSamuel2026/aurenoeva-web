@@ -89,7 +89,7 @@ function aur_prices_live_mail(string $store,array $case):array {
     }
     $definitions=[
        [84,24,'sky-optic.de','Sky Optic','USED','Huvitz HRK-1 · 2019','EUR','/Preis:\s*([\d.,]+)\s*€/u'],
-       [80,25,'remma.fr','REMMA','NEW','Huvitz HNT-1 · ex. VAT · Germany 3–4 weeks free or express €199 / 10 business days','EUR','/price is confirmed at\s*\*?€\s*([\d,.]+)/i'],
+       [80,25,'remma.fr','REMMA','UNKNOWN','Huvitz HNT-1 · requested new; seller has not reconfirmed condition · ex. VAT · Germany 3–4 weeks free or express €199 / 10 business days','EUR','/price is confirmed at\s*\*?€\s*([\d,.]+)/i'],
        [81,32,'sakomed.com','SakoMed','REFURBISHED','Dräger Savina · production year and export not confirmed','USD','/Refurbished:\s*\$([\d,]+)/i'],
        [81,32,'sakomed.com','SakoMed','USED','Alternative used Savina; RFQ requests refurbished 2010–2013','USD','/Working\s+USED:\s*\$([\d,]+)/i'],
        [82,26,'uandiopticinstrument.com','U & I Optic Instrument','USED','Octopus 600 · 2018 · printer/table · video received; no price in supplier reply','',''],
@@ -126,6 +126,11 @@ function aur_prices_public_sources(array $case):array {
     if(($case['reference']??'')!=='AUR-UZ-1A04A7909185FACD')return [];
     // URLs and advertised prices are public research leads, not supplier quotations.
     return [
+       1=>[['DRGEM manufacturer','https://www.drgemhealthcare.com/','','','NEW','Original 52 kW DIAMOND Classic Expert configuration; manufacturer reply pending compliance details']],
+       2=>[['Anthos A5 manufacturer','https://www.anthos.it/','','','NEW','Specify Continental over-patient configuration, not A5 Cart']],
+       26=>[['Mindray manufacturer','https://www.mindray.com/','','','NEW','WATO EX-35 · two systems with 3-gas, compressor and requested options; no seller offer yet']],
+       28=>[['Meditsinoff E-8 manufacturer','https://www.medicinoff.ru/category/telezhki_meditsinskie_dlya_transportirovki_patsientov/673/','','','UNKNOWN','Exact model E-8; verify requested 200 mm wheels; some listings differ']],
+       35=>[['European Siemens MRI seller','https://www.globalstocks.eu/stock-offers/europe/health-beauty/mri-offers-available-immediately-from-siemens-europe/67858','EUR','165000','USED','Starting advertised used Siemens Magnetom Espree 1.5 T, EXW Europe; other models priced higher; confirm condition, 1.5 T specification, availability']],
        3=>[['Art Medical Suisse Z20','https://www.artmedicalsuisse.ch/listings/8814049-refurbished-samsung-z20-ultrasound','CHF','63500','REFURBISHED','Advertised refurbished 2024 with two probes, not the required four-probe specification']],
        8=>[['DS.Med CystoFiber manufacturer','https://ds-med.info/','','','UNKNOWN','Exact CystoFiber product family; request 4.9/2.2 configuration']],
        9=>[['DS.Med DS.Vision manufacturer','https://ds-med.info/','','','UNKNOWN','Manufacturer family; confirm FHD 3-in-1 and light-guide supply'],
