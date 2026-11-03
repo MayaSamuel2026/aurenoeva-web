@@ -409,6 +409,52 @@ try{
 </section>
 <?php endif;?>
 
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$nextStockSaved=null;$nextStockMessages=[];$nextStockError='';
+try {
+    $nextStockSaved=aur_next_stock_saved($aurStore,$result);
+    if(is_array($nextStockSaved))$nextStockMessages=$nextStockSaved['messages'];
+    else foreach(aur_stock_listing_plans($result,aur_next_stock_leads()) as $p)
+        $nextStockMessages[]=aur_stock_listing_compose($result,$p);
+}catch(Throwable $e){
+    error_log('AURENOEVA next stock batch: '.get_class($e).' '.substr($e->getMessage(),0,100));
+    $nextStockError='The new supplier shortlist could not be prepared from this original enquiry.';
+}
+?>
+<section class="card" id="aur-next-stock-rfq" style="margin-top:18px;border-color:#9dbbae">
+<h2>Next enquiry round · 6 specific suppliers</h2>
+<p>Six additional suppliers identified from specific model listings, manufacturer referrals or official distributor details, covering Samsung Z20, Pentax CP-1000 / VNL9-CP, MediWorks S260S, CATTANI AC300, Neurosoft Neuron-Spectrum-1 and Heinemann MODULA Europa.</p>
+<p class="muted">These are new research candidates, not confirmed available inventory. This round excludes sellers who already replied in the earlier stockholder campaign. Sending remains under your control in batches of three.</p>
+<?php if($nextStockError!==''):?>
+  <p role="alert"><?=aur_escape($nextStockError)?></p>
+<?php elseif(!is_array($nextStockSaved)):?>
+  <form action="/procurement/" method="post">
+    <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+    <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+    <button type="submit" name="prepare_next_stock_supplier_rfqs" value="1">Save these <?=count($nextStockMessages)?> new enquiries for review · Do not send</button>
+  </form>
+<?php else:?>
+  <p role="status"><b>Drafts saved, not sent by preparation.</b>
+    <a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$nextStockSaved['draft_id'])?>#aur-rfq-approval">
+    <b>Review, select and send in groups of three</b></a>
+  </p>
+<?php endif;?>
+<details class="aux-disclosure">
+<summary>Review supplier names, source evidence and the six complete emails</summary>
+<?php foreach($nextStockMessages as $mail): ?>
+<details class="aur-mail-preview">
+  <summary><?=aur_escape((string)($mail['vendor_name']??''))?> · <?=aur_escape((string)($mail['to']??''))?></summary>
+  <p><b>RFQ items:</b> <?php foreach(($mail['items']??[]) as $it):?> #<?=(int)($it['customer_item_number']??0)?> <?php endforeach;?></p>
+  <p><b>Source:</b> <a href="<?=aur_escape((string)($mail['listing_evidence_url']??''))?>" target="_blank" rel="noopener noreferrer">Original supplier/model evidence</a></p>
+  <p><b>Research basis:</b> <?=aur_escape((string)($mail['listing_claim']??''))?></p>
+  <p><b>Subject:</b> <?=aur_escape((string)($mail['subject']??''))?></p>
+  <pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)($mail['body']??''))?></pre>
+</details>
+<?php endforeach;?>
+</details>
+</section>
+<?php endif;?>
+
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
