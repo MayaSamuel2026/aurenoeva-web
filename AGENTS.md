@@ -85,3 +85,15 @@ Apply only a small automated release check for core customer-facing capabilities
 **Reliability requirement:** 100% accounting for pending, attempted, succeeded, deferred and failed work; honest freshness and provenance for every daily report. External websites, mail and providers cannot be guaranteed 100% available. Work is considered implemented only when checked in; tested only with passing tests; deployed only after actual publication; recovered only after confirmed live readback. No extra approvals or architecture programmes merely to apply this rule.
 
 Apply this rule to all existing components and all future projects. Existing app-specific legal, safety, authorization, privacy and data-integrity protections remain. An old instruction permitting an arbitrary cap, false-green status, or indefinite stall is superseded by this rule; do not revive retired NOEVA CORE.
+
+## Owner-wide binding rule: continue to verified completion (3 November 2026)
+
+This applies to every approved task in this project and supersedes older instructions to stop after finding a problem, writing a plan or passing a source-only test.
+
+- Finish the user-approved outcome using the existing application and infrastructure. Diagnose actual defects, remove obsolete or conflicting processes, implement the canonical root-cause correction and complete its real release, rather than layering patches or asking for repeated routine approvals.
+- Pursue every failure through correction and rerun. Do not stop because CI, deployment, crawler, authentication or an external integration failed if the existing authorized tools can resolve it. Resume interrupted tasks, preserve original IDs, business records, credentials, rights and reversible recovery.
+- Execute and pass **100% of the applicable defined acceptance checks** for the requested outcome, including relevant authenticated read/write/reload, live deployed-code readback, visual inspection and unattended-job behavior. No test suite can guarantee infallibility; never claim untested coverage or 100% reliability without evidence.
+- A task is **COMPLETED** only after the intended result and all material checks are verified. If an unavoidable external access, authorization or provider dependency remains, say **BLOCKED** with exact evidence and next corrective action; do not disguise it as success or transfer ordinary troubleshooting to the owner.
+- Prefer a single simple app-owned workflow over duplicate services, approval gates, artificial limits, deferred checklists or speculative infrastructure. State separately what was implemented, tested, deployed and confirmed working in the real environment.
+
+**Required execution loop:** implement → test → publish → inspect actual result → repair and rerun until verified, or explicitly identify a genuine external blocker. Do not close an unresolved task as complete.
