@@ -489,3 +489,194 @@ function aur_nov_short_refresh_unsent(string $store,array $case):array {
         return ['draft_id'=>$id,'updated_unsent'=>$changed,'untouched_attempted'=>$attempted];
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
+
+
+/**
+ * November 3: verified PUBLIC inventory adverts for the existing Uzbekistan
+ * enquiry. This is a new, explicitly user-requested stock-confirmation round;
+ * no recipient is sent automatically, including prior contacts.
+ * Stock on a listing is not seller-confirmed warehouse stock.
+ */
+function aur_stock_listing_leads():array {
+    return [
+      ['id'=>'sky-optic-hrk1','name'=>'Sky Optic','country'=>'DE','language'=>'de',
+       'email'=>'info@sky-optic.de','items'=>[19],'model'=>'Huvitz HRK-1',
+       'evidence_url'=>'https://bimedis.com/a-item/autorefractors-huvitz-hrk-1-1876592',
+       'listing'=>'neu; 6.490 EUR laut Inserat; 12 Monate Garantie',
+       'request'=>'ein neues Huvitz HRK-1 Autorefraktometer/Keratometer (1 Stück)',
+       'question'=>'Könnten Sie insbesondere den Inseratspreis von 6.490 EUR, den tatsächlichen Lagerbestand und die kurzfristige Versandbereitschaft bestätigen?',
+       'previously_contacted'=>false],
+      ['id'=>'remma-hnt1','name'=>'Remma','country'=>'FR','language'=>'en',
+       'email'=>'contact@remma.fr','items'=>[20],'model'=>'Huvitz HNT-1',
+       'evidence_url'=>'https://remma.fr/en/model/non-contact-tonometer-hnt-1',
+       'listing'=>'Brand new; 1 unit shown; EUR 10,470 excluding VAT',
+       'request'=>'one new Huvitz HNT-1 non-contact tonometer',
+       'question'=>'Could you confirm that the advertised one unit at EUR 10,470 excluding VAT is physically in stock, and advise the warehouse location, total price and dispatch lead time?',
+       'previously_contacted'=>true],
+      ['id'=>'uandi-octopus','name'=>'U and i Optic Instrument','country'=>'NL','language'=>'en',
+       'email'=>'info@uandiopticinstrument.com','items'=>[21],'model'=>'Haag-Streit Octopus 600 Basic',
+       'evidence_url'=>'https://www.dotmed.com/listing/visual-field-analyzer/haag-streit/octopus-600/5625555',
+       'listing'=>'Used 2018 listed EUR 5,500; seller also advertises a new unit',
+       'request'=>'one Haag-Streit Octopus 600, Basic configuration',
+       'question'=>'Your DOTmed listing shows a used 2018 device at EUR 5,500 and mentions a new unit. Could you confirm which unit is physically available, the Basic configuration, condition, accessories, price and dispatch date? Please provide actual equipment photographs.',
+       'previously_contacted'=>true],
+      ['id'=>'bms-v8','name'=>'BMS Ultraschall','country'=>'DE','language'=>'de',
+       'email'=>'info@bms-ultraschall.de','items'=>[4],'model'=>'Samsung V8',
+       'evidence_url'=>'https://bimedis.com/a-item/ultrasound-machines-samsung-v8-2196471',
+       'listing'=>'2026 Neugerät; laut Inserat ab Deutschland lagernd; Preis auf Anfrage',
+       'request'=>'ein Samsung V8 Ultraschallsystem (1 Stück) mit vier Sonden, Scherwellen-Elastografie, EKG, Heart Assist und allen angefragten Optionen',
+       'question'=>'Könnten Sie bestätigen, ob das 2026er Neugerät tatsächlich in Ihrem Lager verfügbar ist und ob die vollständige gewünschte Konfiguration geliefert werden kann? Über Preis, Lagerort und Versandtermin freuen wir uns.',
+       'previously_contacted'=>true],
+      ['id'=>'sakomed-savina','name'=>'SakoMed','country'=>'US','language'=>'en',
+       'email'=>'info@sakomed.com','items'=>[27],'model'=>'Dräger Savina',
+       'evidence_url'=>'https://www.dotmed.com/listing/ventilator/draeger/savina/4930251',
+       'listing'=>'2 refurbished units advertised; year not listed',
+       'request'=>'one refurbished Dräger Savina ventilator manufactured in 2010–2013',
+       'question'=>'Your DOTmed listing #4930251 advertises two refurbished Savina ventilators. Is one unit physically available from manufacturing years 2010–2013? Please confirm the manufacture year from the nameplate, technical condition, actual photos, price, warehouse and dispatch time.',
+       'previously_contacted'=>true],
+      ['id'=>'blackdown-cattani','name'=>'Blackdown Dental','country'=>'GB','language'=>'en',
+       'email'=>'info@blackdowndental.co.uk','items'=>[36],'model'=>'CATTANI AC300',
+       'evidence_url'=>'https://www.blackdowndental.co.uk/products/cattani-ac300-oil-free-45l-dental-compressor-with-dryer-4-6-surgeries',
+       'listing'=>'AC300 unit-only; 45 L; 238 L/min; GBP 3,480.75 excl. VAT; in stock',
+       'request'=>'one CATTANI AC300 oil-free dental compressor, 45 L receiver, dryer, three cylinders, 238 L/min at 5 bar, 230 V/50 Hz',
+       'question'=>'The advertised unit-only price is GBP 3,480.75 excluding VAT. Is a complete matching unit physically in stock and ready for dispatch? Please confirm accessories, power specification, final price and dispatch time.',
+       'previously_contacted'=>false],
+      ['id'=>'harwind-wato','name'=>'Harwind','country'=>'UA','language'=>'en',
+       'email'=>'info@harwind.com.ua','items'=>[26],'model'=>'Mindray WATO EX-35',
+       'evidence_url'=>'https://harwind.ua/en/product/narkozno-dixalnii-aparat-mindray-wato-ex-35',
+       'listing'=>'In stock label; 2 units and configuration unconfirmed',
+       'request'=>'two Mindray WATO EX-35 anesthesia workstations, each with 3-gas supply, compressor, two vaporizer mounts, bypass, AG/O2 and passive AGSS (0619BPA00229)',
+       'question'=>'Your site advertises the WATO EX-35 in stock. Can you confirm that two units in this exact configuration are physically available, with warehouse location, unit prices and dispatch lead time?',
+       'previously_contacted'=>false],
+      ['id'=>'oftas-hrk1','name'=>'Oftas S.r.l.','country'=>'IT','language'=>'en',
+       'email'=>'commerciale@oftas.it','items'=>[19],'model'=>'Huvitz HRK-1',
+       'evidence_url'=>'https://www.dotmed.com/listing/autorefractor-keratometer/huvitz/hrk-1/5605457',
+       'listing'=>'Used refurbished 2023 unit; 1 advertised; EUR 4,400',
+       'request'=>'one Huvitz HRK-1 autorefractor/keratometer',
+       'question'=>'Your DOTmed listing #5605457 advertises a refurbished 2023 HRK-1 for EUR 4,400. Is that exact device physically available? Please confirm manufacturing year, price, warranty, photographs, warehouse and dispatch date.',
+       'previously_contacted'=>false],
+      ['id'=>'dentreal-e8','name'=>'DentrealStore','country'=>'TR','language'=>'en',
+       'email'=>'info@dentrealmarket.com','items'=>[34],'model'=>'Euronda E8 24 L set',
+       'evidence_url'=>'https://www.dentrealstore.com/en-de/products/euronda-e8-autoclave-24-l-aquadist-euroseal-set',
+       'listing'=>'SKU EUR.E824LSET; USD 4,713 inc. tax shown; quantity 100 not verified',
+       'request'=>'one complete Euronda E8 24 L Class B autoclave, Euroseal 2001 Plus pouch sealer and Aquadist distiller set',
+       'question'=>'Your online listing for EUR.E824LSET shows USD 4,713 and stock availability. Is one complete set physically in stock, specifically with the Euroseal 2001 Plus? Please confirm all included models, the quoted currency/tax treatment, warehouse and dispatch time.',
+       'previously_contacted'=>true],
+    ];
+}
+function aur_stock_listing_plans(array $case):array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return [];
+    $lines=[];
+    foreach(($case['payload']['sourcing_lines']??[]) as $entry) {
+        if(!is_array($entry)||($entry['option_type']??'REQUESTED')!=='REQUESTED')continue;
+        $item=(int)($entry['customer_item_number']??0);
+        if($item>0)$lines[$item][]=$entry;
+    }
+    $patterns=[
+      4=>'/\bV8\b/u',19=>'/\bHRK[\s.-]*1\b/ui',20=>'/\bHNT[\s.-]*1\b/ui',
+      21=>'/\bOctopus\s*600\b/ui',26=>'/\bWATO[\s.-]*EX[\s.-]*35\b/ui',
+      27=>'/\bSavina\b/ui',34=>'/\bEuronda\b.*\bE8\b/ui',36=>'/\bCATTANI\b/ui'
+    ];
+    $seen=[];$plans=[];
+    foreach(aur_stock_listing_leads() as $lead){
+        $email=strtolower($lead['email']);
+        if(!filter_var($email,FILTER_VALIDATE_EMAIL)||isset($seen[$email])||
+           !preg_match('~^https://~',$lead['evidence_url']))
+            throw new RuntimeException('stock_listing_invalid_supplier');
+        $seen[$email]=true;
+        $rows=[];
+        foreach($lead['items'] as $item) {
+            $matching=$lines[$item]??[];
+            if(count($matching)!==1||!isset($patterns[$item])||
+               preg_match($patterns[$item],(string)($matching[0]['description_original']??''))!==1)
+                throw new RuntimeException('stock_listing_original_model_mismatch_'.$item);
+            $entry=$matching[0];
+            $rows[]=['source_row'=>(int)$entry['source_row'],
+                'customer_item_number'=>$item,
+                'description'=>(string)$entry['description_original'],
+                'quantity'=>$entry['quantity']??null,'option_type'=>'REQUESTED'];
+        }
+        aur_rfq_assert_no_duplicate_supplier_lines($case,$rows);
+        $plans[]=['lead'=>$lead,'rows'=>$rows];
+    }
+    return $plans;
+}
+function aur_stock_listing_compose(array $case,array $plan):array {
+    $lead=$plan['lead'];
+    $vendor=['id'=>'stock-20261103-'.$lead['id'],'name'=>$lead['name'],
+        'email'=>$lead['email'],'evidence_url'=>$lead['evidence_url']];
+    $message=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
+    if($lead['language']==='de'){
+        $body="Guten Tag,\n\nwir interessieren uns für ".$lead['request']." und haben Ihr konkretes Lagerangebot entdeckt:\n"
+            .$lead['evidence_url']."\n\n".$lead['question']."\n\n"
+            ."Die Geräte sind für den Einsatz im Krankenhaus vorgesehen. Der Käufer übernimmt Installation, Schulung, Wartung und technischen Service vor Ort.\n\n"
+            ."Vielen Dank für Ihre Unterstützung.\n\nHerzliche Grüße nach "
+            .($lead['id']==='sky-optic-hrk1'?'Köln':'Solingen')."\n\n"
+            ."AURENOEVA Einkauf\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein\n"
+            ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
+        $subject='Lagerbestands- und Preisanfrage – '.$lead['model'];
+    }else{
+        $body="Dear Sales Team,\n\nWe saw your specific inventory listing for ".$lead['model'].":\n"
+            .$lead['evidence_url']."\n\nWe are looking for ".$lead['request'].".\n\n"
+            .$lead['question']."\n\n"
+            ."The equipment is intended for a hospital environment. The purchaser will arrange installation, training, maintenance and local technical service.\n\n"
+            ."Thank you very much for your assistance.\n\nKind regards,\n\n"
+            ."AURENOEVA Purchasing\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein, Germany\n"
+            ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
+        $subject='Stock confirmation and quotation – '.$lead['model'];
+    }
+    if(preg_match('/Uzbekistan|Usbekistan|AUR-UZ-1A04A7909185FACD/ui',$body.' '.$subject))
+        throw new RuntimeException('stock_listing_destination_in_public_email');
+    $message['body']=$body;
+    $message['subject']=$subject;
+    $message['language']=$lead['language'];
+    $message['supplier_country']=$lead['country'];
+    $message['listing_claim']=$lead['listing'];
+    $message['listing_evidence_url']=$lead['evidence_url'];
+    $message['previously_contacted']=$lead['previously_contacted'];
+    $message['source_grade']='ADVERTISED_IN_STOCK_NOT_SELLER_CONFIRMED';
+    return $message;
+}
+function aur_stock_listing_index_path(string $store,array $case):string {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)
+        throw new InvalidArgumentException('stock_listing_wrong_case');
+    return aur_private_directory($store,'supplier-rfqs').'/'.AUR_URGENT_RFQ_REF.'-stock-20261103-index.json';
+}
+function aur_stock_listing_saved(string $store,array $case):?array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return null;
+    $path=aur_stock_listing_index_path($store,$case);
+    if(!is_file($path))return null;
+    if(is_link($path))throw new RuntimeException('stock_listing_unsafe_index');
+    $index=json_decode((string)file_get_contents($path),true,128,JSON_THROW_ON_ERROR);
+    if(!is_array($index)||($index['schema']??'')!=='aurenoeva-stock-suppliers/1'
+       ||($index['case_source_sha256']??'')!==$case['source_sha256'])
+        throw new RuntimeException('stock_listing_case_mismatch');
+    $draft=aur_vendor_rfq_read($store,$case,(string)$index['draft_id']);
+    $index['messages']=$draft['messages'];$index['status']=$draft['status'];
+    return $index;
+}
+function aur_stock_listing_prepare(string $store,array $case):array {
+    $path=aur_stock_listing_index_path($store,$case);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('stock_listing_lock_unavailable');
+    try {
+        $old=aur_stock_listing_saved($store,$case);
+        if($old!==null)return $old;
+        $plans=aur_stock_listing_plans($case);
+        $messages=array_map(static fn($p)=>aur_stock_listing_compose($case,$p),$plans);
+        if(count($messages)!==9)throw new RuntimeException('stock_listing_recipient_count');
+        $id=bin2hex(random_bytes(12));
+        $draft=['version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
+            'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],
+            'information_only'=>true,'template_version'=>'pricing-rfq-v3',
+            'draft_id'=>$id,'created_at'=>gmdate('c'),'approval'=>null,
+            'status'=>'DRAFT_REVIEW','source'=>'CURATED_STOCK_LISTING_ROUND_2026_11_03',
+            'messages'=>$messages];
+        aur_vendor_rfq_write(aur_vendor_rfq_path($store,(string)$case['reference'],$id),$draft);
+        $index=['schema'=>'aurenoeva-stock-suppliers/1','case_reference'=>$case['reference'],
+            'case_source_sha256'=>$case['source_sha256'],'draft_id'=>$id,
+            'prepared_at'=>gmdate('c'),'supplier_count'=>count($messages)];
+        aur_vendor_rfq_write($path,$index);
+        return aur_stock_listing_saved($store,$case)??$index;
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
