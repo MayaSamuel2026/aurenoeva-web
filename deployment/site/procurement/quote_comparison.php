@@ -126,6 +126,14 @@ function aur_prices_public_sources(array $case):array {
     if(($case['reference']??'')!=='AUR-UZ-1A04A7909185FACD')return [];
     // URLs and advertised prices are public research leads, not supplier quotations.
     return [
+       6=>[['Medical Business Community — Huons MT-5000S','https://mbcmed.ru/catalog/moechnye_mashiny_dlya_endoskopov/ustanovka_dlya_moyki_gibkikh_endoskopov_mt_5000s_77529935/','','','UNKNOWN','Exact MT-5000S single-endoscope washer product entry; local listing only, new stock and export not confirmed']],
+       10=>[['RF-Magic II producer','https://rf-magic.ru/','RUB','980000','NEW','Producer published RF-Magic II price; country-specific sale and export eligibility unconfirmed']],
+       25=>[['Universal Medisystems — Mindray uMED 20','https://universalmedisystems.com/umed-20/','','','UNKNOWN','Exact uMED 20 monitor-defibrillator product; no current supplier price or stock confirmation']],
+       37=>[['Teh-Med — Kler KGEM-01 chair','https://teh-med.ru/kreslo_ginekologisheskoe_kgem_01_1_7','RUB','313000','NEW','Advertised KGEM-01 3-electric-actuator chair; confirm specified upholstery, accessories, export eligibility']],
+       38=>[['CISA Healthcare steam sterilizers','https://cisagroup.it/en/high-temperature-steam-sterilizers/','','','NEW','Representative hospital CSSD sterilizer manufacturer; no precise requested model, capacity or installation specified']],
+       39=>[['Memmert SN260 medical dry-heat sterilizer','https://www.memmert.com/en/products/medical-devices/steriliser/sn260-2','','','NEW','Example 256 L +250°C dry-heat medical sterilizer; compatibility with requested specification must be confirmed']],
+       40=>[['JeCoNet Germany ASP STERRAD 100NX','https://www.jeconet.de/en/products/johnson-und-johnson-asp-sterrad-100nx-sterilisator-plasma','EUR','9500','USED','Listed used hydrogen-peroxide plasma sterilizer; service due; explicit availability and specifications to confirm'],
+              ['MedCore Poland Sanqiang SQ-DS60','https://www.medcoregroup.pl/en/product/sanqiang-medical-sq-ds60','','','NEW','Representative new 68 L plasma unit, price on request, configuration comparison only']],
        1=>[['DRGEM manufacturer','https://www.drgemhealthcare.com/','','','NEW','Original 52 kW DIAMOND Classic Expert configuration; manufacturer reply pending compliance details']],
        2=>[['Anthos A5 manufacturer','https://www.anthos.it/','','','NEW','Specify Continental over-patient configuration, not A5 Cart']],
        26=>[['Mindray manufacturer','https://www.mindray.com/','','','NEW','WATO EX-35 · two systems with 3-gas, compressor and requested options; no seller offer yet']],
@@ -163,6 +171,21 @@ function aur_prices_public_sources(array $case):array {
               ['Dental Edge UK AC300','https://www.dentaledgeuk.co.uk/products/cattani-ac300-4-6-surgeries-compressor','GBP','4386','NEW','Advertised excluding VAT; seller requests stock confirmation']]
     ];
 }
+/** Alternative options are shown on their own original source rows, not as duplicate buyer purchases. */
+function aur_prices_alternative_sources(array $line):array {
+    $desc=(string)($line['description_original']??'');
+    $case=[
+       ['/MT[\s.-]*5000L/iu',['Huons MT-5000L two-endoscope washer','https://mbcmed.ru/catalog/moechno_dezinfektsionnye_mashiny/ustanovka_dlya_moyki_gibkikh_endoskopov_mt_5000l/','UNKNOWN','Huons two-endoscope alternative, model confirmation and export pending']],
+       ['/СПДС[\s.-]*5[\s.-]*Ш|SPDS[\s.-]*5[\s.-]*SH/iu',['Meditronics SPDS-5-Sh endoscope cabinet','https://meditronics.ru/product/shkaf-dlya-hraneniya-sterilnyh-endoskopov-spds-5-sh','UNKNOWN','Exact five-endoscope alternative cabinet; stock and export unconfirmed']],
+       ['/ЦуО[\s.-]*ВС[\s.-]*11|TsUO[\s.-]*VS[\s.-]*11/iu',['PROFMT TsUO-VS-11 cystourethroscope','https://www.profmt.ru/catalog/view/endoskopy/tcuo-vs-11/','UNKNOWN','Exact-model Russian-listed alternative; optical tube and sheath configurations differ']],
+       ['/KLEVER|УОРЛ[\s.-]*1/iu',['DV-LAB KLEVER UORL-1 ENT workstation','https://dv-lab.ru/oborudovanie/meditsinskoe-oborudovanie/lor-combine/lor-kombain-yorl-1yorl-2-mk-klever/','UNKNOWN','Requested alternative KLEVER UORL-1; ensure complete 4-endoscope kit']],
+       ['/UE[\s.-]*3000/iu',['MEDSTAR UE-3000 producer','https://www.medstar.co.kr/en/products/product/read.jsp?no=70&reqPageNo=1&scategory_fk=1','NEW','Korean manufacturer model-specific ENT workstation alternative']]
+    ];
+    foreach($case as [$pattern,$item]) if(preg_match($pattern,$desc)===1)
+        return [[$item[0],$item[1],'','',$item[2],$item[3]]];
+    return [];
+}
+
 function aur_prices_panel(string $store,array $case,string $csrf):void {
     $lines=(array)($case['payload']['sourcing_lines']??[]);
     $manual=aur_prices_read($store,$case);
@@ -196,7 +219,7 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
       <?php foreach($lines as $line):
          $item=(int)($line['customer_item_number']??0);$row=(int)($line['source_row']??0);
          $option=strtoupper((string)($line['option_type']??'REQUESTED'));
-         $targetSources=$option==='ALTERNATIVE'?[]:($public[$item]??[]);
+         $targetSources=$option==='ALTERNATIVE'?aur_prices_alternative_sources($line):($public[$item]??[]);
          $priceGroups=[];
          foreach($byRow[$row]??[] as $priceEntry){
            if(($priceEntry['price']??'')===''||!in_array(($priceEntry['status']??''),['SUPPLIER_REPLY','MANUAL_RFQ_REPLY'],true))continue;
