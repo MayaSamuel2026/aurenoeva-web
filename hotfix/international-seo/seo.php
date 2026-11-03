@@ -5,6 +5,10 @@ declare(strict_types=1);
  * order flow, buyer records, guessed stock or guessed supplier prices.
  * The established catalogue snapshot remains the only product source.
  */
+// SEO pages, including cached-index reads, use the same factual-copy rules
+// as public product search and browsing, without browser API headers.
+if (!defined('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY')) define('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY', true);
+require_once __DIR__ . '/catalogue-browse.php';
 const AUR_SEO_BASE = 'https://aurenoeva.com';
 const AUR_SEO_CHUNK = 5000;
 header('X-Content-Type-Options: nosniff');

@@ -5,10 +5,12 @@ declare(strict_types=1);
  * Lists indexed product identities only; stock, prices and seller confirmation
  * remain part of the subsequent private RFQ process.
  */
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store, max-age=0');
-header('X-Content-Type-Options: nosniff');
-header('X-Robots-Tag: noindex, nofollow, noarchive');
+if (!defined('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY')) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Robots-Tag: noindex, nofollow, noarchive');
+}
 
 /**
  * Public presentation only: retain unmodified supplier evidence and canonical

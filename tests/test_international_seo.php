@@ -28,6 +28,7 @@ file_put_contents($snapshot,json_encode(['schema'=>'aurenoeva-catalogue/1','item
 $stream=iterator_to_array(aur_seo_products_from_json($snapshot));
 if (count($stream)!==3 || $stream[1]['model'] !== 'VUVG 42 "special"') throw new RuntimeException('stream_json');
 if (aur_seo_source_note('Find more about AR2400 Great price Official supplier Request A quote Today!') !== '') throw new RuntimeException('supplier_ad_leak');
+if (aur_seo_source_note('Shop Other Spare Parts from certified global manufacturers. Zillion Parts simplifies B2B procurement with verified supplier listings, technical') !== '') throw new RuntimeException('cached_seo_marketing_copy_leak');
 if (!aur_seo_indexable($products[0]) || aur_seo_indexable($products[2])) throw new RuntimeException('seo_quality_gate');
 $idx=aur_seo_index($snapshot);
 if ($idx['count']!==2 || ($idx['makers']['Festo']??0)!==2 ||
