@@ -126,6 +126,16 @@ function aur_prices_public_sources(array $case):array {
     if(($case['reference']??'')!=='AUR-UZ-1A04A7909185FACD')return [];
     // URLs and advertised prices are public research leads, not supplier quotations.
     return [
+       3=>[['Art Medical Suisse Z20','https://www.artmedicalsuisse.ch/listings/8814049-refurbished-samsung-z20-ultrasound','CHF','63500','REFURBISHED','Advertised refurbished 2024 with two probes, not the required four-probe specification']],
+       8=>[['DS.Med CystoFiber manufacturer','https://ds-med.info/','','','UNKNOWN','Exact CystoFiber product family; request 4.9/2.2 configuration']],
+       9=>[['DS.Med DS.Vision manufacturer','https://ds-med.info/','','','UNKNOWN','Manufacturer family; confirm FHD 3-in-1 and light-guide supply'],
+              ['R-Medical FHD 3-in-1','https://run-med.ru/products/ds-vision-fhd-3-in-1','','','UNKNOWN','Specific listed product; quotation on request']],
+       12=>[['DS.Med DS.Surg 150','https://ds-med.info/electrosurgical-units.html','','','NEW','Manufacturer exact model; also item 22, check whether separate units are needed']],
+       13=>[['LAKHTA-MILON manufacturer','https://www.milon.ru/index.phtml?tid=131','','','UNKNOWN','Manufacturer product family; confirm proctology set and compliance']],
+       18=>[['Vidacom VS-2000','https://vidacom.ru/katalog-tovarov/oftalmologicheskie_kombajny/vs-2000-rabochee-mesto-oftal-mologa-s-prinadlezhnostyami/','RUB','299000','UNKNOWN','Advertised price; Russian source and export feasibility unconfirmed']],
+       22=>[['DS.Med DS.Surg 150','https://ds-med.info/electrosurgical-units.html','','','NEW','Appears also as original item 12; buyer must confirm separate quantity']],
+       27=>[['Bimedis Dräger Savina seller marketplace','https://bimedis.com/drager-savina-m38533','','','REFURBISHED','Multiple used/refurbished offers; target documented 2010–2013 manufacturing year']],
+       31=>[['Goldident GD-0046 exact set','https://goldident.ru/catalog/komplekty-oborudovanie-dlya-rentgenologii/komplekt-oborudovaniya-gd-0046/','RUB','362000','UNKNOWN','Published exact part number; Russian seller and export feasibility unconfirmed']],
        19=>[['Sky Optic via Bimedis','https://bimedis.com/a-item/autorefractors-huvitz-hrk-1-1876592','EUR','6490','NEW','Advertised when contacted; new-unit price not reaffirmed']],
        20=>[['REMMA model page','https://remma.fr/en/model/non-contact-tonometer-hnt-1','','','NEW','Supplier reply contains the confirmed price']],
        21=>[['U & I via DOTmed','https://www.dotmed.com/listing/visual-field-analyzer/haag-streit/octopus-600/5625555','EUR','5500','USED','Advertised used 2018; supplier reply did not confirm price']],
@@ -167,7 +177,7 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
     $covered=0;$priced=0;
     foreach($lines as $line){
         $i=(int)($line['customer_item_number']??0);$r=(int)($line['source_row']??0);
-        if(isset($public[$i])||isset($byRow[$r]))$covered++;
+        if((strtoupper((string)($line['option_type']??'REQUESTED'))!=='ALTERNATIVE'&&isset($public[$i]))||isset($byRow[$r]))$covered++;
         foreach($byRow[$r]??[] as $o)if(($o['price']??'')!==''&&($o['status']??'')==='SUPPLIER_REPLY'){$priced++;break;}
     }
     ?>
@@ -181,12 +191,22 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
       <?php foreach($lines as $line):
          $item=(int)($line['customer_item_number']??0);$row=(int)($line['source_row']??0);
          $option=strtoupper((string)($line['option_type']??'REQUESTED'));
+         $targetSources=$option==='ALTERNATIVE'?[]:($public[$item]??[]);
+         $priceGroups=[];
+         foreach($byRow[$row]??[] as $priceEntry){
+           if(($priceEntry['price']??'')===''||!in_array(($priceEntry['status']??''),['SUPPLIER_REPLY','MANUAL_RFQ_REPLY'],true))continue;
+           $group=(string)($priceEntry['currency']??'').' | '.(string)($priceEntry['condition']??'UNKNOWN');
+           $priceGroups[$group][]=(float)$priceEntry['price'];
+         }
       ?>
       <tr>
         <td><b>#<?=$item?></b><small style="display:block">Source row <?=$row?></small><?php if($option==='ALTERNATIVE'):?><small>Alternative only</small><?php endif;?></td>
         <td><?=aur_escape((string)($line['description_original']??''))?></td>
         <td><?=isset($line['quantity'])?(int)$line['quantity']:'To confirm'?></td>
         <td>
+          <?php foreach($priceGroups as $basis=>$values): if(count($values)<2)continue; ?>
+             <div style="margin:0 0 7px;font-weight:700">Comparable quote range · <?=aur_escape($basis)?>: <?=aur_escape(number_format(min($values),2,'.',','))?>–<?=aur_escape(number_format(max($values),2,'.',','))?></div>
+          <?php endforeach; ?>
           <?php if(empty($byRow[$row])):?><span class="muted">No supplier reply priced yet</span><?php else:?>
           <?php foreach($byRow[$row] as $offer):?>
             <div style="padding:6px 0;border-bottom:1px solid #e3eae5">
@@ -204,7 +224,7 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
           <?php endforeach; endif;?>
         </td>
         <td>
-          <?php foreach($public[$item]??[] as $lead):
+          <?php foreach($targetSources as $lead):
              [$name,$url,$currency,$value,$condition,$note]=$lead;
           ?>
              <div style="padding:4px 0;border-bottom:1px solid #e3eae5">
@@ -213,7 +233,7 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
               <small><?=aur_escape($note)?></small>
              </div>
           <?php endforeach;?>
-          <?php if(!isset($public[$item])):?><small class="muted">Exact listing to find; existing worldwide case search remains available</small><?php endif;?>
+          <?php if(!$targetSources):?><small class="muted"><?= $option==='ALTERNATIVE'?'Separate alternative — exact source to identify':'Exact listing to find; existing worldwide case search remains available' ?></small><?php endif;?>
         </td>
       </tr>
       <?php endforeach;?></tbody></table></div>
