@@ -11,6 +11,34 @@ header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
 
 /**
+ * Public presentation only: retain unmodified supplier evidence and canonical
+ * identities. Clean both historic and newly published supplier descriptions.
+ */
+function aur_catalogue_clean_description(string $raw): string {
+    $text = html_entity_decode(strip_tags($raw), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = (string)preg_replace('/[\x{00A0}\x{200B}\x{FEFF}]/u', ' ', $text);
+    $text = trim((string)preg_replace('/[\t ]+/u', ' ', $text));
+    if ($text === '') return '';
+    $sentences = preg_split('/(?<=[.!?])\s+(?=[\p{Lu}\d])|[;\r\n]+/u', $text) ?: [$text];
+    $technical = [];
+    foreach ($sentences as $sentence) {
+        $sentence = trim($sentence);
+        if ($sentence === '') continue;
+        // Avoid publishing sales pitches as product specifications.
+        if (preg_match('/^(?:shop\s+(?:other|our|all|now|online|spare|the)\b|buy\s+(?:now|online|from|our|the)\b|order\s+(?:now|online|today)\b|browse\s+(?:our|the|all)\b|discover\s+(?:our|the|all)\b|explore\s+(?:our|the|all)\b|find\s+(?:your|the|more)\b|request\s+(?:a\s+)?quote\b|get\s+(?:a\s+)?quote\b|contact\s+us\b|visit\s+our\b|check\s+out\b|we\s+(?:offer|supply|provide|are)\b|our\s+(?:company|mission|store|shop|range|catalogue|catalog)\b|(?:entdecken|kaufen|bestellen)\s+sie\b|jetzt\s+(?:bestellen|kaufen|anfragen)\b|wir\s+(?:bieten|liefern|sind)\b|kontaktieren\s+sie\b)/iu', $sentence)) continue;
+        if (preg_match('/(?:\b(?:b2b\s+procurement|procurement\s+(?:made\s+easy|solutions)|supplier\s+listings|global\s+manufacturers|certified\s+(?:global\s+)?suppliers|one.stop\s+shop|shop\s+other\s+spare\s+parts|free\s+shipping|fast\s+shipping|worldwide\s+shipping|lowest\s+prices?|best\s+deals?|competitive\s+prices?|bulk\s+discounts?|great\s+prices?|factory\s+direct|request\s+(?:a\s+)?quote|click\s+here|visit\s+our\s+(?:store|site)|learn\s+more\s+about|customer\s+satisfaction|simplif(?:ies|y|ying)\s+(?:global\s+)?procurement)\b|\b(?:versandkostenfrei|preiswert\s+bestellen|günstige\s+preise|große\s+auswahl|schnelle\s+lieferung|angebot\s+anfordern)\b)/iu', $sentence)) continue;
+        // Remove trailing calls to action without losing the technical clause.
+        $sentence = (string)preg_replace('/\s*[-–|,:]?\s*(?:buy\s+now|shop\s+now|order\s+online|contact\s+us|request\s+(?:a\s+)?quote|jetzt\s+bestellen|jetzt\s+kaufen)[.! ]*$/iu', '', $sentence);
+        $sentence = (string)preg_replace('/^(?:high[ -]quality|top[ -]quality|premium[ -]quality|best[ -]quality)\s+/iu', '', $sentence);
+        $sentence = trim($sentence, " \t\n\r\0\x0B");
+        if ($sentence !== '' && preg_match('/[\p{L}\d]/u', $sentence)) $technical[] = $sentence;
+    }
+    $result = trim(implode(' ', $technical));
+    return function_exists('mb_substr') ? mb_substr($result, 0, 500, 'UTF-8') : substr($result, 0, 500);
+}
+
+
+/**
  * Resolve catalogue facets from product evidence, not the broad search phrase
  * used by the crawler. Unknown categories stay unclassified rather than
  * appearing under a demonstrably unrelated technical sector.
@@ -188,14 +216,14 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
         ++$sectorTotal;
         if ($category !== '' && $category !== '__all' &&
             ($category === '__other' ? $cat !== '' : strcasecmp($cat, $category) !== 0)) continue;
-        if ($q !== '' && !str_contains($lower($maker.' '.$model.' '.(string)($part['description'] ?? '')), $q)) continue;
+        if ($q !== '' && !str_contains($lower($maker.' '.$model.' '.aur_catalogue_clean_description((string)($part['description'] ?? ''))), $q)) continue;
         if ($matching >= $start && count($items) < $limit) {
             $source = (string)($part['source_ref'] ?? '');
             $items[] = [
                 'canonical_id' => $id,
                 'manufacturer' => $clip($maker,100),
                 'model' => $clip($model,160),
-                'description' => $clip((string)($part['description'] ?? ''),220),
+                'description' => $clip(aur_catalogue_clean_description((string)($part['description'] ?? '')),220),
                 'sector' => $sector,
                 'category' => $cat,
                 'classifications' => is_array($part['classifications']??null) ? $part['classifications'] : [],
