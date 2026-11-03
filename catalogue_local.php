@@ -67,7 +67,9 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
         // Keep older known identities searchable even when manufacturer recrawls
         // are delayed. A catalogue identity is NOT verified availability.
         $m = $norm($maker); $part = $norm($model);
-        $description = $norm(function_exists('aur_catalogue_clean_description') ? aur_catalogue_clean_description((string)($p['description'] ?? '')) : (string)($p['description'] ?? ''));
+        // Search the indexed source text without re-running presentation cleaning
+        // across the entire catalogue for each keystroke; clean returned cards.
+        $description = $norm((string)($p['description'] ?? ''));
         $all = $m . $part . $description;
         $score = $part === $q ? 1000 : (($m . $part) === $q ? 900 :
             (str_contains($part, $q) ? 700 : (str_contains($m . $part, $q) ? 550 :

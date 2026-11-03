@@ -218,7 +218,9 @@ function aur_browse_snapshot(string $path, string $sector, string $category = ''
         ++$sectorTotal;
         if ($category !== '' && $category !== '__all' &&
             ($category === '__other' ? $cat !== '' : strcasecmp($cat, $category) !== 0)) continue;
-        if ($q !== '' && !str_contains($lower($maker.' '.$model.' '.aur_catalogue_clean_description((string)($part['description'] ?? ''))), $q)) continue;
+        // Keep catalogue-wide filtering inexpensive; normalize presentation only
+        // for results that are actually returned to a buyer.
+        if ($q !== '' && !str_contains($lower($maker.' '.$model.' '.(string)($part['description'] ?? '')), $q)) continue;
         if ($matching >= $start && count($items) < $limit) {
             $source = (string)($part['source_ref'] ?? '');
             $items[] = [
