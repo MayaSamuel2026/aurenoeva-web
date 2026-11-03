@@ -699,13 +699,11 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             foreach($draft['messages'] as $pending) {
                 if(($pending['status']??'')==='DRAFT') {
                     aur_vendor_rfq_smtp_config();
-                    if(!aur_vendor_rfq_mail_verified($store) && $selectedOnly) {
-                        // Before a selected supplier batch, prove SMTP with a
-                        // diagnostic email addressed ONLY to our own mailbox.
-                        // Never mark any supplier attempted if this test fails.
-                        aur_vendor_rfq_send_smoke_test($store);
-                    }
-                    if(!aur_vendor_rfq_mail_verified($store))
+                    // For explicitly checked batches the real authenticated
+                    // SMTP transaction is itself the delivery test; do not
+                    // require or send a separate diagnostic email every 15m.
+                    // Older bulk RFQs retain their existing verification rule.
+                    if(!$selectedOnly && !aur_vendor_rfq_mail_verified($store))
                         throw new RuntimeException('rfq_smtp_test_required');
                     break;
                 }
