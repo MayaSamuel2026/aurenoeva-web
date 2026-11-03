@@ -609,8 +609,11 @@ function aur_stock_listing_compose(array $case,array $plan):array {
     $vendor=['id'=>'stock-20261103-'.$lead['id'],'name'=>$lead['name'],
         'email'=>$lead['email'],'evidence_url'=>$lead['evidence_url']];
     $message=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
+    $isStockListing=in_array((string)($lead['source_grade']??'ADVERTISED_IN_STOCK_NOT_SELLER_CONFIRMED'),
+        ['ADVERTISED_IN_STOCK_NOT_SELLER_CONFIRMED','SPECIFIC_ADVERTISED_MODEL','MODEL_LISTING_WITH_PROBE_MISMATCH'],true);
     if($lead['language']==='de'){
-        $body="Guten Tag,\n\nwir interessieren uns für ".$lead['request']." und haben Ihr konkretes Lagerangebot entdeckt:\n"
+        $intro=$isStockListing?" und haben Ihr konkretes Lagerangebot entdeckt:\n":"; MediWorks hat uns an Sie verwiesen:\n";
+        $body="Guten Tag,\n\nwir interessieren uns für ".$lead['request'].$intro
             .$lead['evidence_url']."\n\n".$lead['question']."\n\n"
             ."Die Geräte sind für den Einsatz im Krankenhaus vorgesehen. Der Käufer übernimmt Installation, Schulung, Wartung und technischen Service vor Ort.\n\n"
             ."Vielen Dank für Ihre Unterstützung.\n\nHerzliche Grüße nach "
@@ -619,14 +622,15 @@ function aur_stock_listing_compose(array $case,array $plan):array {
             ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
         $subject='Lagerbestands- und Preisanfrage – '.$lead['model'];
     }else{
-        $body="Dear Sales Team,\n\nWe saw your specific inventory listing for ".$lead['model'].":\n"
+        $intro=$isStockListing?'We saw your specific inventory listing for ':'We found your product or distributor information for ';
+        $body="Dear Sales Team,\n\n".$intro.$lead['model'].":\n"
             .$lead['evidence_url']."\n\nWe are looking for ".$lead['request'].".\n\n"
             .$lead['question']."\n\n"
             ."The equipment is intended for a hospital environment. The purchaser will arrange installation, training, maintenance and local technical service.\n\n"
             ."Thank you very much for your assistance.\n\nKind regards,\n\n"
             ."AURENOEVA Purchasing\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein, Germany\n"
             ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
-        $subject='Stock confirmation and quotation – '.$lead['model'];
+        $subject=($isStockListing?'Stock confirmation and quotation – ':'Price and availability enquiry – ').$lead['model'];
     }
     if(preg_match('/Uzbekistan|Usbekistan|AUR-UZ-1A04A7909185FACD/ui',$body.' '.$subject))
         throw new RuntimeException('stock_listing_destination_in_public_email');
