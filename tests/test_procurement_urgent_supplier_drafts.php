@@ -291,7 +291,8 @@ try {
     $dispatchCode=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_rfq.php');
     urgent_check(str_contains($portalCode,'$aurShortBatch?aur_vendor_rfq_smtp_ready():aur_vendor_rfq_mail_verified($aurStore)')
         &&str_contains($portalCode,'Update unsent German email wording')
-        &&str_contains($dispatchCode,'aur_vendor_rfq_send_smoke_test($store);'),
+        &&str_contains($dispatchCode,'if(!$selectedOnly && !aur_vendor_rfq_mail_verified($store))')
+        &&!str_contains($dispatchCode,'aur_vendor_rfq_send_smoke_test($store);'),
         'Short supplier SMTP recovery or inline German refresh missing');
     require_once dirname(__DIR__).'/deployment/site/procurement/staff_auth.php';
     $request=json_encode(['task'=>'send','csrf'=>'test','case_ref'=>AUR_URGENT_RFQ_REF,

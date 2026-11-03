@@ -501,8 +501,8 @@ try{
 </p>
 <button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs"
 <?=(!$aurMailReady||empty($result['country_preflight']['destination_country'])||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>><?=$aurShortBatch?'Send selected suppliers · Max 3':'Approve and send '.count($rfqPreview['messages']??[]).' supplier enquiries'?> →</button>
-<?php if($aurShortBatch&&!aur_vendor_rfq_mail_verified($aurStore)&&aur_vendor_rfq_smtp_ready()):?>
-<p class="muted">The previous SMTP test has expired or needs renewal. After your approval, AURENOEVA will first send a diagnostic message to its own mailbox. Suppliers are contacted only if that test succeeds.</p>
+<?php if($aurShortBatch&&aur_vendor_rfq_smtp_ready()):?>
+<p class="muted">This selected batch uses authenticated AURENOEVA SMTP directly. No repeated internal test email is needed; each supplier has an individual persisted transport result.</p>
 <?php endif;?>
 <?php if($aurShortBatch&&!aur_vendor_rfq_smtp_ready()):?>
 <p role="alert"><b>Sending disabled: mailbox authentication is not configured.</b> Open <a href="#aur-mail-settings">Mail settings</a> to connect the AURENOEVA mailbox.</p>
