@@ -555,6 +555,21 @@ if ($isAdmin) {
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
             catch(Throwable $ignored){}
         }
+
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_stock_supplier_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $prepared=aur_stock_listing_prepare($aurStore,$case);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$prepared['draft_id'])
+                .'#aur-rfq-approval',true,303);
+            exit;
+        } catch(Throwable $e) {
+            error_log('AURENOEVA stockholder preparation: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            $supplierDiscoveryMessage='Stockholder drafts could not be saved. No supplier contacted. Check original RFQ item mappings.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
+            catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_nov_short_supplier_rfqs'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));

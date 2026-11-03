@@ -361,6 +361,54 @@ try {
 </section>
 <?php endif;?>
 
+
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurStockPlans=[];$aurStockSaved=null;$aurStockMessages=[];$aurStockError='';
+try{
+    $aurStockPlans=aur_stock_listing_plans($result);
+    $aurStockSaved=aur_stock_listing_saved($aurStore,$result);
+    if(is_array($aurStockSaved))$aurStockMessages=$aurStockSaved['messages'];
+    else foreach($aurStockPlans as $plan)$aurStockMessages[]=aur_stock_listing_compose($result,$plan);
+}catch(Throwable $e){
+    error_log('AURENOEVA stock-led stockholder emails: '.get_class($e).' '.substr($e->getMessage(),0,95));
+    $aurStockError='The original RFQ specification or the saved stockholder outbox could not be loaded.';
+}
+?>
+<section id="aur-stock-supplier-rfqs" class="card" style="margin-top:18px;border-color:#96b7a9">
+<h2>Stockholder outreach · 3 November 2026</h2>
+<p>Specific advertised inventory for the existing 44-entry customer enquiry. <b>Seller-verified stock: not yet confirmed.</b> This round asks for physical stock, exact configuration, unit price and dispatch date; no general supplier catalogue enquiries.</p>
+<p><span class="pill"><?=count($aurStockMessages)?> listing-linked messages</span>
+<span class="pill"><?=is_array($aurStockSaved)?'Saved in private RFQ outbox':'Ready to save for review'?></span>
+<span class="pill">No messages sent by preparation</span></p>
+<?php if($aurStockError!==''):?><p role="alert"><?=aur_escape($aurStockError)?></p>
+<?php elseif(!is_array($aurStockSaved)):?>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_stock_supplier_rfqs" value="1">Save these 9 stockholder emails for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><b>Saved, not sent.</b> <?=count($aurStockMessages)?> messages in the established private RFQ outbox.
+<a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurStockSaved['draft_id'])?>#aur-rfq-approval"><b>Review, tick and send in batches of three →</b></a></p>
+<?php endif;?>
+<details class="aux-disclosure" open>
+<summary><b>Review all stockholder enquiries</b> — item, seller, advert and full email</summary>
+<?php foreach($aurStockMessages as $message):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)($message['vendor_name']??''))?> ·
+<?=aur_escape((string)($message['to']??''))?> ·
+<?=aur_escape((string)($message['status']??'DRAFT'))?></summary>
+<p><b>Public stock claim:</b> <?=aur_escape((string)($message['listing_claim']??''))?></p>
+<p><b>Source:</b> <a href="<?=aur_escape((string)($message['listing_evidence_url']??''))?>" target="_blank" rel="noopener noreferrer">See exact listing ↗</a></p>
+<p><b>Subject:</b> <?=aur_escape((string)($message['subject']??''))?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)($message['body']??''))?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<p class="muted">The original buyer equipment and quantities remain unchanged. Listings are not stock confirmations, and advertised prices are not received supplier quotations. Previously contacted suppliers are approached only after explicit selection and sending.</p>
+</section>
+<?php endif;?>
+
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
@@ -398,7 +446,7 @@ try {
 <p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
 <?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<?php $aurShortBatch=(($rfqPreview['source']??'')==='CURATED_SHORT_ROUND_2026_11_01'); ?>
+<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03'],true); ?>
 <?php $aurShortPending=array_filter($rfqPreview['messages']??[],static fn($m)=>(string)($m['status']??'')==='DRAFT'); ?>
 <?php $aurShortNeedsRevision=$aurShortBatch && count(array_filter(
     $aurShortPending,static fn($m)=>($m['language']??'')==='de'

@@ -300,6 +300,59 @@ try {
     urgent_check($parsed['selected_indices']===[1,4,5]
       &&($parsed['send_vendor_rfqs']??'')==='1',
       'Browser selected recipient list not received by existing action');
+
+    // Stockholder round: 9 listing-specific messages, original item provenance,
+    // no destination in public mail, exact three-checkbox dispatch.
+    $stockPlans=aur_stock_listing_plans($novCase);
+    urgent_check(count($stockPlans)===9,'Expected nine independently evidenced listings');
+    foreach($stockPlans as $stockPlan) {
+        $stockMsg=aur_stock_listing_compose($novCase,$stockPlan);
+        urgent_check(($stockMsg['status']??'')==='DRAFT' &&
+            !preg_match('/Uzbekistan|Usbekistan|AUR-UZ-1A04A7909185FACD/u',
+                $stockMsg['subject'].' '.$stockMsg['body']),
+            'Stockholder email exposed destination or sent prematurely');
+        urgent_check(str_contains($stockMsg['body'],$stockPlan['lead']['evidence_url'])
+            &&str_contains($stockMsg['body'],'HRA 23554')
+            &&($stockMsg['source_grade']??'')==='ADVERTISED_IN_STOCK_NOT_SELLER_CONFIRMED',
+            'Listing source or original NOEVA signature missing');
+        urgent_check(count($stockMsg['items'])===count($stockPlan['rows']),
+            'Stockholder request lost buyer item');
+    }
+    $stockDraft=aur_stock_listing_prepare($root,$novCase);
+    urgent_check(count($stockDraft['messages'])===9 &&
+        ($stockDraft['status']??'')==='DRAFT_REVIEW',
+        'Stockholder draft was not saved without sending');
+    urgent_check(aur_stock_listing_prepare($root,$novCase)['draft_id']===$stockDraft['draft_id'],
+        'Stockholder preparation duplicated the saved outbox');
+    $stockSent=[];
+    $stockMock=static function($to,$subject,$body)use(&$stockSent):bool {
+        $stockSent[]=$to;return true;
+    };
+    foreach([null,[],[0,1,2,3],[0,0],[99]] as $bad) {
+        $rejected=false;
+        try{aur_vendor_rfq_dispatch($root,$novCase,$stockDraft['draft_id'],
+              true,$stockMock,3,$bad);}
+        catch(InvalidArgumentException $e){$rejected=true;}
+        urgent_check($rejected,'Stockholder outbox accepted invalid selection');
+    }
+    urgent_check(!$stockSent,'Invalid stock selection sent a supplier email');
+    $stockBatch=aur_vendor_rfq_dispatch($root,$novCase,$stockDraft['draft_id'],
+        true,$stockMock,3,[1,3,7]);
+    urgent_check(count($stockSent)===3 &&
+        ($stockBatch['dispatch_progress']['processed_this_request']??0)===3 &&
+        $stockSent[0]===$stockDraft['messages'][1]['to'] &&
+        $stockSent[1]===$stockDraft['messages'][3]['to'] &&
+        $stockSent[2]===$stockDraft['messages'][7]['to'],
+        'Only exactly checked stockholders should receive a batch');
+    $stockReload=aur_stock_listing_saved($root,$novCase);
+    urgent_check(($stockReload['messages'][0]['status']??'')==='DRAFT' &&
+        ($stockReload['messages'][1]['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT',
+        'Stockholder outbox statuses did not persist');
+    $portalText=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php');
+    urgent_check(str_contains($portalText,'aur-stock-supplier-rfqs') &&
+        str_contains($portalText,'CURATED_STOCK_LISTING_ROUND_2026_11_03'),
+        'Stockholder UI or selected sending path not installed');
+    echo "AURENOEVA_STOCKHOLDER_9_DRAFTS_CHECKED_BATCH=PASS\n";
     echo "AURENOEVA_URGENT_12_SUPPLIER_DRAFTS=PASS DE=".$locales['de']." EN=".$locales['en']."\n";
 }finally {
     $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
