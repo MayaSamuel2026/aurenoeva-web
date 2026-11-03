@@ -194,25 +194,51 @@
 
   if (sendForm && sendButton && sendProgress) {
     sendForm.addEventListener('submit', async event => {
-    if (!sendForm.reportValidity()) return;
+    // Native required-field validation previously stopped the submit event
+    // before this listener, leaving the button looking completely inert.
+    // Handle validation here and show a visible reason beside the button.
     event.preventDefault();
+    const explainSend = (message, isError=false) => {
+      sendProgress.textContent = message;
+      sendProgress.setAttribute('role', isError ? 'alert' : 'status');
+      sendProgress.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+      sendProgress.scrollIntoView({block:'nearest'});
+    };
+    const reviewBox=sendForm.querySelector('input[name="manual_review"]');
+    if (!reviewBox?.checked) {
+      explainSend('Before sending, tick the review and authorization checkbox immediately above this button.',true);
+      reviewBox?.focus({preventScroll:true});
+      return;
+    }
+    const chosen=sendForm.dataset.selectedOnly === '1'
+      ? [...sendForm.querySelectorAll('.aur-short-batch-select:checked')].map(c=>Number(c.value))
+      : [];
+    if (sendForm.dataset.selectedOnly === '1' &&
+        (chosen.length<1 || chosen.length>3 || new Set(chosen).size!==chosen.length)) {
+      explainSend('Please select one, two or three unsent supplier emails in the table above.',true);
+      return;
+    }
+    if (!sendForm.checkValidity()) {
+      explainSend('Please complete the required form fields before sending.',true);
+      return;
+    }
     sendButton.disabled = true;
+    explainSend('Processing your selected supplier batch. Checking the mailbox and recording individual delivery results. Do not click again.');
     const csrf = sendForm.querySelector('input[name="csrf"]')?.value;
     const caseRef = sendForm.querySelector('input[name="case_ref"]')?.value;
     const draftId = sendForm.querySelector('input[name="draft_id"]')?.value;
     const total = Number(sendForm.dataset.total || 0);
     if (!csrf || !caseRef || !draftId || total <= 0) {
-      sendProgress.textContent = 'RFQ information unavailable; reload the saved draft.';
+      explainSend('RFQ information unavailable; reload the saved draft.',true);
       sendButton.disabled = false; return;
     }
     // Short supplier round is one user-selected batch only. Never auto-loop
     // through the unselected recipients as the original bulk send does.
     if (sendForm.dataset.selectedOnly === '1') {
-      const selected = [...sendForm.querySelectorAll('.aur-short-batch-select:checked')]
-        .map(check => Number(check.value));
+      const selected = chosen;
       if (selected.length < 1 || selected.length > 3 ||
           new Set(selected).size !== selected.length) {
-        sendProgress.textContent = 'Please tick 1 to 3 unsent supplier emails.';
+        explainSend('Please tick 1 to 3 unsent supplier emails.',true);
         sendButton.disabled = false;
         return;
       }
@@ -231,7 +257,10 @@
             refresh_german_supplier_wording_first:'German draft text is outdated. Click Update unsent German email wording above the list.',
             select_one_to_three_suppliers:'Please select one, two or three unsent recipients.',
             selected_supplier_already_attempted:'One of the selected suppliers has already been attempted. Reload the saved RFQ before proceeding.',
-            destination_requires_sanctions_review:'Sending remains on hold for the required destination and trade-compliance review.'
+            destination_requires_sanctions_review:'Sending remains on hold for the required destination and trade-compliance review.',
+            supplier_legal_review_acknowledgement_required:'Tick the authorization checkbox above the Send button.',
+            rfq_duplicate_equipment_review_required:'Original equipment duplicates require resolution before sending.',
+            rfq_smtp_invalid_configuration:'The AURENOEVA mailbox configuration needs correcting; open Mail settings.'
           };
           throw new Error((reasons[result.error]||('Batch not confirmed ('+response.status+'): '+(result.error||'check saved status'))));
         }
@@ -245,9 +274,9 @@
         window.location.assign('/procurement/?case='+encodeURIComponent(caseRef)+
           '&draft='+encodeURIComponent(draftId)+'&ledger_refreshed=1#aur-rfq-approval');
       } catch (error) {
-        sendProgress.textContent='Batch result requires review: '+
+        explainSend('Batch result requires review: '+
           (error.message||'Unknown transport outcome')+
-          ' Do not send again until you reload and inspect the saved recipient statuses.';
+          ' Do not send again until you reload and inspect the saved recipient statuses.',true);
         // Failed HTTP responses may follow an accepted SMTP send.
         sendButton.disabled=true;
       }
@@ -288,9 +317,9 @@
       }
       throw new Error('Maximum batch count reached; reopen the draft to continue.');
     } catch (error) {
-      sendProgress.textContent = 'Mail dispatch interrupted: ' + (error.message || 'Unknown error') +
+      explainSend('Mail dispatch interrupted: ' + (error.message || 'Unknown error') +
         '. Do not click send again. Reload this saved RFQ to check accepted, unattempted and ' +
-        'failed/unconfirmed recipients in the private outbox before taking further action.';
+        'failed/unconfirmed recipients in the private outbox before taking further action.',true);
       // Keep disabled: the HTTP response can fail after a message was accepted.
       // A reload shows authoritative persisted status and prevents blind repeats.
       sendButton.disabled = true;
