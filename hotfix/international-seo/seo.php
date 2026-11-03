@@ -177,7 +177,7 @@ function aur_seo_indexable(array $p): bool {
 }
 /** Avoid repeating supplier sales claims as AURENOEVA technical facts. */
 function aur_seo_source_note(string $raw): string {
-    $text = trim((string)preg_replace('/\\s+/u', ' ', strip_tags($raw)));
+    $text = function_exists('aur_catalogue_clean_description') ? aur_catalogue_clean_description($raw) : trim((string)preg_replace('/\\s+/u', ' ', strip_tags($raw)));
     if (strlen($text) < 25 || strlen($text) > 240) return '';
     if (preg_match('/(?:great price|free shipping|official supplier|request (?:a )?quote|contact us|buy now|wide product range|best deal|discount|shop online|lowest price|order online|visit our store|learn more about|find more about|\\bclick here\\b)/iu', $text))
         return '';
@@ -232,7 +232,7 @@ function aur_seo_index(string $snapshot): array {
                 $row = [
                     'canonical_id'=>$id, 'manufacturer'=>substr($maker,0,100),
                     'model'=>substr($model,0,160),
-                    'description'=>substr(trim((string)($p['description'] ?? '')),0,240),
+                    'description'=>substr(aur_catalogue_clean_description((string)($p['description'] ?? '')),0,240),
                     'source_ref'=>(string)($p['source_ref'] ?? ''), 'facets'=>$facets,
                     'last_seen'=>(string)($p['last_seen'] ?? '')
                 ];

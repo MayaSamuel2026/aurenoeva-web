@@ -67,7 +67,7 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
         // Keep older known identities searchable even when manufacturer recrawls
         // are delayed. A catalogue identity is NOT verified availability.
         $m = $norm($maker); $part = $norm($model);
-        $description = $norm((string)($p['description'] ?? ''));
+        $description = $norm(function_exists('aur_catalogue_clean_description') ? aur_catalogue_clean_description((string)($p['description'] ?? '')) : (string)($p['description'] ?? ''));
         $all = $m . $part . $description;
         $score = $part === $q ? 1000 : (($m . $part) === $q ? 900 :
             (str_contains($part, $q) ? 700 : (str_contains($m . $part, $q) ? 550 :
@@ -87,7 +87,7 @@ function aur_catalogue_snapshot_search(string $query, int $limit = 8, string $in
             'classifications' => is_array($p['classifications']??null) ? $p['classifications'] : [],
             'classification_status' => (string)($p['classification_status']??'LEGACY'),
             'part_number' => '',
-            'description' => $clip(trim((string)($p['description'] ?? '')), 240),
+            'description' => $clip(function_exists('aur_catalogue_clean_description') ? aur_catalogue_clean_description((string)($p['description'] ?? '')) : trim((string)($p['description'] ?? '')), 240),
             'identifier_type' => 'MODEL',
             'lifecycle_status' => 'UNVERIFIED',
             'relationship_type' => 'CANDIDATE',

@@ -3,6 +3,18 @@ declare(strict_types=1);
 define('AUR_CATALOGUE_BROWSE_LIBRARY_ONLY', true);
 require dirname(__DIR__) . '/catalogue-browse.php';
 
+// A real supplier promotional snippet must disappear from every public listing.
+$cleanCases = [
+    ['Shop Other Spare Parts from certified global manufacturers. Zillion Parts simplifies B2B procurement with verified supplier listings, technical', ''],
+    ['Festo Adapter Kit DHAA-G-Q11-20-B5-16, For Use With Grippers', 'Festo Adapter Kit DHAA-G-Q11-20-B5-16, For Use With Grippers'],
+    ['Pneumatic valve, 24 V DC, IP67. Buy now for best prices.', 'Pneumatic valve, 24 V DC, IP67.'],
+    ['Shop other spare parts. Material: stainless steel; Thread: M8; Operating pressure: 8 bar', 'Material: stainless steel Thread: M8 Operating pressure: 8 bar'],
+    ['Entdecken Sie unsere große Auswahl an Ersatzteilen. Motor 230 V, 50 Hz.', 'Motor 230 V, 50 Hz.'],
+];
+foreach ($cleanCases as [$input, $expected]) {
+    if (aur_catalogue_clean_description($input) !== $expected) throw new RuntimeException('catalogue_marketing_copy_not_cleaned');
+}
+
 $root = sys_get_temp_dir().'/aur-browse-'.bin2hex(random_bytes(5));
 mkdir($root,0700,true);
 $path=$root.'/catalogue-public.json';
