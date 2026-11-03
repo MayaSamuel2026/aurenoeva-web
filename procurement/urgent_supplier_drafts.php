@@ -564,7 +564,7 @@ function aur_stock_listing_leads():array {
        'previously_contacted'=>true],
     ];
 }
-function aur_stock_listing_plans(array $case):array {
+function aur_stock_listing_plans(array $case,?array $roundLeads=null):array {
     if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return [];
     $lines=[];
     foreach(($case['payload']['sourcing_lines']??[]) as $entry) {
@@ -573,12 +573,15 @@ function aur_stock_listing_plans(array $case):array {
         if($item>0)$lines[$item][]=$entry;
     }
     $patterns=[
+      3=>'/\bZ20\b/ui',14=>'/\b(?:Pentax|CP[\s.-]*1000|VNL9[\s.-]*CP)\b/ui',
+      16=>'/\b(?:Heinemann|Modula[\s.-]*Europa)\b/ui',17=>'/\bS260S\b/ui',
+      24=>'/\bNeuron[\s.-]*Spectrum[\s.-]*1\b/ui',
       4=>'/\bV8\b/u',19=>'/\bHRK[\s.-]*1\b/ui',20=>'/\bHNT[\s.-]*1\b/ui',
       21=>'/\bOctopus\s*600\b/ui',26=>'/\bWATO[\s.-]*EX[\s.-]*35\b/ui',
       27=>'/\bSavina\b/ui',34=>'/\bEuronda\b.*\bE8\b/ui',36=>'/\bCATTANI\b/ui'
     ];
     $seen=[];$plans=[];
-    foreach(aur_stock_listing_leads() as $lead){
+    foreach(($roundLeads??aur_stock_listing_leads()) as $lead){
         $email=strtolower($lead['email']);
         if(!filter_var($email,FILTER_VALIDATE_EMAIL)||isset($seen[$email])||
            !preg_match('~^https://~',$lead['evidence_url']))
@@ -611,7 +614,7 @@ function aur_stock_listing_compose(array $case,array $plan):array {
             .$lead['evidence_url']."\n\n".$lead['question']."\n\n"
             ."Die Geräte sind für den Einsatz im Krankenhaus vorgesehen. Der Käufer übernimmt Installation, Schulung, Wartung und technischen Service vor Ort.\n\n"
             ."Vielen Dank für Ihre Unterstützung.\n\nHerzliche Grüße nach "
-            .($lead['id']==='sky-optic-hrk1'?'Köln':'Solingen')."\n\n"
+            .($lead['id']==='sky-optic-hrk1'?'Köln':($lead['id']==='schneider-s260s'?'Ried':'Solingen'))."\n\n"
             ."AURENOEVA Einkauf\nNOEVA Systems e.K.\nMarienburger Straße 16\n56112 Lahnstein\n"
             ."Amtsgericht Koblenz · HRA 23554\ninfo@aurenoeva.com\nwww.aurenoeva.com";
         $subject='Lagerbestands- und Preisanfrage – '.$lead['model'];
@@ -634,7 +637,7 @@ function aur_stock_listing_compose(array $case,array $plan):array {
     $message['listing_claim']=$lead['listing'];
     $message['listing_evidence_url']=$lead['evidence_url'];
     $message['previously_contacted']=$lead['previously_contacted'];
-    $message['source_grade']='ADVERTISED_IN_STOCK_NOT_SELLER_CONFIRMED';
+    $message['source_grade']=(string)($lead['source_grade']??'ADVERTISED_IN_STOCK_NOT_SELLER_CONFIRMED');
     return $message;
 }
 function aur_stock_listing_index_path(string $store,array $case):string {
@@ -679,4 +682,85 @@ function aur_stock_listing_prepare(string $store,array $case):array {
         aur_vendor_rfq_write($path,$index);
         return aur_stock_listing_saved($store,$case)??$index;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
+/* New independent enquiry batch. Explicit staff preparation, never automatic sending. */
+function aur_next_stock_leads():array {
+ return [
+ ['id'=>'ams-z20','name'=>'Art Medical Suisse','country'=>'CH','language'=>'en','email'=>'info@artmedicalsuisse.ch','items'=>[3],
+  'model'=>'Samsung HERA Z20','evidence_url'=>'https://www.artmedicalsuisse.ch/listings/8814049-refurbished-samsung-z20-ultrasound',
+  'listing'=>'CHF 63,500 refurbished Z20 with two transducers, 2024, advertised',
+  'request'=>'one Samsung Z20 including the four required probes CA1-7S, LA2-14A, EA2-11AR and CMV1-10',
+  'question'=>'Your listing includes two probes. Could you quote the complete four-probe configuration and confirm stock, condition and dispatch date?',
+  'source_grade'=>'MODEL_LISTING_WITH_PROBE_MISMATCH','previously_contacted'=>false],
+ ['id'=>'jr-pentax','name'=>'JR Medical','country'=>'NZ','language'=>'en','email'=>'sales@jrmedical.co.nz','items'=>[14],
+  'model'=>'Pentax VNL9-CP with CP-1000','evidence_url'=>'https://jrmedical.co.nz/pentax-ent/',
+  'listing'=>'Supplier advertises the exact VIVIDEO platform, stock unconfirmed',
+  'request'=>'one Pentax VNL9-CP and CP-1000 with the required monitor and trolley',
+  'question'=>'Could you quote the complete system and confirm included components, condition, availability and lead time?',
+  'source_grade'=>'MODEL_SPECIFIC_DISTRIBUTOR','previously_contacted'=>false],
+ ['id'=>'schneider-s260s','name'=>'Schneider Optoshop','country'=>'DE','language'=>'de','email'=>'as@optoshop.de','items'=>[17],
+  'model'=>'MediWorks S260S','evidence_url'=>'https://www.optoshop.de/',
+  'listing'=>'Manufacturer MediWorks referred AURENOEVA to this dealer; previous typo-domain enquiry bounced',
+  'request'=>'eine MediWorks / Dixion S260S Spaltlampe (1 Stück)',
+  'question'=>'MediWorks hat uns freundlicherweise an Sie verwiesen. Könnten Sie uns Preis, Verfügbarkeit und Lieferzeit für das S260S mitteilen?',
+  'source_grade'=>'MANUFACTURER_REFERRED_DISTRIBUTOR','previously_contacted'=>false],
+ ['id'=>'embra-ac300','name'=>'Embra','country'=>'IT','language'=>'en','email'=>'info@embra.it','items'=>[36],
+  'model'=>'CATTANI AC300 / 013330','evidence_url'=>'https://riunitidentaliembra.it/prodotto/ac300-compressore-cattani-tre-cilindri-con-essicatore/',
+  'listing'=>'EUR 3,230.25 ex. VAT advertised for three-cylinder model 013330',
+  'request'=>'one CATTANI AC300 / 013330, 230 V/50 Hz, 45 L with dryer, 238 L/min at 5 bar',
+  'question'=>'Could you confirm the quoted listing price, physical availability, full specification, warranty and delivery time?',
+  'source_grade'=>'SPECIFIC_ADVERTISED_MODEL','previously_contacted'=>false],
+ ['id'=>'neuromed-eeg','name'=>'NEUROMED Neurosoft France','country'=>'FR','language'=>'en','email'=>'contact@neuromed-europe.com','items'=>[24],
+  'model'=>'Neurosoft Neuron-Spectrum-1','evidence_url'=>'https://neurosoft.com/en/dealer',
+  'listing'=>'Named European EEG distributor in the official manufacturer directory; stock not confirmed',
+  'request'=>'one Neurosoft Neuron-Spectrum-1 EEG system with the original requested accessories',
+  'question'=>'Would you kindly quote the exact configuration, availability, warranty and delivery time?',
+  'source_grade'=>'OFFICIAL_MANUFACTURER_DISTRIBUTOR','previously_contacted'=>false],
+ ['id'=>'heinemann-za','name'=>'Heinemann ENT South Africa','country'=>'ZA','language'=>'en','email'=>'info@heinemann-ent.co.za','items'=>[16],
+  'model'=>'Heinemann MODULA Europa','evidence_url'=>'https://heinemann-ent.co.za/ent-treatment-units-pro-europa/',
+  'listing'=>'Named MODULA Europa ENT workstation in supplier catalogue',
+  'request'=>'one Heinemann MODULA Europa workstation matching requested code 0100-30000',
+  'question'=>'Could you quote the specified workstation with full configuration, current availability and lead time?',
+  'source_grade'=>'MODEL_SPECIFIC_DISTRIBUTOR','previously_contacted'=>false]
+ ];
+}
+function aur_next_stock_index(string $store,array $case):string {
+ if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)throw new InvalidArgumentException('wrong_stock_case');
+ return aur_private_directory($store,'supplier-rfqs').'/'.AUR_URGENT_RFQ_REF.'-next-stock-20261103.json';
+}
+function aur_next_stock_saved(string $store,array $case):?array {
+ if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return null;
+ $path=aur_next_stock_index($store,$case);
+ if(!is_file($path))return null;
+ if(is_link($path))throw new RuntimeException('unsafe_supplier_index');
+ $index=json_decode((string)file_get_contents($path),true,128,JSON_THROW_ON_ERROR);
+ if(!is_array($index)||($index['schema']??'')!=='aurenoeva-stock-next/1'||
+   ($index['case_source_sha256']??'')!==$case['source_sha256'])throw new RuntimeException('supplier_case_mismatch');
+ $draft=aur_vendor_rfq_read($store,$case,(string)$index['draft_id']);
+ $index['messages']=$draft['messages'];$index['status']=$draft['status'];
+ return $index;
+}
+function aur_next_stock_prepare(string $store,array $case):array {
+ $path=aur_next_stock_index($store,$case);
+ $lock=@fopen($path.'.lock','c');
+ if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('supplier_lock_failed');
+ try {
+  $old=aur_next_stock_saved($store,$case);if($old!==null)return $old;
+  $plans=aur_stock_listing_plans($case,aur_next_stock_leads());
+  if(count($plans)!==count(aur_next_stock_leads()))throw new RuntimeException('supplier_round_incomplete');
+  $messages=array_map(static fn(array $p):array=>aur_stock_listing_compose($case,$p),$plans);
+  $id=bin2hex(random_bytes(12));
+  aur_vendor_rfq_write(aur_vendor_rfq_path($store,(string)$case['reference'],$id),[
+    'version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
+    'case_source_sha256'=>$case['source_sha256'],'destination_country'=>$case['country'],
+    'information_only'=>true,'template_version'=>'pricing-rfq-v3',
+    'draft_id'=>$id,'created_at'=>gmdate('c'),'approval'=>null,
+    'status'=>'DRAFT_REVIEW','source'=>'EXACT_MODEL_ROUND2_NOV_2026',
+    'messages'=>$messages]);
+  aur_vendor_rfq_write($path,['schema'=>'aurenoeva-stock-next/1',
+    'case_reference'=>$case['reference'],'case_source_sha256'=>$case['source_sha256'],
+    'draft_id'=>$id,'supplier_count'=>count($messages),'prepared_at'=>gmdate('c')]);
+  return aur_next_stock_saved($store,$case)??throw new RuntimeException('stock_round_readback_failed');
+ } finally {flock($lock,LOCK_UN);fclose($lock);}
 }
