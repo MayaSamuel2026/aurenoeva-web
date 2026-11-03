@@ -69,8 +69,15 @@ function aur_prices_delete(string $store,array $case,string $id):void {
 /** Parse a price from the actual supplier's current email, never from quoted outbound text. */
 function aur_prices_number(string $text,string $expression):string {
     if(!preg_match($expression,$text,$m))return '';
-    $raw=str_replace([' ', ','],'',$m[1]);
-    if(preg_match('/^\d{1,3}(?:\.\d{3})+$/',$raw))$raw=str_replace('.','',$raw);
+    $raw=preg_replace('/\s+/u','',$m[1])??'';
+    if(preg_match('/^\d{1,3}(?:\.\d{3})+,\d{2}$/D',$raw))
+        $raw=str_replace(',','.',str_replace('.','',$raw));
+    elseif(preg_match('/^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/D',$raw))
+        $raw=str_replace(',','',$raw);
+    elseif(preg_match('/^\d{1,3}(?:\.\d{3})+$/D',$raw))
+        $raw=str_replace('.','',$raw);
+    elseif(preg_match('/^\d+,\d{1,2}$/D',$raw))
+        $raw=str_replace(',','.',$raw);
     return preg_match('/^\d+(?:\.\d{1,2})?$/D',$raw)?$raw:'';
 }
 function aur_prices_live_mail(string $store,array $case):array {
