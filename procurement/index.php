@@ -1358,6 +1358,17 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <div class="ci-kpi"><strong id="ci-transactions">—</strong><b>Verified purchases</b><small id="ci-no-sale">Evidence-required outcome verification</small></div>
 </div>
 <p class="ci-muted" id="ci-metadata"></p>
+<section class="ci-section" aria-label="Live catalogue harvesting">
+<h3>Crawler progress</h3>
+<p class="ci-muted">Results from the live catalogue used by website search. A discovered product is not confirmed supplier stock.</p>
+<div class="ci-kpis">
+<div class="ci-kpi"><strong id="ci-crawl-new">—</strong><b>New products · last 24 hours</b><small>New catalogue identities</small></div>
+<div class="ci-kpi"><strong id="ci-crawl-last">—</strong><b>Last completed run</b><small id="ci-crawl-last-note">Last confirmed harvest</small></div>
+<div class="ci-kpi"><strong id="ci-crawl-processed">—</strong><b>Pages processed · last 24 hours</b><small id="ci-crawl-processed-note">Including unsuccessful requests</small></div>
+<div class="ci-kpi"><strong id="ci-crawl-queue">—</strong><b>URLs awaiting processing</b><small id="ci-crawl-queue-note">Remaining due work, not product count</small></div>
+</div>
+<p class="ci-muted" id="ci-crawler-progress" role="status" aria-live="polite">Live crawler information loads when this dashboard is refreshed.</p>
+</section>
 <section class="ci-section" aria-label="Catalogue freshness and withdrawals">
 <h3>Catalogue health &amp; source verification</h3>
 <p class="ci-muted">Seller-page evidence is distinct from guaranteed stock. Withdrawal requires two source checks at least 24 hours apart. Historical product records and RFQs remain preserved.</p>
@@ -1593,4 +1604,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=11"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261027"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=4"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=4"></script><?php endif; ?></body></html>

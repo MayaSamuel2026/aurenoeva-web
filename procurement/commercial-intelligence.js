@@ -118,6 +118,38 @@
       $('ci-activity-scope').textContent='Recorded actions · last '+days+' calendar days (UTC). Event tracking begins with this release; prior behaviour cannot be inferred.';
       drawBars($('ci-activity-chart'),rows.map(x=>({label:day(x.date),value:x.search})),false);
     }
+    async function refreshCrawler(){
+      const status=$('ci-crawler-progress');
+      try{
+        const response=await fetch('/catalogue-count.php?monitor=private-intelligence',
+          {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        if(!response.ok)throw Error('Catalogue status request failed');
+        const data=await response.json(),c=data?.crawler;
+        if(data?.ok!==true||!c||
+          !Number.isSafeInteger(data.searchable_parts)||
+          !Number.isSafeInteger(c.new_products_24h)||
+          !Number.isSafeInteger(c.last_run_new_products)||
+          !Number.isSafeInteger(c.processed_pages_24h)||
+          !Number.isSafeInteger(c.failed_pages_24h)||
+          !Number.isSafeInteger(c.queue_due)||
+          !Number.isSafeInteger(c.queue_retrying))throw Error('No usable crawler evidence');
+        $('ci-crawl-new').textContent=fmt(c.new_products_24h);
+        $('ci-crawl-last').textContent=fmt(c.last_run_new_products)+' new';
+        $('ci-crawl-last-note').textContent='Completed '+when(c.last_completed_at_utc);
+        $('ci-crawl-processed').textContent=fmt(c.processed_pages_24h);
+        $('ci-crawl-processed-note').textContent=fmt(c.failed_pages_24h)+' unsuccessful requests';
+        $('ci-crawl-queue').textContent=fmt(c.queue_due);
+        $('ci-crawl-queue-note').textContent=fmt(c.queue_retrying)+' URLs marked for retry';
+        status.textContent=(c.status==='RECENTLY_COMPLETED'?'Crawling and publication are current. ':'Crawler attention needed: '+String(c.status||'unknown')+'. ')+
+          'Website search: '+fmt(data.searchable_parts)+' products. '+
+          'Last catalogue publication: '+when(data.snapshot_updated_at_utc)+
+          '. Records are not guarantees of supplier stock.';
+      }catch(_){
+        for(const id of ['ci-crawl-new','ci-crawl-last','ci-crawl-processed','ci-crawl-queue'])
+          $(id).textContent='—';
+        status.textContent='Live crawler telemetry is unavailable. Existing catalogue records and quotations are unaffected.';
+      }
+    }
     async function refresh(){
       if(busy)return;
       busy=true;$('ci-refresh').disabled=true;
@@ -127,6 +159,7 @@
         if(!response.ok)throw Error('Data unavailable · HTTP '+response.status);
         const body=await response.json();if(body.ok!==true)throw Error('Data not available');
         report=body;loaded=true;populate();
+        await refreshCrawler();
         $('ci-status').textContent='Current private data loaded.';
       }catch(err){$('ci-status').textContent='Commercial intelligence could not be refreshed. Existing enquiries and quotations are unaffected.';}
       finally{busy=false;$('ci-refresh').disabled=false;}
