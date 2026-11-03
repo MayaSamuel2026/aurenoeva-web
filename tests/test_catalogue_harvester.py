@@ -91,6 +91,39 @@ class Tests(unittest.TestCase):
         self.assertTrue(set(row["url"] for row in next_batch).isdisjoint(
             set(row["url"] for row in found)))
 
+    def test_supplier_fair_scheduler_does_not_yield_to_old_due_backlog(self):
+        # Production once had millions of old due URLs, many concentrated
+        # on one supplier. Preserve discovery while allocating most requests
+        # to distinct configured suppliers with product-detail leads.
+        old="2026-10-01T00:00:00Z"
+        for i in range(120):
+            self.db.execute("""INSERT INTO harvest_queue(url,kind,depth,due)
+                VALUES(?,'page',0,?)""",
+                (f"https://archive.example.com/catalogue/old-{i:04d}",old))
+        cfg={"categories":{"medical":["Diagnostic equipment"]},"sources":[
+            {"id":f"oem-{i}","active":True,"manufacturer":f"OEM-{i}",
+             "sector":"industrial","category":"Sensors / instrumentation",
+             "allowed_hosts":[f"www.supplier{i}.com"],
+             "seeds":[f"https://www.supplier{i}.com/product/part-{i}"]}
+            for i in range(24)]}
+        called=[]
+        def offline_page(url,kind):
+            called.append((url,kind))
+            return "<html><title>Catalogue</title></html>"
+        result=run(self.db,cfg,max_pages=30,max_seconds=30,
+                   workers=10,fetcher=offline_page)
+        source_pages={url for url,kind in called
+                      if kind=="page" and url.startswith("https://www.supplier")}
+        self.assertEqual(result["processed"],30)
+        self.assertEqual(len(source_pages),24)
+        self.assertTrue(any(kind.startswith("search") for _,kind in called))
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM products").fetchone()[0],0)
+        # Unprocessed worldwide leads remain durable, not discarded.
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM harvest_queue WHERE url LIKE 'https://archive.example.com/%'"
+            ).fetchone()[0],120)
+
     def test_consumer_search_noise_is_not_enqueued(self):
         before=self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0]
         self.assertEqual(enqueue(self.db,"https://www.langenscheidt.com/de/woerterbuch","page"),0)

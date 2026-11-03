@@ -920,8 +920,12 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # leads, without starving fresh sitemaps and worldwide searches.
             # The previous absolute search-first sort could repeatedly consume
             # the run budget before an already-discovered product was fetched.
-            buckets=(("page", 60), ("sitemap", 20), ("robots", 5),
-                     ("search", 10), ("search_ddg", 5))
+            # Prefer fair, source-qualified harvesting over a large, old
+            # due-date backlog. A fifth of each batch remains available for
+            # global leads, sitemaps and discovery; unused slots are filled
+            # normally. This is a per-batch allocation, never a result ceiling.
+            buckets=(("page", 40), ("sitemap", 25), ("robots", 5),
+                     ("search", 20), ("search_ddg", 10))
             counts=[left*share//100 for _,share in buckets]
             for i in range(left-sum(counts)):
                 counts[i%len(counts)]+=1
@@ -930,7 +934,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # Fetch source-backed product pages before the enormous worldwide
             # generic backlog. Cap each host to prevent an IFM-like queue spike
             # or robots denial from consuming an entire 2,500-page run.
-            direct=source_frontier_pages(db,source_hosts,max(1,left*2//3),
+            direct=source_frontier_pages(db,source_hosts,max(1,left*4//5),
                 selected,rotation=rid+batch_round)
             batch_round+=1
             rows.extend(direct)
