@@ -460,7 +460,7 @@ try{
 <button type="submit" name="refresh_nov_short_supplier_rfqs" value="1">Update unsent German email wording · Do not send</button>
 </form>
 <?php endif;?>
-<form method="post" action="/procurement/" id="aur-vendor-send-form"
+<form method="post" action="/procurement/" id="aur-vendor-send-form" novalidate
       data-total="<?=count($rfqPreview['messages']??[])?>" data-selected-only="<?=$aurShortBatch?'1':'0'?>">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
@@ -495,6 +495,10 @@ try{
 <?php endif;?>
 <label style="display:block;margin:12px 0"><input type="checkbox" name="manual_review" value="1" required> I have reviewed the actual destination, known seller and recipient identities, beneficial ownership where relevant, end use, and applicable sanctions and export controls. I authorize these information-only enquiries, not a sale or purchase.</label>
 <?php $aurMailReady=$aurShortBatch?aur_vendor_rfq_smtp_ready():aur_vendor_rfq_mail_verified($aurStore); ?>
+<p role="status" aria-live="polite" tabindex="-1" id="aur-send-progress"
+ style="margin:12px 0;padding:12px 14px;border:1px solid #bdd3c8;background:#f3f8f5;border-radius:8px;color:#163e34;font-weight:600">
+<?=$aurShortBatch?'Tick 1–3 suppliers and acknowledge the review checkbox above, then click Send. No email will be sent until you click.':'Review and authorize the supplier enquiries above, then click Send.'?>
+</p>
 <button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs"
 <?=(!$aurMailReady||empty($result['country_preflight']['destination_country'])||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>><?=$aurShortBatch?'Send selected suppliers · Max 3':'Approve and send '.count($rfqPreview['messages']??[]).' supplier enquiries'?> →</button>
 <?php if($aurShortBatch&&!aur_vendor_rfq_mail_verified($aurStore)&&aur_vendor_rfq_smtp_ready()):?>
@@ -507,7 +511,7 @@ try{
 <p role="status">No unsent messages remain in this outbox. Review the saved delivery results.</p>
 <?php endif;?>
 <?php if(!empty($result['country_preflight']['enhanced_review'])):?><p role="alert"><b>Country review hold:</b> sending is unavailable pending a documented restrictions assessment. Supplier research and saved equipment are unaffected.</p><?php endif;?>
-<p role="status" id="aur-send-progress" class="muted"><?=$aurShortBatch?'One click sends at most three checked recipients. No other suppliers are contacted.':'One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.'?></p>
+<p class="muted"><?=$aurShortBatch?'One click sends at most three checked recipients. No other suppliers are contacted.':'One consolidated email per supplier. Each recipient has an individual saved status; uncertain outcomes are never resent automatically.'?></p>
 <p><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-rfq-approval">Refresh the saved recipient ledger</a> if progress stops or the page appears stale.</p>
 </form>
 <?php else: ?><p>Accepted messages remain recorded. The recovery controls below apply only to recipients from this original RFQ whose transport failed or was unconfirmed.</p><?php endif;?>

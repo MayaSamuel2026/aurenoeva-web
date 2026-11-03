@@ -352,6 +352,17 @@ try {
     urgent_check(str_contains($portalText,'aur-stock-supplier-rfqs') &&
         str_contains($portalText,'CURATED_STOCK_LISTING_ROUND_2026_11_03'),
         'Stockholder UI or selected sending path not installed');
+    $workJs=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/worldwide.js');
+    $indexHtml=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
+    urgent_check(str_contains($portalText,'id="aur-vendor-send-form" novalidate') &&
+        str_contains($portalText,'aria-live="polite" tabindex="-1" id="aur-send-progress"') &&
+        str_contains($workJs,"const reviewBox=sendForm.querySelector('input[name=\"manual_review\"]')") &&
+        str_contains($workJs,'if (!reviewBox?.checked)') &&
+        str_contains($workJs,'Processing your selected supplier batch') &&
+        str_contains($workJs,'event.preventDefault();') &&
+        str_contains($indexHtml,'worldwide.js?v=11'),
+        'Visible send feedback and real checkbox acknowledgment missing');
+    echo "AURENOEVA_SEND_BUTTON_VISIBLE_FEEDBACK=PASS\n";
     echo "AURENOEVA_STOCKHOLDER_9_DRAFTS_CHECKED_BATCH=PASS\n";
     echo "AURENOEVA_URGENT_12_SUPPLIER_DRAFTS=PASS DE=".$locales['de']." EN=".$locales['en']."\n";
 }finally {
