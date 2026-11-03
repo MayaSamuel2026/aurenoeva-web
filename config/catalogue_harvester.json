@@ -844,6 +844,47 @@
       "sector": "industrial",
       "category": "Machine / process equipment",
       "priority": true
+    },
+    {
+      "id": "testequipmentdepot-measurement",
+      "active": true,
+      "allowed_hosts": [
+        "www.testequipmentdepot.com"
+      ],
+      "manufacturer": "",
+      "refresh_hours": 72,
+      "max_depth": 12,
+      "follow_regex": "^/[a-z0-9][a-z0-9-]+\\.html$",
+      "sector": "test",
+      "category": "Meters & power analyzers",
+      "seeds": [
+        "https://www.testequipmentdepot.com/product-catalog/test-and-measurement-equipment/multimeters.html",
+        "https://www.testequipmentdepot.com/product-catalog/test-and-measurement-equipment/oscilloscopes.html",
+        "https://www.testequipmentdepot.com/product-catalog/test-and-measurement-equipment/calibration-equipment.html",
+        "https://www.testequipmentdepot.com/fluke-87-v-true-rms-industrial-digital-multimeter-with-temperature-measurement.html"
+      ],
+      "follow_paths": [
+        "/product-catalog/test-and-measurement-equipment/"
+      ]
+    },
+    {
+      "id": "testequipmentdepot-laboratory",
+      "active": true,
+      "allowed_hosts": [
+        "www.testequipmentdepot.com"
+      ],
+      "manufacturer": "",
+      "refresh_hours": 72,
+      "max_depth": 12,
+      "follow_regex": "^/[a-z0-9][a-z0-9-]+\\.html$",
+      "sector": "laboratory",
+      "category": "General laboratory equipment",
+      "seeds": [
+        "https://www.testequipmentdepot.com/product-catalog/lab-equipment-and-supplies.html"
+      ],
+      "follow_paths": [
+        "/product-catalog/lab-equipment-and-supplies/"
+      ]
     }
   ],
   "discovery_targets": [

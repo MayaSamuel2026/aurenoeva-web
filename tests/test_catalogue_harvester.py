@@ -376,6 +376,28 @@ class Tests(unittest.TestCase):
         self.assertEqual(products[0]["sector"],"marine")
         self.assertIn("32",products[0]["model"])
 
+    def test_documented_test_equipment_supplier_covers_real_catalogue_routes(self):
+        # These vendor pages have observed model-specific products; do not
+        # silently reduce expansion to a single exact-model listing.
+        cfg=json.loads((Path(__file__).resolve().parents[1]/
+            "config/catalogue_harvester.json").read_text())
+        sources={entry["id"]:entry for entry in cfg["sources"]}
+        ids=("testequipmentdepot-measurement","testequipmentdepot-laboratory")
+        for key in ids:
+            item=sources[key]
+            self.assertTrue(item["active"])
+            self.assertEqual(item["allowed_hosts"],["www.testequipmentdepot.com"])
+            self.assertEqual(item["manufacturer"],"")
+            self.assertTrue(item["seeds"])
+            self.assertTrue(all(url.startswith("https://www.testequipmentdepot.com/")
+                                for url in item["seeds"]))
+            self.assertTrue(__import__("re").match(item["follow_regex"],
+                "/fluke-87-v-true-rms-industrial-digital-multimeter-with-temperature-measurement.html"))
+        self.assertIn("oscilloscopes.html",
+            " ".join(sources[ids[0]]["seeds"]))
+        self.assertIn("lab-equipment-and-supplies.html",
+            " ".join(sources[ids[1]]["seeds"]))
+
     def test_all_six_sources_configured_as_reusable_discovery(self):
         cfg=json.loads((Path(__file__).resolve().parents[1]/
            "config/catalogue_harvester.json").read_text())
