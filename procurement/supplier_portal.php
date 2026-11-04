@@ -534,7 +534,9 @@ try {
     value="<?=(int)$aurIndex?>" <?=$aurIsUnsent?'':'disabled'?>
     aria-label="Select <?=aur_escape((string)($aurMsg['vendor_name']??'supplier'))?>"></td>
 <td><b><?=aur_escape((string)($aurMsg['vendor_name']??''))?></b>
-<details><summary>Preview message</summary><p><b>Subject:</b> <?=aur_escape((string)($aurMsg['subject']??''))?></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;padding:10px;background:#f2f5f3"><?=aur_escape((string)($aurMsg['body']??''))?></pre></details></td>
+<details><summary>Preview message</summary><p><b>Subject:</b> <?=aur_escape((string)($aurMsg['subject']??''))?></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;padding:10px;background:#f2f5f3"><?=aur_escape(($aurShortBatch&&($result['reference']??'')==='AUR-UZ-1A04A7909185FACD')
+    ?aur_supplier_broader_offer_note((string)($aurMsg['body']??''),(string)($aurMsg['language']??'en'))
+    :(string)($aurMsg['body']??''))?></pre></details></td>
 <td><?=aur_escape((string)($aurMsg['to']??''))?></td>
 <td><?=aur_escape((string)($aurMsg['status']??'UNKNOWN'))?><?=$aurNeedsText?' · Refresh wording':''?></td>
 </tr>
