@@ -259,6 +259,11 @@
     if(sendForm.dataset.sending==='1')return; // no second SMTP POST in flight
     const explainSend = (message, isError=false) => {
       sendProgress.textContent = message;
+      sendProgress.style.background=isError?'#fff2ef':
+        sendForm.dataset.sending==='1'?'#fff7e9':'#edf7f0';
+      sendProgress.style.borderColor=isError?'#e9b6aa':
+        sendForm.dataset.sending==='1'?'#e6cf9f':'#a5ceb4';
+      sendProgress.style.color=isError?'#77362e':'#163e34';
       sendProgress.setAttribute('role', isError ? 'alert' : 'status');
       sendProgress.setAttribute('aria-live', isError ? 'assertive' : 'polite');
       sendProgress.scrollIntoView({block:'nearest'});
