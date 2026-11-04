@@ -673,11 +673,21 @@ def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
         if not rows:
             rows=db.execute("""SELECT * FROM harvest_queue
                 WHERE url>=? AND url<? ORDER BY url LIMIT 96""",(prefix,upper)).fetchall()
-        # A host can claim at most two slots, regardless of its queue size.
+        # Prefer actual product/detail URLs within this host's indexed
+        # cursor window. Large category/pagination frontiers otherwise consume
+        # almost every fetch without yielding a product. Unchosen rows remain
+        # durable and will be visited when the cursor wraps; no URL is deleted.
+        eligible=[row for row in rows if row["kind"]=="page"
+                  and row["due"]<=now and row["url"] not in selected]
+        def detail_rank(row):
+            path=urlsplit(row["url"]).path.lower()
+            detail=bool(re.search(
+                r"/(?:product(?:s)?|artikel|item|part|parts|p|device|equipment)/[^/]+",
+                path))
+            return (0 if detail else 1, row["url"])
+        eligible.sort(key=detail_rank)
         accepted=[]
-        for row in rows:
-            if row["kind"]!="page" or row["due"]>now or row["url"] in selected:
-                continue
+        for row in eligible:
             accepted.append(row)
             selected.add(row["url"])
             output.append(row)

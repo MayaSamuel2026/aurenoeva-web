@@ -91,6 +91,22 @@ class Tests(unittest.TestCase):
         self.assertTrue(set(row["url"] for row in next_batch).isdisjoint(
             set(row["url"] for row in found)))
 
+    def test_detail_pages_win_over_category_frontier_without_losing_work(self):
+        host="www.supplier.example"
+        for i in range(30):
+            enqueue(self.db,f"https://{host}/categories/section-{i:03d}","page")
+        for i in range(3):
+            enqueue(self.db,f"https://{host}/product/model-{i:03d}","page")
+        before=self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0]
+        chosen=set()
+        first=source_frontier_pages(self.db,[host],2,chosen,rotation=0)
+        self.assertEqual(len(first),2)
+        self.assertTrue(all("/product/" in row["url"] for row in first))
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],before)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM harvest_queue WHERE url LIKE ?",
+            (f"https://{host}/categories/%",)).fetchone()[0],30)
+
     def test_supplier_fair_scheduler_does_not_yield_to_old_due_backlog(self):
         # Production once had millions of old due URLs, many concentrated
         # on one supplier. Preserve discovery while allocating most requests
