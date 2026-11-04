@@ -15,7 +15,7 @@ function aur_supplier_pdf_text(string $value):string {
 }
 /** Keep supplier emails personal and concise, while inviting offers for any other listed item. */
 function aur_supplier_broader_offer_note(string $body,string $language):string {
-    if(str_contains($body,'complete equipment list')||str_contains($body,'vollständige Geräteliste'))
+    if(str_contains($body,'full equipment list')||str_contains($body,'complete equipment list')||str_contains($body,'vollständige Geräteliste'))
         return $body;
     $note=$language==='de'
       ? 'Unsere Firmenvorstellung und die vollständige Geräteliste haben wir beigefügt. Falls Sie weitere Positionen anbieten können, freuen wir uns auch über ein entsprechendes Teilangebot.'
