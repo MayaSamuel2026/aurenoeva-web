@@ -81,9 +81,37 @@ foreach([
     catch(InvalidArgumentException $e){}
 }
 @unlink($tmp);
+// Real brochure asset contract and private attachment-copy behavior.
+$assets=dirname(__DIR__).'/deployment/site/procurement/assets';
+$brochurePdf=$assets.'/AURENOEVA_Company_Introduction_A4.pdf';
+$brochurePng=$assets.'/AURENOEVA_Company_Introduction.png';
+mailcenter_assert(is_file($brochurePdf)&&filesize($brochurePdf)>100000
+    &&substr((string)file_get_contents($brochurePdf),0,5)==='%PDF-'
+    &&is_file($brochurePng)&&filesize($brochurePng)>100000
+    &&substr((string)file_get_contents($brochurePng),1,3)==='PNG'
+    &&str_contains((string)file_get_contents($assets.'/.htaccess'),'Require all denied'),
+    'Missing or unprotected brochure assets');
+$brochureRoot=sys_get_temp_dir().'/aur-brochure-'.bin2hex(random_bytes(7));
+mkdir($brochureRoot,0700,true);
+$brochureFiles=aur_mailcenter_attach_brochure($brochureRoot,str_repeat('a',32),[]);
+mailcenter_assert(count($brochureFiles)===1
+    && $brochureFiles[0]['type']==='application/pdf'
+    && hash_file('sha256',$brochurePdf)===hash_file('sha256',$brochureFiles[0]['path']),
+    'Brochure attachment bytes changed');
+$blocked=false;
+try{aur_mailcenter_attach_brochure($brochureRoot,str_repeat('b',32),
+    array_fill(0,5,$brochureFiles[0]));}
+catch(InvalidArgumentException $e){$blocked=true;}
+mailcenter_assert($blocked,'Brochure exceeded five-file limit');
+$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($brochureRoot,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);
+foreach($it as $file)$file->isDir()?rmdir($file->getPathname()):unlink($file->getPathname());
+rmdir($brochureRoot);
 $ui=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
 $js=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail-center.js');
 mailcenter_assert(str_contains($ui,'name="attachments[]"') &&
+    str_contains($ui,'name="include_brochure"') &&
+    str_contains($ui,'id="aur-brand-brochure"') &&
+    str_contains($ui,"if(!$isAdmin)aur_denied(401") &&
     str_contains($ui,'aur_mailcenter_send($aurStore,$_POST,(array)'),
     'Multipart uploads not wired through authenticated dashboard');
 mailcenter_assert(str_contains($js,'new FormData(compose)') &&

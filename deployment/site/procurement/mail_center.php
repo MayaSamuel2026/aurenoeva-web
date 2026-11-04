@@ -107,6 +107,26 @@ function aur_mailcenter_store_uploads(string $store,string $id,array $files):arr
     }
     return $stored;
 }
+/** Save the approved brochure beside uploaded attachments only when selected. */
+function aur_mailcenter_attach_brochure(string $store,string $id,array $existing):array {
+    $source=__DIR__.'/assets/AURENOEVA_Company_Introduction_A4.pdf';
+    if(!is_file($source)||is_link($source)||!is_readable($source))
+        throw new RuntimeException('mail_brochure_missing');
+    $bytes=filesize($source);
+    if(!is_int($bytes)||$bytes<100||$bytes>8388608)
+        throw new RuntimeException('mail_brochure_invalid');
+    if(count($existing)>=5)throw new InvalidArgumentException('too_many_mail_attachments');
+    if(array_sum(array_map(static fn($a)=>(int)$a['size'],$existing))+$bytes>10485760)
+        throw new InvalidArgumentException('mail_attachments_too_large');
+    $dir=aur_mailcenter_attachments_dir($store,$id);
+    $target=$dir.'/'.count($existing).'.bin';
+    if(is_file($target)||is_link($target))throw new RuntimeException('mail_attachment_conflict');
+    if(!copy($source,$target))throw new RuntimeException('mail_attachment_store_failed');
+    @chmod($target,0600);
+    $existing[]=['name'=>'AURENOEVA_Company_Introduction_A4.pdf',
+        'size'=>$bytes,'type'=>'application/pdf','path'=>$target];
+    return $existing;
+}
 function aur_mailcenter_sent_attachment(string $store,string $uid,int $index):array {
     $uid=aur_mailcenter_uid($uid);
     if(!str_starts_with($uid,'local-')||$index<0||$index>4)
@@ -327,7 +347,11 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         foreach($entries as $entry)if(($entry['id']??'')===$id)
             return ['ok'=>($entry['status']??'')==='SMTP_ACCEPTED',
                 'status'=>$entry['status'],'duplicate_request'=>true];
+        $selection=(string)($input['include_brochure']??'');
+        if($selection!==''&&$selection!=='1')
+            throw new InvalidArgumentException('invalid_brochure_selection');
         $attached=aur_mailcenter_store_uploads($store,$id,$files);
+        if($selection==='1')$attached=aur_mailcenter_attach_brochure($store,$id,$attached);
         $attachmentMetadata=array_map(static fn($part)=>[
             'name'=>$part['name'],'size'=>$part['size'],'type'=>$part['type']
         ],$attached);

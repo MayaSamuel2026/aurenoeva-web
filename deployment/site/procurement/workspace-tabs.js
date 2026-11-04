@@ -72,6 +72,7 @@
 
     // Diagnostics, catalogue administration and historical counts stay separate.
     move(document.getElementById('aur-mail-center'), panels.mail);
+    move(document.getElementById('aur-brand-brochure'), panels.settings);
     move(document.getElementById('aur-mail-settings')?.closest('.card'), panels.settings);
     move(cardWithTitle('Live product catalogue'), panels.settings);
     move(document.getElementById('supplier-history-counts'), panels.settings);
