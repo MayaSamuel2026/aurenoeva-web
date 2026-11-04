@@ -390,6 +390,8 @@ def db_init(db):
       category TEXT NOT NULL DEFAULT '',maker TEXT NOT NULL DEFAULT '',depth INTEGER NOT NULL DEFAULT 0,
       failures INTEGER NOT NULL DEFAULT 0,due TEXT NOT NULL,last_error TEXT NOT NULL DEFAULT '');
     CREATE INDEX IF NOT EXISTS harvest_queue_due ON harvest_queue(due,kind);
+    -- Kind-first retrieval prevents scanning millions of page tasks for a search or sitemap.
+    CREATE INDEX IF NOT EXISTS harvest_queue_kind_due ON harvest_queue(kind,due);
     CREATE TABLE IF NOT EXISTS harvest_source_cursor(
       host TEXT PRIMARY KEY, last_url TEXT NOT NULL DEFAULT '');
     CREATE TABLE IF NOT EXISTS harvest_runs(
@@ -944,9 +946,19 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # Fetch source-backed product pages before the enormous worldwide
             # generic backlog. Cap each host to prevent an IFM-like queue spike
             # or robots denial from consuming an entire 2,500-page run.
-            direct=source_frontier_pages(db,source_hosts,max(1,left*4//5),
-                selected,rotation=rid+batch_round)
             batch_round+=1
+            # Resolve priority suppliers with the indexed per-host URL frontier.
+            # The old OR-of-URL-LIKE conditions scanned millions of due pages
+            # before finding one priority host as the global backlog grew.
+            if priority_remaining:
+                favored=source_frontier_pages(
+                    db,priority_hosts,min(priority_remaining,max(1,left//3)),
+                    selected,rotation=rid+batch_round)
+                rows.extend(favored)
+                priority_remaining-=len(favored)
+            direct=source_frontier_pages(
+                db,source_hosts,max(0,left*4//5-len(rows)),
+                selected,rotation=rid+batch_round)
             rows.extend(direct)
             available=left-len(rows)
             counts=[available*share//100 for _,share in buckets]
@@ -954,18 +966,6 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                 counts[i%len(counts)]+=1
             for (kind,_),limit in zip(buckets,counts):
                 if not limit:continue
-                if kind=="page" and priority_remaining:
-                    host_where=" OR ".join("url LIKE ?" for _ in priority_hosts)
-                    host_params=tuple("https://"+h+"/%" for h in priority_hosts)
-                    favored=db.execute("""SELECT * FROM harvest_queue
-                        WHERE due<=? AND kind=? AND ("""+host_where+""")
-                        ORDER BY due LIMIT ?""",
-                        (stamp(),kind,*host_params,min(limit,priority_remaining))).fetchall()
-                    for record in favored:
-                        if record["url"] not in selected:
-                            rows.append(record);selected.add(record["url"])
-                    priority_remaining-=len(favored)
-                    limit-=len(favored)
                 if not limit:continue
                 found=db.execute("""SELECT * FROM harvest_queue
                     WHERE due<=? AND kind=? ORDER BY due
