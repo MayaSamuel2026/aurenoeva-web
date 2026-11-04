@@ -312,6 +312,16 @@ def parse_page(body,url,maker,sector,category):
                 and heading.casefold()==mpn.casefold()
                 and title.casefold().startswith((brand+" "+mpn).casefold())):
                 products.append((brand,mpn,"SUPPLIER_LABELED_MPN"))
+        elif path.startswith("/en/product/"):
+            # Preserve earlier English title+heading identities where the
+            # old supplier template omitted the labelled MPN field.
+            mpn=txt(heading,160)
+            match=re.match(r"^(.{2,100}?)\s+("+re.escape(mpn)+r")(?:\s|$|[|–—])",
+                           title,re.I) if mpn and any(c.isdigit() for c in mpn) else None
+            if match:
+                brand=txt(match.group(1).strip(" -|"),100)
+                if brand and brand.casefold() not in GENERIC:
+                    products.append((brand,mpn,"SUPPLIER_PART_PAGE"))
     if not products and maker:
         headline=txt(heading,160)
         title_model=txt(re.split(r"\s+[|–—]\s+|\s+-\s+",title,maxsplit=1)[0],160)
