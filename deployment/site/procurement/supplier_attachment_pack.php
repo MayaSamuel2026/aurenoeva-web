@@ -13,6 +13,22 @@ function aur_supplier_pdf_text(string $value):string {
     $value=$converted!==false?$converted:preg_replace('/[^\x20-\x7e]/','?', $value);
     return trim(preg_replace('/[\x00-\x1f\x7f]/',' ', $value)??'');
 }
+/** Keep supplier emails personal and concise, while inviting offers for any other listed item. */
+function aur_supplier_broader_offer_note(string $body,string $language):string {
+    if(str_contains($body,'complete equipment list')||str_contains($body,'vollständige Geräteliste'))
+        return $body;
+    $note=$language==='de'
+      ? 'Unsere Firmenvorstellung und die vollständige Geräteliste haben wir beigefügt. Falls Sie weitere Positionen anbieten können, freuen wir uns auch über ein entsprechendes Teilangebot.'
+      : 'We have attached our company introduction and the full equipment list. If you can supply any other items on it, we would also welcome a partial quotation.';
+    $targets=$language==='de'
+      ? ["\n\nVielen Dank","\n\nHerzliche Grüße","\n\nFreundliche Grüße"]
+      : ["\n\nThank you","\n\nKind regards","\n\nBest regards"];
+    foreach($targets as $target) {
+        $where=strpos($body,$target);
+        if($where!==false)return substr($body,0,$where)."\n\n".$note.substr($body,$where);
+    }
+    return rtrim($body)."\n\n".$note;
+}
 function aur_supplier_pdf_escape(string $value):string {
     return str_replace(['\\','(',')'],['\\\\','\\(','\\)'],$value);
 }
