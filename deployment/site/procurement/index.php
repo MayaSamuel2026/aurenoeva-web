@@ -1569,7 +1569,7 @@ info@aurenoeva.com | https://aurenoeva.com
 <div style="display:flex;gap:24px;align-items:start;flex-wrap:wrap">
 <div style="flex:1;min-width:250px">
 <h2>AURENOEVA · Company brochure</h2>
-<p>Your reusable one-page company introduction for suppliers and sourcing partners. It explains the searchable parts catalogue, direct customer RFQs, sourcing in Germany, supplier introductions, direct customer purchasing and commission-based relationships.</p>
+<p>Your reusable one-page introduction for suppliers, manufacturers and sourcing partners. It explains the searchable parts catalogue, direct customer RFQs, sourcing in Germany, supplier introductions, direct customer purchasing and commission-based relationships.</p>
 <p style="display:flex;flex-wrap:wrap;gap:10px">
 <a class="button" href="/procurement/?brochure=pdf">Download brochure · PDF (A4)</a>
 <a class="button ghost" href="/procurement/?brochure=image">Download original image</a>
