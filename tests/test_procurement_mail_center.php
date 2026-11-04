@@ -111,7 +111,7 @@ $js=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail-center
 mailcenter_assert(str_contains($ui,'name="attachments[]"') &&
     str_contains($ui,'name="include_brochure"') &&
     str_contains($ui,'id="aur-brand-brochure"') &&
-    str_contains($ui,"if(!$isAdmin)aur_denied(401") &&
+    str_contains($ui,'if(!$isAdmin)aur_denied(401') &&
     str_contains($ui,'aur_mailcenter_send($aurStore,$_POST,(array)'),
     'Multipart uploads not wired through authenticated dashboard');
 mailcenter_assert(str_contains($js,'new FormData(compose)') &&
