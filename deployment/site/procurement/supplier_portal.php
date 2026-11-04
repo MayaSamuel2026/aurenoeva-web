@@ -550,8 +550,42 @@ try {
  style="margin:12px 0;padding:12px 14px;border:1px solid #bdd3c8;background:#f3f8f5;border-radius:8px;color:#163e34;font-weight:600">
 <?=$aurShortBatch?'Tick 1–3 suppliers and acknowledge the review checkbox above, then click Send. No email will be sent until you click.':'Review and authorize the supplier enquiries above, then click Send.'?>
 </p>
+<?php
+$aurRecentBatch=(array)($rfqPreview['last_batch']??[]);
+$aurRecentItems=[];$aurRecentAccepted=0;
+if(isset($_GET['send_review']) && is_array($aurRecentBatch['indices']??null)){
+    foreach($aurRecentBatch['indices'] as $index){
+        $message=$rfqPreview['messages'][(int)$index]??null;
+        if(!is_array($message))continue;
+        $status=(string)($message['status']??'UNKNOWN');
+        if($status==='ACCEPTED_BY_MAIL_TRANSPORT')$aurRecentAccepted++;
+        $aurRecentItems[]=['supplier'=>(string)($message['vendor_name']??$message['to']??'Supplier'),
+            'status'=>$status];
+    }
+}
+?>
+<div id="aur-send-receipt" role="status" aria-live="polite"
+ <?=!$aurRecentItems?'hidden':''?> style="margin:12px 0;padding:16px 18px;background:#f7faf8;border:1px solid #b5d0c2;border-radius:9px">
+<?php if($aurRecentItems):?>
+<strong>Latest batch · <?=$aurRecentAccepted?> of <?=count($aurRecentItems)?> accepted by the sending server</strong>
+<p>These results were read from the saved supplier outbox. Acceptance does not guarantee delivery to the recipient inbox.</p>
+<ul>
+<?php foreach($aurRecentItems as $item):?>
+<li><?=aur_escape($item['supplier'])?> —
+<?=aur_escape(match($item['status']){
+ 'ACCEPTED_BY_MAIL_TRANSPORT'=>'Accepted by sending server',
+ 'TRANSPORT_FAILED_OR_UNCONFIRMED'=>'Failed or not confirmed — review',
+ 'IN_FLIGHT'=>'Processing or uncertain — review',
+ 'DRAFT'=>'Not sent',
+ default=>'Status requires review'
+})?></li>
+<?php endforeach;?>
+</ul>
+<?php endif;?>
+</div>
 <button name="send_vendor_rfqs" value="1" type="submit" id="aur-send-all-rfqs"
 <?=(!$aurMailReady||empty($result['country_preflight']['destination_country'])||!empty($result['country_preflight']['enhanced_review'])||$pricingTemplateOutdated)?'disabled':''?>><?=$aurShortBatch?'Send selected suppliers · Max 3':'Approve and send '.count($rfqPreview['messages']??[]).' supplier enquiries'?> →</button>
+<p class="muted">Sending status is saved per supplier. <a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>&amp;send_review=1#aur-send-receipt">Check the last recorded batch</a> without sending again.</p>
 <?php if($aurShortBatch&&aur_vendor_rfq_smtp_ready()):?>
 <p class="muted">This selected batch uses authenticated AURENOEVA SMTP directly. No repeated internal test email is needed; each supplier has an individual persisted transport result.</p>
 <?php endif;?>
