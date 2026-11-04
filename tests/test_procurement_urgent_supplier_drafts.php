@@ -364,9 +364,12 @@ try {
         str_contains($portalText,'aria-live="polite" tabindex="-1" id="aur-send-progress"') &&
         str_contains($workJs,"const reviewBox=sendForm.querySelector('input[name=\"manual_review\"]')") &&
         str_contains($workJs,'if (!reviewBox?.checked)') &&
-        str_contains($workJs,'Processing your selected supplier batch') &&
+        str_contains($workJs,'Sending… Please do not click again') &&
+        str_contains($workJs,'displayBatchReceipt(verified,selected)') &&
+        str_contains($workJs,"sendForm.dataset.sending='1'") &&
         str_contains($workJs,'event.preventDefault();') &&
-        str_contains($indexHtml,'worldwide.js?v=11'),
+        str_contains($portalText,'id="aur-send-receipt"') &&
+        str_contains($indexHtml,'worldwide.js?v=12'),
         'Visible send feedback and real checkbox acknowledgment missing');
     echo "AURENOEVA_SEND_BUTTON_VISIBLE_FEEDBACK=PASS\n";
     echo "AURENOEVA_STOCKHOLDER_9_DRAFTS_CHECKED_BATCH=PASS\n";
