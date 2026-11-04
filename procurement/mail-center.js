@@ -195,10 +195,6 @@
         }
         const preview = text('small', mail.preview || '');
         row.appendChild(preview);
-        if (mail.status === 'DELIVERY_UNCONFIRMED') {
-          const warning = text('span', 'Sending not confirmed');
-          warning.className = 'aur-mail-warning'; row.appendChild(warning);
-        }
         if (mail.reference) {
           const tag = text('span', mail.reference);
           tag.className = 'aur-mail-reference'; row.appendChild(tag);
