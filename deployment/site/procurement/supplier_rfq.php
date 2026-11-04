@@ -737,6 +737,13 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             if($selectedOnly&&!isset($selection[$i]))continue;
             if(($message['status']??'')!=='DRAFT')continue;
             if($sentThisRequest>=$batchLimit)break;
+            // The supplier sees the same expanded invitation in the approval
+            // preview and the actual sent message. Past sends remain immutable.
+            if($attachmentPack) {
+                $message['body']=aur_supplier_broader_offer_note(
+                    (string)$message['body'],(string)($message['language']??'en'));
+                $draft['messages'][$i]['body']=$message['body'];
+            }
             // Persist first. Unknown/failed outcomes never retry automatically.
             $draft['messages'][$i]['status']='IN_FLIGHT';
             $draft['messages'][$i]['attempted_at']=gmdate('c');
