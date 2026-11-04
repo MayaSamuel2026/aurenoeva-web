@@ -30,6 +30,11 @@ df_must($again===$id && file_get_contents($path)===$bytes,'redelivery was not id
 $stored=json_decode($bytes,true);
 df_must($stored['status']==='SOURCE_CANDIDATE_NOT_COMMERCIALLY_VERIFIED','unverified evidence was promoted');
 df_must($stored['evidence']['source_url']===$record['evidence']['source_url'],'source provenance lost');
+$recent=aur_df_recent($store,12);
+df_must($recent['total']===1 && count($recent['items'])===1,'staff view receipt was lost');
+df_must($recent['items'][0]['delivery_id']===431 && $recent['items'][0]['field']==='published_heading','staff view did not retain attributed field');
+df_must($recent['items'][0]['source_url']==='https://www.iana.org/domains/reserved','staff view source link incorrect');
+
 $bad=$record;$bad['delivery_id']=432;$bad['evidence']['value']='Modified';
 try{
     aur_df_validate(json_encode($bad,JSON_THROW_ON_ERROR),$stamp,$sig,$secret);
