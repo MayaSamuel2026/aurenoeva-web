@@ -509,15 +509,36 @@
         "https://www.ersaal.de/en/hersteller",
         "https://www.ersaal.de/en/kategorien",
         "https://www.ersaal.de/en/kategorien/industrial-components",
-        "https://www.ersaal.de/en/product/pepperl-fuchs-071801"
+        "https://www.ersaal.de/en/product/pepperl-fuchs-071801",
+        "https://www.ersaal.de/produkte",
+        "https://www.ersaal.de/kategorien",
+        "https://www.ersaal.de/hersteller",
+        "https://www.ersaal.de/produkt/abb-2cds781001r4352/",
+        "https://www.ersaal.de/produkt/abb-1sda076931r0001/",
+        "https://www.ersaal.de/produkt/abb-2gca297091a0031/",
+        "https://www.ersaal.de/produkt/abb-2cds251001r0025/",
+        "https://www.ersaal.de/produkt/festo-550992/"
       ],
       "follow_paths": [
         "/en/produkte",
         "/en/kategorien/",
         "/en/hersteller/",
-        "/en/product/"
+        "/en/product/",
+        "/produkt/",
+        "/produkte",
+        "/kategorien/",
+        "/hersteller/"
       ],
-      "refresh_hours": 96
+      "refresh_hours": 96,
+      "allowed_hosts": [
+        "www.ersaal.de"
+      ],
+      "follow_regex": "^/(?:en/product|produkt)/[a-z0-9+%._/#-]+/?$",
+      "sitemap_seeds": [
+        "https://www.ersaal.de/sitemap.xml"
+      ],
+      "discover_robots_sitemaps": true,
+      "max_depth": 6
     },
     {
       "id": "ersaal-drive-technology",
