@@ -106,6 +106,31 @@ if (!$isAdmin && $_SERVER['REQUEST_METHOD']==='POST' && !isset($_POST['password'
 }
 
 
+/* Private brochure library: original website assets cannot be requested
+ * directly (assets/.htaccess). Downloads require the signed admin cookie.
+ */
+if(isset($_GET['brochure'])){
+    if(!$isAdmin)aur_denied(401,'administrator login required');
+    if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET')aur_denied(405,'GET required');
+    $variant=(string)$_GET['brochure'];
+    $name=match($variant){
+        'pdf'=>'AURENOEVA_Company_Introduction_A4.pdf',
+        'preview','image'=>'AURENOEVA_Company_Introduction.png',
+        default=>null
+    };
+    if($name===null)aur_denied(404,'brochure not found');
+    $path=__DIR__.'/assets/'.$name;
+    if(!is_file($path)||is_link($path)||!is_readable($path))
+        aur_denied(503,'brochure unavailable');
+    header('Content-Type: '.($variant==='pdf'?'application/pdf':'image/png'));
+    header('Content-Length: '.filesize($path));
+    header('Content-Disposition: '.($variant==='preview'?'inline':'attachment').'; filename="'.$name.'"');
+    header('Cache-Control: private, no-store, max-age=0');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
+}
+
 /* Staff Mail Center. Same authenticated signed cookie and CSRF as RFQ actions. */
 if(isset($_GET['mail_action'])||isset($_POST['mail_action'])){
     header('Cache-Control: private, no-store, max-age=0');
@@ -1498,7 +1523,8 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 <option value="de">Deutsch</option>
 </select></label>
 <label>Attachments <input id="aur-mail-attachments" name="attachments[]" type="file" multiple aria-describedby="aur-mail-attachment-hint"></label>
-<p id="aur-mail-attachment-hint" class="muted">Up to 5 files · maximum 8 MB each · 10 MB total. PDF, spreadsheets, images and other common file types.</p>
+<label style="display:flex;align-items:center;gap:10px;font-weight:600"><input type="checkbox" name="include_brochure" id="aur-mail-include-brochure" value="1" style="width:auto;flex:none"> Attach AURENOEVA company brochure (PDF)</label>
+<p id="aur-mail-attachment-hint" class="muted">Up to 5 attachments including this brochure · 8 MB per file · 10 MB combined. <a href="/procurement/?brochure=pdf">View company brochure</a>.</p>
 <p id="aur-mail-selected-files" class="muted" role="status" aria-live="polite"></p>
 <div class="aur-mail-formatbar" role="toolbar" aria-label="Message formatting">
 <button type="button" id="aur-mail-normal" aria-label="Remove bold formatting">Normal</button>
@@ -1539,6 +1565,21 @@ info@aurenoeva.com | https://aurenoeva.com
 </div></div>
 </section>
 
+<section class="card" id="aur-brand-brochure" aria-label="AURENOEVA branded company brochure">
+<div style="display:flex;gap:24px;align-items:start;flex-wrap:wrap">
+<div style="flex:1;min-width:250px">
+<h2>AURENOEVA · Company brochure</h2>
+<p>Your reusable one-page company introduction for suppliers and sourcing partners. It explains the searchable parts catalogue, direct customer RFQs, sourcing in Germany, supplier introductions, direct customer purchasing and commission-based relationships.</p>
+<p style="display:flex;flex-wrap:wrap;gap:10px">
+<a class="button" href="/procurement/?brochure=pdf">Download brochure · PDF (A4)</a>
+<a class="button ghost" href="/procurement/?brochure=image">Download original image</a>
+</p>
+<p class="muted">Private administrator resource, ready to print or attach to emails. The master artwork and PDF are stored on this website.</p>
+<p><a href="#aur-mail-center">Go to Mail Centre →</a> — when composing, tick <b>Attach AURENOEVA company brochure (PDF)</b>. No emails are sent by downloading or selecting a brochure.</p>
+</div>
+<img src="/procurement/?brochure=preview" loading="lazy" alt="AURENOEVA one-page corporate brochure preview" style="width:205px;max-width:100%;height:auto;border:1px solid #d7dfd8;border-radius:9px;box-shadow:0 10px 24px rgba(15,55,45,.12)">
+</div>
+</section>
 <section class="card">
 <h2 id="aur-mail-settings">AURENOEVA supplier mailbox</h2>
 <p>Supplier enquiries must use authenticated Hostinger SMTP from <b>info@aurenoeva.com</b>. Mailbox credentials stay in the website's private hosting directory, never in the public catalogue or GitHub.</p>
@@ -1648,4 +1689,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=11"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=4"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>

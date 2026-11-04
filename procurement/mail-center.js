@@ -18,6 +18,7 @@
     const heading = root.querySelector('#aur-mail-folder-name');
     const attachmentsInput = root.querySelector('#aur-mail-attachments');
     const attachedNames = root.querySelector('#aur-mail-selected-files');
+    const brochureToggle = root.querySelector('#aur-mail-include-brochure');
     const richEditor = root.querySelector('#aur-mail-rich-editor');
     const normalButton = root.querySelector('#aur-mail-normal');
     const boldButton = root.querySelector('#aur-mail-bold');
@@ -323,14 +324,19 @@
     attachmentsInput.addEventListener('change', () => {
       const files = [...attachmentsInput.files];
       const size = files.reduce((total, file) => total + file.size, 0);
-      const invalid = files.length > 5 || files.some(file => file.size < 1 || file.size > 8388608)
-        || size > 10485760;
-      attachedNames.textContent = files.length
-        ? files.map(file => file.name + ' (' + Math.ceil(file.size / 1024) + ' KB)').join(' · ')
-        : 'No attachments selected.';
+      const hasBrochure = brochureToggle?.checked === true;
+      const invalid = files.length + Number(hasBrochure) > 5 ||
+        files.some(file => file.size < 1 || file.size > 8388608) ||
+        size + (hasBrochure ? 534000 : 0) > 10485760;
+      const selectedNames=files.map(file => file.name + ' (' + Math.ceil(file.size / 1024) + ' KB)');
+      if (hasBrochure) selectedNames.push('AURENOEVA company brochure (PDF)');
+      attachedNames.textContent = selectedNames.length ? selectedNames.join(' · ') : 'No attachments selected.';
       if (invalid) attachedNames.textContent += ' — Too many or too large; choose smaller files.';
       attachmentsInput.setCustomValidity(invalid ? 'Up to 5 files, 8 MB each, 10 MB total.' : '');
       if (invalid) attachmentsInput.reportValidity();
+    });
+    brochureToggle?.addEventListener('change', () => {
+      attachmentsInput.dispatchEvent(new Event('change'));
     });
 
     compose.addEventListener('submit', async event => {
