@@ -12,6 +12,31 @@ foreach(['../../etc/passwd','INBOX/;UID=1','INBOX.Sent?token=x'] as $unsafe){
 mailcenter_assert(aur_mailcenter_uids("* SEARCH 5 1 30 5\r\nA1 OK\r\n")===[30,5,1],
     'Mailbox UIDs not parsed, sorted or de-duplicated');
 mailcenter_assert(aur_mailcenter_uids("* SEARCH\r\nA1 OK\r\n")===[],'Empty mailbox not supported');
+
+/* Chronology and duplicate-safe paging across local SMTP/RFQ and Hostinger Sent. */
+$sentFixtureLocal=[
+ ['uid'=>'local-1','date'=>'2026-11-03T15:00:00Z','message_id'=>'<same@aurenoeva.com>'],
+ ['uid'=>'rfq-2','date'=>'2026-11-04T14:00:00Z','message_id'=>'<new@aurenoeva.com>'],
+];
+$sentFixtureServer=[
+ ['uid'=>'16','date'=>'2026-11-03T15:00:00Z','message_id'=>' <same@aurenoeva.com> '],
+ ['uid'=>'14','date'=>'2026-11-02T12:00:00Z','message_id'=>'<old@aurenoeva.com>'],
+ ['uid'=>'13','date'=>'2026-11-02T12:00:00Z','message_id'=>'<old@aurenoeva.com>'],
+];
+$first=aur_mailcenter_sent_page($sentFixtureLocal,$sentFixtureServer,1,2,false);
+mailcenter_assert(count($first['items'])===2
+ && $first['items'][0]['uid']==='rfq-2'
+ && $first['items'][1]['uid']==='local-1'
+ && $first['more']===true,
+ 'Sent first page is not date-sorted and deduplicated');
+$second=aur_mailcenter_sent_page($sentFixtureLocal,$sentFixtureServer,2,2,false);
+mailcenter_assert(count($second['items'])===1
+ && $second['items'][0]['uid']==='14'
+ && $second['more']===false,
+ 'Sent second page repeated a message or lost the last entry');
+mailcenter_assert(aur_mailcenter_sent_page([],[],1,20,true)['more']===true,
+ 'Sent pagination must continue when unprocessed Hostinger mail remains');
+
 $valid=['send_key'=>str_repeat('a',32),'to'=>'supplier@example.com',
     'subject'=>'Re: AUR-UZ-1A04A7909185FACD','body'=>'Quotation received.'];
 mailcenter_assert(aur_mailcenter_validate_send($valid)['to']==='supplier@example.com',
