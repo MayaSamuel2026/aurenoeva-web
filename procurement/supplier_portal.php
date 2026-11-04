@@ -492,7 +492,7 @@ try {
 <p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
 <?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03'],true); ?>
+<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026'],true); ?>
 <?php $aurShortPending=array_filter($rfqPreview['messages']??[],static fn($m)=>(string)($m['status']??'')==='DRAFT'); ?>
 <?php $aurShortNeedsRevision=$aurShortBatch && count(array_filter(
     $aurShortPending,static fn($m)=>($m['language']??'')==='de'
@@ -513,6 +513,9 @@ try {
 <input type="hidden" name="draft_id" value="<?=aur_escape((string)$rfqPreview['draft_id'])?>">
 <?php if($aurShortBatch):?>
 <h3>Select suppliers to send · Maximum 3 at a time</h3>
+<?php if(($result['reference']??'')==='AUR-UZ-1A04A7909185FACD'):?>
+<p><b>Two PDF attachments included automatically:</b> AURENOEVA company introduction and the full 44-item medical equipment RFQ (26 October 2026). The supplier-facing PDF excludes the destination country, buyer identity, internal reference and other suppliers' prices. Please also invite offers for any additional equipment on the list.</p>
+<?php endif;?>
 <p>Tick one, two or three <b>unsent</b> suppliers below. Only those checked will receive emails. Each click sends <b>one batch only</b>; repeat after checking the updated saved statuses.</p>
 <?php if($aurShortNeedsRevision):?>
 <p role="status">German suppliers with old wording are unavailable until you use the update button above. Other suppliers can still be selected.</p>
