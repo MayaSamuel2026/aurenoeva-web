@@ -945,6 +945,16 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                         - DISCOVERY_EXCLUDED_HOSTS)
     # Manufacturer-approved source patterns are scheduling hints, not evidence.
     detail_patterns_by_host={host:patterns_by_host.get(host,()) for host in source_hosts}
+    # Pre-qualified source seeds must not wait behind millions of older
+    # unproductive due URLs. Fetch exact configured URL keys through the
+    # existing primary-key index; the remaining per-batch slots remain fair.
+    source_seed_urls=list(dict.fromkeys(
+        url for src in config.get("sources",[]) if src.get("active",True)
+        for url in src.get("seeds",[])+src.get("sitemap_seeds",[])
+        if isinstance(url,str) and hostof(url) not in DISCOVERY_EXCLUDED_HOSTS))
+    source_seed_urls.sort(key=lambda url:(
+        0 if re.search(r"/(?:en/product|produkt|product|p)/",urlsplit(url).path,re.I)
+        else 1,url))
     batch_round=0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
@@ -969,6 +979,21 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                 counts[i%len(counts)]+=1
             rows=[]
             selected=set()
+            if source_seed_urls:
+                # Every cycle rotates through the full approved seed list.
+                # Not a results ceiling; the same source can continue in
+                # following cycles, and unknown URLs stay in the global queue.
+                due_now=stamp()
+                seed_slots=max(1,left//4)
+                start=(rid+batch_round*seed_slots)%len(source_seed_urls)
+                for offset in range(len(source_seed_urls)):
+                    url=source_seed_urls[(start+offset)%len(source_seed_urls)]
+                    record=db.execute(
+                        "SELECT * FROM harvest_queue WHERE url=? AND due<=?",
+                        (url,due_now)).fetchone()
+                    if record and record["url"] not in selected:
+                        rows.append(record);selected.add(record["url"])
+                        if len(rows)>=seed_slots:break
             # Fetch source-backed product pages before the enormous worldwide
             # generic backlog. Cap each host to prevent an IFM-like queue spike
             # or robots denial from consuming an entire 2,500-page run.
