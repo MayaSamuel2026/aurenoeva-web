@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/embargo_screen.php';
 require_once __DIR__.'/rfq_duplicates.php';
 require_once __DIR__.'/mail_branding.php';
+require_once __DIR__.'/supplier_attachment_pack.php';
 /**
  * Human-approved supplier enquiry outbox in the SAME private case store.
  * Draft -> review -> explicit approve -> SMTP/mail acceptance -> ledger.
@@ -709,6 +710,20 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
                 }
             }
         }
+        // Only this active medical equipment case: include the private,
+        // country-neutral full RFQ and approved company brochure. All files
+        // are resolved BEFORE marking a recipient IN_FLIGHT. Any missing
+        // asset blocks dispatch instead of silently sending without it.
+        $attachmentPack=[];
+        if($sender===null
+           &&($case['reference']??'')==='AUR-UZ-1A04A7909185FACD'
+           &&in_array((string)($draft['source']??''),[
+               'CURATED_SHORT_ROUND_2026_11_01',
+               'CURATED_STOCK_LISTING_ROUND_2026_11_03',
+               'EXACT_MODEL_ROUND2_NOV_2026'
+           ],true)) {
+            $attachmentPack=aur_supplier_outbound_attachments($store,$case);
+        }
         if(($draft['status']??'')==='DRAFT_REVIEW') {
             $draft['status']='DISPATCHING';
             $draft['approval']=['reviewed_at'=>gmdate('c'),'acknowledged_by'=>'AUTHENTICATED_ADMIN',
@@ -737,11 +752,14 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
                         'stage'=>'INJECTED','code'=>0,'response'=>'test_sender',
                         'outcome'=>'TEST_ONLY']
                     : aur_vendor_rfq_send_transport_detail($message['to'],$message['subject'],
-                        $message['body'],$draft['messages'][$i]['smtp_message_id']);
+                        $message['body'],$draft['messages'][$i]['smtp_message_id'],
+                        $attachmentPack);
             } catch(Throwable $e) {
                 error_log('AURENOEVA supplier SMTP exception: '.get_class($e));
             }
             $ok=$detail['accepted']===true;
+            if($attachmentPack)
+                $draft['messages'][$i]['attachment_names']=array_column($attachmentPack,'name');
             $draft['messages'][$i]['transport_result']=$detail;
             $draft['messages'][$i]['status']=$ok?'ACCEPTED_BY_MAIL_TRANSPORT':'TRANSPORT_FAILED_OR_UNCONFIRMED';
             $draft['messages'][$i]['sent_at']=$ok?gmdate('c'):null;
