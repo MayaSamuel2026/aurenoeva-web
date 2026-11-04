@@ -91,6 +91,30 @@ class Tests(unittest.TestCase):
         self.assertTrue(set(row["url"] for row in next_batch).isdisjoint(
             set(row["url"] for row in found)))
 
+    def test_verified_new_product_seed_precedes_stale_global_backlog(self):
+        for i in range(110):
+            enqueue(self.db,f'https://archive.example.com/catalog/old-{i:04d}','page')
+        new='https://www.ersaal.de/produkt/abb-2cds781001r4352/'
+        config={'categories':{},'sources':[{'id':'ersaal-labelled','active':True,
+            'allowed_hosts':['www.ersaal.de'],'seeds':[new],
+            'sector':'industrial','category':'PLC / control modules'}]}
+        product=('<html><title>ABB 2CDS781001R4352 | ERSAAL</title>'
+                 '<h1>2CDS781001R4352</h1>'
+                 '<strong>Hersteller</strong><dd>ABB ↗</dd>'
+                 '<strong>Teilenummer / MPN</strong>'
+                 '<dd><code>2CDS781001R4352</code></dd></html>')
+        fetched=[]
+        def offline(url,kind):
+            fetched.append(url)
+            return product if url==new else '<html><h1>Not a product</h1></html>'
+        result=run(self.db,config,1,10,1,offline)
+        self.assertEqual(fetched,[new])
+        self.assertEqual(result['new_products'],1)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM products').fetchone()[0],1)
+        self.assertEqual(self.db.execute(
+            'SELECT COUNT(*) FROM harvest_queue WHERE url LIKE ?',
+            ('https://archive.example.com/%',)).fetchone()[0],110)
+
     def test_detail_pages_win_over_category_frontier_without_losing_work(self):
         host="www.supplier.example"
         for i in range(30):
