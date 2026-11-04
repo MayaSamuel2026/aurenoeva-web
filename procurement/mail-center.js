@@ -169,6 +169,30 @@
         top.appendChild(text('time', Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : mail.date));
         row.appendChild(top);
         row.appendChild(text('b', mail.subject || '(No subject)'));
+        const sender = String(mail.from || '').toLowerCase();
+        const subject = String(mail.subject || '').toLowerCase();
+        let kind = '';
+        if (folder === 'INBOX') {
+          if (/mailer-daemon|postmaster/.test(sender) || /undelivered|delivery status|zustellung fehlgeschlagen/.test(subject)) {
+            kind = 'Delivery failure';
+          } else if (/^test(?:\s|\s*—)|no action required/.test(subject)) {
+            kind = 'System test';
+          } else if (/^\s*(re:|aw:|antwort:)/i.test(mail.subject || '')) {
+            kind = 'Supplier reply';
+          }
+        } else if (folder === 'INBOX.Sent') {
+          if (mail.status === 'DELIVERY_UNCONFIRMED' || mail.status === 'IN_FLIGHT') {
+            kind = 'Delivery unconfirmed';
+          } else if (String(mail.uid || '').startsWith('rfq-')) {
+            kind = 'RFQ enquiry';
+          }
+        }
+        if (kind) {
+          const badge = text('span', kind);
+          badge.className = kind === 'Delivery failure' || kind === 'Delivery unconfirmed'
+            ? 'aur-mail-warning' : 'aur-mail-reference';
+          row.appendChild(badge);
+        }
         const preview = text('small', mail.preview || '');
         row.appendChild(preview);
         if (mail.status === 'DELIVERY_UNCONFIRMED') {
@@ -184,7 +208,7 @@
       }
       previous.disabled = page <= 1;
       next.disabled = !more;
-      heading.textContent = label(folder);
+      heading.textContent = label(folder) + ' · newest first';
     }
     async function refresh() {
       notice('Loading mail…');

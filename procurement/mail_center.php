@@ -267,7 +267,7 @@ function aur_mailcenter_archive_imap(string $raw):string {
 function aur_mailcenter_sent_page(array $local,array $server,int $page,int $pageSize,bool $serverHasMore):array {
     $seen=[];$unique=[];
     foreach(array_merge($local,$server) as $entry) {
-        $mid=strtolower(trim((string)($entry['message_id']??''),"<> \\t\\r\\n"));
+        $mid=strtolower(trim((string)($entry['message_id']??''),"<> \t\r\n"));
         $key=$mid!==''?'mid:'.$mid:'uid:'.(string)($entry['uid']??'');
         if(isset($seen[$key]))continue;
         $seen[$key]=true;
