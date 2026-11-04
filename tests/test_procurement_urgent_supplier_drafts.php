@@ -148,6 +148,9 @@ try {
     urgent_check(count($sends)===3,'one approval may dispatch only 3 recipients');
     urgent_check(($first['dispatch_progress']['processed_this_request']??null)===3,
         'progress receipt missing');
+    urgent_check(($first['last_batch']['indices']??null)===[0,1,2]
+        &&!empty($first['last_batch']['recorded_at']),
+        'Last attempted supplier batch receipt not durably recorded');
     $remaining=aur_vendor_rfq_status_summary($first);
     urgent_check($remaining['remaining']===9 && $remaining['accepted']===3,
         'SMTP transport ledger did not correctly count accepted and unsent');
@@ -282,8 +285,10 @@ try {
     catch(InvalidArgumentException $e){$staleRefused=$e->getMessage()==='refresh_german_supplier_wording_first';}
     urgent_check($staleRefused && !$isolatedSends,
         'Unrefreshed German email should not be sent');
-    aur_vendor_rfq_dispatch($root,$novCase,$isolated['draft_id'],true,
+    $selectedResult=aur_vendor_rfq_dispatch($root,$novCase,$isolated['draft_id'],true,
         $isolatedMock,3,[1]);
+    urgent_check(($selectedResult['last_batch']['indices']??null)===[1],
+        'Receipt must preserve only the checked supplier, never all batch entries');
     urgent_check(count($isolatedSends)===1
         &&$isolatedSends[0]===$isolated['messages'][1]['to'],
         'Old unrelated German draft incorrectly blocked an English supplier');
