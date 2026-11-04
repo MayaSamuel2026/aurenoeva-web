@@ -36,6 +36,7 @@ require_once __DIR__ . '/supplier_inbox.php';
 require_once __DIR__ . '/cycle_verification.php';
 require_once __DIR__ . '/mail_center.php';
 require_once __DIR__ . '/staff_auth.php';
+require_once __DIR__ . '/deepfetcher_source_inbox.php';
 require_once __DIR__ . '/commercial_intelligence.php';
 require_once __DIR__ . '/quote_comparison.php';
 // The supplier dashboard uses one compact JSON request instead of a large
@@ -409,8 +410,19 @@ if (isset($_GET['export_catalogue'])) {
 }
 $aurSupplierAuditMessage=null;
 $aurCommercialNotice=null;
+$aurDfNotice=null;
 if ($isAdmin) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['record_commercial_outcome'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['configure_deepfetcher_receiver'])) {
+        try {
+            aur_df_provision($aurStore,(string)($_POST['df_signing_secret']??''),
+                (string)($_POST['df_ack_token']??''));
+            header('Location: /procurement/?deepfetcher_configured=1#aur-deepfetcher',true,303);
+            exit;
+        } catch (Throwable $e) {
+            error_log('AURENOEVA DeepFetcher receiver setup: '.get_class($e));
+            $aurDfNotice='Credentials were not saved. Use the exact two 64-character hexadecimal values from the destination registration response.';
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['record_commercial_outcome'])) {
         try {
             if (($_POST['staff_verified']??'')!=='1') throw new InvalidArgumentException('staff_confirmation_required');
             aur_ci_record_outcome($aurStore,trim((string)($_POST['case_ref']??'')),
@@ -1056,6 +1068,48 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <p><button type="submit">Open procurement workspace</button></p></form></div>
 <?php else: ?>
 <h1>Procurement workspace</h1><p>Manage enquiries, suppliers and responses from one compact workspace.</p>
+<?php
+$aurDfConfigured=false;
+$aurDfInbox=['total'=>0,'items'=>[]];
+try{
+    aur_df_config($aurStore);
+    $aurDfConfigured=true;
+}catch(Throwable $ignored){}
+try{
+    $aurDfInbox=aur_df_recent($aurStore,12);
+}catch(Throwable $ignored){}
+?>
+<section class="card" id="aur-deepfetcher">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><span class="pill">DeepFetcher · Source intelligence</span><h2 style="margin:9px 0 0">Incoming research evidence</h2></div>
+<strong><?= $aurDfConfigured?'Receiver configured':'Receiver setup required' ?></strong>
+</div>
+<p class="muted">Source-backed findings enter the private review inbox as unverified candidates. No catalogue products, supplier availability, quotations or customer RFQs are created automatically.</p>
+<p><b>Saved candidate records:</b> <?=(int)$aurDfInbox['total']?> · <b>Display:</b> latest 12. All historical records remain in private storage.</p>
+<?php if(isset($_GET['deepfetcher_configured'])):?><p role="status">Receiver credentials saved in the private Hostinger directory. Delivery is not verified until the public DeepFetcher API and signed acknowledgement have passed a real end-to-end test.</p><?php endif;?>
+<?php if($aurDfNotice):?><p role="alert"><?=aur_escape($aurDfNotice)?></p><?php endif;?>
+<?php if(!empty($aurDfInbox['items'])):?>
+<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+<thead><tr><th>Received</th><th>Field</th><th>Extracted value</th><th>Original source</th></tr></thead>
+<tbody>
+<?php foreach($aurDfInbox['items'] as $dfItem):?>
+<tr><td><?=aur_escape((string)$dfItem['committed_at'])?></td>
+<td><?=aur_escape((string)$dfItem['field'])?></td>
+<td><?=aur_escape((string)$dfItem['value'])?></td>
+<td><a href="<?=aur_escape((string)$dfItem['source_url'])?>" target="_blank" rel="noopener noreferrer">View source</a></td></tr>
+<?php endforeach;?>
+</tbody></table></div>
+<?php endif;?>
+<details><summary><?= $aurDfConfigured?'Replace private receiver credentials':'Configure signed source delivery' ?></summary>
+<p class="muted">Register the AURENOEVA destination in DeepFetcher for workspace <code>aurenoeva</code>, endpoint <code>https://aurenoeva.com/procurement/deepfetcher_receiver.php</code>. Enter its one-time signing secret and acknowledgement token below. Credentials are never displayed again.</p>
+<form method="post" autocomplete="off">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<label>Destination signing secret<input type="password" name="df_signing_secret" minlength="64" maxlength="64" pattern="[a-f0-9]{64}" autocomplete="off" required></label>
+<label>Acknowledgement token<input type="password" name="df_ack_token" minlength="64" maxlength="64" pattern="[a-f0-9]{64}" autocomplete="off" required></label>
+<p><button type="submit" name="configure_deepfetcher_receiver" value="1">Save receiver credentials privately</button></p>
+</form>
+</details>
+</section>
 <?php
 $aurHasCase=is_array($result)&&isset($result['reference']);
 $aurHasDraft=is_array($rfqPreview);

@@ -6,6 +6,31 @@ $root=sys_get_temp_dir().'/aur-df-test-'.bin2hex(random_bytes(5));
 mkdir($root.'/public_html',0700,true);
 $store=aur_store_root($root.'/public_html');
 $secret=str_repeat('s',64);
+
+$validSigning=str_repeat('a',64);
+$validAck=str_repeat('b',64);
+aur_df_provision($store,$validSigning,$validAck);
+$storedConfig=aur_df_config($store);
+df_must($storedConfig['signing_secret']===$validSigning
+    && $storedConfig['ack_token']===$validAck
+    && $storedConfig['workspace_id']==='aurenoeva'
+    && $storedConfig['api_base']==='https://app.deepfetcher.com',
+    'private receiver provisioning or readback failed');
+$configPath=aur_private_directory($store,'deepfetcher-inbox').'/receiver-config.json';
+df_must(is_file($configPath) && !is_link($configPath),'config absent or unsafe');
+df_must((fileperms($configPath)&0777)===0600,'private credentials permissions are not 0600');
+try {
+    aur_df_provision($store,'unsafe-secret',$validAck);
+    throw new RuntimeException('invalid secret accepted');
+} catch (InvalidArgumentException $e) {
+    df_must($e->getMessage()==='invalid_deepfetcher_credentials','unexpected invalid secret error');
+}
+df_must(aur_df_config($store)['signing_secret']===$validSigning,
+    'invalid configuration changed an existing receiver');
+aur_df_provision($store,str_repeat('c',64),str_repeat('d',64));
+df_must(aur_df_config($store)['signing_secret']===str_repeat('c',64),
+    'credential rotation did not atomically replace private config');
+
 $record=[
     'schema_version'=>'1.0','delivery_id'=>431,'mission_id'=>'df-qa-7',
     'workspace_id'=>'aurenoeva','client_reference'=>'test-source-only',
