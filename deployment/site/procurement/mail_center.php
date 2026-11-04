@@ -259,22 +259,51 @@ function aur_mailcenter_archive_imap(string $raw):string {
     return aur_vendor_rfq_archive_sent_imap($raw);
 }
 
+/**
+ * Build stable chronological Sent pages across locally recorded SMTP/RFQ
+ * dispatches and Hostinger IMAP copies. Message-ID is the only safe
+ * cross-store deduplication key: equal subjects can be legitimate re-sends.
+ */
+function aur_mailcenter_sent_page(array $local,array $server,int $page,int $pageSize,bool $serverHasMore):array {
+    $seen=[];$unique=[];
+    foreach(array_merge($local,$server) as $entry) {
+        $mid=strtolower(trim((string)($entry['message_id']??''),"<> \\t\\r\\n"));
+        $key=$mid!==''?'mid:'.$mid:'uid:'.(string)($entry['uid']??'');
+        if(isset($seen[$key]))continue;
+        $seen[$key]=true;
+        $unique[]=$entry;
+    }
+    usort($unique,static function(array $a,array $b):int {
+        $ad=strtotime((string)($a['date']??''))?:0;
+        $bd=strtotime((string)($b['date']??''))?:0;
+        return ($bd<=>$ad) ?: strcmp((string)($b['uid']??''),(string)($a['uid']??''));
+    });
+    $offset=($page-1)*$pageSize;
+    return ['items'=>array_slice($unique,$offset,$pageSize),
+        'more'=>$serverHasMore||count($unique)>$offset+$pageSize];
+}
+
 function aur_mailcenter_list(string $store,string $folder,int $page):array {
     $folder=aur_mailcenter_folder($folder);
-    $page=max(1,min(100,$page));$pageSize=20;
+    $page=max(1,$page);$pageSize=20;
+    $offset=($page-1)*$pageSize;
+    $sent=$folder==='INBOX.Sent';
     $local=[];
-    if($folder==='INBOX.Sent') {
-        $entries=aur_mailcenter_local($store);
-        foreach(array_reverse($entries) as $entry)
+    if($sent) {
+        foreach(aur_mailcenter_local($store) as $entry)
             if(is_array($entry))$local[]=aur_mailcenter_local_summary($entry);
         foreach(aur_mailcenter_rfq_sent($store) as $entry)$local[]=$entry;
     }
-    $error=null;$server=[];
+    $error=null;$server=[];$uids=[];
     try{
         $uids=aur_mailcenter_uids(aur_mailcenter_imap($folder,'UID SEARCH ALL',200000));
         $unread=aur_mailcenter_uids(aur_mailcenter_imap($folder,'UID SEARCH UNSEEN',200000));
-        $start=($page-1)*$pageSize;
-        foreach(array_slice($uids,$start,$pageSize) as $uid) {
+        // Sent has TWO sources. Read the remote prefix rather than a remote page
+        // so locally and remotely stored messages share one global page boundary.
+        $remoteUids=$sent
+            ?array_slice($uids,0,$page*$pageSize)
+            :array_slice($uids,$offset,$pageSize);
+        foreach($remoteUids as $uid) {
             try {$server[]=aur_mailcenter_summary($folder,(string)$uid,
                 aur_mailcenter_source($folder,(string)$uid),in_array($uid,$unread,true));}
             catch(Throwable $e){error_log('AURENOEVA mail header read: '.get_class($e));}
@@ -283,29 +312,19 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
         error_log('AURENOEVA mail list: '.get_class($e));
         $error='hostinger_mailbox_unavailable';
     }
-    // Locally sent messages are visible even if IMAP Sent does not store
-    // copies of messages submitted through this site's authenticated SMTP.
-    // Deduplicate IMAP copies against the retained local/RFQ Message-ID.
-    if($folder==='INBOX.Sent'){
-        $ids=[];
-        foreach($local as $entry){
-            $mid=strtolower(trim((string)($entry['message_id']??''),'<> \t\r\n'));
-            if($mid!=='')$ids[$mid]=true;
-        }
-        $server=array_values(array_filter($server,static function($entry)use($ids):bool{
-            $mid=strtolower(trim((string)($entry['message_id']??''),'<> \t\r\n'));
-            return $mid===''||!isset($ids[$mid]);
-        }));
+    if($sent) {
+        $merged=aur_mailcenter_sent_page($local,$server,$page,$pageSize,
+            count($uids)>$page*$pageSize);
+        return ['ok'=>$error===null||count($local)>0,'folder'=>$folder,'page'=>$page,
+            'items'=>$merged['items'],'more'=>$merged['more'],'warning'=>$error];
     }
-    $items=$folder==='INBOX.Sent' ? array_merge(array_slice($local,($page-1)*$pageSize,$pageSize),$server) : $server;
-    if($folder==='INBOX.Sent') {
-        usort($items,static function($a,$b):int {
-            return strtotime((string)$b['date']) <=> strtotime((string)$a['date']);
-        });
-        $items=array_slice($items,0,$pageSize);
-    }
-    return ['ok'=>$error===null||count($local)>0,'folder'=>$folder,'page'=>$page,
-        'items'=>$items,'more'=>count($server)===$pageSize,'warning'=>$error];
+    usort($server,static function(array $a,array $b):int {
+        $ad=strtotime((string)($a['date']??''))?:0;
+        $bd=strtotime((string)($b['date']??''))?:0;
+        return ($bd<=>$ad) ?: ((int)$b['uid']<=>(int)$a['uid']);
+    });
+    return ['ok'=>$error===null,'folder'=>$folder,'page'=>$page,
+        'items'=>$server,'more'=>count($uids)>$offset+$pageSize,'warning'=>$error];
 }
 function aur_mailcenter_read(string $store,string $folder,string $uid):array {
     $folder=aur_mailcenter_folder($folder);$uid=aur_mailcenter_uid($uid);
