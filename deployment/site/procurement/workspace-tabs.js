@@ -54,12 +54,63 @@
       suppliers.style.removeProperty('padding-top');
       move(suppliers, panels.suppliers, true);
     }
-    const reminders = document.getElementById('aur-price-reminders');
-    if (reminders) move(reminders, panels.rfq, true);
+    // Put the actual work first. The six recently researched suppliers were
+    // previously nested deep in the Suppliers tab while a 27-message
+    // historical reminder table dominated RFQ & replies.
+    const newRound = document.getElementById('aur-next-stock-rfq');
     const approvals = document.getElementById('aur-rfq-approval');
-    if (approvals) move(approvals, panels.rfq, true);
+    const reminders = document.getElementById('aur-price-reminders');
     const replies = document.getElementById('supplier-replies');
-    if (replies) move(replies, panels.rfq, true);
+    const newHeader = document.createElement('div');
+    newHeader.className = 'card aur-rfq-priority';
+    newHeader.style.cssText = 'padding:20px 24px;margin:0 0 16px;border:1px solid #b9cfc5;background:#f8fbfa';
+    const heading = document.createElement('h2');
+    heading.textContent = 'New supplier enquiries — review & send';
+    heading.style.cssText = 'margin:0 0 8px;font-size:22px';
+    const help = document.createElement('p');
+    help.textContent = newRound
+      ? 'Six product-specific suppliers. Review the emails and both PDF attachments, then tick up to three recipients to send. Preparing an enquiry never sends it.'
+      : 'Open an enquiry to prepare and review its supplier emails.';
+    help.style.margin = '0';
+    newHeader.append(heading, help);
+    panels.rfq.appendChild(newHeader);
+    if (newRound) {
+      newRound.querySelector('h2').textContent = 'Six new suppliers · Prepared for review';
+      newRound.style.marginTop = '0';
+      move(newRound, panels.rfq);
+    }
+    if (approvals) {
+      approvals.style.padding = '18px 22px';
+      approvals.style.borderTop = 'none';
+      move(approvals, panels.rfq, true);
+    }
+    const historical = document.createElement('details');
+    historical.className = 'card aur-rfq-history';
+    historical.style.cssText = 'padding:14px 22px;margin-top:14px';
+    const historicalTitle = document.createElement('summary');
+    historicalTitle.textContent = 'Earlier supplier campaigns · View only when needed';
+    historicalTitle.style.cssText = 'cursor:pointer;font-weight:700;padding:7px 0';
+    historical.appendChild(historicalTitle);
+    for (const id of ['aur-stock-supplier-rfqs','aur-nov-short-supplier-rfqs','aur-urgent-supplier-rfqs']) {
+      const section = document.getElementById(id);
+      if (section) historical.appendChild(section);
+    }
+    if (historical.children.length > 1) panels.rfq.appendChild(historical);
+    const extra = (node, label, id) => {
+      if (!node) return;
+      const box = document.createElement('details');
+      box.className = 'card aur-rfq-secondary';
+      box.id = id;
+      box.style.cssText = 'padding:14px 22px;margin-top:14px';
+      const title = document.createElement('summary');
+      title.textContent = label;
+      title.style.cssText = 'cursor:pointer;font-weight:700;padding:7px 0';
+      box.appendChild(title);
+      box.appendChild(node);
+      panels.rfq.appendChild(box);
+    };
+    extra(reminders, 'Supplier reminders · Earlier recipients and follow-ups', 'aur-reminders-archive');
+    extra(replies, 'Received supplier quotations and mailbox history', 'aur-replies-archive');
     if (oldSupplierCard) {
       if (oldSupplierCard.children.length === 0) oldSupplierCard.remove();
       else move(oldSupplierCard, panels.suppliers);
@@ -67,8 +118,11 @@
     move(cardWithTitle('Supplier research'), panels.suppliers);
     if (!suppliers && panels.suppliers.childElementCount === 0)
       panels.suppliers.innerHTML = '<div class="card"><h2>Suppliers</h2><p>Open a saved enquiry to review supplier research.</p></div>';
-    if (!reminders && !approvals && !replies)
-      panels.rfq.innerHTML = '<div class="card"><h2>RFQ & replies</h2><p>No supplier RFQ is available for this enquiry yet.</p></div>';
+    if (!newRound && !approvals && !reminders && !replies) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No supplier RFQ is available for this enquiry yet.';
+      panels.rfq.appendChild(empty);
+    }
 
     // Diagnostics, catalogue administration and historical counts stay separate.
     move(document.getElementById('aur-mail-center'), panels.mail);
@@ -81,11 +135,16 @@
     const actions = document.createElement('div');
     actions.className = 'aur-quick-actions';
     actions.setAttribute('aria-label', 'Common procurement tasks');
-    const links = document.getElementById('aur-send-status')
-      ? [['Prepare supplier reminders', '#aur-price-reminders'], ['Review sent RFQ', '#aur-send-status'],
-         ['Supplier replies', '#supplier-replies'], ['Supplier selection', '#supplier-dashboard'],
-         ['Original equipment', '#original-rfq-equipment']]
-      : [['Upload an enquiry', '#aur-upload'], ['Select suppliers', '#supplier-dashboard']];
+    const links = newRound
+      ? [['Review & send 6 new supplier enquiries', '#aur-next-stock-rfq'],
+         ['Select up to 3 recipients', '#aur-vendor-send-form'],
+         ['Review incoming quotations', '#supplier-replies'],
+         ['View original equipment', '#original-rfq-equipment']]
+      : document.getElementById('aur-send-status')
+        ? [['Review supplier RFQ', '#aur-rfq-approval'],
+           ['Supplier replies', '#supplier-replies'],
+           ['Supplier selection', '#supplier-dashboard']]
+        : [['Upload an enquiry', '#aur-upload'], ['Select suppliers', '#supplier-dashboard']];
     for (const [label, href] of links) {
       if (!document.getElementById(href.slice(1))) continue;
       const a = document.createElement('a');
