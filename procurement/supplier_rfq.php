@@ -733,6 +733,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             throw new RuntimeException('draft_already_processed_create_new_draft');
         }
         $sentThisRequest=0;
+        $attemptedIndices=[];
         foreach($draft['messages'] as $i=>$message) {
             if($selectedOnly&&!isset($selection[$i]))continue;
             if(($message['status']??'')!=='DRAFT')continue;
@@ -746,6 +747,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             }
             // Persist first. Unknown/failed outcomes never retry automatically.
             $draft['messages'][$i]['status']='IN_FLIGHT';
+            $attemptedIndices[]=(int)$i;
             $draft['messages'][$i]['attempted_at']=gmdate('c');
             $draft['messages'][$i]['smtp_message_id']=bin2hex(random_bytes(16)).'@aurenoeva.com';
             aur_vendor_rfq_write($path,$draft);
@@ -779,6 +781,12 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
                 ?'TRANSPORT_ACCEPTED':'PARTIAL_OR_FAILED';
         }
         $draft['dispatch_progress']=$summary+['processed_this_request'=>$sentThisRequest];
+        // Durable evidence for the actual recipients just attempted. This
+        // permits a stable post-send receipt after refresh or lost redirects;
+        // never replace it when no new supplier was attempted.
+        if($sentThisRequest>0)$draft['last_batch']=[
+            'indices'=>$attemptedIndices,'recorded_at'=>gmdate('c')
+        ];
         aur_vendor_rfq_write($path,$draft);
         return $draft;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
