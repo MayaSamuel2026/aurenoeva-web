@@ -6,6 +6,8 @@ on:
       - 'config/catalogue_harvester.json'
       - 'tests/test_catalogue_*.py'
       - 'deployment/site/procurement/**'
+      - '.github/workflows/publish.yml'
+      - 'tests/test_deepfetcher_receiver.php'
       - 'tests/test_procurement_urgent_supplier_leads.php'
       - 'tests/test_procurement_urgent_supplier_drafts.php'
       - 'tests/test_procurement_worldwide_php.php'
@@ -126,8 +128,10 @@ jobs:
           bash -n ops/connect-catalogue-search.sh
           bash -n deployment/install-hostinger.sh
           bash -n deployment/install-hostinger-worker.sh
-          # Guard against a future release omitting the RFQ/source/search modules.
-          for name in supplier_routes.php supplier_worldwide.php supplier_rfq.php supplier_reminders.php urgent_supplier_drafts.php supplier_portal.php worldwide.js; do
-            grep -q " $name " .github/workflows/publish.yml
-          done
+          # Guard against a future publisher reverting to a brittle whitelist.
+          grep -Fq 'cp -a deployment/site/procurement/.' .github/workflows/publish.yml
+          grep -Fq 'find "$RUNNER_TEMP/source/site/procurement"' .github/workflows/publish.yml
+          php -l deployment/site/procurement/deepfetcher_source_inbox.php
+          php -l deployment/site/procurement/deepfetcher_receiver.php
+          php tests/test_deepfetcher_receiver.php
           grep -q 'id="aur-worldwide-scan-all"' deployment/site/procurement/index.php
