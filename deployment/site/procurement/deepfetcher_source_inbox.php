@@ -50,7 +50,11 @@ function aur_df_commit(string $store,array $data,string $expectedWorkspace):stri
         if(is_file($path)){
             $existing=json_decode((string)file_get_contents($path),true);
             if(!is_array($existing) || ($existing['evidence']['id']??null)!==$data['evidence']['id']
-                || ($existing['mission_id']??null)!==$data['mission_id'])
+                || ($existing['mission_id']??null)!==$data['mission_id']
+                || ($existing['evidence']['source_hash']??null)!==$data['evidence']['source_hash']
+                || ($existing['evidence']['source_url']??null)!==$data['evidence']['source_url']
+                || ($existing['evidence']['field']??null)!==$data['evidence']['field']
+                || ($existing['evidence']['value']??null)!==$data['evidence']['value'])
                 throw new RuntimeException('delivery_id_conflict');
             return $ref; // Existing business-side record is committed only once.
         }
