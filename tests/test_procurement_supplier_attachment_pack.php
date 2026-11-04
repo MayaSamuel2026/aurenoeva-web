@@ -35,4 +35,11 @@ pack_check(str_contains($rfqCode,'$attachmentPack=aur_supplier_outbound_attachme
     'supplier dispatch must prepare both files before sending');
 pack_check(str_contains($rfqCode,'$attachmentPack);'),
     'supplier SMTP must pass prepared attachments');
+$en=aur_supplier_broader_offer_note("Please quote model ZM-1.\n\nThank you and kind regards,\nAURENOEVA",'en');
+pack_check(str_contains($en,'If you can supply any other items')
+   &&strpos($en,'full equipment list')<strpos($en,'Thank you'),'English invitation before signature');
+$de=aur_supplier_broader_offer_note("Guten Tag,\n\nwir interessieren uns für Modell ZM-1.\n\nHerzliche Grüße\nAURENOEVA",'de');
+pack_check(str_contains($de,'weitere Positionen')
+   &&strpos($de,'vollständige Geräteliste')<strpos($de,'Herzliche Grüße'),'German invitation before signature');
+pack_check($en===aur_supplier_broader_offer_note($en,'en'),'invitation idempotent');
 echo "AURENOEVA_SUPPLIER_ATTACHMENT_PACK_TESTS=PASS\n";
