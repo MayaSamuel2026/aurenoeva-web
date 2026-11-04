@@ -256,6 +256,7 @@
     // before this listener, leaving the button looking completely inert.
     // Handle validation here and show a visible reason beside the button.
     event.preventDefault();
+    if(sendForm.dataset.sending==='1')return; // no second SMTP POST in flight
     const explainSend = (message, isError=false) => {
       sendProgress.textContent = message;
       sendProgress.setAttribute('role', isError ? 'alert' : 'status');
@@ -280,15 +281,23 @@
       explainSend('Please complete the required form fields before sending.',true);
       return;
     }
+    const originalSendLabel=sendButton.textContent;
     sendButton.disabled = true;
-    explainSend('Processing your selected supplier batch. Checking the mailbox and recording individual delivery results. Do not click again.');
+    sendButton.textContent='Sending… Please do not click again';
+    sendForm.dataset.sending='1';
+    sendForm.setAttribute('aria-busy','true');
+    explainSend('Sending selected supplier enquiries. Your results will appear here as each batch is recorded. Do not click again.');
     const csrf = sendForm.querySelector('input[name="csrf"]')?.value;
     const caseRef = sendForm.querySelector('input[name="case_ref"]')?.value;
     const draftId = sendForm.querySelector('input[name="draft_id"]')?.value;
     const total = Number(sendForm.dataset.total || 0);
     if (!csrf || !caseRef || !draftId || total <= 0) {
       explainSend('RFQ information unavailable; reload the saved draft.',true);
-      sendButton.disabled = false; return;
+      sendButton.disabled=false;
+      sendButton.textContent=originalSendLabel;
+      sendForm.dataset.sending='0';
+      sendForm.removeAttribute('aria-busy');
+      return;
     }
     // Short supplier round is one user-selected batch only. Never auto-loop
     // through the unselected recipients as the original bulk send does.
@@ -297,46 +306,85 @@
       if (selected.length < 1 || selected.length > 3 ||
           new Set(selected).size !== selected.length) {
         explainSend('Please tick 1 to 3 unsent supplier emails.',true);
-        sendButton.disabled = false;
+        sendButton.disabled=false;
+        sendButton.textContent=originalSendLabel;
+        sendForm.dataset.sending='0';
+        sendForm.removeAttribute('aria-busy');
         return;
       }
       try {
-        const response = await fetch('/procurement/', {
+        const response = await fetch('/procurement/',{
           method:'POST',credentials:'same-origin',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
           body:JSON.stringify({task:'send',csrf,case_ref:caseRef,
             draft_id:draftId,manual_review:true,selected_indices:selected})
         });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok || result.ok !== true) {
+        const result = await response.json().catch(()=>({}));
+        if(!response.ok||result.ok!==true) {
           const reasons={
-            rfq_smtp_test_required:'The internal mailbox test did not pass. Open Mail settings and check the SMTP connection.',
+            rfq_smtp_test_required:'The internal mailbox test did not pass. Open Mail settings and check SMTP.',
             rfq_smtp_not_configured:'The sending mailbox is not configured. Open Mail settings.',
-            refresh_german_supplier_wording_first:'German draft text is outdated. Click Update unsent German email wording above the list.',
-            select_one_to_three_suppliers:'Please select one, two or three unsent recipients.',
-            selected_supplier_already_attempted:'One of the selected suppliers has already been attempted. Reload the saved RFQ before proceeding.',
-            destination_requires_sanctions_review:'Sending remains on hold for the required destination and trade-compliance review.',
-            supplier_legal_review_acknowledgement_required:'Tick the authorization checkbox above the Send button.',
-            rfq_duplicate_equipment_review_required:'Original equipment duplicates require resolution before sending.',
-            rfq_smtp_invalid_configuration:'The AURENOEVA mailbox configuration needs correcting; open Mail settings.'
+            refresh_german_supplier_wording_first:'Update the unsent German wording before sending.',
+            select_one_to_three_suppliers:'Select one, two or three unsent recipients.',
+            selected_supplier_already_attempted:'A selected supplier was already attempted. Check the saved status.',
+            destination_requires_sanctions_review:'A destination or trade-compliance review is still required.',
+            supplier_legal_review_acknowledgement_required:'Tick the review authorization checkbox.',
+            rfq_duplicate_equipment_review_required:'Review duplicate original equipment entries before sending.',
+            rfq_smtp_invalid_configuration:'Correct the AURENOEVA SMTP settings.'
           };
-          throw new Error((reasons[result.error]||('Batch not confirmed ('+response.status+'): '+(result.error||'check saved status'))));
+          throw new Error(reasons[result.error]||'Send response '+response.status+
+            ': '+(result.error||'check the saved RFQ status'));
         }
-        if (Number(result.progress?.processed_this_request)!==selected.length)
-          throw new Error('Selected count does not match saved send receipt.');
+        if(Number(result.progress?.processed_this_request)!==selected.length)
+          throw new Error('The send receipt did not match the number selected.');
+        // Verify with a separate authenticated GET to the immutable outbox.
+        explainSend('Mail server response received. Checking each supplier in the saved RFQ…');
         const verified=await readSavedLedger(caseRef,draftId);
-        if (Number(verified.progress?.accepted)!==Number(result.progress?.accepted) ||
-            Number(verified.progress?.remaining)!==Number(result.progress?.remaining))
-          throw new Error('Saved recipient ledger differs from the send response.');
+        if(Number(verified.progress?.accepted)!==Number(result.progress?.accepted) ||
+           Number(verified.progress?.remaining)!==Number(result.progress?.remaining))
+          throw new Error('Saved RFQ results differ from the send response.');
+        const receipt=displayBatchReceipt(verified,selected);
+        if(!receipt)throw new Error('Per-recipient results could not be verified.');
         renderSavedLedger(verified);
-        window.location.assign('/procurement/?case='+encodeURIComponent(caseRef)+
-          '&draft='+encodeURIComponent(draftId)+'&ledger_refreshed=1#aur-rfq-approval');
-      } catch (error) {
-        explainSend('Batch result requires review: '+
-          (error.message||'Unknown transport outcome')+
-          ' Do not send again until you reload and inspect the saved recipient statuses.',true);
-        // Failed HTTP responses may follow an accepted SMTP send.
+        syncSupplierRecipientRows(verified);
+        const remaining=Number(verified.progress?.remaining||0);
+        const needsReview=receipt.unconfirmed>0||receipt.unsent>0;
+        explainSend('Batch recorded: '+receipt.accepted+' of '+receipt.processed+
+          ' accepted by the sending server; '+receipt.unconfirmed+
+          ' failed or unconfirmed; '+remaining+' other recipient(s) remain unsent. '+
+          (needsReview?'Review the individual results below before further action.':
+           'You can select the next unsent suppliers below.'));
+        // Keep confirmation visible on the same page. A previous automatic
+        // redirect hid this result and made a successful send look inert.
+        const url=new URL(window.location.href);
+        url.searchParams.set('send_review','1');
+        url.hash='aur-send-progress';
+        window.history.replaceState(null,'',url.toString());
+        const reviewBox=sendForm.querySelector('input[name="manual_review"]');
+        if(reviewBox)reviewBox.checked=false;
+        sendButton.disabled=needsReview||remaining===0;
+        sendButton.textContent=needsReview?'Check saved status before continuing':
+          remaining?'Send next selected suppliers · Max 3':'All selected enquiries processed';
+      }catch(error){
+        explainSend('The send outcome needs verification: '+
+          (error.message||'Unknown response')+'. Checking the saved RFQ; do not click Send again.',true);
+        try{
+          const verified=await readSavedLedger(caseRef,draftId);
+          renderSavedLedger(verified);
+          syncSupplierRecipientRows(verified);
+          const recorded=displayBatchReceipt(verified,selected);
+          if(recorded&&recorded.accepted)
+            explainSend(recorded.accepted+' selected recipient(s) show SMTP acceptance in the saved ledger. '+
+              'Review each supplier below. Do not resend any attempted recipient.',true);
+        }catch(readError){
+          explainSend('Unable to confirm the send outcome. Do not click Send again; '+
+            'reload this RFQ and inspect the saved individual supplier statuses.',true);
+        }
         sendButton.disabled=true;
+        sendButton.textContent='Review saved RFQ status before further sending';
+      }finally{
+        sendForm.dataset.sending='0';
+        sendForm.removeAttribute('aria-busy');
       }
       return;
     }
@@ -366,8 +414,16 @@
              Number(verified.progress?.remaining)!==unsent)
             throw new Error('Saved RFQ ledger does not match SMTP response');
           renderSavedLedger(verified);
-          window.location.assign('/procurement/?case=' + encodeURIComponent(caseRef) +
-            '&draft=' + encodeURIComponent(draftId) + '&ledger_refreshed=1#aur-rfq-approval');
+          displayBatchReceipt(verified,verified.last_batch?.indices);
+          explainSend(accepted+' of '+(p.total||total)+' supplier enquiries accepted by the sending server; '+
+            failed+' failed/unconfirmed; '+unsent+' not yet sent. Review the recipient ledger below.');
+          const url=new URL(window.location.href);
+          url.searchParams.set('send_review','1');
+          url.hash='aur-send-progress';
+          window.history.replaceState(null,'',url.toString());
+          sendButton.textContent='Batch completed · See saved status';
+          sendForm.dataset.sending='0';
+          sendForm.removeAttribute('aria-busy');
           return;
         }
         if (Number(p.processed_this_request || 0) === 0)
@@ -381,6 +437,9 @@
       // Keep disabled: the HTTP response can fail after a message was accepted.
       // A reload shows authoritative persisted status and prevents blind repeats.
       sendButton.disabled = true;
+      sendButton.textContent='Review saved RFQ status before further sending';
+      sendForm.dataset.sending='0';
+      sendForm.removeAttribute('aria-busy');
     }
     });
   }
