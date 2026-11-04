@@ -292,18 +292,26 @@ def parse_page(body,url,maker,sector,category):
             if model:
                 special_description=txt(heading+"; ONERGYS article: "+sku.group(1),240)
                 products=[(maker_name,model,"SUPPLIER_PART_PAGE")]
-    # On ERSAAL the seller is not the manufacturer. Extract an exact MPN
-    # only from a product-detail page where the brand and MPN are both
-    # explicitly visible in the title/heading; do not invent ERSAAL as OEM.
-    if (not products and hostof(url) in ("www.ersaal.de","ersaal.de")
-            and urlsplit(url).path.startswith("/en/product/")):
-        mpn=txt(heading,160)
-        m=re.match(r"^(.{2,100}?)\s+(" + re.escape(mpn) + r")(?:\s|$|[|–—])",
-                   title,re.I) if mpn and any(ch.isdigit() for ch in mpn) else None
-        if m:
-            brand=txt(m.group(1).strip(" -|"),100)
-            if brand and brand.casefold() not in GENERIC:
-                products.append((brand,mpn,"SUPPLIER_PART_PAGE"))
+    # ERSAAL uses both German /produkt/ and English /en/product/ URLs.
+    # A labelled manufacturer and labelled MPN must agree with the product
+    # title and heading; supplier brand is never substituted for the OEM.
+    if (not products and host in ("www.ersaal.de","ersaal.de")
+            and (path.startswith("/en/product/") or path.startswith("/produkt/"))):
+        visible=" ".join(html.unescape(re.sub(r"<[^>]*>"," ",re.sub(
+            r"<(script|style)\b[^>]*>.*?</\1>"," ",body,flags=re.I|re.S))).split())
+        labelled=re.search(
+            r"\b(?:Hersteller|Manufacturer)\s+(.{2,100}?)\s+"
+            r"(?:Teilenummer\s*/\s*MPN|Part number\s*/\s*MPN|Hersteller-Teilenummer)\s+"
+            r"([#A-Za-z0-9][A-Za-z0-9./+#_-]{1,100})(?=\s|$)",
+            visible,re.I)
+        if labelled:
+            brand=txt(labelled.group(1).strip(" \t↗→•-"),100)
+            mpn=txt(labelled.group(2),100)
+            if (brand and brand.casefold() not in GENERIC
+                and re.search(r"\d",mpn)
+                and heading.casefold()==mpn.casefold()
+                and title.casefold().startswith((brand+" "+mpn).casefold())):
+                products.append((brand,mpn,"SUPPLIER_LABELED_MPN"))
     if not products and maker:
         headline=txt(heading,160)
         title_model=txt(re.split(r"\s+[|–—]\s+|\s+-\s+",title,maxsplit=1)[0],160)
@@ -647,7 +655,8 @@ def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
     db.execute("""INSERT OR IGNORE INTO harvest_queue(url,kind,sector,category,maker,depth,due)
       VALUES(?,?,?,?,?,?,?)""",(url,kind,sector,category,maker,depth,stamp()))
     return db.execute("SELECT changes()").fetchone()[0]
-def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
+def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None,
+                          detail_patterns_by_host=None):
     """Fair, bounded supplier discovery over the EXISTING URL primary-key index.
 
     No queue deletion, schema rebuild or full-table sort. Each configured host
@@ -668,13 +677,13 @@ def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
         cursor=prior[0] if prior else ""
         if cursor and prefix<=cursor<upper:
             rows=db.execute("""SELECT * FROM harvest_queue
-                WHERE url>? AND url<? ORDER BY url LIMIT 96""",(cursor,upper)).fetchall()
+                WHERE url>? AND url<? ORDER BY url LIMIT 384""",(cursor,upper)).fetchall()
         else:
             rows=db.execute("""SELECT * FROM harvest_queue
-                WHERE url>=? AND url<? ORDER BY url LIMIT 96""",(prefix,upper)).fetchall()
+                WHERE url>=? AND url<? ORDER BY url LIMIT 384""",(prefix,upper)).fetchall()
         if not rows:
             rows=db.execute("""SELECT * FROM harvest_queue
-                WHERE url>=? AND url<? ORDER BY url LIMIT 96""",(prefix,upper)).fetchall()
+                WHERE url>=? AND url<? ORDER BY url LIMIT 384""",(prefix,upper)).fetchall()
         # Prefer actual product/detail URLs within this host's indexed
         # cursor window. Large category/pagination frontiers otherwise consume
         # almost every fetch without yielding a product. Unchosen rows remain
@@ -684,8 +693,12 @@ def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
         def detail_rank(row):
             path=urlsplit(row["url"]).path.lower()
             detail=bool(re.search(
-                r"/(?:product(?:s)?|artikel|item|part|parts|p|device|equipment)/[^/]+",
+                r"/(?:product(?:s)?|produkt|artikel|item|part|parts|p|device|equipment)/[^/]+",
                 path))
+            for pattern in (detail_patterns_by_host or {}).get(host,()):
+                if pattern.fullmatch(urlsplit(row["url"]).path):
+                    detail=True
+                    break
             return (0 if detail else 1, row["url"])
         eligible.sort(key=detail_rank)
         accepted=[]
@@ -694,8 +707,9 @@ def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None):
             selected.add(row["url"])
             output.append(row)
             if len(accepted)>=2 or len(output)>=capacity:break
-        # Do not skip any due URL. Advance past a scan only when none were due.
-        last=accepted[-1]["url"] if accepted else (rows[-1]["url"] if rows else "")
+        # Advance by the entire inspected window, not two accepted URLs.
+        # All unselected due URLs stay in SQLite for normal scheduler work.
+        last=rows[-1]["url"] if rows else ""
         db.execute("""INSERT INTO harvest_source_cursor(host,last_url)
             VALUES(?,?) ON CONFLICT(host) DO UPDATE SET last_url=excluded.last_url""",
             (host,last))
@@ -919,6 +933,8 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
         "GROUP BY website HAVING n>=3 ORDER BY n DESC LIMIT 40")]
     source_hosts=sorted((set(source_host_groups)|set(proven_hosts))
                         - DISCOVERY_EXCLUDED_HOSTS)
+    # Manufacturer-approved source patterns are scheduling hints, not evidence.
+    detail_patterns_by_host={host:patterns_by_host.get(host,()) for host in source_hosts}
     batch_round=0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
@@ -953,12 +969,14 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             if priority_remaining:
                 favored=source_frontier_pages(
                     db,priority_hosts,min(priority_remaining,max(1,left//3)),
-                    selected,rotation=rid+batch_round)
+                    selected,rotation=rid+batch_round,
+                detail_patterns_by_host=detail_patterns_by_host)
                 rows.extend(favored)
                 priority_remaining-=len(favored)
             direct=source_frontier_pages(
                 db,source_hosts,max(0,left*4//5-len(rows)),
-                selected,rotation=rid+batch_round)
+                selected,rotation=rid+batch_round,
+                detail_patterns_by_host=detail_patterns_by_host)
             rows.extend(direct)
             available=left-len(rows)
             counts=[available*share//100 for _,share in buckets]
