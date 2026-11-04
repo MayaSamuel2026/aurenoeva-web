@@ -81,6 +81,35 @@ function aur_df_commit(string $store,array $data,string $expectedWorkspace):stri
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
+
+/**
+ * Store receiver credentials only after a signed-in staff POST protected by the
+ * existing procurement CSRF check. No public file and no browser readback of secrets.
+ */
+function aur_df_provision(string $store,string $signingSecret,string $ackToken):void {
+    $signingSecret=trim($signingSecret);
+    $ackToken=trim($ackToken);
+    if(!preg_match('/^[a-f0-9]{64}$/D',$signingSecret) ||
+       !preg_match('/^[a-f0-9]{64}$/D',$ackToken))
+        throw new InvalidArgumentException('invalid_deepfetcher_credentials');
+    $dir=aur_private_directory($store,'deepfetcher-inbox');
+    $path=$dir.'/receiver-config.json';
+    if(is_link($path))throw new RuntimeException('unsafe_receiver_config_path');
+    $payload=json_encode([
+        'signing_secret'=>$signingSecret,
+        'ack_token'=>$ackToken,
+        'api_base'=>'https://app.deepfetcher.com',
+        'workspace_id'=>'aurenoeva'
+    ],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+    $temp=$dir.'/.config-'.bin2hex(random_bytes(12));
+    try{
+        if(file_put_contents($temp,$payload,LOCK_EX)!==strlen($payload))
+            throw new RuntimeException('receiver_config_write_failed');
+        if(!chmod($temp,0600) || !rename($temp,$path))
+            throw new RuntimeException('receiver_config_commit_failed');
+    }finally{if(is_file($temp))@unlink($temp);}
+}
+
 function aur_df_config(string $store):array {
     $path=aur_private_directory($store,'deepfetcher-inbox').'/receiver-config.json';
     if(!is_file($path)||is_link($path))throw new RuntimeException('receiver_not_configured');
