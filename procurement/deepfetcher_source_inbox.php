@@ -115,3 +115,44 @@ function aur_df_acknowledge(array $config,int $id,string $recordId):bool {
     $status=(string)($headers[0]??'');
     return $body!==false && (bool)preg_match('/^HTTP\/\S+ 200 /',$status);
 }
+
+
+/**
+ * Read-only staff view into all durable source candidates. The display size is
+ * a page-size preference, not a storage or crawler-result ceiling.
+ * DirectoryIterator avoids loading an unbounded filename array.
+ */
+function aur_df_recent(string $store,int $pageSize=12):array {
+    $pageSize=max(1,min(100,$pageSize));
+    $dir=aur_private_directory($store,'deepfetcher-inbox');
+    $recent=[];
+    $count=0;
+    foreach(new DirectoryIterator($dir) as $entry){
+        if(!$entry->isFile()||$entry->isLink())continue;
+        if(!preg_match('/^delivery-([1-9][0-9]*)\.json$/D',$entry->getFilename(),$m))continue;
+        $count++;
+        $id=(int)$m[1];
+        if(count($recent)<$pageSize || $id>min(array_keys($recent))){
+            $recent[$id]=$entry->getPathname();
+            krsort($recent,SORT_NUMERIC);
+            if(count($recent)>$pageSize)array_pop($recent);
+        }
+    }
+    $items=[];
+    foreach($recent as $id=>$path){
+        $data=json_decode((string)file_get_contents($path),true);
+        if(!is_array($data)||($data['schema']??'')!=='aurenoeva-deepfetcher-source-inbox/1'
+            || (int)($data['delivery_id']??0)!==$id || !is_array($data['evidence']??null))continue;
+        $e=$data['evidence'];
+        $url=(string)($e['source_url']??'');
+        if(!filter_var($url,FILTER_VALIDATE_URL) || parse_url($url,PHP_URL_SCHEME)!=='https')continue;
+        $items[]=[
+            'delivery_id'=>$id,'status'=>(string)($data['status']??'UNKNOWN'),
+            'field'=>(string)($e['field']??''),'value'=>(string)($e['value']??''),
+            'source_url'=>$url,'source_hash'=>(string)($e['source_hash']??''),
+            'client_reference'=>(string)($data['client_reference']??''),
+            'committed_at'=>(string)($data['committed_at']??''),
+        ];
+    }
+    return ['total'=>$count,'items'=>$items];
+}
