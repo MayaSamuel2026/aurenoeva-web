@@ -870,10 +870,21 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
             $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
         }
     }
-    // Prefer the RFQ with actual mail transport evidence, not the newest
-    // saved unsent test version. An explicit deep link can still inspect history.
+    // An explicit draft link always wins. On this existing medical case,
+    // prepare the already approved six-contact shortlist once, without sending
+    // mail, and show it first instead of an older 27-recipient outbox.
+    // This is idempotent and retains every prior dispatch ledger unchanged.
     $aurDraftToOpen=isset($_GET['draft']) && is_string($_GET['draft'])
         ? (string)$_GET['draft'] : '';
+    if($aurDraftToOpen==='' && ($result['reference']??'')===AUR_URGENT_RFQ_REF) {
+        try {
+            $newBatch=aur_next_stock_prepare($aurStore,$result);
+            $aurDraftToOpen=(string)($newBatch['draft_id']??'');
+        } catch(Throwable $e) {
+            error_log('AURENOEVA six-supplier draft preparation: '.get_class($e));
+            $supplierResearchMode='The six-supplier shortlist could not be opened. Original case and previous messages remain preserved.';
+        }
+    }
     if($aurDraftToOpen==='') {
         try {
             $primary=aur_vendor_rfq_primary($aurStore,$result);
@@ -1689,4 +1700,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=11"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=2"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=3"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
