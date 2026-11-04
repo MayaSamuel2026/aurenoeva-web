@@ -211,27 +211,30 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],0)
 
     def test_due_queue_selection_uses_existing_index_without_mass_sort(self):
-        # The live frontier has millions of due URLs: repeated temp B-tree
-        # sorts used to consume crawl time rather than fetch product pages.
-        queries=(
+        # The production queue has millions of overdue page URLs. A due-first
+        # index does NOT efficiently find the rarer search/sitemap kinds.
+        cases=(
             ("SELECT * FROM harvest_queue WHERE due<=? AND kind=? "
-             "ORDER BY due LIMIT ?",("2026-11-02T20:00:00Z","page",12)),
+             "ORDER BY due LIMIT ?",
+             ("2026-11-02T20:00:00Z","page",12),"harvest_queue_kind_due"),
+            ("SELECT * FROM harvest_queue WHERE due<=? AND kind=? "
+             "ORDER BY due LIMIT ?",
+             ("2026-11-02T20:00:00Z","search",12),"harvest_queue_kind_due"),
             ("SELECT * FROM harvest_queue WHERE due<=? "
-             "ORDER BY due LIMIT ?",("2026-11-02T20:00:00Z",12)),
-            ("SELECT * FROM harvest_queue WHERE due<=? AND kind=? "
-             "AND (url LIKE ? OR url LIKE ?) ORDER BY due LIMIT ?",
-             ("2026-11-02T20:00:00Z","page",
-              "https://www.ifm.com/%","https://www.agilent.com/%",12)),
+             "ORDER BY due LIMIT ?",
+             ("2026-11-02T20:00:00Z",12),"harvest_queue_due"),
         )
-        for query,params in queries:
+        for query,params,index in cases:
             plan=[str(row[3]) for row in self.db.execute(
                 "EXPLAIN QUERY PLAN "+query,params)]
             self.assertFalse(any("TEMP B-TREE FOR ORDER BY" in step for step in plan),plan)
-            self.assertTrue(any("harvest_queue_due" in step for step in plan),plan)
-        # Keep this inexpensive query contract aligned with the actual
-        # crawler, rather than reintroducing the slow sort in another branch.
+            self.assertTrue(any(index in step for step in plan),(index,plan))
         source=(Path(__file__).resolve().parents[1]/"tools/catalogue_harvester.py").read_text()
         self.assertNotIn("ORDER BY failures,depth,due",source)
+        # Explicit priority suppliers must use the indexed host cursor, not
+        # OR-of-URL-LIKE conditions across the enormous due-date backlog.
+        self.assertIn("source_frontier_pages(\n                    db,priority_hosts",source)
+        self.assertNotIn('host_where=" OR ".join("url LIKE ?" for _ in priority_hosts)',source)
 
     def test_denials_and_rate_limits_get_polite_cooldowns(self):
         from urllib.error import HTTPError
