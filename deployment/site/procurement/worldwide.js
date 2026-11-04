@@ -147,6 +147,67 @@
       Math.max(0,unconfirmed)+' unresolved. SMTP acceptance is evidence of sending, not inbox delivery.';
     return {confirmed,legacy,unconfirmed};
   }
+  // Read-only recipient reconciliation. No confirmation comes from browser
+  // counters or a POST response alone; the saved private RFQ is authoritative.
+  function recipientState(value) {
+    switch (value) {
+      case 'ACCEPTED_BY_MAIL_TRANSPORT':return 'Accepted by sending server';
+      case 'TRANSPORT_FAILED_OR_UNCONFIRMED':return 'Failed or not confirmed — review';
+      case 'IN_FLIGHT':return 'Processing or uncertain — review';
+      case 'DRAFT':return 'Not sent';
+      default:return 'Status needs review';
+    }
+  }
+  function syncSupplierRecipientRows(data) {
+    if(!Array.isArray(data.recipients))return;
+    for(const item of data.recipients){
+      const input=document.querySelector('.aur-short-batch-select[value="'+Number(item.index)+'"]');
+      if(!input)continue;
+      const row=input.closest('tr');
+      const state=String(item.status||'UNKNOWN');
+      if(state!=='DRAFT'){input.checked=false;input.disabled=true;}
+      if(row){
+        row.dataset.deliveryStatus=state;
+        const cell=row.lastElementChild;
+        if(cell)cell.textContent=recipientState(state);
+      }
+    }
+    const count=document.getElementById('aur-short-batch-selection');
+    if(count)count.textContent=
+      document.querySelectorAll('.aur-short-batch-select:checked:not(:disabled)').length+
+      ' of 3 selected. Only newly selected, unsent suppliers can be contacted.';
+  }
+  function displayBatchReceipt(data, indices) {
+    const receipt=document.getElementById('aur-send-receipt');
+    if(!receipt||!Array.isArray(data.recipients)||!Array.isArray(indices)||!indices.length)return null;
+    const byIndex=new Map(data.recipients.map(item=>[Number(item.index),item]));
+    const valid=indices.every(index=>byIndex.has(Number(index)));
+    if(!valid)return null;
+    const selected=indices.map(index=>byIndex.get(Number(index)));
+    const accepted=selected.filter(row=>row.status==='ACCEPTED_BY_MAIL_TRANSPORT').length;
+    const unsent=selected.filter(row=>row.status==='DRAFT').length;
+    const unconfirmed=selected.length-accepted-unsent;
+    const title=document.createElement('strong');
+    title.textContent='Latest batch · '+accepted+' of '+selected.length+
+      ' accepted by the sending server';
+    const description=document.createElement('p');
+    description.textContent=unconfirmed
+      ? unconfirmed+' recipient(s) need reconciliation. Do not resend those recipients until you check their saved status.'
+      : unsent
+        ? unsent+' selected recipient(s) were not attempted. Check the saved status before further action.'
+        : 'All selected recipients were processed. SMTP acceptance does not prove delivery to the recipient inbox.';
+    const list=document.createElement('ul');
+    list.style.cssText='margin:8px 0;padding-left:20px';
+    for(const row of selected) {
+      const li=document.createElement('li');
+      li.textContent=String(row.supplier||'Supplier')+' — '+recipientState(row.status);
+      list.appendChild(li);
+    }
+    receipt.replaceChildren(title,description,list);
+    receipt.hidden=false;
+    receipt.dataset.batchStatus=unconfirmed||unsent?'attention':'recorded';
+    return {accepted,unconfirmed,unsent,processed:selected.length};
+  }
   if(savedCase && savedDraft) {
     readSavedLedger(savedCase,savedDraft).then(data=>{
       const c=renderSavedLedger(data);
@@ -155,18 +216,15 @@
       const originalAccepted=Number(ledgerPanel.dataset.accepted||0);
       const originalConfirmed=Number(ledgerPanel.dataset.confirmed||0);
       const originalUnconfirmed=Number(ledgerPanel.dataset.open||0);
+      syncSupplierRecipientRows(data);
+      if(new URLSearchParams(location.search).has('send_review'))
+        displayBatchReceipt(data,data.last_batch?.indices);
       if(c.confirmed!==originalConfirmed ||
          c.confirmed+c.legacy!==originalAccepted ||
          c.unconfirmed!==originalUnconfirmed) {
-        const url=new URL(window.location.href);
-        if(url.searchParams.get('ledger_refreshed')!=='1') {
-          url.searchParams.set('ledger_refreshed','1');
-          url.hash='aur-rfq-approval';
-          window.location.replace(url.toString());
-        } else if(ledgerNotice) {
-          ledgerNotice.textContent +=
-            ' Recipient list may be outdated; use Reload actual RFQ status.';
-        }
+        // Stay on this page and retain the send confirmation; a redirect
+        // previously looked like a dead button after SMTP had succeeded.
+        if(ledgerNotice)ledgerNotice.textContent += ' Recipient statuses updated from saved records.';
       }
     }).catch(err=>{
       if(ledgerNotice) ledgerNotice.textContent =
