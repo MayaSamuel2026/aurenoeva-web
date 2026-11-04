@@ -207,9 +207,20 @@ if ($_SERVER['REQUEST_METHOD']==='GET' && isset($_GET['rfq_status'])) {
         $progress=aur_vendor_rfq_status_summary($draft);
         $progress['recovery_remaining']=aur_vendor_rfq_recoverable_count($draft);
         $progress=array_merge($progress,aur_vendor_rfq_delivery_breakdown($draft));
+        $recipients=[];
+        foreach(($draft['messages']??[]) as $i=>$message) {
+            if(!is_array($message))continue;
+            $recipients[]=[
+                'index'=>(int)$i,
+                'supplier'=>(string)($message['vendor_name']??$message['to']??'Supplier'),
+                'status'=>(string)($message['status']??'UNKNOWN'),
+                'smtp_accepted'=>(($message['status']??'')==='ACCEPTED_BY_MAIL_TRANSPORT')
+            ];
+        }
         echo json_encode(['ok'=>true,'case_reference'=>$case['reference'],
             'draft_id'=>$draft['draft_id'],'status'=>$draft['status'],
-            'progress'=>$progress],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+            'progress'=>$progress,'recipients'=>$recipients,
+            'last_batch'=>$draft['last_batch']??null],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
         exit;
     } catch(Throwable $e) {
         error_log('AURENOEVA RFQ readback: '.get_class($e));
@@ -755,7 +766,7 @@ if ($isAdmin) {
                     'progress'=>$dispatch['dispatch_progress']??null],JSON_THROW_ON_ERROR);
                 exit;
             }
-            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'#aur-rfq-approval',true,303);
+            header('Location: /procurement/?case='.rawurlencode((string)$result['reference']).'&draft='.rawurlencode($draftId).'&send_review=1#aur-send-progress',true,303);
             exit;
         }catch(Throwable $e){
             error_log('AURENOEVA RFQ dispatch: '.get_class($e).' '.substr($e->getMessage(),0,120));
@@ -1753,5 +1764,5 @@ info@aurenoeva.com | https://aurenoeva.com
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
-<script defer src="/procurement/worldwide.js?v=11"></script>
+<script defer src="/procurement/worldwide.js?v=12"></script>
 <?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=3"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
