@@ -647,7 +647,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
         // November short supplier outbox requires a deliberately checked batch.
         // Other existing supplier RFQs retain their historical send behavior.
-        $selectedOnly=in_array((string)($draft['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03'],true);
+        $selectedOnly=in_array((string)($draft['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026'],true);
         $selection=[];
         if($selectedOnly) {
             if(!is_array($selectedIndices)||count($selectedIndices)<1
