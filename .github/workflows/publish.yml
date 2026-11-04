@@ -20,6 +20,7 @@ on:
       - 'tests/test_procurement_housekeeping.php'
       - 'tests/test_procurement_quality.php'
       - 'tests/test_procurement_inbox.php'
+      - 'tests/test_deepfetcher_receiver.php'
       - 'hotfix/v8.2.6.12/catalogue-sync.php'
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
       - 'hotfix/v8.2.6.11/catalogue-search.php'
@@ -373,6 +374,7 @@ jobs:
           php tests/test_procurement_quality.php
           php tests/test_procurement_inbox.php
           php tests/test_procurement_mail_center.php
+          php tests/test_deepfetcher_receiver.php
           php tests/test_procurement_supplier_attachment_pack.php
           node --check "$RUNNER_TEMP/source/site/procurement/inbox-sync.js"
           grep -q 'Require all denied' "$RUNNER_TEMP/source/site/procurement/.htaccess"
