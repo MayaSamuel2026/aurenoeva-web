@@ -923,7 +923,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
             left=min(max_pages-stats["processed"],workers*3)
-            # Due order is served directly by the existing (due,kind) index.
+            # Task-type-specific reads use the (kind,due) index; global due reads retain (due,kind).
             # The former (failures,depth,due) ordering built a temporary sort
             # over millions of due URLs for every small batch, collapsing
             # product throughput despite a healthy timer and publication.
@@ -965,7 +965,6 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             for i in range(available-sum(counts)):
                 counts[i%len(counts)]+=1
             for (kind,_),limit in zip(buckets,counts):
-                if not limit:continue
                 if not limit:continue
                 found=db.execute("""SELECT * FROM harvest_queue
                     WHERE due<=? AND kind=? ORDER BY due
