@@ -385,7 +385,7 @@ class Tests(unittest.TestCase):
         host='www.powergaskets.com'
         enqueue(self.db,f'https://{host}/en/all-brands/gaskets/0/0/1.php','page')
         enqueue(self.db,f'https://{host}/en/1653/repair-kit/991/00100.html','page')
-        pattern=re.compile(r'^/en/[0-9]+/.+\\.html')
+        pattern=re.compile(r'^/en/[0-9]+/.+\.html')
         chosen=source_frontier_pages(self.db,[host],1,set(),
             detail_patterns_by_host={host:[pattern]})
         self.assertEqual(len(chosen),1)
