@@ -24,6 +24,10 @@ check_tab(str_contains($portal,'id="aur-price-reminders"'), 'Reminder controls n
 check_tab(str_contains($ui,'panels.rfq') && str_contains($ui,'panels.settings'), 'Panels not partitioned');
 check_tab(str_contains($portal,"['DRAFT_REVIEW','DISPATCHING']"),'Sent RFQs still show SMTP setup warning');
 check_tab(str_contains($portal,'id="aur-latest-supplier-rfq"') && str_contains($portal,'prepare_followup_supplier_rfqs'), 'New source-specific RFQ previews and save control missing');
-check_tab(str_contains($portal,'TARGETED_FOLLOWUP_ROUND_2026_11_05'), 'Seven-supplier selectable batch not recognized');
+$rfqDispatch=file_get_contents($root.'/deployment/site/procurement/supplier_rfq.php');
+check_tab(str_contains($portal,'aur_vendor_rfq_is_selected_batch(')
+    && str_contains($rfqDispatch,'TARGETED_FOLLOWUP_ROUND_2026_11_05')
+    && str_contains($rfqDispatch,'CURATED_STOCK_LISTING_ROUND_2026_11_03'),
+    'Seven-supplier selectable batch not recognized by shared dispatch source');
 check_tab(str_contains($entry,'Download original enquiry'),'Original enquiry label still says draft');
 echo "AURENOEVA_COMPACT_TABS=PASS\n";
