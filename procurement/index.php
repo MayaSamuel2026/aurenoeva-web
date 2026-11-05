@@ -1124,7 +1124,7 @@ try{
 }catch(Throwable $ignored){}
 $aurDfSuppliers=['total_vendors'=>0,'items'=>[]];
 try{
-    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20);
+    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20,(string)($_GET['df_before']??''));
 }catch(Throwable $e){error_log('AURENOEVA supplier projection view: '.get_class($e));}
 ?>
 <section class="card" id="aur-deepfetcher">
@@ -1150,6 +1150,12 @@ try{
 <?php endforeach;?></tbody></table></div>
 <?php else:?>
 <p class="muted">No supplier-specific DeepFetcher observations yet. General evidence remains available in the source inbox below.</p>
+<?php endif;?>
+<?php if(!empty($aurDfSuppliers['next_before'])):?>
+<p><a href="?df_before=<?=rawurlencode($aurDfSuppliers['next_before'])?>#aur-deepfetcher">Older supplier intelligence</a></p>
+<?php endif;?>
+<?php if(isset($_GET['df_before'])):?>
+<p><a href="?#aur-deepfetcher">Return to latest supplier intelligence</a></p>
 <?php endif;?>
 <details><summary><?= $aurDfConfigured?'Replace private receiver credentials':'Configure signed source delivery' ?></summary>
 <p class="muted">The authorized DeepFetcher destination is <code>https://aurenoeva.com/procurement/deepfetcher_receiver.php</code>, scoped to workspace <code>aurenoeva</code>. Credentials are never displayed again.</p>
