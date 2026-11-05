@@ -347,16 +347,32 @@ function aur_bulk_metadata(string $body): array {
         throw new RuntimeException('bulk_invalid_metadata');
     return [$sha,$bytes,$count];
 }
-function aur_bulk_begin(string $directory,string $sha,int $bytes):array {
+function aur_bulk_begin(string $directory,string $sha,int $bytes,bool $reset=false):array {
     $file=aur_bulk_path($directory,$sha);
+    $published=$directory.'/catalogue-public.json';
+    // A lost commit response must never force a second full upload.
+    if(!$reset && is_file($published) && filesize($published)===$bytes
+        && hash_file('sha256',$published)===$sha)
+        return ['ok'=>true,'status'=>'PUBLISHED','offset'=>$bytes,'sha256'=>$sha];
     $fp=@fopen($file,'c+b');
     if(!$fp)throw new RuntimeException('bulk_write_failed');
     try {
-        if(!flock($fp,LOCK_EX)||!ftruncate($fp,0)||!fflush($fp))
-            throw new RuntimeException('bulk_write_failed');
+        if(!flock($fp,LOCK_EX))throw new RuntimeException('bulk_write_failed');
+        $info=fstat($fp);
+        $offset=(int)($info['size']??0);
+        if($reset || $offset>$bytes) {
+            if(!ftruncate($fp,0)||!fflush($fp))
+                throw new RuntimeException('bulk_write_failed');
+            $offset=0;
+        }
         @chmod($file,0600);
+        // The client verifies the received prefix before resuming a partially
+        // uploaded, SHA-pinned snapshot. No HTTP source can specify a filename.
+        $prefix=$offset>0?hash_file('sha256',$file):hash('sha256','');
+        if(!is_string($prefix))throw new RuntimeException('bulk_write_failed');
+        return ['ok'=>true,'status'=>'READY','offset'=>$offset,
+                'prefix_sha256'=>$prefix,'sha256'=>$sha];
     }finally {flock($fp,LOCK_UN);fclose($fp);}
-    return ['ok'=>true,'status'=>'READY','offset'=>0,'sha256'=>$sha];
 }
 function aur_bulk_chunk(string $directory,string $sha,int $offset,string $body):array {
     $file=aur_bulk_path($directory,$sha);
@@ -609,7 +625,8 @@ try {
     $mode=(string)($_GET['mode']??'products');
     if($mode==='bulk-begin') {
         [$sha,$bytes,$count]=aur_bulk_metadata((string)$body);
-        $result=aur_bulk_begin($private,$sha,$bytes);
+        $meta=json_decode((string)$body,true,512,JSON_THROW_ON_ERROR);
+        $result=aur_bulk_begin($private,$sha,$bytes,($meta['reset']??false)===true);
     }elseif($mode==='bulk-chunk') {
         $sha=(string)($_SERVER['HTTP_X_AURENOEVA_UPLOAD_SHA256']??'');
         $offsetRaw=(string)($_SERVER['HTTP_X_AURENOEVA_UPLOAD_OFFSET']??'');
