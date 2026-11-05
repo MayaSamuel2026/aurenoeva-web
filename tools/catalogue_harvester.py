@@ -1287,27 +1287,12 @@ def main():
                 prior=import_existing_rfq_vendors(db)
             except Exception as e:
                 prior={"status":"TEMPORARILY_UNAVAILABLE","detail":type(e).__name__,"seeded":0}
-            def publish_progress():
-                # Publishing is only attempted when the existing authenticated
-                # site connection is configured; never expose private contacts.
-                if not Path("/var/lib/aurenoeva/catalogue-sync-token").is_file():
-                    return False
-                export(db,a.export)
-                command=["/usr/bin/python3",
-                         str(Path(__file__).with_name("catalogue_publish.py")),
-                         "--snapshot",str(a.export),"--products-only"]
-                response=subprocess.run(command,timeout=180,capture_output=True,
-                    text=True,check=False)
-                if response.returncode:
-                    print(json.dumps({"event":"CATALOGUE_CHECKPOINT_DELIVERY",
-                         "status":"FAILED","details":response.stdout[-300:]}),
-                         flush=True)
-                    return False
-                print(json.dumps({"event":"CATALOGUE_CHECKPOINT_DELIVERY",
-                     "status":"PASS"}),flush=True)
-                return True
-            result=run(db,cfg,a.max_pages,a.max_seconds,a.workers,
-                       progress=publish_progress,progress_interval=300)
+            # Crawl must never spend its time budget waiting for website HTTP
+            # uploads. The existing systemd ExecStartPost publisher owns the
+            # one authenticated, resumable publication attempt after each run.
+            # This preserves uninterrupted product discovery when the remote
+            # website is temporarily slow or unavailable.
+            result=run(db,cfg,a.max_pages,a.max_seconds,a.workers)
             result["rfq_reuse"]=prior
             result["export"]=export(db,a.export)
             result["total_products"]=db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
