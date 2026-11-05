@@ -143,6 +143,88 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual((self.root/"catalogue-products-pushed.sha256")
                          .read_text().strip(), digest)
 
+    def test_interrupted_bulk_snapshot_resumes_next_run_without_losing_new_db_work(self):
+        """A failed multi-chunk upload remains resumable across crawler cycles."""
+        from catalogue_publish import publish_fast
+        from urllib.error import URLError
+        key = self.root / "catalogue-sync-token"
+        key.write_text("a"*64);key.chmod(0o600)
+        large=json.loads(self.source.read_text())
+        large["items"]=[
+            {**VALID["items"][0],
+             "canonical_id":"AUR-P-"+format(i,"020X"),
+             "model":"WATO-"+str(i),"description":"Real device "+"X"*410}
+            for i in range(1800)]
+        self.source.write_text(json.dumps(large))
+        payload,count=normalized_snapshot(self.source)
+        self.assertGreater(len(payload),512*1024)
+        digest=hashlib.sha256(payload).hexdigest()
+        received=bytearray()
+        state={"unavailable":True,"published":False,"begins":0,"chunks":0,"resumed":False}
+        class Response:
+            def __init__(self,body):self.body=body;self.status=200
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,n):return json.dumps(self.body).encode()
+        def fake_open(request,timeout):
+            url=request.full_url
+            if "catalogue-count.php" in url:
+                return Response({"ok":True,
+                    "source":"published_catalogue_snapshot",
+                    "published_parts":count,"searchable_parts":count})
+            if "catalogue-search.php" in url:
+                return Response({"source":"AURENOEVA_OWNED_CATALOGUE",
+                                 "items":[json.loads(payload)["items"][-1]]})
+            action=url.rsplit("bulk-",1)[1]
+            if action=="begin":
+                state["begins"]+=1
+                manifest=json.loads(request.data)
+                self.assertEqual(manifest["sha256"],digest)
+                if manifest.get("reset"):
+                    received.clear()
+                if state["published"]:
+                    return Response({"ok":True,"sha256":digest,
+                                     "status":"PUBLISHED","offset":len(payload)})
+                if received:state["resumed"]=True
+                return Response({"ok":True,"sha256":digest,"status":"READY",
+                                 "offset":len(received),
+                                 "prefix_sha256":hashlib.sha256(received).hexdigest()})
+            if action=="chunk":
+                offset=int(request.get_header("X-aurenoeva-upload-offset"))
+                if state["unavailable"] and offset>=512*1024:
+                    raise URLError("temporary upstream timeout")
+                self.assertEqual(offset,len(received))
+                received.extend(request.data);state["chunks"]+=1
+                return Response({"ok":True,"sha256":digest,"status":"RECEIVED",
+                                 "offset":len(received)})
+            if action=="commit":
+                self.assertEqual(bytes(received),payload)
+                state["published"]=True
+                return Response({"ok":True,"sha256":digest,"status":"PUBLISHED",
+                                 "records":count})
+            raise AssertionError("unexpected mocked endpoint")
+        with patch("catalogue_publish.urlopen",fake_open), \
+             patch("catalogue_publish.time.sleep",return_value=None):
+            with self.assertRaisesRegex(RuntimeError,"bulk_transport_failed"):
+                publish_fast(self.source,self.root,{
+                    "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)})
+            self.assertGreater(len(received),0)
+            self.assertTrue((self.root/"catalogue-products-pending.json").is_file())
+            self.assertFalse((self.root/"catalogue-products-pushed.sha256").exists())
+            # Harvest continues and its latest DB export changes while the
+            # exact pending upload remains retrievable.
+            self.source.write_text(json.dumps(VALID))
+            state["unavailable"]=False
+            result=publish_fast(self.source,self.root,{
+                "AURENOEVA_CATALOGUE_PUSH_TOKEN_FILE":str(key)})
+        self.assertEqual(result["records"],1800)
+        self.assertTrue(state["resumed"])
+        self.assertEqual(state["begins"],2)
+        self.assertEqual(bytes(received),payload)
+        self.assertEqual((self.root/"catalogue-products-pushed.sha256")
+                         .read_text().strip(),digest)
+        self.assertFalse((self.root/"catalogue-products-pending.json").exists())
+
     def test_fast_upload_never_records_success_without_public_readback(self):
         from catalogue_publish import publish_fast
         key=self.root/"catalogue-sync-token"
