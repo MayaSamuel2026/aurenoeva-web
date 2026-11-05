@@ -1122,30 +1122,37 @@ try{
 try{
     $aurDfInbox=aur_df_recent($aurStore,12);
 }catch(Throwable $ignored){}
+$aurDfSuppliers=['total_vendors'=>0,'items'=>[]];
+try{
+    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20);
+}catch(Throwable $e){error_log('AURENOEVA supplier projection view: '.get_class($e));}
 ?>
 <section class="card" id="aur-deepfetcher">
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-<div><span class="pill">DeepFetcher · Source intelligence</span><h2 style="margin:9px 0 0">Incoming research evidence</h2></div>
+<div><span class="pill">DeepFetcher · Source intelligence</span><h2 style="margin:9px 0 0">Supplier &amp; product intelligence</h2></div>
 <strong><?= $aurDfConfigured?'Receiver configured':'Receiver setup required' ?></strong>
 </div>
-<p class="muted">Source-backed findings enter the private review inbox as unverified candidates. No catalogue products, supplier availability, quotations or customer RFQs are created automatically.</p>
-<p><b>Saved candidate records:</b> <?=(int)$aurDfInbox['total']?> · <b>Display:</b> latest 12. All historical records remain in private storage.</p>
-<?php if(isset($_GET['deepfetcher_configured'])):?><p role="status">Receiver credentials saved in the private Hostinger directory. Delivery is not verified until the public DeepFetcher API and signed acknowledgement have passed a real end-to-end test.</p><?php endif;?>
+<p class="muted">The same DeepFetcher engine feeds evidence-linked supplier and product observations into AURENOEVA's private procurement research. These are candidates, not confirmed stock, supplier quotations or supplier authorizations. No RFQs are sent automatically.</p>
+<p><b>Candidate supplier websites:</b> <?=(int)$aurDfSuppliers['total_vendors']?> · <b>Source records preserved:</b> <?=(int)$aurDfInbox['total']?>.</p>
+<?php if(isset($_GET['deepfetcher_configured'])):?><p role="status">Receiver credentials saved privately. Commercial sourcing is not qualified until matched real products and supplier replies are validated.</p><?php endif;?>
 <?php if($aurDfNotice):?><p role="alert"><?=aur_escape($aurDfNotice)?></p><?php endif;?>
-<?php if(!empty($aurDfInbox['items'])):?>
+<?php if($aurDfSuppliers['items']):?>
 <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
-<thead><tr><th>Received</th><th>Field</th><th>Extracted value</th><th>Original source</th></tr></thead>
+<thead><tr><th>Observed supplier website</th><th>Product models observed</th><th>Source evidence</th></tr></thead>
 <tbody>
-<?php foreach($aurDfInbox['items'] as $dfItem):?>
-<tr><td><?=aur_escape((string)$dfItem['committed_at'])?></td>
-<td><?=aur_escape((string)$dfItem['field'])?></td>
-<td><?=aur_escape((string)$dfItem['value'])?></td>
-<td><a href="<?=aur_escape((string)$dfItem['source_url'])?>" target="_blank" rel="noopener noreferrer">View source</a></td></tr>
-<?php endforeach;?>
-</tbody></table></div>
+<?php foreach($aurDfSuppliers['items'] as $supplier):?>
+<tr>
+<td><b><?=aur_escape(implode(', ',$supplier['supplier_names'])?:$supplier['website'])?></b><div class="muted"><?=aur_escape($supplier['website'])?></div><small class="muted">Not commercially verified</small></td>
+<td><?=aur_escape(implode(', ',$supplier['product_models'])?:'No specific model extracted')?></td>
+<td><?=(int)$supplier['evidence_count']?> source observations
+<?php if(!empty($supplier['source_urls'])):?><div><a href="<?=aur_escape($supplier['source_urls'][0])?>" target="_blank" rel="noopener noreferrer">Original evidence</a></div><?php endif;?></td>
+</tr>
+<?php endforeach;?></tbody></table></div>
+<?php else:?>
+<p class="muted">No supplier-specific DeepFetcher observations yet. General evidence remains available in the source inbox below.</p>
 <?php endif;?>
 <details><summary><?= $aurDfConfigured?'Replace private receiver credentials':'Configure signed source delivery' ?></summary>
-<p class="muted">Register the AURENOEVA destination in DeepFetcher for workspace <code>aurenoeva</code>, endpoint <code>https://aurenoeva.com/procurement/deepfetcher_receiver.php</code>. Enter its one-time signing secret and acknowledgement token below. Credentials are never displayed again.</p>
+<p class="muted">The authorized DeepFetcher destination is <code>https://aurenoeva.com/procurement/deepfetcher_receiver.php</code>, scoped to workspace <code>aurenoeva</code>. Credentials are never displayed again.</p>
 <form method="post" autocomplete="off">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
 <label>Destination signing secret<input type="password" name="df_signing_secret" minlength="64" maxlength="64" pattern="[a-f0-9]{64}" autocomplete="off" required></label>
