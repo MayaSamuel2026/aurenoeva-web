@@ -116,4 +116,23 @@ $noMatch['evidence']['quotation']='This page has no model assertion';
 aur_df_commit($store,$noMatch,'aurenoeva');
 df_must(file_get_contents($vendorPath)===$vendorBytes,'unsupported product assertion was promoted');
 
+// Prove the existing receiver never hides older supplier dossiers.
+for($i=0;$i<4;$i++){
+    $extra=$product;
+    $extra['delivery_id']=440+$i;
+    $extra['evidence']['id']='ev-page-'.$i;
+    $extra['evidence']['source_url']='https://supplier'.$i.'.example.com/catalogue';
+    $extra['evidence']['quotation']='Medical device model S260S research catalogue';
+    aur_df_commit($store,$extra,'aurenoeva');
+}
+$seen=[];$before='';
+do{
+    $page=aur_df_supplier_recent($store,2,$before);
+    foreach($page['items'] as $row){
+        df_must(!isset($seen[$row['vendor_id']]),'supplier page duplicated entry');
+        $seen[$row['vendor_id']]=true;
+    }
+    $before=$page['next_before']??'';
+}while($before!=='');
+df_must(count($seen)===5,'supplier page traversal omitted source dossiers');
 echo "AURENOEVA_DEEPFETCHER_REAL_CONSUMER_CONTRACT=PASS\n";
