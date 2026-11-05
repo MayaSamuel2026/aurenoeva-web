@@ -116,4 +116,43 @@ $noMatch['evidence']['quotation']='This page has no model assertion';
 aur_df_commit($store,$noMatch,'aurenoeva');
 df_must(file_get_contents($vendorPath)===$vendorBytes,'unsupported product assertion was promoted');
 
+// More suppliers and delivery receipts than one transport page must remain
+// discoverable, with no omissions and no duplicate records across pages.
+for($i=0;$i<28;$i++){
+    $other=$vendor;
+    $other['delivery_id']=1000+$i;
+    $other['evidence']['id']='ev-paged-vendor-'.$i;
+    $other['evidence']['source_url']='https://supplier-'.$i.'.example/catalogue';
+    $other['evidence']['value']='Supplier '.$i;
+    $other['evidence']['quotation']='Supplier '.$i.' research catalogue';
+    aur_df_commit($store,$other,'aurenoeva');
+}
+$seenVendors=[];$offset=0;
+do{
+    $page=aur_df_supplier_recent($store,10,$offset);
+    foreach($page['items'] as $item){
+        df_must(!isset($seenVendors[$item['vendor_id']]),'supplier repeated across pages');
+        $seenVendors[$item['vendor_id']]=true;
+    }
+    $offset=$page['next_offset']??null;
+}while($offset!==null);
+df_must(count($seenVendors)===29,'all source-backed vendors must be reachable');
+for($i=0;$i<30;$i++){
+    $other=$record;
+    $other['delivery_id']=2000+$i;
+    $other['evidence']['id']='ev-paged-inbox-'.$i;
+    aur_df_commit($store,$other,'aurenoeva');
+}
+$seenDeliveries=[];$before=null;
+do{
+    $page=aur_df_recent($store,7,$before);
+    foreach($page['items'] as $item){
+        df_must(!isset($seenDeliveries[$item['delivery_id']]),'delivery repeated across pages');
+        $seenDeliveries[$item['delivery_id']]=true;
+    }
+    $before=$page['next_before']??null;
+}while($before!==null);
+df_must(count($seenDeliveries)===62,
+    'full signed inbox and supplier-source evidence must be accessible across pages');
+
 echo "AURENOEVA_DEEPFETCHER_REAL_CONSUMER_CONTRACT=PASS\n";
