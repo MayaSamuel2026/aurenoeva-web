@@ -83,12 +83,16 @@ function aur_researched_20261105_leads():array {
     ];
 }
 
-function aur_researched_20261105_plans(array $case):array {
+function aur_researched_20261105_plans(array $case,?array $selectedLeads=null):array {
     if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return [];
     $wanted=[2=>'/\bAnthos\b.*\bA5\b/ui',4=>'/\bV8\b/u',5=>'/\bV6\b/u',
         11=>'/\bLigaSure\b.*\bLS10\b/ui',24=>'/\bNeuron[\s.-]*Spectrum[\s.-]*1\b/ui',
         30=>'/\bVatech\b/ui',32=>'/\bSkema\s*6\b/ui',
-        33=>'/\bSkema\s*8\b/ui',36=>'/\bCATTANI\b/ui'];
+        33=>'/\bSkema\s*8\b/ui',36=>'/\bCATTANI\b/ui',
+        26=>'/\bWATO\s*EX[\s.-]*35\b/ui',
+        27=>'/\bSavina\b/ui',
+        34=>'/\bEuronda\b.*\bE8\b/ui',
+        35=>'/\b1[.,]5\s*T\b.*\bMRI\b/ui'];
     $byItem=[];
     foreach(($case['payload']['sourcing_lines']??[]) as $line){
         if(!is_array($line)||($line['option_type']??'REQUESTED')!=='REQUESTED')continue;
@@ -96,7 +100,7 @@ function aur_researched_20261105_plans(array $case):array {
         if($n>0)$byItem[$n][]=$line;
     }
     $seen=[];$out=[];
-    foreach(aur_researched_20261105_leads() as $lead){
+    foreach(($selectedLeads??aur_researched_20261105_leads()) as $lead){
         $email=strtolower(trim((string)$lead['email']));
         if(!filter_var($email,FILTER_VALIDATE_EMAIL)||isset($seen[$email])||
             !preg_match('~^https://~',$lead['evidence_url']))
@@ -232,4 +236,142 @@ function aur_researched_20261105_prepare(string $store,array $case):array {
         return aur_researched_20261105_saved($store,$case)
             ??throw new RuntimeException('researched_supplier_readback_failed');
     }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
+
+/**
+ * November 5 second supplier round. Seven sellers have publicly published
+ * email addresses; two marketplace-only leads remain manual, never fabricated.
+ * This uses the same original buyer rows, supplier-safe PDF, and review/send UI.
+ */
+function aur_researched_20261105_followup_leads():array {
+    return [
+      ['id'=>'steri-euronda','name'=>'STERI-TECH GmbH / Steri-Shop','country'=>'DE','language'=>'de',
+       'email'=>'info@steri-shop.de','items'=>[34],'model'=>'Euronda E8 24 L / 221855',
+       'request'=>'ein Euronda E8 B-Klasse-Autoklav-Set, 24 L, einschließlich Euroseal 2001 Plus und Aquadis Destillierer',
+       'question'=>'Sie listen das E8-Starterpaket 221855 mit 4.549 EUR netto und 1–2 Wochen Lieferzeit. Sind Euroseal 2001 Plus und Aquadis enthalten? Falls nicht, würden wir uns über die getrennten Preise und Lieferzeiten freuen.',
+       'evidence_url'=>'https://www.steri-shop.com/nach-hersteller/euronda/',
+       'listing'=>'E8 starter package 221855; €4,549 net and 1–2 weeks advertised; full three-part set unconfirmed',
+       'source_grade'=>'EXACT_MODEL_STOCK_ADVERTISED_SET_INCOMPLETE'],
+      ['id'=>'kloess-euronda','name'=>'C. Klöss Dental GmbH & Co. Betriebs KG','country'=>'DE','language'=>'de',
+       'email'=>'einrichtung@kloess-dental.de','items'=>[34],'model'=>'Euronda E8 24 L / 115716',
+       'request'=>'ein Euronda E8 24 L Sterilisationsset mit Euroseal 2001 Plus und Aquadis Destillierer',
+       'question'=>'Ihr E8 24 L (Artikel 115716) ist mit 5.290 EUR netto und drei Tagen Lieferzeit gelistet. Könnten Sie für das komplette dreiteilige Set ein Angebot erstellen und die Einzelpreise nennen?',
+       'evidence_url'=>'https://shop.kloess-dental.de/euronda-e8-b-autoklav-24liter-validierbar.html',
+       'listing'=>'E8 24 L 115716; €5,290 net and 3-day dispatch listed; extra components not confirmed',
+       'source_grade'=>'EXACT_MODEL_ADVERTISED_STOCK_SET_INCOMPLETE'],
+      ['id'=>'stuecker-euronda','name'=>'Stücker-MEDESIGN GmbH','country'=>'DE','language'=>'de',
+       'email'=>'auftrag@stuecker-med.de','items'=>[34],'model'=>'Euronda E8 24 L / 24-115716',
+       'request'=>'ein Euronda E8 24 L Sterilisationsset mit Euroseal 2001 Plus und Aquadis Destillierer',
+       'question'=>'Sie bieten den E8 24 L unter Artikel 24-115716 für 4.905 EUR netto mit circa einer Woche Lieferzeit an. Können Sie auch die beiden ergänzenden Geräte anbieten und die jeweiligen Preise nennen?',
+       'evidence_url'=>'https://www.stuecker-med.de/Euronda-E8.html',
+       'listing'=>'E8 24 L item 24-115716; €4,905 net and ~1 week advertised; extras unconfirmed',
+       'source_grade'=>'EXACT_MODEL_LISTING_SET_INCOMPLETE'],
+      ['id'=>'pumed-mri','name'=>'P&U Medizintechnik','country'=>'DE','language'=>'de',
+       'email'=>'info@pumed.de','items'=>[35],'model'=>'Siemens MAGNETOM Symphony 1.5 T MRI',
+       'request'=>'ein Siemens MAGNETOM Symphony 1,5-T-MRT-System oder ein vergleichbares 1,5-T-System',
+       'question'=>'Auf Ihrer Seite ist das MAGNETOM Symphony (Baujahr 2001, Revision 2023) für 65.000 EUR netto gelistet. Ist die Anlage weiterhin verfügbar? Bitte nennen Sie den Preis inklusive vorhandener Spulen, den Lieferumfang sowie Demontage-, Transport- und Wiederinbetriebnahmeanforderungen.',
+       'evidence_url'=>'https://used-medical-equipment.de/produkt/siemens-magnetom-symphony-a-tim-system-mrt-komplettes-system-baujahr-2001-mri/',
+       'listing'=>'Used Siemens Symphony 1.5T, made 2001, last revision 2023; €65,000 net; dismantled and stored',
+       'source_grade'=>'EXACT_FIELD_STRENGTH_OLDER_DISMANTLED_SYSTEM'],
+      ['id'=>'medicalprovider-ac300','name'=>'Medical Provider S.r.l.','country'=>'IT','language'=>'en',
+       'email'=>'info@medicalprovider.it','items'=>[36],'model'=>'CATTANI AC300 / 013330',
+       'request'=>'one CATTANI AC300, item 013330, 45 L tank, three cylinders, dryer, 238 L/min at 5 bar',
+       'question'=>'Your listing shows EUR 2,930 excluding VAT and a 220 V version supplied on order. Can you confirm whether the exact requested 230 V / 50 Hz version is available, with the stated 3-year warranty and lead time?',
+       'evidence_url'=>'https://medicalprovider.it/prodotto/cattani-compressore-ac300/',
+       'listing'=>'AC300 item 013330; €2,930 ex VAT; supplied on order; website says 220 V, RFQ requests 230 V',
+       'source_grade'=>'EXACT_MODEL_VOLTAGE_MISMATCH_CONFIRM'],
+      ['id'=>'hospitalstore-wato','name'=>'Hospital Store / Medsun Biomedical Technologies','country'=>'IN','language'=>'en',
+       'email'=>'support@hospitalstore.com','items'=>[26],'model'=>'Mindray WATO EX-35 / HS6218',
+       'request'=>'two Mindray WATO EX-35 anaesthesia workstations with 3-gas configuration, compressor, two vaporizer mounts, bypass, AG/O₂ and passive AGSS',
+       'question'=>'Your listing HS6218 shows a new WATO EX-35 at INR 1,172,640 including local tax. Can you quote two units with the full requested configuration, identify any options not included, and confirm actual dispatch lead time and supply terms?',
+       'evidence_url'=>'https://www.hospitalstore.com/mindray-ex35-anesthesia-machine-price/',
+       'listing'=>'WATO EX-35 HS6218, new, ₹1,172,640 incl local tax, 5–7-day domestic estimate; specified package not confirmed',
+       'source_grade'=>'EXACT_MODEL_WITH_REQUIRED_OPTIONS_UNCONFIRMED'],
+      ['id'=>'bemes-savina','name'=>'Bemes Inc.','country'=>'US','language'=>'en',
+       'email'=>'sales@bemeseast.com','items'=>[27],'model'=>'Refurbished Dräger Savina / TD Savina REB',
+       'request'=>'one refurbished Dräger Savina ventilator manufactured between 2010 and 2013',
+       'question'=>'You list a refurbished Savina under SKU TD Savina REB with a 90-day warranty. Is one unit available with a documented manufacturing year 2010–2013? Please confirm service and functional-test records, accessories, warranty and lead time.',
+       'evidence_url'=>'https://bemesonline.com/drager-savina-ventilator/',
+       'listing'=>'Refurbished Savina SKU TD Savina REB; 90-day warranty; year and actual stock unconfirmed',
+       'source_grade'=>'EXACT_MODEL_REFURBISHED_YEAR_UNKNOWN']
+    ];
+}
+function aur_researched_20261105_followup_manual():array {
+    return [
+       ['name'=>'IMEXMED / Iulian Lazar','item'=>4,
+        'description'=>'Samsung V8 2022: EA2-11AR, CA1-7S, LA2-14A, LA4-18A; used and advertised in stock, configuration and software to verify',
+        'url'=>'https://www.dotmed.com/listing/ultrasound-ob-gyn-vascular/samsung/v8/5629172',
+        'reason'=>'Seller contact is provided through DOTmed; no publicly verified direct email'],
+       ['name'=>'Green Medical Company, Japan','item'=>21,
+        'description'=>'Used Haag-Streit Octopus 600; ask seller to verify exact Basic configuration and current availability',
+        'url'=>'https://www.green-medical.jp/en/how-to-buy',
+        'reason'=>'Seller directs buyers to its website enquiry form; no product-linked direct email verified']
+    ];
+}
+function aur_researched_20261105_followup_index(string $store,array $case):string {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)
+        throw new InvalidArgumentException('research_followup_wrong_case');
+    return aur_private_directory($store,'supplier-rfqs').'/'.AUR_URGENT_RFQ_REF.'-followup-20261105.json';
+}
+function aur_researched_20261105_followup_saved(string $store,array $case):?array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return null;
+    $path=aur_researched_20261105_followup_index($store,$case);
+    if(!is_file($path))return null;
+    if(is_link($path))throw new RuntimeException('followup_supplier_index_symlink');
+    $data=json_decode((string)file_get_contents($path),true,128,JSON_THROW_ON_ERROR);
+    if(!is_array($data)||($data['schema']??'')!=='aurenoeva-followup-suppliers/1'||
+       ($data['case_source_sha256']??'')!==($case['source_sha256']??''))
+       throw new RuntimeException('followup_supplier_case_mismatch');
+    $draft=aur_vendor_rfq_read($store,$case,(string)$data['draft_id']);
+    $data['messages']=$draft['messages'];$data['status']=$draft['status'];
+    return $data;
+}
+function aur_researched_20261105_followup_prepare(string $store,array $case):array {
+    $path=aur_researched_20261105_followup_index($store,$case);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('research_followup_lock_failed');
+    try {
+        $old=aur_researched_20261105_followup_saved($store,$case);
+        if($old!==null)return $old;
+        $already=[];
+        foreach(aur_vendor_rfq_list($store,$case) as $history){
+            $draft=aur_vendor_rfq_read($store,$case,(string)$history['id']);
+            foreach(($draft['messages']??[]) as $message) {
+                $address=strtolower(trim((string)($message['to']??'')));
+                if(filter_var($address,FILTER_VALIDATE_EMAIL))$already[$address]=true;
+            }
+        }
+        if(function_exists('aur_mailcenter_local')){
+            foreach(aur_mailcenter_local($store) as $message) {
+                $address=strtolower(trim((string)($message['to']??'')));
+                if(filter_var($address,FILTER_VALIDATE_EMAIL))$already[$address]=true;
+            }
+        }
+        $messages=[];$skipped=[];
+        foreach(aur_researched_20261105_plans($case,aur_researched_20261105_followup_leads()) as $plan) {
+            $address=strtolower($plan['lead']['email']);
+            if(isset($already[$address])){$skipped[]=$address;continue;}
+            $messages[]=aur_researched_20261105_compose($case,$plan);
+        }
+        if(!$messages)throw new RuntimeException('research_followup_all_previously_contacted');
+        $id=bin2hex(random_bytes(12));
+        aur_vendor_rfq_write(aur_vendor_rfq_path($store,(string)$case['reference'],$id),[
+            'version'=>'aurenoeva-rfq-outbox/1','case_reference'=>$case['reference'],
+            'case_source_sha256'=>$case['source_sha256'],
+            'destination_country'=>$case['country'],'information_only'=>true,
+            'template_version'=>'pricing-rfq-v3',
+            'draft_id'=>$id,'created_at'=>gmdate('c'),'approval'=>null,
+            'status'=>'DRAFT_REVIEW','source'=>'TARGETED_FOLLOWUP_ROUND_2026_11_05',
+            'messages'=>$messages]);
+        aur_vendor_rfq_write($path,[
+            'schema'=>'aurenoeva-followup-suppliers/1',
+            'case_reference'=>$case['reference'],
+            'case_source_sha256'=>$case['source_sha256'],
+            'draft_id'=>$id,'supplier_count'=>count($messages),
+            'prepared_at'=>gmdate('c'),
+            'skipped_existing_recipients'=>$skipped]);
+        return aur_researched_20261105_followup_saved($store,$case)
+            ??throw new RuntimeException('research_followup_readback_failed');
+    } finally {flock($lock,LOCK_UN);fclose($lock);}
 }
