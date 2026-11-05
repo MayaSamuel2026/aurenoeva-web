@@ -574,22 +574,30 @@ def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     pending = state_dir / "catalogue-products-pending.json"
     diagnostics = {}
     if pending.is_file():
-        if pending.is_symlink():
+        if pending.is_symlink() or pending.stat().st_mode & 0o077:
             raise RuntimeError("untrusted_catalogue_upload_checkpoint")
-        payload, count = normalized_snapshot(pending, diagnostics=diagnostics)
+        # Store the exact already-normalized transfer bytes. Reprocessing the
+        # raw DB export on each retry would change crawl telemetry/offer dates,
+        # changing SHA mid-upload and defeating durable resume.
+        payload = pending.read_bytes()
+        if not 0 < len(payload) <= 512_000_000:
+            raise RuntimeError("invalid_catalogue_upload_checkpoint")
+        candidate = json.loads(payload)
+        if (candidate.get("schema") != SCHEMA
+            or not isinstance(candidate.get("items"),list)
+            or not candidate["items"]):
+            raise RuntimeError("invalid_catalogue_upload_checkpoint")
+        count = len(candidate["items"])
         print(json.dumps({"event":"CATALOGUE_PENDING_SNAPSHOT",
                           "status":"RESUMING","records":count}),flush=True)
     else:
         payload, count = normalized_snapshot(snapshot, diagnostics=diagnostics)
-        # Do not retain unvalidated input, and never modify canonical SQLite.
+        # An authenticated, normalized checkpoint is fully immutable until
+        # the new site version passes count and product search readback.
         fd, temporary = tempfile.mkstemp(prefix=".catalogue-pending-",dir=state_dir)
         try:
             with os.fdopen(fd,"wb") as output:
-                with snapshot.open("rb") as source:
-                    while True:
-                        chunk=source.read(1024*1024)
-                        if not chunk:break
-                        output.write(chunk)
+                output.write(payload)
                 output.flush()
                 os.fsync(output.fileno())
             os.chmod(temporary,0o600)
