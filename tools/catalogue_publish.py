@@ -567,8 +567,35 @@ def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
     token = token_path.read_text(encoding="ascii").strip()
     if not re.fullmatch(r"[a-f0-9]{64}", token):
         raise ValueError("catalogue_push_key_invalid")
+    # Keep one immutable, canonical upload snapshot until the site confirms it.
+    # The DB continues harvesting independently; after publication the next
+    # timer run captures everything newly discovered in the meantime.
+    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    pending = state_dir / "catalogue-products-pending.json"
     diagnostics = {}
-    payload, count = normalized_snapshot(snapshot, diagnostics=diagnostics)
+    if pending.is_file():
+        if pending.is_symlink():
+            raise RuntimeError("untrusted_catalogue_upload_checkpoint")
+        payload, count = normalized_snapshot(pending, diagnostics=diagnostics)
+        print(json.dumps({"event":"CATALOGUE_PENDING_SNAPSHOT",
+                          "status":"RESUMING","records":count}),flush=True)
+    else:
+        payload, count = normalized_snapshot(snapshot, diagnostics=diagnostics)
+        # Do not retain unvalidated input, and never modify canonical SQLite.
+        fd, temporary = tempfile.mkstemp(prefix=".catalogue-pending-",dir=state_dir)
+        try:
+            with os.fdopen(fd,"wb") as output:
+                with snapshot.open("rb") as source:
+                    while True:
+                        chunk=source.read(1024*1024)
+                        if not chunk:break
+                        output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            os.chmod(temporary,0o600)
+            os.replace(temporary,pending)
+        finally:
+            if os.path.exists(temporary):os.unlink(temporary)
     print(json.dumps({"event": "CATALOGUE_ELIGIBILITY_RECONCILIATION",
                       **diagnostics}, sort_keys=True), flush=True)
     digest = hashlib.sha256(payload).hexdigest()
@@ -612,34 +639,58 @@ def publish_fast(snapshot: Path, state_dir: Path, env: dict[str, str]) -> dict:
         raise RuntimeError("bulk_transfer_unavailable")
 
     start = post("begin", manifest)
-    if start.get("status") != "READY" or start.get("offset") != 0:
-        raise RuntimeError("bulk_site_not_ready")
-    print(json.dumps({"event": "CATALOGUE_UPLOAD_STARTED",
-                      "records": count, "bytes": len(payload)}), flush=True)
+    already_published = (start.get("status") == "PUBLISHED"
+                         and start.get("offset") == len(payload))
+    if not already_published:
+        if start.get("status") != "READY":
+            raise RuntimeError("bulk_site_not_ready")
+        offset = start.get("offset")
+        if type(offset) is not int or not 0 <= offset <= len(payload):
+            raise RuntimeError("bulk_upload_invalid_resume_offset")
+        if offset:
+            prefix = start.get("prefix_sha256")
+            expected = hashlib.sha256(payload[:offset]).hexdigest()
+            if prefix != expected:
+                # Recover from stale/corrupt partial uploads without ever
+                # changing the currently published site snapshot.
+                reset = json.dumps({"sha256":digest,"bytes":len(payload),
+                    "count":count,"reset":True},separators=(",",":")).encode()
+                start = post("begin", reset)
+                if start.get("status") != "READY" or start.get("offset") != 0:
+                    raise RuntimeError("bulk_upload_reset_unconfirmed")
+                offset = 0
+        print(json.dumps({"event":"CATALOGUE_UPLOAD_RESUMED" if offset else
+                          "CATALOGUE_UPLOAD_STARTED","records":count,
+                          "bytes":len(payload),"verified_offset":offset}),flush=True)
 
     batches = 0
-    for offset in range(0, len(payload), 512 * 1024):
-        chunk = payload[offset:offset + 512 * 1024]
-        result = post("chunk", chunk, offset=offset)
-        if result.get("status") != "RECEIVED" or result.get("offset") != offset + len(chunk):
-            raise RuntimeError("bulk_chunk_readback_failed")
-        batches += 1
+    if not already_published:
+        for offset in range(offset, len(payload), 512 * 1024):
+            chunk = payload[offset:offset + 512 * 1024]
+            result = post("chunk", chunk, offset=offset)
+            if (result.get("status") != "RECEIVED"
+                or result.get("offset") != offset + len(chunk)):
+                raise RuntimeError("bulk_chunk_readback_failed")
+            batches += 1
 
-    finished = post("commit", manifest)
-    if finished.get("status") != "PUBLISHED" or finished.get("records") != count:
-        raise RuntimeError("bulk_published_count_mismatch")
-    # Only after real public count AND search do we save a success receipt.
+        finished = post("commit", manifest)
+        if finished.get("status") != "PUBLISHED" or finished.get("records") != count:
+            raise RuntimeError("bulk_published_count_mismatch")
+    # Only a real public count AND product-search readback closes the release.
     verify_public_catalogue(payload, count, digest)
-    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     receipt = state_dir / "catalogue-products-pushed.sha256"
     temp = receipt.with_suffix(".new")
     temp.write_text(digest + "\n", encoding="ascii")
     os.replace(temp, receipt)
-    print(json.dumps({"event": "PRODUCTS_PUBLISHED", "records": count,
-                      "bytes": len(payload), "batches": batches}), flush=True)
-    return {"status": "PRODUCTS_PUBLISHED", "records": count,
-            "submitted_products": count, "product_batches": batches,
-            "sha256": digest, "vendor_pending": True}
+    # Keep the old live publication unchanged on failure; delete only the
+    # private pending input after a verified new website publication.
+    pending.unlink(missing_ok=True)
+    print(json.dumps({"event":"PRODUCTS_PUBLISHED","records":count,
+                      "bytes":len(payload),"batches":batches,
+                      "already_published":already_published}),flush=True)
+    return {"status":"PRODUCTS_PUBLISHED","records":count,
+            "submitted_products":count,"product_batches":batches,
+            "sha256":digest,"vendor_pending":True}
 
 
 def publish_https(snapshot: Path, state_dir: Path, env: dict[str, str], mode: str = "all") -> dict:
