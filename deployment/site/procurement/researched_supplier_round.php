@@ -126,8 +126,8 @@ function aur_researched_20261105_compose(array $case,array $plan):array {
         'evidence_url'=>$lead['evidence_url']];
     $mail=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
     if($de){
-        $body="Guten Tag,\n\nwir sind auf Ihr Angebot für ".$lead['model']
-            ." aufmerksam geworden und interessieren uns für ".$lead['request'].".\n\n"
+        $body="Guten Tag,\n\nwir interessieren uns für ".$lead['request']
+            ." und sind dabei auf Ihr Angebot für ".$lead['model']." aufmerksam geworden.\n\n"
             .$lead['question']."\n\n"
             ."Über Ihre Preisangabe (mit Währung) und die voraussichtliche Lieferzeit würden wir uns sehr freuen.\n\n"
             ."AURENOEVA ist als Vermittler tätig; der Endkunde kauft bei einer Einigung direkt bei Ihnen. "
