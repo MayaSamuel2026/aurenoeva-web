@@ -62,9 +62,10 @@
     // Put the actual work first. The six recently researched suppliers were
     // previously nested deep in the Suppliers tab while a 27-message
     // historical reminder table dominated RFQ & replies.
+    const followupRound = document.getElementById('aur-latest-supplier-rfq');
     const latestRound = document.getElementById('aur-nov05-researched-rfq');
     const previousRound = document.getElementById('aur-next-stock-rfq');
-    const newRound = latestRound || previousRound;
+    const newRound = followupRound || latestRound || previousRound;
     const approvals = document.getElementById('aur-rfq-approval');
     const reminders = document.getElementById('aur-price-reminders');
     const replies = document.getElementById('supplier-replies');
@@ -76,15 +77,17 @@
     heading.style.cssText = 'margin:0 0 8px;font-size:22px';
     const help = document.createElement('p');
     help.textContent = newRound
-      ? (latestRound
-          ? 'Nine new product-specific enquiries with source evidence. Save as drafts, then review and send up to three at a time; preparation never sends.'
-          : 'Six product-specific suppliers. Review the emails and both PDF attachments, then tick up to three recipients to send. Preparing an enquiry never sends it.')
+      ? (followupRound
+          ? 'Seven new supplier emails and two marketplace contact routes. Save for review, then select and send up to three at a time; nothing is sent during preparation.'
+          : latestRound
+            ? 'Nine product-specific enquiries with source evidence. Save for review, then send up to three at a time.'
+            : 'Six product-specific suppliers. Review emails and attachments, then tick up to three recipients.')
       : 'Open an enquiry to prepare and review its supplier emails.';
     help.style.margin = '0';
     newHeader.append(heading, help);
     panels.rfq.appendChild(newHeader);
     if (newRound) {
-      if (!latestRound) newRound.querySelector('h2').textContent = 'Six new suppliers · Prepared for review';
+      if (!followupRound && !latestRound) newRound.querySelector('h2').textContent = 'Six new suppliers · Prepared for review';
       newRound.style.marginTop = '0';
       move(newRound, panels.rfq);
     }
@@ -104,9 +107,8 @@
       const section = document.getElementById(id);
       if (section) historical.appendChild(section);
     }
-    if (latestRound && previousRound) {
-      historical.appendChild(previousRound);
-    }
+    if (followupRound && latestRound) historical.appendChild(latestRound);
+    if (newRound !== previousRound && previousRound) historical.appendChild(previousRound);
     if (historical.children.length > 1) panels.rfq.appendChild(historical);
     const extra = (node, label, id) => {
       if (!node) return;
@@ -148,7 +150,7 @@
     actions.className = 'aur-quick-actions';
     actions.setAttribute('aria-label', 'Common procurement tasks');
     const links = newRound
-      ? [[latestRound ? 'Review 9 researched enquiries' : 'Review 6 supplier enquiries', '#' + newRound.id],
+      ? [[followupRound ? 'Review 7 new supplier emails' : latestRound ? 'Review 9 researched enquiries' : 'Review 6 supplier enquiries', '#' + newRound.id],
          ['Select up to 3 recipients', '#aur-vendor-send-form'],
          ['Review incoming quotations', '#supplier-replies'],
          ['View original equipment', '#original-rfq-equipment']]
