@@ -455,6 +455,55 @@ try {
 </section>
 <?php endif;?>
 
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurResearchSaved=null;$aurResearchMessages=[];$aurResearchError='';
+try {
+    $aurResearchSaved=aur_researched_20261105_saved($aurStore,$result);
+    if(is_array($aurResearchSaved))$aurResearchMessages=$aurResearchSaved['messages']??[];
+    else foreach(aur_researched_20261105_plans($result) as $plan)
+        $aurResearchMessages[]=aur_researched_20261105_compose($result,$plan);
+}catch(Throwable $e){
+    error_log('AURENOEVA research supplier preview: '.get_class($e).' '.substr($e->getMessage(),0,100));
+    $aurResearchError='The original RFQ mapping or saved supplier drafts could not be loaded.';
+}
+?>
+<section class="card" id="aur-nov05-researched-rfq" style="margin-top:12px">
+<h2>Latest supplier research · 5 November 2026</h2>
+<p>Product-specific sourcing across nine suppliers for Anthos, Samsung, LigaSure, Neurosoft, Vatech, Castellini and Cattani. Source links and exact requested quantities are retained. Listing evidence is <b>not</b> confirmation of warehouse stock or the full model configuration.</p>
+<?php if($aurResearchError!==''):?>
+<p role="alert"><?=aur_escape($aurResearchError)?> Nothing has been sent.</p>
+<?php elseif(!is_array($aurResearchSaved)):?>
+<p><b><?=count($aurResearchMessages)?> new enquiries ready to save for review.</b> No messages are sent by this step. Existing suppliers and Mail Centre contacts are checked again when the draft is saved.</p>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_researched_supplier_rfqs" value="1">Save researched enquiries for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><b><?=count($aurResearchMessages)?> saved drafts</b> · current status <?=aur_escape((string)$aurResearchSaved['status'])?>.
+<a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurResearchSaved['draft_id'])?>#aur-rfq-approval">Review and select up to three to send</a></p>
+<?php if(!empty($aurResearchSaved['skipped_existing_recipients'])):?>
+<p class="muted">Already addressed, not duplicated: <?=aur_escape(implode(', ',$aurResearchSaved['skipped_existing_recipients']))?></p>
+<?php endif;?>
+<?php endif;?>
+<details class="aux-disclosure">
+<summary>Supplier evidence and <?=count($aurResearchMessages)?> individual draft emails</summary>
+<?php foreach($aurResearchMessages as $mail):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)$mail['vendor_name'])?> · <?=aur_escape((string)$mail['to'])?> · RFQ
+<?php foreach(($mail['items']??[]) as $item):?> #<?=(int)($item['customer_item_number']??0)?><?php endforeach;?>
+</summary>
+<p><b>Research:</b> <a href="<?=aur_escape((string)($mail['listing_evidence_url']??''))?>" target="_blank" rel="noopener noreferrer">Supplier's specific product page</a></p>
+<p><b>Qualification:</b> <?=aur_escape((string)($mail['listing_claim']??''))?></p>
+<p><b>Subject:</b> <?=aur_escape((string)$mail['subject'])?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)$mail['body'])?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<p class="muted">Each reviewed enquiry uses the existing AURENOEVA brochure and supplier-safe two-page RFQ attachment when sent. The outgoing subject and body omit the buyer identity and destination. Final order and export compliance information must be supplied before a binding transaction.</p>
+</section>
+<?php endif;?>
+
 <?php if(is_array($rfqPreview)): ?>
 <?php $mailLedger=aur_vendor_rfq_status_summary($rfqPreview); ?>
 <?php $recoveryEligible=aur_vendor_rfq_recoverable_count($rfqPreview); ?>
