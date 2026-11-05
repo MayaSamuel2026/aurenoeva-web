@@ -148,6 +148,13 @@ function aur_researched_20261105_compose(array $case,array $plan):array {
     if(preg_match('/Uzbekistan|Usbekistan|Tashkent|AUR-UZ-/ui',$subject.' '.$body))
         throw new RuntimeException('researched_supplier_destination_visible');
     $mail['subject']=$subject;$mail['body']=$body;
+    // Retain the original case item and quantity for downstream quotation matching.
+    $mail['items']=array_map(static fn(array $row):array=>[
+        'source_row'=>(int)$row['source_row'],
+        'customer_item_number'=>(int)$row['customer_item_number'],
+        'description'=>(string)$row['description'],
+        'quantity'=>$row['quantity'],'option_type'=>$row['option_type']
+    ],$plan['rows']);
     $mail['language']=$lead['language'];
     $mail['supplier_country']=$lead['country'];
     $mail['listing_claim']=$lead['listing'];
