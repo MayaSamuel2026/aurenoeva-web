@@ -6,6 +6,7 @@ declare(strict_types=1);
  * customer case mutation or stock assertion occurs during intake.
  */
 require_once __DIR__.'/private_cases.php';
+require_once __DIR__.'/deepfetcher_supplier_intel.php';
 
 function aur_df_validate(string $raw, string $timestamp, string $signature, string $secret):array {
     if(strlen($secret)<32)throw new RuntimeException('integration_not_configured');
@@ -56,7 +57,8 @@ function aur_df_commit(string $store,array $data,string $expectedWorkspace):stri
                 || ($existing['evidence']['field']??null)!==$data['evidence']['field']
                 || ($existing['evidence']['value']??null)!==$data['evidence']['value'])
                 throw new RuntimeException('delivery_id_conflict');
-            return $ref; // Existing business-side record is committed only once.
+            aur_df_supplier_observe($store,$data); // Recover an interrupted projection before acknowledgement.
+            return $ref; // Existing receipt is byte-stable.
         }
         $record=[
             'schema'=>'aurenoeva-deepfetcher-source-inbox/1',
@@ -77,6 +79,7 @@ function aur_df_commit(string $store,array $data,string $expectedWorkspace):stri
             chmod($temp,0600);
             if(!rename($temp,$path))throw new RuntimeException('intake_commit_failed');
         }finally{if(is_file($temp))@unlink($temp);}
+        aur_df_supplier_observe($store,$data); // Only acknowledge after private business projection commits.
         return $ref;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
