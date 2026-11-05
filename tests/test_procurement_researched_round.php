@@ -11,6 +11,7 @@ function research_line(int $number,string $description,?int $qty=1):array {
 }
 $case=[
     'reference'=>AUR_URGENT_RFQ_REF,'country'=>'UZ',
+    'country_preflight'=>aur_embargo_screen_country('UZ'),
     'source_sha256'=>hash('sha256','research-20261105-original'),
     'payload'=>['sourcing_lines'=>[
       research_line(2,'Anthos A5 Continental dental unit'),
@@ -107,6 +108,41 @@ try{
     $draft2=aur_vendor_rfq_read($root,$case,$next['draft_id']);
     research_check($draft2['source']==='TARGETED_FOLLOWUP_ROUND_2026_11_05'
         && count($draft2['messages'])===7,'Unexpected followup outbox metadata');
+    // The seven-supplier source must use the SAME selected-only dispatch rules
+    // as the UI, with attachments enabled and no unselected messages sent.
+    research_check(aur_vendor_rfq_is_selected_batch('TARGETED_FOLLOWUP_ROUND_2026_11_05')
+        && aur_vendor_rfq_is_selected_batch('TARGETED_RESEARCH_ROUND_2026_11_05')
+        && !aur_vendor_rfq_is_selected_batch('GENERIC_LEGACY_RFQ'),
+        'New research sources differ between preview and dispatch');
+    $calls=[];
+    $sendStub=static function(string $to,string $subject,string $body)use(&$calls):bool {
+        $calls[]=['to'=>$to,'subject'=>$subject];
+        return true;
+    };
+    $firstTry=aur_vendor_rfq_dispatch($root,$case,$next['draft_id'],true,$sendStub,3,[0,1,2]);
+    research_check(count($calls)===3
+        && ($firstTry['last_batch']['indices']??null)===[0,1,2]
+        && ($firstTry['dispatch_progress']['processed_this_request']??0)===3,
+        'Selected first three suppliers were rejected or not recorded');
+    research_check($firstTry['messages'][3]['status']==='DRAFT',
+        'Unselected fourth supplier was contacted');
+    $duplicateRejected=false;
+    try {
+        aur_vendor_rfq_dispatch($root,$case,$next['draft_id'],true,$sendStub,3,[0,1,2]);
+    }catch(InvalidArgumentException $e) {
+        $duplicateRejected=$e->getMessage()==='selected_supplier_already_attempted';
+    }
+    research_check($duplicateRejected && count($calls)===3,
+        'Already attempted suppliers could be sent twice');
+    $secondTry=aur_vendor_rfq_dispatch($root,$case,$next['draft_id'],true,$sendStub,3,[3,4,5]);
+    research_check(count($calls)===6
+        && ($secondTry['last_batch']['indices']??null)===[3,4,5],
+        'Second selected three-recipient batch failed');
+    $finalTry=aur_vendor_rfq_dispatch($root,$case,$next['draft_id'],true,$sendStub,3,[6]);
+    research_check(count($calls)===7
+        && $finalTry['status']==='TRANSPORT_ACCEPTED'
+        && ($finalTry['last_batch']['indices']??null)===[6],
+        'Remaining one supplier was not processed as selected');
     $bad=$case;
     $bad['payload']['sourcing_lines'][0]['description_original']='Generic chair';
     $thrown=false;
