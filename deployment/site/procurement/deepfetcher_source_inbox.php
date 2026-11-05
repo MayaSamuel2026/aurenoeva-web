@@ -154,16 +154,18 @@ function aur_df_acknowledge(array $config,int $id,string $recordId):bool {
  * a page-size preference, not a storage or crawler-result ceiling.
  * DirectoryIterator avoids loading an unbounded filename array.
  */
-function aur_df_recent(string $store,int $pageSize=12):array {
+function aur_df_recent(string $store,int $pageSize=12,?int $before=null):array {
     $pageSize=max(1,min(100,$pageSize));
     $dir=aur_private_directory($store,'deepfetcher-inbox');
     $recent=[];
-    $count=0;
+    $count=0;$eligible=0;
     foreach(new DirectoryIterator($dir) as $entry){
         if(!$entry->isFile()||$entry->isLink())continue;
         if(!preg_match('/^delivery-([1-9][0-9]*)\.json$/D',$entry->getFilename(),$m))continue;
         $count++;
         $id=(int)$m[1];
+        if($before!==null&&$id>=$before)continue;
+        $eligible++;
         if(count($recent)<$pageSize || $id>min(array_keys($recent))){
             $recent[$id]=$entry->getPathname();
             krsort($recent,SORT_NUMERIC);
@@ -186,5 +188,6 @@ function aur_df_recent(string $store,int $pageSize=12):array {
             'committed_at'=>(string)($data['committed_at']??''),
         ];
     }
-    return ['total'=>$count,'items'=>$items];
+    return ['total'=>$count,'items'=>$items,
+        'next_before'=>$eligible>count($recent)&&$recent ? min(array_keys($recent)):null];
 }

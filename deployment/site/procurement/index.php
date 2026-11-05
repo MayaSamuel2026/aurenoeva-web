@@ -1089,9 +1089,11 @@ try{
 try{
     $aurDfInbox=aur_df_recent($aurStore,12);
 }catch(Throwable $ignored){}
-$aurDfSuppliers=['total_vendors'=>0,'items'=>[]];
+$aurDfSupplierOffset=filter_input(INPUT_GET,'df_supplier_offset',FILTER_VALIDATE_INT);
+$aurDfSupplierOffset=is_int($aurDfSupplierOffset)&&$aurDfSupplierOffset>0?$aurDfSupplierOffset:0;
+$aurDfSuppliers=['total_vendors'=>0,'items'=>[],'next_offset'=>null];
 try{
-    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20);
+    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20,$aurDfSupplierOffset);
 }catch(Throwable $e){error_log('AURENOEVA supplier projection view: '.get_class($e));}
 ?>
 <section class="card" id="aur-deepfetcher">
@@ -1115,8 +1117,16 @@ try{
 <?php if(!empty($supplier['source_urls'])):?><div><a href="<?=aur_escape($supplier['source_urls'][0])?>" target="_blank" rel="noopener noreferrer">Original evidence</a></div><?php endif;?></td>
 </tr>
 <?php endforeach;?></tbody></table></div>
+<nav aria-label="Supplier evidence pages" style="display:flex;gap:16px;margin-top:12px">
+<?php if($aurDfSupplierOffset>0):?>
+<a href="<?=aur_escape('?'.http_build_query(array_replace($_GET,['df_supplier_offset'=>max(0,$aurDfSupplierOffset-20)]),'','&',PHP_QUERY_RFC3986).'#aur-deepfetcher')?>">Previous suppliers</a>
+<?php endif;?>
+<?php if($aurDfSuppliers['next_offset']!==null):?>
+<a href="<?=aur_escape('?'.http_build_query(array_replace($_GET,['df_supplier_offset'=>$aurDfSuppliers['next_offset']]),'','&',PHP_QUERY_RFC3986).'#aur-deepfetcher')?>">More suppliers</a>
+<?php endif;?>
+</nav>
 <?php else:?>
-<p class="muted">No supplier-specific DeepFetcher observations yet. General evidence remains available in the source inbox below.</p>
+<p class="muted">No supplier-specific DeepFetcher observations on this page. General evidence remains available in the source inbox below.</p>
 <?php endif;?>
 <details><summary><?= $aurDfConfigured?'Replace private receiver credentials':'Configure signed source delivery' ?></summary>
 <p class="muted">The authorized DeepFetcher destination is <code>https://aurenoeva.com/procurement/deepfetcher_receiver.php</code>, scoped to workspace <code>aurenoeva</code>. Credentials are never displayed again.</p>
@@ -1231,7 +1241,9 @@ Last completed sweep: <b><?=aur_escape((string)($aurAutoHealth['last_complete_sw
 <?php
 try {
     require_once __DIR__.'/deepfetcher_source_inbox.php';
-    $aurDfInbox=aur_df_recent($aurStore,12);
+    $aurDfBefore=filter_input(INPUT_GET,'df_before',FILTER_VALIDATE_INT);
+    $aurDfBefore=is_int($aurDfBefore)&&$aurDfBefore>0?$aurDfBefore:null;
+    $aurDfInbox=aur_df_recent($aurStore,12,$aurDfBefore);
 }catch(Throwable $e){
     error_log('AURENOEVA DeepFetcher staff view: '.get_class($e));
     $aurDfInbox=null;
@@ -1268,7 +1280,14 @@ try {
 <?php endforeach; ?>
 </tbody></table></div>
 <?php if((int)$aurDfInbox['total']>count($aurDfInbox['items'])): ?>
-<p class="muted">Showing the latest <?=count($aurDfInbox['items'])?> records. Earlier signed records remain durably stored and accessible to the procurement integration.</p>
+<nav aria-label="Source evidence pages" style="display:flex;gap:16px;margin-top:12px">
+<?php if($aurDfBefore!==null):?>
+<a href="<?=aur_escape('?'.http_build_query(array_diff_key($_GET,['df_before'=>true]),'','&',PHP_QUERY_RFC3986).'#aur-deepfetcher-inbox')?>">Latest evidence</a>
+<?php endif;?>
+<?php if(($aurDfInbox['next_before']??null)!==null):?>
+<a href="<?=aur_escape('?'.http_build_query(array_replace($_GET,['df_before'=>$aurDfInbox['next_before']]),'','&',PHP_QUERY_RFC3986).'#aur-deepfetcher-inbox')?>">Earlier evidence</a>
+<?php endif;?>
+</nav>
 <?php endif; ?>
 <?php endif; ?>
 </section>
