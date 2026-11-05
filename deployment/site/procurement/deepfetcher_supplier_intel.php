@@ -64,8 +64,9 @@ function aur_df_supplier_observe(string $store, array $delivery): bool {
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
-function aur_df_supplier_recent(string $store,int $pageSize=20):array {
+function aur_df_supplier_recent(string $store,int $pageSize=20,int $offset=0):array {
     $pageSize=max(1,min(100,$pageSize));
+    $offset=max(0,$offset);
     $dir=aur_private_directory(aur_private_directory($store,'supplier-intelligence'),'deepfetcher-vendors');
     $total=0;$items=[];
     foreach(new DirectoryIterator($dir) as $entry){
@@ -88,6 +89,10 @@ function aur_df_supplier_recent(string $store,int $pageSize=20):array {
             'updated_at'=>(string)($data['updated_at']??''),
             'status'=>$data['status']];
     }
-    usort($items,static fn($a,$b)=>strcmp($b['updated_at'],$a['updated_at']));
-    return ['total_vendors'=>$total,'items'=>array_slice($items,0,$pageSize)];
+    usort($items,static fn($a,$b)=>strcmp($b['updated_at'],$a['updated_at'])
+        ?:strcmp($a['vendor_id'],$b['vendor_id']));
+    $page=array_slice($items,$offset,$pageSize);
+    return ['total_vendors'=>$total,'items'=>$page,'offset'=>$offset,
+        'page_size'=>$pageSize,
+        'next_offset'=>$offset+count($page)<$total?$offset+count($page):null];
 }
