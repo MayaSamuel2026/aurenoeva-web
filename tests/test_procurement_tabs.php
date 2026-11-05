@@ -18,7 +18,7 @@ foreach(['aur-upload','saved-cases','destination-screen','supplier-workspace','a
 check_tab(str_contains($ui,'openDeepLink') && str_contains($ui,'hashchange'), 'Deep link reopening unavailable');
 check_tab(str_contains($ui,'move(newRound, panels.rfq)') && str_contains($ui,'followupRound') && str_contains($ui,'Review 7 new supplier emails') && str_contains($ui,'historical.appendChild(latestRound)'), 'Latest researched supplier RFQ not primary in workspace');
 check_tab(str_contains($ui,"extra(reminders, 'Supplier reminders") && str_contains($ui,'historical.appendChild(section)'), 'Historical supplier material not collapsed in RFQ tab');
-check_tab(str_contains($entry,'$newBatch=aur_next_stock_prepare($aurStore,$result);'), 'New supplier draft not prepared for review on case opening');
+check_tab(str_contains($entry,'$followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);') && str_contains($entry,'$newBatch=aur_next_stock_prepare($aurStore,$result);'), 'Latest supplier drafts not prepared first or prior campaign fallback missing');
 check_tab(str_contains($entry, '$aurNext=' . "'Prepare individual supplier reminders'"), 'Overview does not direct sent cases to reminder preparation');
 check_tab(str_contains($portal,'id="aur-price-reminders"'), 'Reminder controls not present in supplier RFQ workspace');
 check_tab(str_contains($ui,'panels.rfq') && str_contains($ui,'panels.settings'), 'Panels not partitioned');
