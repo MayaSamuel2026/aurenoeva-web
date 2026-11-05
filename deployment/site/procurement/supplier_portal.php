@@ -456,6 +456,63 @@ try {
 <?php endif;?>
 
 <?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurFollowSaved=null;$aurFollowMessages=[];$aurFollowError='';
+try{
+    $aurFollowSaved=aur_researched_20261105_followup_saved($aurStore,$result);
+    if(is_array($aurFollowSaved))$aurFollowMessages=$aurFollowSaved['messages']??[];
+    else foreach(aur_researched_20261105_plans($result,aur_researched_20261105_followup_leads()) as $plan)
+        $aurFollowMessages[]=aur_researched_20261105_compose($result,$plan);
+}catch(Throwable $e){
+    error_log('AURENOEVA latest source-specific research preview: '.get_class($e));
+    $aurFollowError='The latest supplier mappings or saved draft could not be loaded.';
+}
+?>
+<section class="card" id="aur-latest-supplier-rfq" style="margin-top:12px;border-color:#9dbbae">
+<h2>New RFQ enquiries · Stock-specific research · 5 November 2026</h2>
+<p>Seven suppliers with published emails for Euronda E8, 1.5 T MRI, Cattani AC300, Mindray WATO EX-35 and Dräger Savina. Exact-model quotations are requested, not presumed. Each message is short, bilingual where appropriate and identifies AURENOEVA as an intermediary.</p>
+<?php if($aurFollowError!==''):?>
+<p role="alert"><?=aur_escape($aurFollowError)?> No new messages were sent.</p>
+<?php elseif(!is_array($aurFollowSaved)):?>
+<p role="status"><b><?=count($aurFollowMessages)?> individual emails ready for review.</b> Save drafts first; preparation never sends anything. Existing recipients are checked again at save time.</p>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_followup_supplier_rfqs" value="1">Save <?=count($aurFollowMessages)?> enquiries for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><b><?=count($aurFollowMessages)?> saved email drafts</b> · <?=aur_escape((string)$aurFollowSaved['status'])?>.
+<a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurFollowSaved['draft_id'])?>#aur-rfq-approval">Select up to three and send after review</a></p>
+<?php if(!empty($aurFollowSaved['skipped_existing_recipients'])):?>
+<p class="muted">Already in correspondence, automatically excluded: <?=aur_escape(implode(', ',$aurFollowSaved['skipped_existing_recipients']))?></p>
+<?php endif;?>
+<?php endif;?>
+<details class="aux-disclosure">
+<summary>Review <?=count($aurFollowMessages)?> emails, evidence and RFQ item mapping</summary>
+<?php foreach($aurFollowMessages as $mail):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)$mail['vendor_name'])?> · <?=aur_escape((string)$mail['to'])?> · RFQ
+<?php foreach(($mail['items']??[]) as $item):?> #<?=(int)($item['customer_item_number']??0)?><?php endforeach;?>
+</summary>
+<p><b>Exact source:</b> <a href="<?=aur_escape((string)($mail['listing_evidence_url']??''))?>" rel="noopener noreferrer" target="_blank">View supplier product listing</a></p>
+<p><b>Qualification:</b> <?=aur_escape((string)($mail['listing_claim']??''))?></p>
+<p><b>Subject:</b> <?=aur_escape((string)$mail['subject'])?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)$mail['body'])?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<details class="aux-disclosure">
+<summary>Two more verified marketplace leads · contact-form routes</summary>
+<?php foreach(aur_researched_20261105_followup_manual() as $lead):?>
+<p><b><?=aur_escape($lead['name'])?> · RFQ #<?=(int)$lead['item']?></b> — <?=aur_escape($lead['description'])?>.
+<a href="<?=aur_escape($lead['url'])?>" target="_blank" rel="noopener noreferrer">Supplier enquiry page</a>.
+<span class="muted"><?=aur_escape($lead['reason'])?></span></p>
+<?php endforeach;?>
+</details>
+<p class="muted">Sending uses the existing three-recipient checkbox batch and the AURENOEVA brochure plus supplier-safe two-page RFQ. Destination and buyer identity are omitted from the supplier-facing materials, but applicable transaction information and compliance checks remain required before any order.</p>
+</section>
+<?php endif;?>
+
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
 $aurResearchSaved=null;$aurResearchMessages=[];$aurResearchError='';
 try {
     $aurResearchSaved=aur_researched_20261105_saved($aurStore,$result);
@@ -541,7 +598,7 @@ try {
 <p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
 <?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026','TARGETED_RESEARCH_ROUND_2026_11_05'],true); ?>
+<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026','TARGETED_RESEARCH_ROUND_2026_11_05','TARGETED_FOLLOWUP_ROUND_2026_11_05'],true); ?>
 <?php $aurShortPending=array_filter($rfqPreview['messages']??[],static fn($m)=>(string)($m['status']??'')==='DRAFT'); ?>
 <?php $aurShortNeedsRevision=$aurShortBatch && count(array_filter(
     $aurShortPending,static fn($m)=>($m['language']??'')==='de'
