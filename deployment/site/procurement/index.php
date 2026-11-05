@@ -641,6 +641,19 @@ if ($isAdmin) {
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
             catch(Throwable $ignored){}
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_followup_supplier_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $draft=aur_researched_20261105_followup_prepare($aurStore,$case);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$draft['draft_id'])
+                .'#aur-rfq-approval',true,303);
+            exit;
+        }catch(Throwable $e){
+            error_log('AURENOEVA next researched supplier draft: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            $supplierDiscoveryMessage='The new supplier drafts could not be saved. No enquiries have been sent.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_researched_supplier_rfqs'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
