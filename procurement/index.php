@@ -920,19 +920,25 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
             $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
         }
     }
-    // An explicit draft link always wins. On this existing medical case,
-    // prepare the already approved six-contact shortlist once, without sending
-    // mail, and show it first instead of an older 27-recipient outbox.
-    // This is idempotent and retains every prior dispatch ledger unchanged.
+    // An explicit draft link always wins. Otherwise open the latest researched
+    // supplier batch from this original case. Preparation is idempotent and
+    // writes DRAFT_REVIEW only; it never dispatches email.
     $aurDraftToOpen=isset($_GET['draft']) && is_string($_GET['draft'])
         ? (string)$_GET['draft'] : '';
     if($aurDraftToOpen==='' && ($result['reference']??'')===AUR_URGENT_RFQ_REF) {
         try {
-            $newBatch=aur_next_stock_prepare($aurStore,$result);
-            $aurDraftToOpen=(string)($newBatch['draft_id']??'');
+            $followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);
+            $aurDraftToOpen=(string)($followupBatch['draft_id']??'');
         } catch(Throwable $e) {
-            error_log('AURENOEVA six-supplier draft preparation: '.get_class($e));
-            $supplierResearchMode='The six-supplier shortlist could not be opened. Original case and previous messages remain preserved.';
+            error_log('AURENOEVA latest supplier draft preparation: '.get_class($e));
+            // Preserve the established earlier round as a usable fallback.
+            try{
+                $newBatch=aur_next_stock_prepare($aurStore,$result);
+                $aurDraftToOpen=(string)($newBatch['draft_id']??'');
+            }catch(Throwable $priorError) {
+                error_log('AURENOEVA previous supplier draft preparation: '.get_class($priorError));
+                $supplierResearchMode='New supplier drafts could not be opened; existing case and correspondence remain preserved.';
+            }
         }
     }
     if($aurDraftToOpen==='') {
