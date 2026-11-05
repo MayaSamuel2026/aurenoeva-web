@@ -541,7 +541,7 @@ try {
 <p role="alert"><b>Previous letter saved for history.</b> This unsent draft uses the old template without the approved latest pricing letter and AURENOEVA business signature. Please prepare a fresh consolidated RFQ above before sending.</p>
 <?php endif;?>
 <?php if(in_array($rfqPreview['status'],['DRAFT_REVIEW','DISPATCHING'],true)): ?>
-<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026'],true); ?>
+<?php $aurShortBatch=in_array((string)($rfqPreview['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026','TARGETED_RESEARCH_ROUND_2026_11_05'],true); ?>
 <?php $aurShortPending=array_filter($rfqPreview['messages']??[],static fn($m)=>(string)($m['status']??'')==='DRAFT'); ?>
 <?php $aurShortNeedsRevision=$aurShortBatch && count(array_filter(
     $aurShortPending,static fn($m)=>($m['language']??'')==='de'
