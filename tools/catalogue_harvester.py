@@ -1243,7 +1243,7 @@ def main():
     ap.add_argument("--export",type=Path,required=True)
     ap.add_argument("--max-pages",type=int,default=1500)
     ap.add_argument("--max-seconds",type=int,default=2700)
-    ap.add_argument("--workers",type=int,default=10)
+    ap.add_argument("--workers",type=int,default=4)
     ap.add_argument("--status",action="store_true")
     a=ap.parse_args()
     cfg=json.loads(a.sources.read_text())
