@@ -64,15 +64,26 @@ function aur_df_supplier_observe(string $store, array $delivery): bool {
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
-function aur_df_supplier_recent(string $store,int $pageSize=20):array {
-    $pageSize=max(1,min(100,$pageSize));
+function aur_df_supplier_recent(string $store,int $pageSize=20,string $before=''):array {
+    $pageSize=max(1,min(100,$pageSize)); // A page size, not a supplier-record limit.
+    if(strlen($before)>110 || ($before!=='' &&
+       !preg_match('/^[0-9T:+.Z-]{19,35}\\|web-[a-f0-9]{16}$/D',$before)))
+        throw new InvalidArgumentException('invalid_supplier_cursor');
     $dir=aur_private_directory(aur_private_directory($store,'supplier-intelligence'),'deepfetcher-vendors');
-    $total=0;$items=[];
+    $total=0;$top=[];
     foreach(new DirectoryIterator($dir) as $entry){
-        if(!$entry->isFile() || $entry->isLink() || !preg_match('/^web-[a-f0-9]{16}\\.json$/D',$entry->getFilename()))continue;
+        if(!$entry->isFile() || $entry->isLink() ||
+           !preg_match('/^web-[a-f0-9]{16}\\.json$/D',$entry->getFilename()))continue;
         $data=json_decode((string)file_get_contents($entry->getPathname()),true);
         if(!is_array($data) || ($data['schema']??'')!=='aurenoeva-deepfetcher-supplier-intel/1')continue;
         $total++;
+        $key=(string)($data['updated_at']??'').'|'.(string)$data['vendor_id'];
+        if($before!=='' && strcmp($key,$before)>=0)continue;
+        // At most one extra item is retained to prove the next page exists.
+        if(count($top)>=$pageSize+1){
+            $oldest=min(array_keys($top));
+            if(strcmp($key,$oldest)<=0)continue;
+        }
         $observations=$data['observations']??[];
         $models=[];$names=[];$sources=[];
         foreach($observations as $obs){
@@ -81,13 +92,19 @@ function aur_df_supplier_recent(string $store,int $pageSize=20):array {
             if(($obs['field']??'')==='supplier.name')$names[]=(string)$obs['value'];
             $sources[]=(string)($obs['source_url']??'');
         }
-        $items[]=['vendor_id'=>$data['vendor_id'],'website'=>$data['website'],
+        $top[$key]=['vendor_id'=>$data['vendor_id'],'website'=>$data['website'],
             'supplier_names'=>array_values(array_unique($names)),
             'product_models'=>array_values(array_unique($models)),
             'evidence_count'=>count($observations),'source_urls'=>array_values(array_unique($sources)),
             'updated_at'=>(string)($data['updated_at']??''),
             'status'=>$data['status']];
+        krsort($top,SORT_STRING);
+        if(count($top)>$pageSize+1)array_pop($top);
     }
-    usort($items,static fn($a,$b)=>strcmp($b['updated_at'],$a['updated_at']));
-    return ['total_vendors'=>$total,'items'=>array_slice($items,0,$pageSize)];
+    krsort($top,SORT_STRING);
+    $hasMore=count($top)>$pageSize;
+    if($hasMore)array_pop($top);
+    $keys=array_keys($top);
+    return ['total_vendors'=>$total,'items'=>array_values($top),'page_size'=>$pageSize,
+            'next_before'=>$hasMore?(string)end($keys):null];
 }
