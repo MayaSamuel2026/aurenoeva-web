@@ -190,17 +190,40 @@ try {
         throw new RuntimeException('bulk_not_ready');
     $cut=round(strlen($packed)/2);
     $first=substr($packed,0,(int)$cut);$second=substr($packed,(int)$cut);
-    if(aur_bulk_chunk($private,$hash,0,$first)['offset']!==strlen($first)
-       ||aur_bulk_chunk($private,$hash,strlen($first),$second)['offset']!==strlen($packed)
+    if(aur_bulk_chunk($private,$hash,0,$first)['offset']!==strlen($first))
+        throw new RuntimeException('bulk_initial_chunk_not_accepted');
+    $resume=aur_bulk_begin($private,$hash,strlen($packed));
+    if($resume['status']!=='READY'
+       ||$resume['offset']!==strlen($first)
+       ||$resume['prefix_sha256']!==hash('sha256',$first))
+        throw new RuntimeException('bulk_upload_restart_did_not_resume');
+    if(aur_bulk_chunk($private,$hash,strlen($first),$second)['offset']!==strlen($packed)
        ||aur_bulk_chunk($private,$hash,strlen($first),$second)['offset']!==strlen($packed))
         throw new RuntimeException('bulk_chunk_retry_not_idempotent');
     $ack=aur_bulk_commit($private,$hash,strlen($packed),4);
+    $afterCommit=aur_bulk_begin($private,$hash,strlen($packed));
+    if($afterCommit['status']!=='PUBLISHED'||$afterCommit['offset']!==strlen($packed))
+        throw new RuntimeException('bulk_already_published_should_not_reupload');
     if($ack['records']!==4
        ||aur_bulk_commit($private,$hash,strlen($packed),4)['records']!==4
        ||count(aur_catalogue_snapshot_search('MAGNETOM Lumina')??[])!==1)
         throw new RuntimeException('bulk_catalogue_not_searchable');
     if(hash_file('sha256',$private.'/catalogue-public.json')!==$hash)
         throw new RuntimeException('bulk_catalogue_checksum_mismatch');
+    // Damaged partial upload is reset only after the client confirms a
+    // prefix mismatch; the already-published public snapshot stays intact.
+    $damagedHash=hash('sha256','different payload');
+    aur_bulk_begin($private,$damagedHash,100);
+    aur_bulk_chunk($private,$damagedHash,0,'wrong prefix');
+    $restarted=aur_bulk_begin($private,$damagedHash,100);
+    if($restarted['offset']!==strlen('wrong prefix'))
+        throw new RuntimeException('bulk_partial_not_durable');
+    $resetAck=aur_bulk_begin($private,$damagedHash,100,true);
+    if($resetAck['offset']!==0||$resetAck['prefix_sha256']!==hash('sha256','')
+       ||hash_file('sha256',$private.'/catalogue-public.json')!==$hash)
+        throw new RuntimeException('bulk_reset_changed_published_catalogue');
+    @unlink(aur_bulk_path($private,$damagedHash));
+
     $smaller=['schema'=>'aurenoeva-catalogue/1','items'=>[$whole['items'][0]]];
     $short=json_encode($smaller,JSON_UNESCAPED_SLASHES);
     $shortHash=hash('sha256',$short);
