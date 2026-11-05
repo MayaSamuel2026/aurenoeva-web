@@ -356,7 +356,8 @@ try {
         'Stockholder outbox statuses did not persist');
     $portalText=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_portal.php');
     urgent_check(str_contains($portalText,'aur-stock-supplier-rfqs') &&
-        str_contains($portalText,'CURATED_STOCK_LISTING_ROUND_2026_11_03'),
+        str_contains($portalText,'aur_vendor_rfq_is_selected_batch(') &&
+        aur_vendor_rfq_is_selected_batch('CURATED_STOCK_LISTING_ROUND_2026_11_03'),
         'Stockholder UI or selected sending path not installed');
     $workJs=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/worldwide.js');
     $indexHtml=(string)file_get_contents(dirname(__DIR__).'/deployment/site/procurement/index.php');
