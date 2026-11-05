@@ -636,6 +636,22 @@ function aur_vendor_rfq_delivery_breakdown(array $draft):array {
     }
     return $result;
 }
+/**
+ * All source types using the same review / checkbox selection / three-per-send
+ * workflow. One authority shared by the approval UI, SMTP and attachments.
+ */
+function aur_vendor_rfq_selected_batch_sources():array {
+    return [
+        'CURATED_SHORT_ROUND_2026_11_01',
+        'CURATED_STOCK_LISTING_ROUND_2026_11_03',
+        'EXACT_MODEL_ROUND2_NOV_2026',
+        'TARGETED_RESEARCH_ROUND_2026_11_05',
+        'TARGETED_FOLLOWUP_ROUND_2026_11_05'
+    ];
+}
+function aur_vendor_rfq_is_selected_batch(string $source):bool {
+    return in_array($source,aur_vendor_rfq_selected_batch_sources(),true);
+}
 function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool $manualComplianceReview,?callable $sender=null,int $batchLimit=3,?array $selectedIndices=null):array {
     aur_embargo_assert_dispatch_ready($case);
     if(!$manualComplianceReview)throw new InvalidArgumentException('supplier_legal_review_acknowledgement_required');
@@ -647,7 +663,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         $draft=aur_vendor_rfq_read($store,$case,$draftId);
         // November short supplier outbox requires a deliberately checked batch.
         // Other existing supplier RFQs retain their historical send behavior.
-        $selectedOnly=in_array((string)($draft['source']??''),['CURATED_SHORT_ROUND_2026_11_01','CURATED_STOCK_LISTING_ROUND_2026_11_03','EXACT_MODEL_ROUND2_NOV_2026'],true);
+        $selectedOnly=aur_vendor_rfq_is_selected_batch((string)($draft['source']??''));
         $selection=[];
         if($selectedOnly) {
             if(!is_array($selectedIndices)||count($selectedIndices)<1
@@ -717,11 +733,7 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         $attachmentPack=[];
         if($sender===null
            &&($case['reference']??'')==='AUR-UZ-1A04A7909185FACD'
-           &&in_array((string)($draft['source']??''),[
-               'CURATED_SHORT_ROUND_2026_11_01',
-               'CURATED_STOCK_LISTING_ROUND_2026_11_03',
-               'EXACT_MODEL_ROUND2_NOV_2026'
-           ],true)) {
+           &&$selectedOnly) {
             $attachmentPack=aur_supplier_outbound_attachments($store,$case);
         }
         if(($draft['status']??'')==='DRAFT_REVIEW') {
