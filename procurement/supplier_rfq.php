@@ -646,7 +646,8 @@ function aur_vendor_rfq_selected_batch_sources():array {
         'CURATED_STOCK_LISTING_ROUND_2026_11_03',
         'EXACT_MODEL_ROUND2_NOV_2026',
         'TARGETED_RESEARCH_ROUND_2026_11_05',
-        'TARGETED_FOLLOWUP_ROUND_2026_11_05'
+        'TARGETED_FOLLOWUP_ROUND_2026_11_05',
+        'TARGETED_NEXT_SOURCING_ROUND_2026_11_06'
     ];
 }
 function aur_vendor_rfq_is_selected_batch(string $source):bool {
