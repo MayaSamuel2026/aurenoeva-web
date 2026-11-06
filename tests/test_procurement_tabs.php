@@ -16,14 +16,15 @@ foreach(['aur-upload','saved-cases','destination-screen','supplier-workspace','a
  check_tab(str_contains($ui,"'".$target."'"),'Existing workflow target not retained: '.$target);
 }
 check_tab(str_contains($ui,'openDeepLink') && str_contains($ui,'hashchange'), 'Deep link reopening unavailable');
-check_tab(str_contains($ui,'move(newRound, panels.rfq)') && str_contains($ui,'followupRound') && str_contains($ui,'Review 7 new supplier emails') && str_contains($ui,'historical.appendChild(latestRound)'), 'Latest researched supplier RFQ not primary in workspace');
+check_tab(str_contains($ui,'move(newRound, panels.rfq)') && str_contains($ui,'nextSourcingRound') && str_contains($ui,'Review next sourcing round') && str_contains($ui,'historical.appendChild(followupRound)'), 'Newly researched supplier RFQ not primary in workspace');
 check_tab(str_contains($ui,"extra(reminders, 'Supplier reminders") && str_contains($ui,'historical.appendChild(section)'), 'Historical supplier material not collapsed in RFQ tab');
-check_tab(str_contains($entry,'$followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);') && str_contains($entry,'$newBatch=aur_next_stock_prepare($aurStore,$result);'), 'Latest supplier drafts not prepared first or prior campaign fallback missing');
+check_tab(str_contains($entry,'$nextSourcing=aur_researched_next_20261106_prepare($aurStore,$result);') && str_contains($entry,'$followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);') && str_contains($entry,'$newBatch=aur_next_stock_prepare($aurStore,$result);'), 'Latest supplier round not prepared first or earlier campaigns lost');
 check_tab(str_contains($entry, '$aurNext=' . "'Prepare individual supplier reminders'"), 'Overview does not direct sent cases to reminder preparation');
 check_tab(str_contains($portal,'id="aur-price-reminders"'), 'Reminder controls not present in supplier RFQ workspace');
 check_tab(str_contains($ui,'panels.rfq') && str_contains($ui,'panels.settings'), 'Panels not partitioned');
 check_tab(str_contains($portal,"['DRAFT_REVIEW','DISPATCHING']"),'Sent RFQs still show SMTP setup warning');
 check_tab(str_contains($portal,'id="aur-latest-supplier-rfq"') && str_contains($portal,'prepare_followup_supplier_rfqs'), 'New source-specific RFQ previews and save control missing');
+check_tab(str_contains($portal,'id="aur-next-sourcing-round"') && str_contains($portal,'prepare_next_sourcing_rfqs'), '6 November sourcing review and save control missing');
 $rfqDispatch=file_get_contents($root.'/deployment/site/procurement/supplier_rfq.php');
 check_tab(str_contains($portal,'aur_vendor_rfq_is_selected_batch(')
     && str_contains($rfqDispatch,'TARGETED_FOLLOWUP_ROUND_2026_11_05')
