@@ -92,7 +92,9 @@ function aur_researched_20261105_plans(array $case,?array $selectedLeads=null):a
         26=>'/\bWATO\s*EX[\s.-]*35\b/ui',
         27=>'/\bSavina\b/ui',
         34=>'/\bEuronda\b.*\bE8\b/ui',
-        35=>'/\b1[.,]5\s*T\b.*\bMRI\b/ui'];
+        35=>'/\b1[.,]5\s*T\b.*\bMRI\b/ui',
+        17=>'/\bS260S\b/ui',21=>'/\bOctopus\s*600\b/ui',
+        29=>'/\bSpiro[\s.-]*Spectrum\b/ui'];
     $byItem=[];
     foreach(($case['payload']['sourcing_lines']??[]) as $line){
         if(!is_array($line)||($line['option_type']??'REQUESTED')!=='REQUESTED')continue;
@@ -374,4 +376,196 @@ function aur_researched_20261105_followup_prepare(string $store,array $case):arr
         return aur_researched_20261105_followup_saved($store,$case)
             ??throw new RuntimeException('research_followup_readback_failed');
     } finally {flock($lock,LOCK_UN);fclose($lock);}
+}
+
+
+/**
+ * Next RFQ conversion round, 6 November: distinct FIRST_CONTACT vs FOLLOWUP
+ * messages; only human-selected recipients can send. Public evidence gives
+ * model or manufacturer-channel identity, NOT a formal written quotation.
+ */
+function aur_researched_next_20261106_leads():array {
+    return [
+        ['id'=>'uandi-octopus-price','name'=>'U&I Optic Instrument','email'=>'info@uandiopticinstrument.com',
+         'country'=>'NL','language'=>'en','kind'=>'FOLLOWUP','items'=>[21],
+         'model'=>'Haag-Streit Octopus 600 Basic',
+         'request'=>'one Haag-Streit Octopus 600 Basic perimeter',
+         'question'=>'Dear Daniel, thank you for confirming the 2018 used unit with printer and table and for sending the video. Could you kindly confirm whether the advertised EUR 5,500 is your current selling price, plus the dispatch lead time, location and warranty? We are updating our customer on the quotations received.',
+         'evidence_url'=>'https://www.dotmed.com/listing/visual-field-analyzer/haag-streit/octopus-600/5625555',
+         'listing'=>'3 Nov: used 2018 unit, printer/table and video confirmed; EUR 5,500 is the earlier advertised price, not yet reconfirmed in writing'],
+        ['id'=>'optoshop-s260s','name'=>'Schneider Optoshop GmbH & Co. KG',
+         'email'=>'as@optoshop.de','country'=>'DE','language'=>'de','kind'=>'FOLLOWUP','items'=>[17],
+         'model'=>'MediWorks S260S',
+         'request'=>'eine MediWorks S260S Spaltlampe (1 Stück)',
+         'question'=>'Sehr geehrter Herr Schneider, vielen Dank für Ihre Rückmeldung und den Link. Dort finde ich die SO LED S260 Z-Typ; angefragt ist ausdrücklich die MediWorks S260S. Können Sie die Modellgleichheit bestätigen oder alternativ die exakte S260S anbieten? Über den konkreten Preis und die Lieferzeit würden wir uns sehr freuen.',
+         'evidence_url'=>'https://www.schneider-optoshop.de/refraktion/spaltlampen-zubehoer/spaltlampen/1389/so-led-s260-z-typ-spaltlampe',
+         'listing'=>'4 Nov: dealer says immediately available; linked product is SO LED S260 Z-Typ, not yet confirmed identical with requested S260S'],
+        ['id'=>'bms-v8','name'=>'BMS Ultraschall','email'=>'info@bms-ultraschall.de',
+         'country'=>'DE','language'=>'de','kind'=>'FOLLOWUP','items'=>[4],
+         'model'=>'Samsung V8 mit vier Sonden',
+         'request'=>'ein Samsung V8 mit vier Sonden, Scherwellen-Elastografie, EKG, Heart Assist und allen angefragten Optionen',
+         'question'=>'Guten Tag Herr Binczycki, vielen Dank für Ihre Rückmeldung und Ihr Angebot eines Rückrufs. Für unsere aktuelle Kundenübersicht wären ein schriftlicher Richtpreis und die voraussichtliche Lieferzeit besonders hilfreich. Können Sie die Verfügbarkeit der vollständigen Konfiguration bestätigen? Die technischen Einzelheiten besprechen wir gern anschließend telefonisch.',
+         'evidence_url'=>'https://bimedis.com/a-item/ultrasound-machines-samsung-v8-2196471',
+         'listing'=>'3 Nov: dealer requests callback but has not provided price, four-probe configuration or dispatch details'],
+        ['id'=>'duomed-skema','name'=>'Duo Med GmbH','email'=>'info@duo-med.de',
+         'country'=>'DE','language'=>'de','kind'=>'FIRST_CONTACT','items'=>[32,33],
+         'model'=>'Castellini Skema 6 / Skema 8',
+         'request'=>'eine Castellini Skema 6 sowie zwei Castellini Skema 8 Behandlungseinheiten',
+         'question'=>'Ihre Website führt Skema 6 und Skema 8 mit Startpreisen. Können Sie bitte die endgültigen Preise für unsere gewünschten Ausführungen SD-9099 (Skema 6) und 6X-9056 (Skema 8), den Lieferumfang und die Lieferzeiten nennen? Falls die Codes nicht exakt zuordenbar sind, wäre eine klare Gegenüberstellung sehr hilfreich.',
+         'evidence_url'=>'https://www.duo-med.com/c/behandlungseinheiten/behandlungseinheiten-neu/behandlungseinheiten-castellini/skema-familie',
+         'listing'=>'Castellini authorized specialist advertises both Skema 6 and 8; advertised base prices do not establish the requested configurations'],
+        ['id'=>'eggert-anthos','name'=>'dental EGGERT GmbH','email'=>'anfrage@dental-eggert.de',
+         'country'=>'DE','language'=>'de','kind'=>'FIRST_CONTACT','items'=>[2],
+         'model'=>'Anthos A5 Continental',
+         'request'=>'eine Anthos A5 Continental Behandlungseinheit mit Schwebetisch',
+         'question'=>'Sie stellen die Anthos A5 in Ihrem Sortiment vor. Können Sie die Continental- bzw. Schwebetisch-Ausführung mit der gewünschten Ausstattung anbieten? Wir freuen uns über den Einheitspreis, den Lieferumfang und die aktuelle Lieferzeit.',
+         'evidence_url'=>'https://www.praxiseinrichtung-zahnarzt.de/Behandlungseinheiten/anthos-a5/',
+         'listing'=>'Dental EGGERT lists Anthos A5; Continental/over-the-patient configuration and pricing not confirmed'],
+        ['id'=>'dentalair-vatech','name'=>'Dentalair','email'=>'info@dentalair.nl',
+         'country'=>'NL','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[30],
+         'model'=>'Vatech Green X 16 (16 × 9) with Ceph',
+         'request'=>'one Vatech Green X 16 CBCT 16 × 9 system with cephalostat',
+         'question'=>'Your catalogue lists the Green X 16 with the 16 × 9 field of view and optional cephalometric upgrade. Please quote the complete configured system with Ceph, and indicate lead time, warranty and whether supply outside your domestic market is possible.',
+         'evidence_url'=>'https://www.dentalair.nl/equipment-dentalair/digitaal-rontgen/extra-orale-diagnostiek/vatech/green-x-16',
+         'listing'=>'Vatech manufacturer-listed distributor; Green X 16 FOV confirmed, Ceph optional, export and stock unverified'],
+        ['id'=>'dentaldiscovery-vatech','name'=>'Dental Discovery B.V.','email'=>'info@dentaldiscovery.be',
+         'country'=>'BE','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[30],
+         'model'=>'Vatech Green X 16 (16 × 9) with Ceph',
+         'request'=>'one Vatech Green X 16 CBCT system, 16 × 9 cm field of view, with cephalostat',
+         'question'=>'Vatech Europe lists your company as an official distributor. Could you quote the complete Green X 16 configuration including Ceph, with current availability, dispatch time and warranty? Please identify any accessories priced separately.',
+         'evidence_url'=>'https://www.vatecheurope.com/vatech-distributors/',
+         'listing'=>'Vatech Europe distributor listing; exact model stock, Ceph options and export capability unconfirmed'],
+        ['id'=>'vatechuk-greenx','name'=>'Vatech UK','email'=>'sales@vatech.uk.com',
+         'country'=>'GB','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[30],
+         'model'=>'Vatech Green X 16 (16 × 9) with Ceph',
+         'request'=>'one Vatech Green X 16 CBCT system, FOV 16 × 9 cm, with the cephalometric module',
+         'question'=>'Could you provide indicative pricing and lead time for the requested Green X 16 / Ceph configuration? Please confirm whether your team handles international enquiries or can refer us to an appropriate authorized selling partner.',
+         'evidence_url'=>'https://vatech.uk.com/contact/',
+         'listing'=>'Manufacturer-associated UK entity; contact verified, but listing is general Green X rather than explicit Green X 16'],
+        ['id'=>'neuris-neurosoft','name'=>'NEURIS s.r.o.','email'=>'neuris@neuris.cz',
+         'country'=>'CZ','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[24],
+         'model'=>'Neurosoft Neuron-Spectrum-1',
+         'request'=>'one Neurosoft Neuron-Spectrum-1 system for EEG, evoked potentials and EMG examinations',
+         'question'=>'You are listed by Neurosoft as a specialist partner for diagnostic systems. Can you supply the exact Neuron-Spectrum-1 with the EEG/EP/EMG functionality and required accessories? Please advise price, configuration, delivery time and whether this is within your commercial portfolio.',
+         'evidence_url'=>'https://neurosoft.com/en/dealer',
+         'listing'=>'Manufacturer-listed dealer for EEG/EMG in Czechia/Slovakia; specific model and additional functionalities not confirmed'],
+        ['id'=>'neuroimpulse-spiro','name'=>'NEUROIMPULSE GROUP','email'=>'info@neuroimpulse.uz',
+         'country'=>'UZ','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[29],
+         'model'=>'Neurosoft Spiro-Spectrum',
+         'request'=>'one Neurosoft Spiro-Spectrum PC-based spirometer (Lilly-tube pneumotachograph configuration)',
+         'question'=>'Neurosoft lists your company among its regional contacts. Can you source the exact Spiro-Spectrum system, or direct us to the appropriate sales partner? Please confirm the full kit, calibration accessories, unit price and lead time.',
+         'evidence_url'=>'https://neurosoft.com/en/dealer',
+         'listing'=>'Listed regional Neurosoft channel; exact Spiro-Spectrum supply authority and available inventory unverified']
+    ];
+}
+function aur_researched_next_20261106_compose(array $case,array $plan):array {
+    $lead=$plan['lead'];
+    if(($lead['kind']??'')!=='FOLLOWUP'){
+        $mail=aur_researched_20261105_compose($case,$plan);
+    }else{
+        $vendor=['id'=>'research-next-'.$lead['id'],'name'=>$lead['name'],
+            'email'=>$lead['email'],'evidence_url'=>$lead['evidence_url']];
+        $mail=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
+        $de=$lead['language']==='de';
+        $follow=$lead['question'];
+        if($de){
+            $body=$follow."\n\nWir interessieren uns für ".$lead['request']
+                .". AURENOEVA ist Vermittler, nicht der Endkäufer; die Bestellung erfolgt direkt zwischen Kunde und Anbieter.\n\n"
+                .aur_procurement_signed_closing('de',(string)$lead['email'])."\n";
+            $subject='Nachfrage zu Preis und Lieferzeit – '.$lead['model'];
+        }else{
+            $body=$follow."\n\nWe are interested in ".$lead['request']
+                .". AURENOEVA is the intermediary, not the buyer; any purchase is concluded directly between the customer and supplier.\n\n"
+                .aur_procurement_signed_closing('en',(string)$lead['email'])."\n";
+            $subject='Follow-up: price and lead time – '.$lead['model'];
+        }
+        $mail['subject']=$subject;$mail['body']=$body;
+        $mail['items']=$plan['rows'];
+        $mail['language']=$lead['language'];
+        $mail['supplier_country']=$lead['country'];
+        $mail['listing_claim']=$lead['listing'];
+        $mail['listing_evidence_url']=$lead['evidence_url'];
+        $mail['source_grade']='EXISTING_REPLY_PRICE_FOLLOWUP';
+        $mail['previously_contacted']=true;
+    }
+    $mail['sourcing_round']='2026-11-06';
+    $mail['contact_type']=$lead['kind'];
+    if(preg_match('/Uzbekistan|Usbekistan|Tashkent|AUR-UZ-/ui',$mail['subject'].' '.$mail['body']))
+        throw new RuntimeException('new_round_destination_visible');
+    return $mail;
+}
+function aur_researched_next_20261106_index(string $store,array $case):string {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)
+        throw new InvalidArgumentException('next_round_wrong_case');
+    return aur_private_directory($store,'supplier-rfqs').'/'.AUR_URGENT_RFQ_REF.'-next-20261106.json';
+}
+function aur_researched_next_20261106_saved(string $store,array $case):?array {
+    if(($case['reference']??'')!==AUR_URGENT_RFQ_REF)return null;
+    $path=aur_researched_next_20261106_index($store,$case);
+    if(!is_file($path))return null;
+    if(is_link($path))throw new RuntimeException('next_round_index_symlink');
+    $data=json_decode((string)file_get_contents($path),true,128,JSON_THROW_ON_ERROR);
+    if(!is_array($data)||($data['schema']??'')!=='aurenoeva-next-sourcing/1'||
+       ($data['case_source_sha256']??'')!==($case['source_sha256']??''))
+        throw new RuntimeException('next_round_index_case_mismatch');
+    $draft=aur_vendor_rfq_read($store,$case,(string)$data['draft_id']);
+    $data['messages']=$draft['messages'];
+    $data['status']=$draft['status'];
+    return $data;
+}
+function aur_researched_next_20261106_prepare(string $store,array $case):array {
+    $path=aur_researched_next_20261106_index($store,$case);
+    $lock=@fopen($path.'.lock','c');
+    if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('next_round_lock_failed');
+    try {
+        $old=aur_researched_next_20261106_saved($store,$case);
+        if($old!==null)return $old;
+        $already=[];
+        foreach(aur_vendor_rfq_list($store,$case) as $history){
+            $other=aur_vendor_rfq_read($store,$case,(string)$history['id']);
+            foreach(($other['messages']??[]) as $message){
+                $address=strtolower(trim((string)($message['to']??'')));
+                if(filter_var($address,FILTER_VALIDATE_EMAIL))$already[$address]=true;
+            }
+        }
+        if(function_exists('aur_mailcenter_local')){
+            foreach(aur_mailcenter_local($store) as $entry) {
+                $address=strtolower(trim((string)($entry['to']??'')));
+                if(filter_var($address,FILTER_VALIDATE_EMAIL))$already[$address]=true;
+            }
+        }
+        $messages=[];$skipped=[];
+        foreach(aur_researched_20261105_plans($case,aur_researched_next_20261106_leads()) as $plan) {
+            $lead=$plan['lead'];$address=strtolower(trim((string)$lead['email']));
+            if($lead['kind']==='FIRST_CONTACT'&&isset($already[$address])){
+                $skipped[]=['email'=>$address,'reason'=>'Already in earlier RFQ correspondence or drafts'];
+                continue;
+            }
+            $messages[]=aur_researched_next_20261106_compose($case,$plan);
+        }
+        if(!$messages)throw new RuntimeException('next_round_all_candidates_already_pending');
+        $id=bin2hex(random_bytes(12));
+        aur_vendor_rfq_write(aur_vendor_rfq_path($store,(string)$case['reference'],$id),[
+            'version'=>'aurenoeva-rfq-outbox/1',
+            'case_reference'=>$case['reference'],
+            'case_source_sha256'=>$case['source_sha256'],
+            'destination_country'=>$case['country'],
+            'information_only'=>true,
+            'template_version'=>'pricing-rfq-v3',
+            'draft_id'=>$id,'created_at'=>gmdate('c'),'approval'=>null,
+            'status'=>'DRAFT_REVIEW',
+            'source'=>'TARGETED_NEXT_SOURCING_ROUND_2026_11_06',
+            'messages'=>$messages
+        ]);
+        aur_vendor_rfq_write($path,[
+            'schema'=>'aurenoeva-next-sourcing/1',
+            'case_reference'=>$case['reference'],
+            'case_source_sha256'=>$case['source_sha256'],
+            'draft_id'=>$id,'supplier_count'=>count($messages),
+            'prepared_at'=>gmdate('c'),
+            'skipped_existing_recipients'=>$skipped
+        ]);
+        return aur_researched_next_20261106_saved($store,$case)
+            ??throw new RuntimeException('next_round_readback_failed');
+    }finally {flock($lock,LOCK_UN);fclose($lock);}
 }
