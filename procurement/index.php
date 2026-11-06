@@ -117,6 +117,7 @@ if(isset($_GET['brochure'])){
     $variant=(string)$_GET['brochure'];
     $name=match($variant){
         'pdf'=>'AURENOEVA_Company_Introduction_A4.pdf',
+        'de'=>'AURENOEVA_Firmenbroschuere_Deutsch.pdf',
         'preview','image'=>'AURENOEVA_Company_Introduction.png',
         default=>null
     };
@@ -124,7 +125,7 @@ if(isset($_GET['brochure'])){
     $path=__DIR__.'/assets/'.$name;
     if(!is_file($path)||is_link($path)||!is_readable($path))
         aur_denied(503,'brochure unavailable');
-    header('Content-Type: '.($variant==='pdf'?'application/pdf':'image/png'));
+    header('Content-Type: '.(in_array($variant,['pdf','de'],true)?'application/pdf':'image/png'));
     header('Content-Length: '.filesize($path));
     header('Content-Disposition: '.($variant==='preview'?'inline':'attachment').'; filename="'.$name.'"');
     header('Cache-Control: private, no-store, max-age=0');
@@ -1663,7 +1664,7 @@ if($caseRfq!==null)$caseRfqUrl.='&draft='.rawurlencode((string)$caseRfq['id']).'
 </select></label>
 <label>Attachments <input id="aur-mail-attachments" name="attachments[]" type="file" multiple aria-describedby="aur-mail-attachment-hint"></label>
 <label style="display:flex;align-items:center;gap:10px;font-weight:600"><input type="checkbox" name="include_brochure" id="aur-mail-include-brochure" value="1" style="width:auto;flex:none"> Attach AURENOEVA company brochure (PDF)</label>
-<p id="aur-mail-attachment-hint" class="muted">Up to 5 attachments including this brochure · 8 MB per file · 10 MB combined. <a href="/procurement/?brochure=pdf">View company brochure</a>.</p>
+<p id="aur-mail-attachment-hint" class="muted">Up to 5 attachments including this brochure · 8 MB per file · 10 MB combined. <a href="/procurement/?brochure=pdf">English</a> · <a href="/procurement/?brochure=de">Deutsch</a>.</p>
 <p id="aur-mail-selected-files" class="muted" role="status" aria-live="polite"></p>
 <div class="aur-mail-formatbar" role="toolbar" aria-label="Message formatting">
 <button type="button" id="aur-mail-normal" aria-label="Remove bold formatting">Normal</button>
@@ -1710,7 +1711,8 @@ info@aurenoeva.com | https://aurenoeva.com
 <h2>AURENOEVA · Company brochure</h2>
 <p>Your reusable one-page introduction for suppliers, manufacturers and sourcing partners. It explains the searchable parts catalogue, direct customer RFQs, sourcing in Germany, supplier introductions, direct customer purchasing and commission-based relationships.</p>
 <p style="display:flex;flex-wrap:wrap;gap:10px">
-<a class="button" href="/procurement/?brochure=pdf">Download brochure · PDF (A4)</a>
+<a class="button" href="/procurement/?brochure=pdf">English brochure · PDF</a>
+<a class="button" href="/procurement/?brochure=de">Deutsche Firmenbroschüre · PDF</a>
 <a class="button ghost" href="/procurement/?brochure=image">Download original image</a>
 </p>
 <p class="muted">Private administrator resource, ready to print or attach to emails. The master artwork and PDF are stored on this website.</p>

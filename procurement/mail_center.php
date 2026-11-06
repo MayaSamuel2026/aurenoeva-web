@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 require_once __DIR__.'/supplier_inbox_curl.php';
 require_once __DIR__.'/mail_branding.php';
+require_once __DIR__.'/supplier_attachment_pack.php';
 
 function aur_mailcenter_folder(string $folder):string {
     if(!in_array($folder,['INBOX','INBOX.Sent','INBOX.Drafts','INBOX.Trash','INBOX.Junk'],true))
@@ -108,8 +109,9 @@ function aur_mailcenter_store_uploads(string $store,string $id,array $files):arr
     return $stored;
 }
 /** Save the approved brochure beside uploaded attachments only when selected. */
-function aur_mailcenter_attach_brochure(string $store,string $id,array $existing):array {
-    $source=__DIR__.'/assets/AURENOEVA_Company_Introduction_A4.pdf';
+function aur_mailcenter_attach_brochure(string $store,string $id,array $existing,string $language='en'):array {
+    $brochure=aur_supplier_brochure_asset($language);
+    $source=$brochure['path'];
     if(!is_file($source)||is_link($source)||!is_readable($source))
         throw new RuntimeException('mail_brochure_missing');
     $bytes=filesize($source);
@@ -123,7 +125,7 @@ function aur_mailcenter_attach_brochure(string $store,string $id,array $existing
     if(is_file($target)||is_link($target))throw new RuntimeException('mail_attachment_conflict');
     if(!copy($source,$target))throw new RuntimeException('mail_attachment_store_failed');
     @chmod($target,0600);
-    $existing[]=['name'=>'AURENOEVA_Company_Introduction_A4.pdf',
+    $existing[]=['name'=>$brochure['name'],
         'size'=>$bytes,'type'=>'application/pdf','path'=>$target];
     return $existing;
 }
@@ -370,7 +372,7 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         if($selection!==''&&$selection!=='1')
             throw new InvalidArgumentException('invalid_brochure_selection');
         $attached=aur_mailcenter_store_uploads($store,$id,$files);
-        if($selection==='1')$attached=aur_mailcenter_attach_brochure($store,$id,$attached);
+        if($selection==='1')$attached=aur_mailcenter_attach_brochure($store,$id,$attached,$send['language']);
         $attachmentMetadata=array_map(static fn($part)=>[
             'name'=>$part['name'],'size'=>$part['size'],'type'=>$part['type']
         ],$attached);
