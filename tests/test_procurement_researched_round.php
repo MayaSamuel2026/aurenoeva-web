@@ -26,6 +26,9 @@ $case=[
       research_line(27,'Dräger Savina ventilator refurbished 2010-2013'),
       research_line(34,'Set Euronda E8 24 L Class B autoclave, Euroseal 2001 Plus and Aquadis'),
       research_line(35,'1.5 T MRI system'),
+      research_line(17,'Dixion MediWorks S260S ophthalmic slit lamp'),
+      research_line(21,'Haag-Streit Octopus 600 Basic automatic perimeter'),
+      research_line(29,'Neurosoft Spiro-Spectrum computerized spirometer'),
       research_line(36,'CATTANI compressor three-cylinder 45 L'),
     ]]
 ];
@@ -143,6 +146,55 @@ try{
         && $finalTry['status']==='TRANSPORT_ACCEPTED'
         && ($finalTry['last_batch']['indices']??null)===[6],
         'Remaining one supplier was not processed as selected');
+    // The 6 November batch builds exactly 10 product-linked proposals:
+    // 3 deliberate follow-ups, 7 first enquiries. Older unsent drafts own two
+    // of the first-contact addresses, which must not be duplicated.
+    $nextPlans=aur_researched_20261105_plans($case,aur_researched_next_20261106_leads());
+    research_check(count($nextPlans)===10,'Next round should propose ten model-matched contacts');
+    $types=[];$addresses=[];
+    foreach($nextPlans as $plan){
+        $msg=aur_researched_next_20261106_compose($case,$plan);
+        research_check(($msg['status']??'')==='DRAFT','Next round mail should remain draft');
+        research_check($msg['contact_type']===$plan['lead']['kind'],
+            'Follow-up and first-contact distinction lost');
+        research_check(count($msg['items'])===count($plan['lead']['items']),
+            'RFQ item mapping mismatch in new sourcing round');
+        research_check(!isset($addresses[strtolower($msg['to'])]),
+            'Duplicate next round email contact');
+        $addresses[strtolower($msg['to'])]=true;
+        $types[$msg['contact_type']]=($types[$msg['contact_type']]??0)+1;
+        research_check(!preg_match('/Uzbekistan|Usbekistan|AUR-UZ-|Tashkent/ui',
+            $msg['body'].' '.$msg['subject']),'Supplier-facing message leaks destination');
+        if($msg['language']==='de') research_check(
+            str_contains($msg['body'],'wir interessieren uns für '),
+            'German first/follow-up message fails existing dispatch wording contract');
+    }
+    research_check($types['FOLLOWUP']===3 && $types['FIRST_CONTACT']===7,
+        'Wrong new vs existing supplier split');
+    research_check(aur_vendor_rfq_is_selected_batch('TARGETED_NEXT_SOURCING_ROUND_2026_11_06'),
+        'New round not supported by the selected-recipient sender');
+    $nextSaved=aur_researched_next_20261106_prepare($root,$case);
+    research_check($nextSaved['supplier_count']===8
+        && count($nextSaved['skipped_existing_recipients'])===2,
+        'Existing Duo Med and EGGERT draft contacts were not deduplicated');
+    research_check($nextSaved['status']==='DRAFT_REVIEW',
+        'Preparing next round must not send');
+    research_check(aur_researched_next_20261106_prepare($root,$case)['draft_id']===$nextSaved['draft_id'],
+        'Next round preparation is not idempotent');
+    research_check(count(aur_vendor_rfq_list($root,$case))===3,
+        'Next round should create exactly one additional private outbox');
+    $nextOutbox=aur_vendor_rfq_read($root,$case,$nextSaved['draft_id']);
+    research_check(($nextOutbox['source']??'')==='TARGETED_NEXT_SOURCING_ROUND_2026_11_06',
+        'Wrong source prevents three-recipient sending and attachments');
+    research_check(count($nextOutbox['messages'])===8,
+        'Eight deduplicated emails not present in saved outbox');
+    $nextFirst=[];
+    foreach($nextOutbox['messages'] as $msg) {
+        if(($msg['contact_type']??'')==='FIRST_CONTACT')$nextFirst[]=$msg['to'];
+    }
+    research_check(!in_array('info@duo-med.de',$nextFirst,true)
+        && !in_array('anfrage@dental-eggert.de',$nextFirst,true),
+        'Older unsent supplier contacts duplicated');
     $bad=$case;
     $bad['payload']['sourcing_lines'][0]['description_original']='Generic chair';
     $thrown=false;
