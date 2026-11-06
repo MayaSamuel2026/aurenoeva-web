@@ -31,8 +31,12 @@ try{aur_supplier_full_rfq_pdf($invalid);}catch(RuntimeException $e){
 }
 pack_check($stopped,'stop disclosure of a country in an equipment line');
 $rfqCode=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/supplier_rfq.php');
-pack_check(str_contains($rfqCode,'$attachmentPack=aur_supplier_outbound_attachments($store,$case);'),
-    'supplier dispatch must prepare both files before sending');
+pack_check(str_contains($rfqCode,'$attachmentPacks[$lang]=aur_supplier_outbound_attachments($store,$case,$lang);')
+    && str_contains($rfqCode,'$attachmentPack=$attachmentPacks[$lang]??[];'),
+    'supplier dispatch must preflight and select the recipient-language PDF files');
+pack_check(aur_supplier_brochure_asset('de')['name']==='AURENOEVA_Unternehmensvorstellung_DE.pdf'
+    && aur_supplier_brochure_asset('en')['name']==='AURENOEVA_Company_Introduction.pdf',
+    'DE/EN brochure names not mapped correctly');
 pack_check(str_contains($rfqCode,'$attachmentPack);'),
     'supplier SMTP must pass prepared attachments');
 $en=aur_supplier_broader_offer_note("Please quote model ZM-1.\n\nThank you and kind regards,\nAURENOEVA",'en');
