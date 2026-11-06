@@ -165,7 +165,7 @@ function aur_researched_20261105_compose(array $case,array $plan):array {
     $mail['supplier_country']=$lead['country'];
     $mail['listing_claim']=$lead['listing'];
     $mail['listing_evidence_url']=$lead['evidence_url'];
-    $mail['source_grade']=$lead['source_grade'];
+    $mail['source_grade']=$lead['source_grade']??'SOURCE_BACKED_MODEL_OR_CHANNEL_UNCONFIRMED';
     $mail['previously_contacted']=false;
     return $mail;
 }
@@ -443,7 +443,7 @@ function aur_researched_next_20261106_leads():array {
          'evidence_url'=>'https://vatech.uk.com/contact/',
          'listing'=>'Manufacturer-associated UK entity; contact verified, but listing is general Green X rather than explicit Green X 16'],
         ['id'=>'neuris-neurosoft','name'=>'NEURIS s.r.o.','email'=>'neuris@neuris.cz',
-         'country'=>'CZ','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[24],
+         'country'=>'SK','language'=>'en','kind'=>'FIRST_CONTACT','items'=>[24],
          'model'=>'Neurosoft Neuron-Spectrum-1',
          'request'=>'one Neurosoft Neuron-Spectrum-1 system for EEG, evoked potentials and EMG examinations',
          'question'=>'You are listed by Neurosoft as a specialist partner for diagnostic systems. Can you supply the exact Neuron-Spectrum-1 with the EEG/EP/EMG functionality and required accessories? Please advise price, configuration, delivery time and whether this is within your commercial portfolio.',
