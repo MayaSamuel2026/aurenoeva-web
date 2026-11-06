@@ -731,11 +731,18 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
         // country-neutral full RFQ and approved company brochure. All files
         // are resolved BEFORE marking a recipient IN_FLIGHT. Any missing
         // asset blocks dispatch instead of silently sending without it.
-        $attachmentPack=[];
+        $attachmentPacks=[];
         if($sender===null
            &&($case['reference']??'')==='AUR-UZ-1A04A7909185FACD'
            &&$selectedOnly) {
-            $attachmentPack=aur_supplier_outbound_attachments($store,$case);
+            // Preflight ALL selected recipients and both brochure versions
+            // before changing a message to IN_FLIGHT.
+            foreach($draft['messages'] as $index=>$pending) {
+                if(!isset($selection[$index])||($pending['status']??'')!=='DRAFT')continue;
+                $lang=($pending['language']??'en')==='de'?'de':'en';
+                if(!isset($attachmentPacks[$lang]))
+                    $attachmentPacks[$lang]=aur_supplier_outbound_attachments($store,$case,$lang);
+            }
         }
         if(($draft['status']??'')==='DRAFT_REVIEW') {
             $draft['status']='DISPATCHING';
@@ -751,6 +758,8 @@ function aur_vendor_rfq_dispatch(string $store,array $case,string $draftId,bool 
             if($selectedOnly&&!isset($selection[$i]))continue;
             if(($message['status']??'')!=='DRAFT')continue;
             if($sentThisRequest>=$batchLimit)break;
+            $lang=($message['language']??'en')==='de'?'de':'en';
+            $attachmentPack=$attachmentPacks[$lang]??[];
             // The supplier sees the same expanded invitation in the approval
             // preview and the actual sent message. Past sends remain immutable.
             if($attachmentPack) {
