@@ -23,6 +23,7 @@ on:
       - 'tests/test_procurement_inbox.php'
       - 'tests/test_procurement_tabs.php'
       - 'tests/test_procurement_researched_round.php'
+      - 'tests/test_procurement_supplier_attachment_pack.php'
       - 'tests/test_deepfetcher_receiver.php'
       - 'hotfix/v8.2.6.12/catalogue-sync.php'
       - 'hotfix/v8.2.6.12/tests/catalogue_sync_test.php'
