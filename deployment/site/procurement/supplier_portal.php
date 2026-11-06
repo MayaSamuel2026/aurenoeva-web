@@ -456,6 +456,59 @@ try {
 <?php endif;?>
 
 <?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurNextSaved=null;$aurNextMessages=[];$aurNextError='';
+try {
+    $aurNextSaved=aur_researched_next_20261106_saved($aurStore,$result);
+    if(is_array($aurNextSaved))$aurNextMessages=$aurNextSaved['messages']??[];
+    else foreach(aur_researched_20261105_plans($result,aur_researched_next_20261106_leads()) as $plan)
+        $aurNextMessages[]=aur_researched_next_20261106_compose($result,$plan);
+}catch(Throwable $e){
+    error_log('AURENOEVA 6 Nov research review preview: '.get_class($e));
+    $aurNextError='The original RFQ item mapping or saved drafts could not be loaded.';
+}
+?>
+<section class="card" id="aur-next-sourcing-round" style="margin-top:12px;border-color:#9dbbae">
+<h2>Next sourcing round · 6 November 2026</h2>
+<p>Three supplier follow-ups for outstanding written quotations, plus new manufacturer-linked product contacts for Anthos, Castellini, Vatech and Neurosoft. Each enquiry specifies the actual model and requested quantity. Public advertised prices are not assumed to be formal quotations.</p>
+<?php if($aurNextError!==''):?>
+<p role="alert"><?=aur_escape($aurNextError)?> No new emails were sent.</p>
+<?php elseif(!is_array($aurNextSaved)):?>
+<p role="status"><b><?=count($aurNextMessages)?> enquiries proposed.</b> Only suppliers not already recorded in prior drafts are saved as new contacts; follow-ups are explicitly identified. Saving does not send.</p>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_next_sourcing_rfqs" value="1">Prepare new sourcing round for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><b><?=count($aurNextMessages)?> saved messages</b> · <?=aur_escape((string)$aurNextSaved['status'])?>.
+<a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurNextSaved['draft_id'])?>#aur-rfq-approval">Review, tick and send up to three</a></p>
+<?php if(!empty($aurNextSaved['skipped_existing_recipients'])):?>
+<p class="muted">Contact already recorded in an older campaign (no new duplicate draft created):
+<?php foreach($aurNextSaved['skipped_existing_recipients'] as $skip):?>
+<?=aur_escape((string)($skip['email']??''))?>;
+<?php endforeach;?></p>
+<?php endif;?>
+<?php endif;?>
+<details class="aux-disclosure">
+<summary>Review <?=count($aurNextMessages)?> messages and exact source evidence</summary>
+<?php foreach($aurNextMessages as $mail):?>
+<details class="aur-mail-preview">
+<summary><?=($mail['contact_type']??'')==='FOLLOWUP'?'Follow-up':'First enquiry'?>
+· <?=aur_escape((string)$mail['vendor_name'])?>
+· <?=aur_escape((string)$mail['to'])?>
+· <?php foreach(($mail['items']??[]) as $item):?>RFQ #<?=(int)($item['customer_item_number']??0)?> <?php endforeach;?></summary>
+<p><b>Supplier/product source:</b> <a href="<?=aur_escape((string)($mail['listing_evidence_url']??''))?>" rel="noopener noreferrer" target="_blank">Open source evidence</a></p>
+<p><b>What is confirmed:</b> <?=aur_escape((string)($mail['listing_claim']??''))?></p>
+<p><b>Subject:</b> <?=aur_escape((string)$mail['subject'])?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)$mail['body'])?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<p class="muted">These are information-only enquiries. The existing selection-based sending workflow adds the AURENOEVA brochure and supplier-safe RFQ documents. The recipient sees no customer identity or destination; any transaction must still satisfy the applicable disclosure, trade, and regulatory requirements.</p>
+</section>
+<?php endif;?>
+
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
 $aurFollowSaved=null;$aurFollowMessages=[];$aurFollowError='';
 try{
     $aurFollowSaved=aur_researched_20261105_followup_saved($aurStore,$result);
