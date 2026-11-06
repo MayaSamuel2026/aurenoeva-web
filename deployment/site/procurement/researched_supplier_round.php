@@ -469,7 +469,7 @@ function aur_researched_next_20261106_compose(array $case,array $plan):array {
         $de=$lead['language']==='de';
         $follow=$lead['question'];
         if($de){
-            $body=$follow."\n\nWir interessieren uns für ".$lead['request']
+            $body=$follow."\n\nZur Bestätigung: wir interessieren uns für ".$lead['request']
                 .". AURENOEVA ist Vermittler, nicht der Endkäufer; die Bestellung erfolgt direkt zwischen Kunde und Anbieter.\n\n"
                 .aur_procurement_signed_closing('de',(string)$lead['email'])."\n";
             $subject='Nachfrage zu Preis und Lieferzeit – '.$lead['model'];
