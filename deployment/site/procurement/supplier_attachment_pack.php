@@ -98,8 +98,15 @@ function aur_supplier_full_rfq_pdf(array $case):string {
     $pdf.="trailer\n<< /Size ".$count." /Root 1 0 R >>\nstartxref\n".$xref."\n%%EOF\n";
     return $pdf;
 }
-function aur_supplier_outbound_attachments(string $store,array $case):array {
-    $brochure=__DIR__.'/assets/AURENOEVA_Company_Introduction_A4.pdf';
+function aur_supplier_brochure_asset(string $language='en'):array {
+    $german=$language==='de';
+    $name=$german?'AURENOEVA_Firmenbroschuere_Deutsch.pdf':'AURENOEVA_Company_Introduction_A4.pdf';
+    return ['path'=>__DIR__.'/assets/'.$name,
+        'name'=>$german?'AURENOEVA_Unternehmensvorstellung_DE.pdf':'AURENOEVA_Company_Introduction.pdf'];
+}
+function aur_supplier_outbound_attachments(string $store,array $case,string $language='en'):array {
+    $selectedBrochure=aur_supplier_brochure_asset($language);
+    $brochure=$selectedBrochure['path'];
     if(!is_file($brochure)||is_link($brochure)||!is_readable($brochure))
         throw new RuntimeException('supplier_brochure_unavailable');
     $base=aur_private_directory($store,'supplier-rfqs');
@@ -110,7 +117,7 @@ function aur_supplier_outbound_attachments(string $store,array $case):array {
     @chmod($pdfPath,0600);
     $out=[];
     foreach([
-        ['path'=>$brochure,'name'=>'AURENOEVA_Company_Introduction.pdf'],
+        $selectedBrochure,
         ['path'=>$pdfPath,'name'=>'AURENOEVA_RFQ_Medical_Equipment_26_Oct_2026.pdf'],
     ] as $file){
         $size=filesize($file['path']);
