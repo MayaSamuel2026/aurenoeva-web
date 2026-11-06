@@ -641,6 +641,19 @@ if ($isAdmin) {
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
             catch(Throwable $ignored){}
         }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_next_sourcing_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $draft=aur_researched_next_20261106_prepare($aurStore,$case);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$draft['draft_id'])
+                .'#aur-rfq-approval',true,303);
+            exit;
+        }catch(Throwable $e) {
+            error_log('AURENOEVA 6 November sourcing drafts: '.get_class($e).' '.substr($e->getMessage(),0,120));
+            $supplierDiscoveryMessage='The new round could not be saved; no enquiries have been sent.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}catch(Throwable $ignored){}
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_followup_supplier_rfqs'])) {
         try {
             $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
@@ -920,24 +933,28 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
             $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
         }
     }
-    // An explicit draft link always wins. Otherwise open the latest researched
-    // supplier batch from this original case. Preparation is idempotent and
-    // writes DRAFT_REVIEW only; it never dispatches email.
+    // Open the latest unsent sourcing review queue (never send on page load).
+    // Preserve explicit draft links and previous batches if the new data is unavailable.
     $aurDraftToOpen=isset($_GET['draft']) && is_string($_GET['draft'])
         ? (string)$_GET['draft'] : '';
     if($aurDraftToOpen==='' && ($result['reference']??'')===AUR_URGENT_RFQ_REF) {
         try {
-            $followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);
-            $aurDraftToOpen=(string)($followupBatch['draft_id']??'');
-        } catch(Throwable $e) {
-            error_log('AURENOEVA latest supplier draft preparation: '.get_class($e));
-            // Preserve the established earlier round as a usable fallback.
-            try{
-                $newBatch=aur_next_stock_prepare($aurStore,$result);
-                $aurDraftToOpen=(string)($newBatch['draft_id']??'');
-            }catch(Throwable $priorError) {
-                error_log('AURENOEVA previous supplier draft preparation: '.get_class($priorError));
-                $supplierResearchMode='New supplier drafts could not be opened; existing case and correspondence remain preserved.';
+            $nextSourcing=aur_researched_next_20261106_prepare($aurStore,$result);
+            $aurDraftToOpen=(string)($nextSourcing['draft_id']??'');
+        } catch(Throwable $nextError) {
+            error_log('AURENOEVA new sourcing queue: '.get_class($nextError));
+            try {
+                $followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);
+                $aurDraftToOpen=(string)($followupBatch['draft_id']??'');
+            }catch(Throwable $followError) {
+                error_log('AURENOEVA earlier sourced queue: '.get_class($followError));
+                try {
+                    $newBatch=aur_next_stock_prepare($aurStore,$result);
+                    $aurDraftToOpen=(string)($newBatch['draft_id']??'');
+                } catch(Throwable $priorError) {
+                    error_log('AURENOEVA previous supplier draft preparation: '.get_class($priorError));
+                    $supplierResearchMode='New supplier drafts are unavailable; original case and previous correspondence are preserved.';
+                }
             }
         }
     }
