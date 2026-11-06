@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 require_once __DIR__.'/supplier_inbox_curl.php';
 require_once __DIR__.'/mail_branding.php';
+require_once __DIR__.'/supplier_attachment_pack.php';
 
 function aur_mailcenter_folder(string $folder):string {
     if(!in_array($folder,['INBOX','INBOX.Sent','INBOX.Drafts','INBOX.Trash','INBOX.Junk'],true))
