@@ -500,6 +500,7 @@
     {
       "id": "ersaal-industrial-directory",
       "active": true,
+      "priority": true,
       "manufacturer": "",
       "sector": "industrial",
       "category": "Machine / process equipment",
