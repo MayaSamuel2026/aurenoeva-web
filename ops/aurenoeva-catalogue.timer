@@ -1,11 +1,13 @@
 [Unit]
-Description=AURENOEVA worldwide product/vendor harvest continuously, including overnight
+Description=AURENOEVA catalogue overnight harvest (Europe/Berlin local time)
 
 [Timer]
-OnBootSec=3min
-OnCalendar=*:0/30
-Persistent=true
-RandomizedDelaySec=25
+# One six-hour, resumable harvest and one end-of-run publication overnight.
+# No daytime catch-up after a reboot: the next run starts at 22:00 Berlin time.
+OnCalendar=*-*-* 22:00:00 Europe/Berlin
+Persistent=false
+AccuracySec=1min
+RandomizedDelaySec=0
 Unit=aurenoeva-catalogue.service
 
 [Install]
