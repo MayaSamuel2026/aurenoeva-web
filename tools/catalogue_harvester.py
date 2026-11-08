@@ -666,11 +666,11 @@ def enqueue(db,url,kind,sector="",category="",maker="",depth=0):
       VALUES(?,?,?,?,?,?,?)""",(url,kind,sector,category,maker,depth,stamp()))
     return db.execute("SELECT changes()").fetchone()[0]
 def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None,
-                          detail_patterns_by_host=None):
+                          detail_patterns_by_host=None, per_host=2):
     """Fair, bounded supplier discovery over the EXISTING URL primary-key index.
 
     No queue deletion, schema rebuild or full-table sort. Each configured host
-    receives at most two source pages per batch; a persistent URL cursor
+    receives a bounded share of each batch; a persistent URL cursor
     prevents a large supplier directory from starving smaller catalogues.
     Non-due pages remain queued and are revisited after cursor wraparound.
     """
@@ -716,7 +716,7 @@ def source_frontier_pages(db, hosts, capacity, selected, rotation=0, at=None,
             accepted.append(row)
             selected.add(row["url"])
             output.append(row)
-            if len(accepted)>=2 or len(output)>=capacity:break
+            if len(accepted)>=max(1,int(per_host)) or len(output)>=capacity:break
         # Advance by the entire inspected window, not two accepted URLs.
         # All unselected due URLs stay in SQLite for normal scheduler work.
         last=rows[-1]["url"] if rows else ""
@@ -955,6 +955,17 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
     source_seed_urls.sort(key=lambda url:(
         0 if re.search(r"/(?:en/product|produkt|product|p)/",urlsplit(url).path,re.I)
         else 1,url))
+    # Reuse persisted first_seen identities to favor actually productive sources.
+    # Broad worldwide discovery keeps its own capacity in every batch.
+    recent_counts={}
+    for record in db.execute("SELECT source_url FROM products WHERE first_seen>=?",
+                             (stamp(clock()-timedelta(hours=24)),)):
+        host=hostof(record[0])
+        if host in source_hosts:
+            recent_counts[host]=recent_counts.get(host,0)+1
+    productive_hosts=sorted(
+        (host for host,count in recent_counts.items() if count>=2),
+        key=lambda host:(-recent_counts[host],host))
     batch_round=0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while stats["processed"]<max_pages and time.monotonic()-started<max_seconds:
@@ -998,14 +1009,25 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # generic backlog. Cap each host to prevent an IFM-like queue spike
             # or robots denial from consuming an entire 2,500-page run.
             batch_round+=1
-            # Resolve priority suppliers with the indexed per-host URL frontier.
-            # The old OR-of-URL-LIKE conditions scanned millions of due pages
-            # before finding one priority host as the global backlog grew.
+            # Productive sources receive more detail-page fetches within the
+            # existing batch; a third at most, leaving diverse discovery intact.
+            productive=[]
+            if productive_hosts:
+                productive=source_frontier_pages(
+                    db,productive_hosts,
+                    max(0,min(left//3,left*4//5-len(rows))),
+                    selected,rotation=rid+batch_round,
+                    detail_patterns_by_host=detail_patterns_by_host,per_host=8)
+                rows.extend(productive)
+            # Preserve approved priority suppliers and broad discovery capacity.
             if priority_remaining:
                 favored=source_frontier_pages(
-                    db,priority_hosts,min(priority_remaining,max(1,left//3)),
+                    db,priority_hosts,
+                    max(0,min(priority_remaining,
+                              max(0,left//3-len(productive)),
+                              left*4//5-len(rows))),
                     selected,rotation=rid+batch_round,
-                detail_patterns_by_host=detail_patterns_by_host)
+                    detail_patterns_by_host=detail_patterns_by_host)
                 rows.extend(favored)
                 priority_remaining-=len(favored)
             direct=source_frontier_pages(
