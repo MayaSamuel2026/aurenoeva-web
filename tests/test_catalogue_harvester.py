@@ -95,12 +95,13 @@ class Tests(unittest.TestCase):
         from datetime import datetime,timezone
         recent=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z")
         host="www.ersaal.de"
-        self.db.execute("""INSERT INTO products
-            (product_id,manufacturer,model,description,source_url,content_sha256,first_seen,last_seen)
-            VALUES(?,?,?,?,?,?,?,?)""",
-            (pid("Evidence OEM","MODEL-500"),"Evidence OEM","MODEL-500",
-             "Industrial control component",f"https://{host}/product/model-500",
-             "sha",recent,recent))
+        for model in ("MODEL-500","MODEL-501"):
+            self.db.execute("""INSERT INTO products
+                (product_id,manufacturer,model,description,source_url,content_sha256,first_seen,last_seen)
+                VALUES(?,?,?,?,?,?,?,?)""",
+                (pid("Evidence OEM",model),"Evidence OEM",model,
+                 "Industrial control component",f"https://{host}/product/{model}",
+                 "sha",recent,recent))
         old="2026-10-01T00:00:00Z"
         for i in range(60):
             self.db.execute("INSERT INTO harvest_queue(url,kind,due) VALUES(?,'page',?)",
@@ -122,7 +123,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(result["processed"],36)
         self.assertGreaterEqual(productive,10)
         self.assertGreaterEqual(general,7)
-        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],1)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],2)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],initial)
 
     def test_verified_new_product_seed_precedes_stale_global_backlog(self):
