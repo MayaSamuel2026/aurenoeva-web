@@ -108,6 +108,20 @@ if (!$isAdmin && $_SERVER['REQUEST_METHOD']==='POST' && !isset($_POST['password'
 }
 
 
+/* Authenticated read-only source for NOEVA Command.
+ * Uses this exact native staff cookie and never publishes unprotected records. */
+if(isset($_GET['command_export'])){
+    if(!$isAdmin){
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(401);
+        echo '{"ok":false,"error":"authentication_required"}';
+        exit;
+    }
+    define('AUR_COMMAND_EXPORT_AUTHORIZED',true);
+    require_once __DIR__.'/command_export.php';
+    aur_command_export($aurStore,(string)$_GET['command_export'],$_GET);
+}
+
 /* Private brochure library: original website assets cannot be requested
  * directly (assets/.htaccess). Downloads require the signed admin cookie.
  */
