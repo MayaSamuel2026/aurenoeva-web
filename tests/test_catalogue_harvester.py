@@ -91,6 +91,40 @@ class Tests(unittest.TestCase):
         self.assertTrue(set(row["url"] for row in next_batch).isdisjoint(
             set(row["url"] for row in found)))
 
+    def test_recently_productive_supplier_gets_more_detail_pages_without_starving_others(self):
+        from datetime import datetime,timezone
+        recent=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z")
+        host="www.ersaal.de"
+        self.db.execute("""INSERT INTO products
+            (product_id,manufacturer,model,description,source_url,content_sha256,first_seen,last_seen)
+            VALUES(?,?,?,?,?,?,?,?)""",
+            (pid("Evidence OEM","MODEL-500"),"Evidence OEM","MODEL-500",
+             "Industrial control component",f"https://{host}/product/model-500",
+             "sha",recent,recent))
+        old="2026-10-01T00:00:00Z"
+        for i in range(60):
+            self.db.execute("INSERT INTO harvest_queue(url,kind,due) VALUES(?,'page',?)",
+                            (f"https://archive.example.com/catalogue/stale-{i:03d}",old))
+        for i in range(35):
+            enqueue(self.db,f"https://{host}/product/new-{i:03d}","page","industrial")
+        initial=self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0]
+        cfg={"categories":{},"sources":[{
+            "id":"productive-evidence","active":True,"manufacturer":"",
+            "allowed_hosts":[host],"seeds":[],"sector":"industrial",
+            "category":"Machine / process equipment"}]}
+        visited=[]
+        def offline(url,kind):
+            visited.append(url)
+            return "<html><title>Directory without model identity</title></html>"
+        result=run(self.db,cfg,max_pages=36,max_seconds=30,workers=12,fetcher=offline)
+        productive=sum(url.startswith(f"https://{host}/") for url in visited)
+        general=sum(url.startswith("https://archive.example.com/") for url in visited)
+        self.assertEqual(result["processed"],36)
+        self.assertGreaterEqual(productive,10)
+        self.assertGreaterEqual(general,7)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0],1)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM harvest_queue").fetchone()[0],initial)
+
     def test_verified_new_product_seed_precedes_stale_global_backlog(self):
         for i in range(110):
             enqueue(self.db,f'https://archive.example.com/catalog/old-{i:04d}','page')
