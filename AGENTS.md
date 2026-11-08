@@ -1,3 +1,5 @@
+> **Binding NOEVA execution standard (effective 8 November 2026):** Apply NOEVA Project Execution & Closure Directive v1.0, together with this project's approved canonical scope. The directive governs **how** to execute; canonical scope governs **what** to deliver. Implement changes in the maintained product, repair failures instead of substituting plans, run existing tests, verify the intended running result, release and close. Use **“verified and released”** only on evidence. Reuse established deployment and validation paths; do not add parallel systems or unnecessary gates. The full internal directive is maintained in NOEVA's private project records; do not publish private instructions or project information to this public repository.
+
 # NOEVA architectural instruction — CORE retirement (15 October 2026)
 
 This is a source-repository instruction for anyone (including AI-assisted development chats) working on this project.
