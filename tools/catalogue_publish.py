@@ -369,7 +369,9 @@ def make_full_database_export(db_path: Path, dest: Path) -> dict:
                 "unverified_30d_products": sum((not r["last_seen"]) or r["last_seen"] < limit30 for r in rows
                                                     if r["lifecycle_status"] != "WITHDRAWN")
             }
-    enrich_rows(rows)
+    # The public normalizer classifies each eligible record exactly once.
+    # This pre-normalization pass was thrown away and doubled CPU work on
+    # every full publication of the six-figure catalogue.
     data = {"schema": SCHEMA, "items": rows,
             "source_catalogue_stats": {"db_products": len(rows)}}
     if health is not None:
