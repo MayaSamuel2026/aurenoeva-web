@@ -64,38 +64,111 @@ function aur_df_supplier_observe(string $store, array $delivery): bool {
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
-function aur_df_supplier_recent(string $store,int $pageSize=20,string $before=''):array {
+/**
+ * Conservative model identifiers for joining website claims to ORIGINAL case
+ * descriptions. A possible text match is not supplier approval or an RFQ.
+ */
+function aur_df_model_keys(string $description):array {
+    preg_match_all('/(?<![A-Z0-9])(?:[A-Z]{1,10}[- ]?\d[A-Z0-9-]{0,23}|\d[A-Z]{2,10}[A-Z0-9-]{0,23})(?![A-Z0-9])/i',
+        $description,$found);
+    $keys=[];
+    foreach(($found[0]??[]) as $part){
+        $normalized=strtoupper(str_replace(['-',' '],'',(string)$part));
+        if(strlen($normalized)>=3)$keys[$normalized]=true;
+    }
+    return array_keys($keys);
+}
+
+/** Find all saved ORIGINAL enquiry lines; never infer a confirmed link. */
+function aur_df_supplier_case_matches(string $store,array $observedModels):array {
+    $wanted=[];
+    foreach($observedModels as $model)
+        foreach(aur_df_model_keys((string)$model) as $token)$wanted[$token]=true;
+    if(!$wanted)return [];
+    static $caseLines=[];
+    if(!isset($caseLines[$store])){
+        $caseLines[$store]=[];
+        $dir=aur_private_directory($store,'cases');
+        foreach(new DirectoryIterator($dir) as $entry){
+            if(!$entry->isFile()||$entry->isLink()||
+               !preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}\.json$/D',$entry->getFilename()))continue;
+            try{
+                $case=aur_case_read($store,substr($entry->getFilename(),0,-5));
+                foreach(($case['payload']['sourcing_lines']??[]) as $line){
+                    if(!is_array($line))continue;
+                    $description=(string)($line['description_original']??'');
+                    $keys=aur_df_model_keys($description);
+                    if(!$keys)continue;
+                    $caseLines[$store][]=[
+                        'case_reference'=>(string)$case['reference'],
+                        'source_row'=>(int)($line['source_row']??0),
+                        'customer_item_number'=>(string)($line['customer_item_number']??''),
+                        'description'=>$description,'model_keys'=>$keys
+                    ];
+                }
+            }catch(Throwable $e){error_log('DeepFetcher matching: invalid stored case '.get_class($e));}
+        }
+    }
+    $matches=[];
+    foreach($caseLines[$store] as $line){
+        $shared=array_values(array_intersect(array_keys($wanted),$line['model_keys']));
+        if(!$shared)continue;
+        unset($line['model_keys']);
+        $line['matched_model']=$shared[0];
+        $matches[]=$line;
+    }
+    return $matches;
+}
+
+function aur_df_supplier_recent(string $store,int $pageSize=20,string $before='',string $query=''):array {
     $pageSize=max(1,min(100,$pageSize)); // A page size, not a supplier-record limit.
     if(strlen($before)>110 || ($before!=='' &&
        !preg_match('/^[0-9T:+.Z-]{19,35}\\|web-[a-f0-9]{16}$/D',$before)))
         throw new InvalidArgumentException('invalid_supplier_cursor');
+    $query=trim($query);
+    if(strlen($query)>120)throw new InvalidArgumentException('supplier_filter_too_long');
     $dir=aur_private_directory(aur_private_directory($store,'supplier-intelligence'),'deepfetcher-vendors');
-    $total=0;$top=[];
+    $total=0;$matches=0;$top=[];
     foreach(new DirectoryIterator($dir) as $entry){
         if(!$entry->isFile() || $entry->isLink() ||
            !preg_match('/^web-[a-f0-9]{16}\\.json$/D',$entry->getFilename()))continue;
         $data=json_decode((string)file_get_contents($entry->getPathname()),true);
         if(!is_array($data) || ($data['schema']??'')!=='aurenoeva-deepfetcher-supplier-intel/1')continue;
         $total++;
-        $key=(string)($data['updated_at']??'').'|'.(string)$data['vendor_id'];
-        if($before!=='' && strcmp($key,$before)>=0)continue;
-        // At most one extra item is retained to prove the next page exists.
-        if(count($top)>=$pageSize+1){
-            $oldest=min(array_keys($top));
-            if(strcmp($key,$oldest)<=0)continue;
-        }
         $observations=$data['observations']??[];
-        $models=[];$names=[];$sources=[];
+        if(!is_array($observations))continue;
+        $models=[];$names=[];$sources=[];$quotes=[];
         foreach($observations as $obs){
             if(!is_array($obs))continue;
             if(($obs['field']??'')==='product.model')$models[]=(string)$obs['value'];
             if(($obs['field']??'')==='supplier.name')$names[]=(string)$obs['value'];
             $sources[]=(string)($obs['source_url']??'');
+            if(in_array(($obs['field']??''),['product.model','product.manufacturer','product.sku','supplier.name'],true))
+                $quotes[]=[
+                    'field'=>(string)$obs['field'],'value'=>(string)($obs['value']??''),
+                    'quotation'=>(string)($obs['quotation']??''),
+                    'source_url'=>(string)($obs['source_url']??''),
+                    'source_hash'=>(string)($obs['source_hash']??''),
+                    'evidence_id'=>(string)($obs['evidence_id']??''),
+                    'client_reference'=>(string)($obs['client_reference']??'')
+                ];
+        }
+        $models=array_values(array_unique($models));
+        $names=array_values(array_unique($names));
+        $sources=array_values(array_unique($sources));
+        $haystack=implode(' ',array_merge([(string)($data['website']??'')],$models,$names));
+        if($query!=='' && stripos($haystack,$query)===false)continue;
+        $matches++;
+        $key=(string)($data['updated_at']??'').'|'.(string)$data['vendor_id'];
+        if($before!=='' && strcmp($key,$before)>=0)continue;
+        if(count($top)>=$pageSize+1){
+            $oldest=min(array_keys($top));
+            if(strcmp($key,$oldest)<=0)continue;
         }
         $top[$key]=['vendor_id'=>$data['vendor_id'],'website'=>$data['website'],
-            'supplier_names'=>array_values(array_unique($names)),
-            'product_models'=>array_values(array_unique($models)),
-            'evidence_count'=>count($observations),'source_urls'=>array_values(array_unique($sources)),
+            'supplier_names'=>$names,'product_models'=>$models,
+            'evidence_count'=>count($observations),'source_urls'=>$sources,
+            'evidence_quotes'=>$quotes,
             'updated_at'=>(string)($data['updated_at']??''),
             'status'=>$data['status']];
         krsort($top,SORT_STRING);
@@ -105,6 +178,7 @@ function aur_df_supplier_recent(string $store,int $pageSize=20,string $before=''
     $hasMore=count($top)>$pageSize;
     if($hasMore)array_pop($top);
     $keys=array_keys($top);
-    return ['total_vendors'=>$total,'items'=>array_values($top),'page_size'=>$pageSize,
+    return ['total_vendors'=>$total,'matching_vendors'=>$matches,
+            'items'=>array_values($top),'page_size'=>$pageSize,
             'next_before'=>$hasMore?(string)end($keys):null];
 }
