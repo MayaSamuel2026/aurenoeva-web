@@ -1156,7 +1156,7 @@ try{
 }catch(Throwable $ignored){}
 $aurDfSuppliers=['total_vendors'=>0,'items'=>[]];
 try{
-    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20,(string)($_GET['df_before']??''));
+    $aurDfSuppliers=aur_df_supplier_recent($aurStore,20,(string)($_GET['df_before']??''),(string)($_GET['df_query']??''));
 }catch(Throwable $e){error_log('AURENOEVA supplier projection view: '.get_class($e));}
 ?>
 <section class="card" id="aur-deepfetcher">
@@ -1166,6 +1166,14 @@ try{
 </div>
 <p class="muted">The same DeepFetcher engine feeds evidence-linked supplier and product observations into AURENOEVA's private procurement research. These are candidates, not confirmed stock, supplier quotations or supplier authorizations. No RFQs are sent automatically.</p>
 <p><b>Candidate supplier websites:</b> <?=(int)$aurDfSuppliers['total_vendors']?> · <b>Source records preserved:</b> <?=(int)$aurDfInbox['total']?>.</p>
+<form method="get" action="/procurement/" style="display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:12px 0">
+<label style="flex:1;min-width:190px">Find product model or supplier
+<input name="df_query" value="<?=aur_escape((string)($_GET['df_query']??''))?>" maxlength="120" placeholder="e.g. HRK-1, S260S, supplier website"></label>
+<?php if(is_array($result)&&isset($result['reference'])):?><input type="hidden" name="case" value="<?=aur_escape((string)$result['reference'])?>"><?php endif;?>
+<button type="submit">Find evidence</button>
+<?php if(isset($_GET['df_query'])||isset($_GET['df_before'])):?><a href="/procurement/#aur-deepfetcher">Clear filter</a><?php endif;?>
+</form>
+<p class="muted">Showing <?=(int)($aurDfSuppliers['matching_vendors']??$aurDfSuppliers['total_vendors'])?> matching websites. Product and RFQ matches are suggestions from original item descriptions; review them before any supplier contact.</p>
 <?php if(isset($_GET['deepfetcher_configured'])):?><p role="status">Receiver credentials saved privately. Commercial sourcing is not qualified until matched real products and supplier replies are validated.</p><?php endif;?>
 <?php if($aurDfNotice):?><p role="alert"><?=aur_escape($aurDfNotice)?></p><?php endif;?>
 <?php if($aurDfSuppliers['items']):?>
@@ -1177,14 +1185,37 @@ try{
 <td><b><?=aur_escape(implode(', ',$supplier['supplier_names'])?:$supplier['website'])?></b><div class="muted"><?=aur_escape($supplier['website'])?></div><small class="muted">Not commercially verified</small></td>
 <td><?=aur_escape(implode(', ',$supplier['product_models'])?:'No specific model extracted')?></td>
 <td><?=(int)$supplier['evidence_count']?> source observations
-<?php if(!empty($supplier['source_urls'])):?><div><a href="<?=aur_escape($supplier['source_urls'][0])?>" target="_blank" rel="noopener noreferrer">Original evidence</a></div><?php endif;?></td>
+<?php $aurLinkedCases=aur_df_supplier_case_matches($aurStore,$supplier['product_models']??[]); ?>
+<?php if($aurLinkedCases):?>
+<details><summary><?=count($aurLinkedCases)?> possible enquiry item match<?=count($aurLinkedCases)===1?'':'es'?></summary>
+<?php foreach($aurLinkedCases as $match):?>
+<div style="padding:7px 0;border-bottom:1px solid #e4e9e7">
+<b>Item <?=aur_escape($match['customer_item_number']!==''?$match['customer_item_number']:(string)$match['source_row'])?></b>
+· <?=aur_escape($match['matched_model'])?>
+<div class="muted"><?=aur_escape($match['description'])?></div>
+<a href="/procurement/?case=<?=rawurlencode($match['case_reference'])?>#original-rfq-equipment">Review saved enquiry <?=aur_escape($match['case_reference'])?></a>
+· <a href="/procurement/?case=<?=rawurlencode($match['case_reference'])?>#tab-rfq">RFQs &amp; replies</a>
+</div>
+<?php endforeach;?></details>
+<?php endif;?>
+<details><summary>Review <?=count($supplier['evidence_quotes']??[])?> original source quotations</summary>
+<?php foreach(($supplier['evidence_quotes']??[]) as $evidence):?>
+<div style="padding:9px 0;border-bottom:1px solid #e4e9e7;overflow-wrap:anywhere">
+<b><?=aur_escape($evidence['field'])?></b> · <?=aur_escape($evidence['value'])?>
+<blockquote style="margin:5px 0;padding-left:10px;border-left:2px solid #d2e0d9"><?=aur_escape($evidence['quotation'])?></blockquote>
+<a href="<?=aur_escape($evidence['source_url'])?>" target="_blank" rel="noopener noreferrer">Original website</a>
+<div class="muted">Evidence SHA-256: <?=aur_escape(substr($evidence['source_hash'],0,20))?>… · <?=aur_escape($evidence['client_reference'])?></div>
+</div>
+<?php endforeach;?></details>
+<small class="muted">Website listing only · Stock not verified · Supplier quote not received</small>
+</td>
 </tr>
 <?php endforeach;?></tbody></table></div>
 <?php else:?>
 <p class="muted">No supplier-specific DeepFetcher observations yet. General evidence remains available in the source inbox below.</p>
 <?php endif;?>
 <?php if(!empty($aurDfSuppliers['next_before'])):?>
-<p><a href="?df_before=<?=rawurlencode($aurDfSuppliers['next_before'])?>#aur-deepfetcher">Older supplier intelligence</a></p>
+<p><a href="/procurement/?df_before=<?=rawurlencode($aurDfSuppliers['next_before'])?>&amp;df_query=<?=rawurlencode((string)($_GET['df_query']??''))?>#aur-deepfetcher">Older supplier intelligence</a></p>
 <?php endif;?>
 <?php if(isset($_GET['df_before'])):?>
 <p><a href="?#aur-deepfetcher">Return to latest supplier intelligence</a></p>

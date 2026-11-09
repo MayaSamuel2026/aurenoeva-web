@@ -35,6 +35,7 @@
     // or obscure the active RFQ working area on every screen.
     move(document.getElementById('aur-wp09-verification'), panels.overview);
     move(document.getElementById('aur-automation-health'), panels.settings);
+    move(document.getElementById('aur-deepfetcher'), panels.suppliers);
     move(document.getElementById('aur-deepfetcher-inbox'), panels.intelligence);
     move(document.getElementById('aur-commercial-intelligence'), panels.intelligence);
     move(document.getElementById('aur-upload'), panels.enquiry);
