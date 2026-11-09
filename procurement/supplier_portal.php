@@ -1107,6 +1107,11 @@ Mailbox sync: <strong><?=aur_escape((string)($mailState['status']??'NOT_SYNCED')
 <label>Unit price (optional)<input name="unit_price" placeholder="1250.00" inputmode="decimal"></label>
 <label>Currency (ISO)<input name="currency" placeholder="EUR" maxlength="3"></label>
 <label>Lead time<input name="lead_time" maxlength="100" placeholder="e.g. 3–4 weeks"></label>
+<label>Supplier-confirmed stock quantity<input name="stock_quantity" type="number" min="0" max="99999999" placeholder="Leave blank if unknown"></label>
+<label>Delivery / dispatch commitment<input name="delivery_terms" maxlength="180" placeholder="Estimated date or stated terms"></label>
+<label>Incoterm<select name="incoterm"><option value="">Not confirmed</option><?php foreach(['EXW','FCA','CPT','CIP','DAP','DPU','DDP','FAS','FOB','CFR','CIF'] as $term):?><option value="<?=$term?>"><?=$term?></option><?php endforeach;?></select></label>
+<label>Freight / shipping terms<input name="freight_terms" maxlength="180" placeholder="Cost, currency, destination"></label>
+<label>Warranty terms<input name="warranty_terms" maxlength="180" placeholder="Period, coverage, exclusions"></label>
 <label style="grid-column:1/-1">Reply reference / email subject<input name="reply_reference" maxlength="180" placeholder="Email date or supplier quotation number"></label>
 <label style="grid-column:1/-1">Other quotation details<textarea name="notes" rows="2" maxlength="900" placeholder="Quantity available, delivery terms, alternative model, warranty ..."></textarea></label>
 <p><button type="submit" name="record_supplier_reply" value="1">Save quotation against equipment item</button></p>
