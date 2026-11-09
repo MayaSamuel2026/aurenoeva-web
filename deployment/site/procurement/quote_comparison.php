@@ -196,7 +196,14 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
            'supplier'=>(string)($entry['supplier']??''),'condition'=>'UNKNOWN',
            'status'=>'MANUAL_RFQ_REPLY','price'=>(string)($entry['unit_price']??''),
            'currency'=>(string)($entry['currency']??''),'evidence'=>(string)($entry['reply_reference']??''),
-           'notes'=>(string)($entry['notes']??''),'id'=>'reply-'.hash('sha256',json_encode($entry))];
+           'notes'=>(string)($entry['notes']??''),
+           'stock_quantity'=>(string)($entry['stock_quantity']??''),
+           'delivery_terms'=>(string)($entry['delivery_terms']??''),
+           'incoterm'=>(string)($entry['incoterm']??''),
+           'freight_terms'=>(string)($entry['freight_terms']??''),
+           'warranty_terms'=>(string)($entry['warranty_terms']??''),
+           'lead_time'=>(string)($entry['lead_time']??''),
+           'id'=>'reply-'.hash('sha256',json_encode($entry))];
     }
     try{$offers=array_merge($offers,aur_prices_live_mail($store,$case));}
     catch(Throwable $e){error_log('AURENOEVA quote extraction: '.get_class($e));}
@@ -263,6 +270,11 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
                 <strong style="display:block"><?=aur_escape((string)($offer['currency']??''))?> <?=aur_escape(number_format((float)$offer['price'],2,'.',','))?></strong>
               <?php endif;?>
               <small><?=aur_escape((string)($offer['notes']??''))?></small>
+              <?php $terms=[];
+                foreach(['stock_quantity'=>'Stock quantity','lead_time'=>'Lead time','delivery_terms'=>'Delivery','incoterm'=>'Incoterm','freight_terms'=>'Freight','warranty_terms'=>'Warranty'] as $field=>$label)
+                  if((string)($offer[$field]??'')!=='')$terms[]=$label.': '.(string)$offer[$field];
+              ?>
+              <?php if($terms):?><small style="display:block"><?=aur_escape(implode(' · ',$terms))?></small><?php endif;?>
               <small style="display:block">Evidence: <?=aur_escape((string)($offer['evidence']??''))?></small>
               <?php if(preg_match('/^[a-f0-9]{24}$/D',(string)($offer['id']??''))):?>
               <form method="post" action="/procurement/" style="display:inline"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><input type="hidden" name="case_ref" value="<?=aur_escape((string)$case['reference'])?>"><input type="hidden" name="offer_id" value="<?=aur_escape((string)$offer['id'])?>"><button type="submit" name="delete_price_offer" value="1" class="ghost" style="padding:3px 7px;font-size:11px">Remove entry</button></form>
