@@ -21,11 +21,20 @@ assert_reply(count($choices)===1,'sent supplier/item choices lost');
 $key=array_key_first($choices);
 $saved=aur_reply_record($store,$case,$id,$key,[
  'availability'=>'QUOTED','unit_price'=>'1234.50','currency'=>'EUR',
- 'lead_time'=>'2 weeks','reply_reference'=>'Quote Q-123','notes'=>'Stock confirmed by supplier']);
+ 'lead_time'=>'2 weeks','reply_reference'=>'Quote Q-123','notes'=>'Stock confirmed by supplier',
+ 'stock_quantity'=>'12','delivery_terms'=>'Dispatch within 10 business days','incoterm'=>'DAP',
+ 'freight_terms'=>'Included to destination','warranty_terms'=>'12 months parts']);
 assert_reply(($saved['source_row']??0)===2 && ($saved['item_number']??0)===7,
  'RFQ source row / original item number not maintained');
 $read=aur_reply_read($store,$case);
 assert_reply(count($read)===1 && reset($read)['unit_price']==='1234.50','response readback unavailable');
+assert_reply(reset($read)['stock_quantity']==='12' && reset($read)['incoterm']==='DAP' &&
+ reset($read)['delivery_terms']==='Dispatch within 10 business days' &&
+ reset($read)['freight_terms']==='Included to destination' &&
+ reset($read)['warranty_terms']==='12 months parts','supplier commercial terms did not persist');
+$badTerm=false;try{aur_reply_record($store,$case,$id,$key,['availability'=>'DETAILS_PENDING','incoterm'=>'INVALID']);}
+catch(InvalidArgumentException $e){$badTerm=true;}
+assert_reply($badTerm,'invalid incoterm accepted');
 foreach(['wrongrow','wrongvendor'] as $test) {
  $denied=false;
  try{aur_reply_record($store,$case,$id,$test,['availability'=>'QUOTED','unit_price'=>'42','currency'=>'EUR']);}
