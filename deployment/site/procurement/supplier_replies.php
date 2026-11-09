@@ -59,6 +59,15 @@ function aur_reply_record(string $store,array $case,string $draftId,string $choi
     $lead=trim((string)($input['lead_time']??''));
     $reference=trim((string)($input['reply_reference']??''));
     $notes=trim((string)($input['notes']??''));
+    $stock=trim((string)($input['stock_quantity']??''));
+    $delivery=trim((string)($input['delivery_terms']??''));
+    $incoterm=strtoupper(trim((string)($input['incoterm']??'')));
+    $freight=trim((string)($input['freight_terms']??''));
+    $warranty=trim((string)($input['warranty_terms']??''));
+    if($stock!==''&&(!ctype_digit($stock)||strlen($stock)>8))throw new InvalidArgumentException('invalid_stock_quantity');
+    if(strlen($delivery)>180||strlen($freight)>180||strlen($warranty)>180||
+       ($incoterm!==''&&!in_array($incoterm,['EXW','FCA','CPT','CIP','DAP','DPU','DDP','FAS','FOB','CFR','CIF'],true)))
+        throw new InvalidArgumentException('invalid_delivery_terms');
     if(strlen($lead)>100||strlen($reference)>180||strlen($notes)>900)
         throw new InvalidArgumentException('response_input_too_long');
     $record=['supplier'=>$candidate['supplier'],'email'=>$candidate['email'],
@@ -67,6 +76,8 @@ function aur_reply_record(string $store,array $case,string $draftId,string $choi
         'description'=>(string)($item['description_original']??''),
         'availability'=>$status,'unit_price'=>$price,'currency'=>$currency,
         'lead_time'=>$lead,'reply_reference'=>$reference,'notes'=>$notes,
+        'stock_quantity'=>$stock,'delivery_terms'=>$delivery,'incoterm'=>$incoterm,
+        'freight_terms'=>$freight,'warranty_terms'=>$warranty,
         'recorded_at'=>gmdate('c'),'evidence'=>'MANUALLY_RECORDED_NOT_MAILBOX_VERIFIED'];
     $path=aur_reply_path($store,$case);
     $lock=@fopen($path.'.lock','c');
