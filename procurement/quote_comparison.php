@@ -215,6 +215,25 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
       <p><strong><?=count($lines)?> original entries</strong> · <?= $priced ?> entries with priced supplier replies · <?= $covered ?> entries with individual source or reply evidence. Remaining products stay visible for the next supplier search.</p>
       <?php if(isset($_GET['price_saved'])):?><p role="status">Supplier price record saved in this case's private comparison ledger.</p><?php endif;?>
       <?php if(isset($_GET['price_deleted'])):?><p role="status">Selected price entry removed from the comparison. Original RFQ and supplier correspondence are unchanged.</p><?php endif;?>
+      <?php if(($case['reference']??'')==='AUR-UZ-1A04A7909185FACD'):
+        $priorityLeads=[
+          ['Huvitz HRK-1','Sky Optic','NEW','https://bimedis.com/a-item/autorefractors-huvitz-hrk-1-1876592','Published EUR 6,490 new-unit listing; not a confirmed supplier quotation'],
+          ['Huvitz HNT-1','REMMA','NEW','https://remma.fr/en/model/non-contact-tonometer-hnt-1','Supplier reply in mailbox; review price, condition and delivery against original message'],
+          ['NIDEK LM-7P','Labaid','USED','','Supplier lead; stock, price and delivery not verified'],
+          ['Tomey RT-700','VisionCare','NEW','','Supplier lead; stock, price and delivery not verified']
+        ];
+      ?>
+      <details open style="margin:12px 0"><summary><strong>Priority supplier follow-up · 4 equipment leads</strong></summary>
+      <p class="muted">Evidence-backed sourcing leads are distinct from confirmed offers. Match to the original RFQ line before recording a quotation. Supplier replies and terms are recorded in the private comparison ledger below.</p>
+      <div class="scroll"><table><thead><tr><th>Equipment / RFQ association</th><th>Supplier</th><th>Evidence and condition</th><th>Next confirmation</th></tr></thead><tbody>
+      <?php foreach($priorityLeads as [$model,$supplier,$condition,$url,$basis]):
+        $matches=[];foreach($lines as $line)if(stripos((string)($line['description_original']??''),$model)!==false)$matches[]='#'.(int)($line['customer_item_number']??0).' / row '.(int)($line['source_row']??0);
+      ?>
+      <tr><td><b><?=aur_escape($model)?></b><small style="display:block"><?=aur_escape($matches?implode(', ',$matches):'No exact model match in this RFQ — association pending')?></small></td>
+      <td><?=aur_escape($supplier)?></td><td><?=aur_escape($condition)?> · <?=aur_escape($basis)?><?php if($url!==''):?> <a href="<?=aur_escape($url)?>" target="_blank" rel="noopener noreferrer">Source</a><?php endif;?></td>
+      <td>Confirm exact specification, unit price/currency, stock, dispatch date, freight, Incoterm and warranty; save email evidence below</td></tr>
+      <?php endforeach;?></tbody></table></div></details>
+      <?php endif;?>
       <div class="scroll"><table><thead><tr><th>RFQ item / source row</th><th>Requested model / part number and specification</th><th>Qty</th><th>Supplier offers &amp; price basis</th><th>Specific product sources</th></tr></thead><tbody>
       <?php foreach($lines as $line):
          $item=(int)($line['customer_item_number']??0);$row=(int)($line['source_row']??0);
