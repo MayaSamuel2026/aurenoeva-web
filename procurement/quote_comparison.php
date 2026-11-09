@@ -39,7 +39,7 @@ function aur_prices_record(string $store,array $case,array $input):void {
     if($price!==''&&(!preg_match('/^\d{1,9}(?:\.\d{1,2})?$/D',$price)||(float)$price<=0||
        !preg_match('/^[A-Z]{3}$/D',$currency)))throw new InvalidArgumentException('invalid_price_value');
     if($price===''&&$currency!=='')throw new InvalidArgumentException('currency_without_price');
-    if($reference===''||!preg_match('~^(?:https://|INBOX\s+UID\s+\d+|Supplier email\b|Email\b)~i',$reference))
+    if($reference===''||!preg_match('~^(?:https://|INBOX\s+UID\s+\d+|Supplier email\b|Email\b|Research lead:)~i',$reference))
         throw new InvalidArgumentException('evidence_reference_required');
     $record=['id'=>bin2hex(random_bytes(12)),'source_row'=>$row,'supplier'=>$seller,
        'condition'=>$condition,'status'=>$status,'price'=>$price,'currency'=>$currency,
@@ -234,11 +234,31 @@ function aur_prices_panel(string $store,array $case,string $csrf):void {
       <p class="muted">Evidence-backed sourcing leads are distinct from confirmed offers. Match to the original RFQ line before recording a quotation. Supplier replies and terms are recorded in the private comparison ledger below.</p>
       <div class="scroll"><table><thead><tr><th>Equipment / RFQ association</th><th>Supplier</th><th>Evidence and condition</th><th>Next confirmation</th></tr></thead><tbody>
       <?php foreach($priorityLeads as [$model,$supplier,$condition,$url,$basis]):
-        $matches=[];foreach($lines as $line)if(stripos((string)($line['description_original']??''),$model)!==false)$matches[]='#'.(int)($line['customer_item_number']??0).' / row '.(int)($line['source_row']??0);
+        $matches=[];foreach($lines as $line)if(str_contains(preg_replace('/[^A-Z0-9]/','',strtoupper((string)($line['description_original']??'')))??'',preg_replace('/[^A-Z0-9]/','',strtoupper($model))??'') )$matches[]=$line;
       ?>
-      <tr><td><b><?=aur_escape($model)?></b><small style="display:block"><?=aur_escape($matches?implode(', ',$matches):'No exact model match in this RFQ — association pending')?></small></td>
+      <tr><td><b><?=aur_escape($model)?></b><small style="display:block"><?=aur_escape($matches?implode(', ',array_map(static fn($l)=>'#'.(int)$l['customer_item_number'].' / row '.(int)$l['source_row'],$matches)):'No exact model match in this RFQ — association pending')?></small></td>
       <td><?=aur_escape($supplier)?></td><td><?=aur_escape($condition)?> · <?=aur_escape($basis)?><?php if($url!==''):?> <a href="<?=aur_escape($url)?>" target="_blank" rel="noopener noreferrer">Source</a><?php endif;?></td>
-      <td>Confirm exact specification, unit price/currency, stock, dispatch date, freight, Incoterm and warranty; save email evidence below</td></tr>
+      <td>
+      <?php if(count($matches)===1):
+        $row=(int)$matches[0]['source_row'];$already=false;
+        foreach($byRow[$row]??[] as $existing)if(strcasecmp((string)($existing['supplier']??''),$supplier)===0)$already=true;
+      ?>
+      <?php if($already):?><b>Recorded in this RFQ's private offer ledger</b>
+      <?php else:?>
+      <form action="/procurement/" method="post">
+        <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+        <input type="hidden" name="case_ref" value="<?=aur_escape((string)$case['reference'])?>">
+        <input type="hidden" name="source_row" value="<?=$row?>">
+        <input type="hidden" name="supplier" value="<?=aur_escape($supplier)?>">
+        <input type="hidden" name="condition" value="<?=aur_escape($condition)?>">
+        <input type="hidden" name="offer_status" value="PENDING">
+        <input type="hidden" name="evidence" value="<?=aur_escape($url!==''?$url:'Research lead: supplied company and model; independent evidence pending')?>">
+        <input type="hidden" name="notes" value="<?=aur_escape($basis)?>">
+        <button type="submit" name="save_price_offer" value="1">Track this supplier against RFQ item</button>
+      </form><?php endif;?>
+      <?php elseif(!$matches):?><small>Exact model not found in this RFQ; do not misassociate to unrelated product</small>
+      <?php else:?><small>Multiple matching original lines; select the precise source row in the form below</small><?php endif;?>
+      </td></tr>
       <?php endforeach;?></tbody></table></div></details>
       <?php endif;?>
       <div class="scroll"><table><thead><tr><th>RFQ item / source row</th><th>Requested model / part number and specification</th><th>Qty</th><th>Supplier offers &amp; price basis</th><th>Specific product sources</th></tr></thead><tbody>
