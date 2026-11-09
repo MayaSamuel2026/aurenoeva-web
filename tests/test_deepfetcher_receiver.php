@@ -136,3 +136,44 @@ do{
 }while($before!=='');
 df_must(count($seen)===5,'supplier page traversal omitted source dossiers');
 echo "AURENOEVA_DEEPFETCHER_REAL_CONSUMER_CONTRACT=PASS\n";
+
+
+// Match quoted product models to existing ORIGINAL RFQ lines without creating a
+// second case record or promoting a dealer page to confirmed supply.
+$caseRef='AUR-UZ-'.str_repeat('A',16);
+$cases=aur_private_directory($store,'cases');
+file_put_contents($cases.'/'.$caseRef.'.json',json_encode([
+    'reference'=>$caseRef,'country'=>'UZ','source_sha256'=>str_repeat('c',64),
+    'payload'=>['sourcing_lines'=>[
+        ['source_row'=>7,'customer_item_number'=>12,
+         'description_original'=>'Huvitz HRK-1 Autorefractor / Keratometer'],
+        ['source_row'=>8,'customer_item_number'=>13,
+         'description_original'=>'Another unrelated optical instrument'],
+    ]]
+],JSON_THROW_ON_ERROR));
+$matched=aur_df_supplier_case_matches($store,['Huvitz HRK-1 Autorefractor/Keratometer']);
+df_must(count($matched)===1 && $matched[0]['case_reference']===$caseRef
+    && $matched[0]['source_row']===7 && $matched[0]['matched_model']==='HRK1',
+    'original RFQ matching lost exact model identity');
+df_must(aur_df_supplier_case_matches($store,['Huvitz HRK-2'])===[],
+    'a different model was incorrectly linked to the original enquiry');
+df_must(aur_df_model_keys('Sample S260S and Huvitz HRK 1')===['S260S','HRK1'],
+    'model token normalization must preserve model distinctions');
+
+$hrk=$product;
+$hrk['delivery_id']=450;
+$hrk['evidence']['id']='ev-hrk-450';
+$hrk['evidence']['source_url']='https://huvitz.example.com/hrk-1';
+$hrk['evidence']['value']='Huvitz HRK-1';
+$hrk['evidence']['quotation']='Huvitz HRK-1';
+aur_df_commit($store,$hrk,'aurenoeva');
+$filtered=aur_df_supplier_recent($store,20,'','HRK-1');
+df_must($filtered['matching_vendors']===1 && count($filtered['items'])===1,
+    'supplier model search failed to locate the linked product');
+df_must(count($filtered['items'][0]['evidence_quotes'])===1,
+    'source quotation was not exposed for staff review');
+df_must($filtered['items'][0]['evidence_quotes'][0]['source_hash']===str_repeat('f',64),
+    'source hash lost in review projection');
+df_must(aur_df_supplier_recent($store,20,'','DOES-NOT-EXIST')['matching_vendors']===0,
+    'source search invented results');
+echo "AURENOEVA_DEEPFETCHER_PRODUCT_CASE_WORKFLOW=PASS\n";
