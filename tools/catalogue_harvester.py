@@ -1214,7 +1214,11 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                     db.execute("UPDATE harvest_queue SET due=?,failures=?,last_error=? WHERE url=?",
                                (due,retry,txt(type(e).__name__+": "+str(e),180),url))
                     stats["failures"]+=1
-                db.commit()   # permanently checkpoint each page/lead/product
+                # Keep completed URL outcomes in the current small batch.
+                # One atomic SQLite commit below checkpoints all results,
+                # instead of forcing a disk sync for each individual URL on
+                # the shared, I/O-constrained VPS. A crash can replay at most
+                # this bounded batch; no product or RFQ table is dropped.
             db.execute("UPDATE harvest_runs SET pages=?,products=?,vendors=?,failed=? WHERE id=?",
                        (stats["processed"],stats["new_products"],stats["vendor_leads"],stats["failures"],rid))
             db.commit()
