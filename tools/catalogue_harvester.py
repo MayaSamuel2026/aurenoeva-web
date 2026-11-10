@@ -995,7 +995,7 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
                 # Not a results ceiling; the same source can continue in
                 # following cycles, and unknown URLs stay in the global queue.
                 due_now=stamp()
-                seed_slots=max(1,left//4)
+                seed_slots=max(1,left//6)
                 start=(rid+batch_round*seed_slots)%len(source_seed_urls)
                 for offset in range(len(source_seed_urls)):
                     url=source_seed_urls[(start+offset)%len(source_seed_urls)]
@@ -1009,15 +1009,16 @@ def run(db,config,max_pages=1000,max_seconds=1800,workers=10,fetcher=fetch,
             # generic backlog. Cap each host to prevent an IFM-like queue spike
             # or robots denial from consuming an entire 2,500-page run.
             batch_round+=1
-            # Productive sources receive more detail-page fetches within the
-            # existing batch; a third at most, leaving diverse discovery intact.
+            # Recently productive sources receive more detail-page capacity.
+            # Keep guaranteed room for other sources and worldwide discovery.
             productive=[]
             if productive_hosts:
                 productive=source_frontier_pages(
                     db,productive_hosts,
-                    max(0,min(left//3,left*4//5-len(rows))),
+                    max(0,min(left*3//5,left*4//5-len(rows)-max(2,left//8))),
                     selected,rotation=rid+batch_round,
-                    detail_patterns_by_host=detail_patterns_by_host,per_host=8)
+                    detail_patterns_by_host=detail_patterns_by_host,
+                    per_host=max(8,left*3//5))
                 rows.extend(productive)
             # Preserve approved priority suppliers and broad discovery capacity.
             if priority_remaining:
