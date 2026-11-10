@@ -2,7 +2,7 @@
 Description=AURENOEVA catalogue overnight harvest (Europe/Berlin local time)
 
 [Timer]
-# One six-hour, resumable harvest and one end-of-run publication overnight.
+# One eight-hour, resumable harvest and one end-of-run publication overnight.
 # No daytime catch-up after a reboot: the next run starts at 22:00 Berlin time.
 OnCalendar=*-*-* 22:00:00 Europe/Berlin
 Persistent=false
