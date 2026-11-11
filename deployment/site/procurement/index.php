@@ -31,6 +31,7 @@ require_once __DIR__ . '/supplier_rfq.php';
 require_once __DIR__ . '/supplier_reminders.php';
 require_once __DIR__ . '/urgent_supplier_drafts.php';
 require_once __DIR__ . '/researched_supplier_round.php';
+require_once __DIR__ . '/nov11_supplier_batch.php';
 require_once __DIR__ . '/supplier_replies.php';
 require_once __DIR__ . '/supplier_quality.php';
 require_once __DIR__ . '/supplier_inbox.php';
@@ -655,6 +656,19 @@ if ($isAdmin) {
             $supplierDiscoveryMessage='Stockholder drafts could not be saved. No supplier contacted. Check original RFQ item mappings.';
             try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}
             catch(Throwable $ignored){}
+        }
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_nov11_source_rfqs'])) {
+        try {
+            $case=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));
+            $draft=aur_nov11_supplier_prepare($aurStore,$case);
+            header('Location: /procurement/?case='.rawurlencode((string)$case['reference'])
+                .'&draft='.rawurlencode((string)$draft['draft_id'])
+                .'#aur-rfq-approval',true,303);
+            exit;
+        }catch(Throwable $e) {
+            error_log('AURENOEVA 11 November supplier batch: '.get_class($e).' '.substr($e->getMessage(),0,110));
+            $supplierDiscoveryMessage='The 11 November supplier round could not be saved. No emails were sent.';
+            try{$result=aur_case_read($aurStore,trim((string)($_POST['case_ref']??'')));}catch(Throwable $ignored){}
         }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['prepare_next_sourcing_rfqs'])) {
         try {
