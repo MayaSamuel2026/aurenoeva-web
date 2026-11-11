@@ -89,8 +89,12 @@ $inboxJson=json_encode($inbox,
   <h2>Supplier conversations</h2>
   <p class="muted">One row per supplier for RFQ <?=aur_escape((string)$result['reference'])?>.
   Only saved SMTP acceptances count as sent; unverified messages are flagged separately.</p></div>
-  <a href="#aur-mail-center" class="aur-correspondence-open-mail">Open full mailbox</a>
+  <div class="aur-case-mail-actions">
+    <button type="button" id="aur-case-mail-refresh" class="aur-correspondence-open-mail">Refresh supplier replies</button>
+    <a href="#aur-mail-center" class="aur-correspondence-open-mail">Open full mailbox</a>
+  </div>
 </div>
+<div id="aur-case-mail-refresh-status" class="aur-case-mail-refresh-status" role="status" aria-live="polite"></div>
 <div class="aur-correspondence-stats" id="aur-case-mail-stats" role="group" aria-label="Correspondence status">
   <span>Loading supplier correspondence…</span>
 </div>
@@ -125,7 +129,7 @@ $inboxJson=json_encode($inbox,
 </div>
 <p class="muted aur-correspondence-footnote">An SMTP acceptance is not proof of delivery. A case-referenced but unmatched reply needs verification before being counted as a supplier response. Live mailbox unread states are not inferred here.</p>
 <script id="aur-case-mail-data" type="application/json"><?=$inboxJson?></script>
-<script defer src="/procurement/case-mail-inbox.js?v=1"></script>
+<script defer src="/procurement/case-mail-inbox.js?v=2"></script>
 </section>
 <section id="aur-email-review-queue" class="card" aria-label="Saved emails requiring owner review">
 <h2>Prepared emails awaiting your review</h2>

@@ -71,6 +71,51 @@
     root.querySelector('.aur-correspondence-open-mail')?.addEventListener('click',event=>{
       event.preventDefault();openMailbox();
     });
+
+    // Manually reconcile the EXISTING private Hostinger mailbox with the
+    // existing RFQ evidence store. This is the same staff-only CSRF endpoint
+    // used by background sync; it never sends any supplier email.
+    const refreshButton=find('aur-case-mail-refresh');
+    const refreshStatus=find('aur-case-mail-refresh-status');
+    refreshButton?.addEventListener('click',async()=>{
+      const csrf=document.querySelector('input[name="csrf"]')?.value;
+      if(!csrf){refreshStatus.textContent='Staff session is required to refresh replies.';return;}
+      refreshButton.disabled=true;
+      refreshStatus.textContent='Checking incoming supplier mail…';
+      let processed=0,cycles=0;
+      try{
+        let more=true;
+        while(more){
+          const response=await fetch('/procurement/',{
+            method:'POST',credentials:'same-origin',
+            headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},
+            body:new URLSearchParams({csrf,sync_supplier_inbox:'1'})
+          });
+          const status=await response.json();
+          if(!response.ok||!status.ok)
+            throw new Error(status.error||'Incoming mailbox reconciliation failed.');
+          if(status.busy){
+            refreshStatus.textContent='Mailbox sync is already running. Reopen this view after it completes.';
+            return;
+          }
+          processed+=Number(status.processed||0);
+          more=!!status.more_pending;
+          cycles++;
+          refreshStatus.textContent='Checking supplier mail · '+processed+' new message(s) examined…';
+          // The established mailbox sync is checkpointed; repeat until the
+          // inbox has been reconciled rather than silently truncating at 20.
+          if(more&&Number(status.processed||0)===0)
+            throw new Error('Mailbox sync did not progress; inspect system status.');
+        }
+        refreshStatus.textContent='Mailbox checked. Refreshing supplier conversations…';
+        const url=new URL(location.href);
+        url.hash='tab-mail';
+        location.replace(url.toString());
+        location.reload();
+      }catch(error){
+        refreshStatus.textContent='Cannot verify new replies: '+String(error.message||error);
+      }finally{refreshButton.disabled=false;}
+    });
     function renderPreview(thread){
       preview.replaceChildren();
       if(!thread){
