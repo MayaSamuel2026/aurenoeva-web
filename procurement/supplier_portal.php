@@ -456,6 +456,51 @@ try {
 <?php endif;?>
 
 <?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurNov11FollowSaved=null;$aurNov11FollowMessages=[];$aurNov11FollowError='';
+try {
+    $aurNov11FollowSaved=aur_nov11_followup_saved($aurStore,$result);
+    if(is_array($aurNov11FollowSaved))$aurNov11FollowMessages=$aurNov11FollowSaved['messages']??[];
+    else foreach(aur_nov11_followup_plans($result) as $plan)
+        $aurNov11FollowMessages[]=aur_nov11_followup_compose($result,$plan);
+}catch(Throwable $e){
+    error_log('AURENOEVA two new supplier follow-ups: '.get_class($e).' '.substr($e->getMessage(),0,110));
+    $aurNov11FollowError='The original equipment items or draft record could not be loaded.';
+}
+?>
+<section class="card" id="aur-nov11-reply-followups" style="margin-top:12px;border-color:#8eaecc">
+<h2>Two supplier follow-ups · Duo Med &amp; Meditron · 11 November 2026</h2>
+<p>Individual replies prepared after checking the actual correspondence. <strong>Duo Med:</strong> Castellini Skema 6 / 8 configurations, RFQ items 32 and 33. <strong>Meditron:</strong> reroute Samsung HERA Z20 / V8, items 3 and 4, to the named ultrasound consultant because the general mailbox rejected the first message.</p>
+<p class="muted">Both messages preserve the supplier-safe RFQ reference and keep the buyer/destination private. The existing email dispatch attaches the AURENOEVA brochure and country-neutral equipment list. Do not send automatically.</p>
+<?php if($aurNov11FollowError!==''):?>
+<p role="alert"><?=aur_escape($aurNov11FollowError)?> No messages were sent.</p>
+<?php elseif(!is_array($aurNov11FollowSaved)):?>
+<p role="status"><strong>Two complete draft previews available below.</strong> Save them to the established private RFQ review queue before selecting recipients.</p>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_nov11_supplier_followups" value="1">Save Duo Med &amp; Meditron emails for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><strong><?=count($aurNov11FollowMessages)?> saved follow-up drafts</strong> · <?=aur_escape((string)$aurNov11FollowSaved['status'])?>.
+<a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurNov11FollowSaved['draft_id'])?>#aur-rfq-approval"><b>Review and select recipients for sending →</b></a></p>
+<?php endif;?>
+<details class="aux-disclosure" open>
+<summary>Review both complete emails, original RFQ numbers and contact evidence</summary>
+<?php foreach($aurNov11FollowMessages as $mail):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)($mail['vendor_name']??''))?> · <?=aur_escape((string)($mail['to']??''))?> ·
+<?php foreach(($mail['items']??[]) as $item):?>RFQ #<?=(int)($item['customer_item_number']??0)?> <?php endforeach;?></summary>
+<p><b>Contact/source verification:</b> <a href="<?=aur_escape((string)($mail['listing_evidence_url']??''))?>" target="_blank" rel="noopener noreferrer">Open source ↗</a></p>
+<p class="muted"><?=aur_escape((string)($mail['listing_claim']??''))?></p>
+<p><b>Subject:</b> <?=aur_escape((string)($mail['subject']??''))?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:440px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)($mail['body']??''))?></pre>
+</details>
+<?php endforeach;?>
+</details>
+</section>
+<?php endif;?>
+
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
 $aurNov11Leads=aur_nov11_supplier_leads();
 $aurNov11Saved=null;$aurNov11Messages=[];$aurNov11Error='';
 try {
