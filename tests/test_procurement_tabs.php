@@ -11,7 +11,7 @@ foreach(['overview','enquiry','suppliers','rfq','settings'] as $panel) {
  check_tab(str_contains($entry,'data-aur-tab="'.$panel.'"'),'Missing accessible tab '.$panel);
  check_tab(str_contains($ui,"'".$panel."'"),'Tab not wired '.$panel);
 }
-check_tab(str_contains($entry,'workspace-tabs.js?v=3'),'UI script not installed');
+check_tab(str_contains($entry,'workspace-tabs.js?v=4'),'UI script not installed');
 foreach(['aur-upload','saved-cases','destination-screen','supplier-workspace','aur-rfq-approval','supplier-replies','aur-mail-settings'] as $target) {
  check_tab(str_contains($ui,"'".$target."'"),'Existing workflow target not retained: '.$target);
 }
@@ -32,3 +32,15 @@ check_tab(str_contains($portal,'aur_vendor_rfq_is_selected_batch(')
     'Seven-supplier selectable batch not recognized by shared dispatch source');
 check_tab(str_contains($entry,'Download original enquiry'),'Original enquiry label still says draft');
 echo "AURENOEVA_COMPACT_TABS=PASS\n";
+
+check_tab(str_contains($entry, 'id="aur-diagnostics-fallback"') &&
+          str_contains($entry, 'id="aur-legacy-functions"'),
+          'Fallback must keep the original data and forms accessible without JavaScript');
+check_tab(str_contains($entry,'NOEVA_AURENOEVA_WORKSPACE_FOCUS_20261111'),
+          'Compact shared design CSS missing');
+check_tab(str_contains($ui,"'overview', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'"),
+          'Six active work areas missing');
+check_tab(str_contains($ui,'otherTools.appendChild(child)') &&
+          str_contains($ui,'researchGroup') &&
+          str_contains($ui,'settingsGroup'),
+          'Unassigned original workflow sections may be lost');

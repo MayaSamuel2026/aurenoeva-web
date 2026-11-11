@@ -1187,7 +1187,7 @@ body{background:var(--noeva-surface);color:var(--noeva-graphite)}
 .top{padding-bottom:15px;margin-bottom:19px;border-bottom:1px solid var(--noeva-stroke)}
 .aur-page-intro{font-size:14px;line-height:1.6;color:#667989;margin:5px 0 14px;max-width:780px}
 .aur-command-breadcrumb{display:flex;gap:12px;color:#667989;font-size:10px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;padding:10px 0;border-top:1px solid var(--noeva-stroke)}
-.aur-switcher{display:flex;gap:5px;flex-wrap:wrap;overflow-x:auto;position:sticky;top:0;z-index:30;padding:11px 0;background:var(--noeva-surface);border-bottom:1px solid var(--noeva-stroke)}
+.aur-switcher{display:none;gap:5px;flex-wrap:wrap;overflow-x:auto;position:sticky;top:0;z-index:30;padding:11px 0;background:var(--noeva-surface);border-bottom:1px solid var(--noeva-stroke)}
 .aur-switcher button{flex:0 0 auto;min-width:auto;background:#fff;color:#375a70;border:1px solid #cbd9e0;padding:11px 15px;border-radius:10px;font-size:13px}
 .aur-switcher button[aria-selected="true"]{background:#375a70;color:#fff;border-color:#375a70}
 .aur-switcher button:focus-visible{outline:3px solid #86a7bd;outline-offset:2px}
