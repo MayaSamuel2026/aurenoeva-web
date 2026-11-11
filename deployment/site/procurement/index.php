@@ -1565,7 +1565,7 @@ Original case reference and equipment remain unchanged if the destination is cor
 <p>Legal review: <strong><?=aur_escape((string)($result['legal_review']['compliance']['status'] ?? 'REVIEW_REQUIRED'))?></strong>.
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
-<a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download RFQ text</a>
+<a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original enquiry</a>
 <a class="button ghost" href="?original_file=<?=rawurlencode((string)$result['reference'])?>">Download original uploaded file (CSV/XLSX)</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
