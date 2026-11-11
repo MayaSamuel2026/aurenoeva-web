@@ -30,25 +30,59 @@ function aur_mail_events(string $store):array {
 function aur_mail_case_events(string $store,string $reference):array {
     if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$reference))return [];
     $events=[];
+    $cache=[];
     foreach(aur_mail_events($store) as $event){
         if(!is_array($event))continue;
         $savedReference=(string)($event['case_reference']??'');
-        if($savedReference===$reference){
-            $events[]=$event;
-        }elseif($savedReference==='' &&
-                str_contains((string)($event['subject']??''),$reference)){
-            // Historical inbox messages predating full batch matching stay
-            // source-immutable. Show a read-only case reference projection;
-            // sender, actual batch and quoted items remain unverified.
-            $view=$event;
+        if($savedReference!==''&&$savedReference!==$reference)continue;
+        $view=$event;
+        if(empty($event['matched_to_sent_rfq']) && empty($event['supplier_case_match'])){
+            // Old IMAP evidence may predate the fix. Reconcile read-only so
+            // UID, EML, prices and the durable source ledger stay unchanged.
+            // An RFQ-less subject can only be linked by an independently
+            // unique SENT recipient address, never a guessed company name.
+            $sender=strtolower(trim((string)($event['from']??'')));
+            if($sender!==''&&filter_var($sender,FILTER_VALIDATE_EMAIL)){
+                $date=(string)($event['received_at']??'');
+                $subject=(string)($event['subject']??'');
+                $kind=(string)($event['classification']??'OTHER');
+                $cacheKey=hash('sha256',$sender.'|'.$subject.'|'.$date.'|'.$kind);
+                if(!array_key_exists($cacheKey,$cache)){
+                    $cache[$cacheKey]=aur_mail_match($store,
+                        ['from'=>$sender,'subject'=>$subject,'received_at'=>$date,'text'=>''],
+                        ['status'=>$kind]);
+                }
+                $found=$cache[$cacheKey];
+                $newReference=($found['matched']??false)
+                    ?(string)$found['case']['reference']
+                    :(string)($found['case_reference']??'');
+                if($newReference===$reference &&
+                    (!empty($found['matched'])||!empty($found['supplier_case_match']))){
+                    $view['case_reference']=$reference;
+                    $view['supplier_case_match']=true;
+                    $view['requires_sender_review']=false;
+                    $view['requires_batch_review']=!($found['matched']??false);
+                    $view['case_reference_projection_only']=true;
+                    $view['supplier_email']=(string)($found['email']??$sender);
+                    if(empty($view['supplier']))
+                        $view['supplier']=(string)($found['message']['vendor_name']??'');
+                }
+            }
+        }
+        $belongs=(string)($view['case_reference']??'')===$reference;
+        if(!$belongs && $savedReference==='' &&
+            str_contains((string)($event['subject']??''),$reference)){
             $view['case_reference']=$reference;
             $view['matched_to_sent_rfq']=false;
+            $view['supplier_case_match']=false;
             $view['requires_sender_review']=true;
             $view['case_reference_projection_only']=true;
-            $events[]=$view;
+            $belongs=true;
         }
+        if($belongs)$events[]=$view;
     }
-    usort($events,static fn($a,$b)=>strcmp((string)($b['processed_at']??''),(string)($a['processed_at']??'')));
+    usort($events,static fn($a,$b)=>strcmp((string)($b['processed_at']??''),
+        (string)($a['processed_at']??'')));
     return $events;
 }
 function aur_mail_match(string $store,array $mail,array $classification):array {
@@ -62,6 +96,7 @@ function aur_mail_match(string $store,array $mail,array $classification):array {
             $failedEmail=strtolower($m[1]);
     }
     $sender=strtolower(trim((string)($mail['from']??'')));
+    $receivedAt=strtotime((string)($mail['received_at']??''))?:0;
     $hits=[];$referencedCase='';
     // An explicit RFQ reference identifies exactly one original saved case.
     // Avoid scanning unrelated cases or losing older cases in list pagination.
@@ -82,6 +117,12 @@ function aur_mail_match(string $store,array $mail,array $classification):array {
                 if(!is_array($message)||!in_array(($message['status']??''),
                     ['ACCEPTED_BY_MAIL_TRANSPORT','TRANSPORT_FAILED_OR_UNCONFIRMED','IN_FLIGHT'],true))continue;
                 $recipient=strtolower(trim((string)($message['to']??'')));
+                // A sender's generic acknowledgement must not be attributed
+                // to a future campaign sent after that incoming message.
+                $sentAt=strtotime((string)(
+                    ($message['sent_at']??'')?:($message['attempted_at']??'')?:
+                    ($draft['created_at']??'')))?:0;
+                if($receivedAt>0&&$sentAt>0&&$receivedAt+300<$sentAt)continue;
                 $matched=($classification['status']??'')==='DELIVERY_FAILED'
                     ?($failedEmail!==''&&$failedEmail===$recipient)
                     :($sender!==''&&$sender===$recipient);
@@ -90,10 +131,25 @@ function aur_mail_match(string $store,array $mail,array $classification):array {
             }
         }
     }
-    // No arbitrary first match: two saved batches for the same sender can
-    // carry different items. Leave quote attribution to owner review.
-    if(count($hits)===1)return $hits[0];
-    return ['matched'=>false,'case_reference'=>$referencedCase,
+    // Exact one-to-one matches can support the existing item-level quote
+    // validation. They ALSO establish a verified supplier/case conversation.
+    if(count($hits)===1)return $hits[0]+['supplier_case_match'=>true];
+    // More than one sent email to a known supplier is normal. If every hit
+    // belongs to the SAME original customer RFQ, show the supplier reply as
+    // received, but do not attribute it to an arbitrary batch or buyer item.
+    if(count($hits)>1){
+        $cases=[];
+        foreach($hits as $hit)$cases[(string)$hit['case']['reference']]=true;
+        if(count($cases)===1){
+            $first=$hits[0];
+            return ['matched'=>false,'supplier_case_match'=>true,
+                'case_reference'=>(string)$first['case']['reference'],
+                'message'=>$first['message'],'email'=>$first['email'],
+                'batch_ambiguous'=>true];
+        }
+    }
+    return ['matched'=>false,'supplier_case_match'=>false,
+            'case_reference'=>$referencedCase,
             'email'=>$failedEmail!==''?$failedEmail:$sender,
             'ambiguous'=>count($hits)>1];
 }
@@ -162,7 +218,9 @@ function aur_mail_import(string $store,int $uid,int $uidvalidity,string $raw):ar
         'lead_time'=>$cls['lead_time'],
         'preview'=>substr(preg_replace('/\s+/u',' ',(string)$cls['body'])??(string)$cls['body'],0,450),
         'matched_to_sent_rfq'=>$match['matched'],
-        'requires_sender_review'=>!$match['matched']&&$ref!=='',
+        'supplier_case_match'=>!empty($match['supplier_case_match'])||!empty($match['matched']),
+        'requires_sender_review'=>empty($match['supplier_case_match'])&&!$match['matched']&&$ref!=='',
+        'requires_batch_review'=>!$match['matched']&&!empty($match['supplier_case_match']),
         'quote_recorded'=>false,
         'evidence_file'=>$raw!==''?$key.'.eml':''];
     if($raw!==''){
