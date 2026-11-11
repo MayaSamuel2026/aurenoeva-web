@@ -205,6 +205,20 @@ must_mail(count($duoRows)===1 && $duoRows[0]['reply_count']===1
     && $duoRows[0]['status']==='replied',
     'Duo Med was not counted as one confirmed supplier reply');
 
+// A later accepted batch may identify the individual contact: keep one
+// supplier conversation and make the contact name searchable.
+$duoAlias=aur_correspondence_threads([
+    ['supplier'=>'Duo Med GmbH','to'=>'info@duo-med.de','sent_at'=>'2026-11-06T08:00:00Z'],
+    ['supplier'=>'Duo Med GmbH — Nelly von Wangenheim','to'=>'info@duo-med.de',
+     'sent_at'=>'2026-11-10T08:00:00Z']
+],[], $duoView);
+$aliasRows=array_values(array_filter($duoAlias['threads'],
+    static fn($item)=>($item['email']??'')==='info@duo-med.de'));
+must_mail(count($aliasRows)===1 &&
+    str_contains($aliasRows[0]['supplier'],'Nelly von Wangenheim') &&
+    in_array('Duo Med GmbH',$aliasRows[0]['aliases'],true),
+    'Named supplier contact hidden behind an earlier generic company label');
+
 // Simulate a historically IMPORTED email that was never assigned to an RFQ,
 // without changing its stored original message or durable attribution.
 $historicalEvents=aur_mail_events($store);

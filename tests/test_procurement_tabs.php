@@ -67,7 +67,15 @@ check_tab(str_contains($inbox,'aurenoeva:compose-supplier-followup') && str_cont
     'Follow-up must open the existing manual Mail Centre draft');
 
 check_tab(str_contains($board,'aur-case-mail-refresh') &&
-          str_contains($board,'case-mail-inbox.js?v=2'), 'Manual refresh and new inbox script not published');
+          str_contains($board,'case-mail-inbox.js?v=3'), 'Manual refresh and new inbox script not published');
 check_tab(str_contains($threadUi,'sync_supplier_inbox') &&
           str_contains($threadUi,'more_pending') &&
           str_contains($threadUi,'location.reload()'), 'Existing private mailbox sync not connected to supplier inbox refresh');
+
+check_tab(str_contains($threadUi,"let filter='all'") &&
+          str_contains($board,'data-aur-mail-filter="all" aria-pressed="true"'),
+    'All supplier conversations must be visible by default');
+check_tab(str_contains($threadUi,'a.aur-correspondence-open-mail[href="#aur-mail-center"]') &&
+          str_contains($threadUi,'...(thread.aliases||[])') &&
+          str_contains($threadUi,'m.subject,m.body'),
+    'Refresh must not open mailbox; sender aliases and message text must be searchable');
