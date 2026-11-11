@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
    // Sent records and replies stay tied to the existing signed mail ledgers.
    intro(panels.mail,'Sent and received emails','The RFQ correspondence ledger and the live Hostinger inbox and sent folder.');
+   move('aur-mail-trail',panels.mail);
    move('supplier-replies',panels.mail);
    move('aur-mail-center',panels.mail);
    if(!get('supplier-replies')&&!get('aur-mail-center')){
@@ -69,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
    }
 
    intro(panels.drafts,'Prepared emails — review and send','Review the recipient, message and attachments. Use the original authorization controls to send only approved emails.');
+   move('aur-email-review-queue',panels.drafts);
    // A saved current batch is the review/action surface. Historical campaigns
    // remain available in More, not as separate buyer RFQs.
    const approved=get('aur-rfq-approval');

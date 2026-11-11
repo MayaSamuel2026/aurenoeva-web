@@ -31,7 +31,7 @@ function aur_mail_case_events(string $store,string $reference):array {
     $events=array_values(array_filter(aur_mail_events($store),
         static fn($e)=>is_array($e)&&($e['case_reference']??'')===$reference));
     usort($events,static fn($a,$b)=>strcmp((string)($b['processed_at']??''),(string)($a['processed_at']??'')));
-    return array_slice($events,0,100);
+    return $events;
 }
 function aur_mail_match(string $store,array $mail,array $classification):array {
     $reference='';

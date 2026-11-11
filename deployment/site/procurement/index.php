@@ -1220,6 +1220,19 @@ button,select,input,textarea{max-width:100%}
 .aur-tabs-enabled .aur-guide,.aur-tabs-enabled .aur-quick-actions{display:none}
 .aur-switcher button{font-size:13px;padding:11px 15px}
 .aur-switcher button[aria-selected="true"]{background:#375a70;color:#fff}
+
+/* Original-case correspondence and review queue — no separate mail authority. */
+.aur-workbench-mail-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.aur-workbench-mail-columns>div{min-width:0}
+.aur-mail-evidence-item{border:1px solid #dce5ea;background:#f9fbfc;border-radius:10px;padding:11px 14px;margin:9px 0;font-size:12px}
+.aur-mail-evidence-item summary{cursor:pointer;font-weight:750;color:#233746}
+.aur-mail-evidence-item small{display:block;color:#667989;font-weight:400;margin-top:3px}
+.aur-mail-evidence-item pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.65 system-ui;max-height:360px;overflow-y:auto;padding:13px;background:#fff;border:1px solid #dce5ea}
+.aur-workbench-totals{display:flex;gap:10px;flex-wrap:wrap}
+#aur-mail-trail,#aur-email-review-queue{border:1px solid #dce5ea;border-radius:13px;padding:22px;background:#fff;margin:13px 0}
+#aur-mail-trail h2,#aur-email-review-queue h2{font:400 25px Georgia,serif;margin:0 0 7px}
+#aur-mail-trail h3{font-size:15px}
+@media(max-width:700px){.aur-workbench-mail-columns{grid-template-columns:1fr}}
 </style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
@@ -1686,6 +1699,7 @@ try {
 ?>
 </section>
 <?php else: ?><section class="card"><h2>Supplier research</h2><p>The original equipment and RFQ remain available above. Supplier research will appear here when available.</p></section><?php endif; ?>
+<?php if($aurHasCase):require __DIR__.'/case_mail_workbench.php';endif; ?>
 <?php elseif (is_array($result) && isset($result['cases'])): ?>
 <section class="card"><h2>Existing enquiries</h2><div class="scroll"><table><thead><tr><th>Case reference</th><th>Country</th><th>Items</th><th>Received (UTC)</th><th>RFQ</th></tr></thead><tbody>
 <?php foreach ($result['cases'] as $case): ?><tr><td><a href="?case=<?=rawurlencode((string)$case['reference'])?>"><?=aur_escape((string)$case['reference'])?></a></td>

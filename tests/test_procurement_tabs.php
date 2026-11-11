@@ -44,3 +44,7 @@ check_tab(str_contains($ui,'aur-legacy-functions') && str_contains($ui,'aur-diag
           'Saved original functions and history not retained');
 
 check_tab(str_contains($portal,'$itemSuggestions=$rankedByRow'), 'Supplier leads for each buyer item still limited to four');
+
+check_tab(str_contains($entry,'case_mail_workbench.php'),'Case mail evidence view not included');
+check_tab(str_contains($ui,"'aur-mail-trail'")&&str_contains($ui,"'aur-email-review-queue'"),
+          'Sent/received mail and prepared emails must be direct working areas');
