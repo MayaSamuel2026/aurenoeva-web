@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/deployment/site/procurement/supplier_inbox_store.php';
+require dirname(__DIR__).'/deployment/site/procurement/case_mail_inbox_data.php';
 function must_mail(bool $v,string $msg):void {if(!$v)throw new RuntimeException($msg);}
 $root=sys_get_temp_dir().'/aur-mail-test-'.bin2hex(random_bytes(5));
 mkdir($root.'/public_html',0700,true);
@@ -113,4 +114,48 @@ must_mail(count($projection)===1 && $projection[0]['requires_sender_review']===t
     'Existing RFQ-referenced historical correspondence was hidden');
 must_mail((aur_mail_events($store)['historical-uid']['case_reference']??null)==='',
     'Read-only historical projection rewrote the original inbox evidence');
+
+// One supplier must occupy one inbox row even across multiple saved SMTP
+// batches. Only verified case/sender matches count as replies.
+$sentExamples=[
+ ['to'=>'INFO@humanova.ae','supplier'=>'HumaNova','subject'=>'RFQ enquiry 1',
+  'body'=>'First enquiry','sent_at'=>'2026-11-09T09:00:00Z'],
+ ['to'=>'info@humanova.ae','supplier'=>'HumaNova','subject'=>'RFQ enquiry 2',
+  'body'=>'Another equipment model','sent_at'=>'2026-11-10T09:00:00Z'],
+ ['to'=>'waiting@vendor.example','supplier'=>'Waiting Vendor','subject'=>'RFQ enquiry',
+  'body'=>'Please quote','sent_at'=>'2026-11-11T09:00:00Z'],
+];
+$unknownAttempts=[['to'=>'uncertain@vendor.example','supplier'=>'Uncertain Vendor',
+ 'subject'=>'RFQ enquiry','status'=>'TRANSPORT_UNCONFIRMED','body'=>'Maybe sent',
+ 'attempted_at'=>'2026-11-11T10:00:00Z']];
+$incomingExamples=[
+ ['supplier_email'=>'info@humanova.ae','supplier'=>'HumaNova',
+  'subject'=>'Re: RFQ','classification'=>'CLARIFICATION_REQUIRED',
+  'matched_to_sent_rfq'=>true,'preview'=>'Need product model number',
+  'processed_at'=>'2026-11-11T12:00:00Z'],
+ ['from'=>'unknown@example.net','subject'=>'Re: RFQ',
+  'classification'=>'QUOTE_RECEIVED','matched_to_sent_rfq'=>false,
+  'requires_sender_review'=>true,'preview'=>'Price not verified',
+  'processed_at'=>'2026-11-11T12:05:00Z'],
+];
+$projected=aur_correspondence_threads($sentExamples,$unknownAttempts,$incomingExamples);
+must_mail($projected['summary']['all']===4 &&
+    $projected['summary']['replied']===1 &&
+    $projected['summary']['awaiting']===1 &&
+    $projected['summary']['review']===1 &&
+    $projected['summary']['unconfirmed']===1,
+    'Thread status classification or one-row-per-supplier grouping incorrect');
+$humanova=array_values(array_filter($projected['threads'],
+    static fn($x)=>$x['email']==='info@humanova.ae'));
+must_mail(count($humanova)===1 && $humanova[0]['sent_count']===2
+    && $humanova[0]['reply_count']===1
+    && count($humanova[0]['messages'])===3,
+    'Sending batches were duplicated or reply evidence lost');
+$unverified=array_values(array_filter($projected['threads'],
+    static fn($x)=>$x['email']==='unknown@example.net'));
+must_mail(count($unverified)===1 && $unverified[0]['status']==='review'
+    && $unverified[0]['reply_count']===0,
+    'Unverified inbound mail was incorrectly shown as a verified reply');
+must_mail(count($sentExamples)===3&&count($incomingExamples)===2,
+    'Read-only conversation projection unexpectedly altered the source');
 echo "AURENOEVA_INCOMING_MAIL_RECONCILIATION=PASS\n";
