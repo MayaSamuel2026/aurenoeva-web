@@ -103,11 +103,11 @@ $inboxJson=json_encode($inbox,
   <label class="aur-correspondence-search-label" for="aur-case-mail-search">Find supplier or email
   <input type="search" id="aur-case-mail-search" placeholder="Supplier, email address or subject" autocomplete="off"></label>
   <div class="aur-correspondence-filters" role="group" aria-label="Conversation filter">
-    <button type="button" data-aur-mail-filter="awaiting" aria-pressed="true">Awaiting reply</button>
+    <button type="button" data-aur-mail-filter="all" aria-pressed="true">All suppliers</button>
+    <button type="button" data-aur-mail-filter="awaiting" aria-pressed="false">Awaiting reply</button>
     <button type="button" data-aur-mail-filter="replied" aria-pressed="false">Replies received</button>
     <button type="button" data-aur-mail-filter="review" aria-pressed="false">Needs review</button>
     <button type="button" data-aur-mail-filter="unconfirmed" aria-pressed="false">Send unconfirmed</button>
-    <button type="button" data-aur-mail-filter="all" aria-pressed="false">All</button>
   </div>
   <label class="aur-correspondence-sort-label" for="aur-case-mail-sort">Order
     <select id="aur-case-mail-sort">
@@ -129,7 +129,7 @@ $inboxJson=json_encode($inbox,
 </div>
 <p class="muted aur-correspondence-footnote">An SMTP acceptance is not proof of delivery. A case-referenced but unmatched reply needs verification before being counted as a supplier response. Live mailbox unread states are not inferred here.</p>
 <script id="aur-case-mail-data" type="application/json"><?=$inboxJson?></script>
-<script defer src="/procurement/case-mail-inbox.js?v=2"></script>
+<script defer src="/procurement/case-mail-inbox.js?v=3"></script>
 </section>
 <section id="aur-email-review-queue" class="card" aria-label="Saved emails requiring owner review">
 <h2>Prepared emails awaiting your review</h2>

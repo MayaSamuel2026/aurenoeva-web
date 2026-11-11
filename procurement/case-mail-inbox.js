@@ -43,14 +43,15 @@
     };
     const filters=[...root.querySelectorAll('[data-aur-mail-filter]')];
     const pageSize=20;
-    let filter=(totals.awaiting||0)>0?'awaiting':'all';
+    let filter='all';
     let page=0,selectedId=null,query='';
     const matching=()=>{
       const found=threads.filter(thread=>{
         if(filter!=='all'&&thread.status!==filter)return false;
         if(!query)return true;
         const searchable=[thread.supplier,thread.email,
-          ...thread.messages.map(m=>m.subject)].join(' ').toLocaleLowerCase();
+          ...(thread.aliases||[]),
+          ...thread.messages.flatMap(m=>[m.subject,m.body])].join(' ').toLocaleLowerCase();
         return searchable.includes(query);
       });
       if(ordering.value==='supplier')
@@ -68,7 +69,7 @@
       if(container)container.open=true;
       if(full)full.scrollIntoView({behavior:'smooth',block:'start'});
     };
-    root.querySelector('.aur-correspondence-open-mail')?.addEventListener('click',event=>{
+    root.querySelector('a.aur-correspondence-open-mail[href="#aur-mail-center"]')?.addEventListener('click',event=>{
       event.preventDefault();openMailbox();
     });
 

@@ -19,7 +19,7 @@ function aur_correspondence_threads(array $sent,array $attempts,array $inbound):
             'id'=>hash('sha256',$key),'supplier'=>'','email'=>$email,
             'messages'=>[],'sent_count'=>0,'reply_count'=>0,
             'review_count'=>0,'unconfirmed_count'=>0,'last_at'=>'','_last'=>0,
-            'status'=>'review'
+            'status'=>'review','aliases'=>[]
         ];
         return $key;
     };
@@ -38,7 +38,10 @@ function aur_correspondence_threads(array $sent,array $attempts,array $inbound):
         $address=$emailOf($message['to']??'');
         $key=$ensure($address,'sent-'.(string)$i);
         $name=trim((string)($message['supplier']??''));
-        if($name!==''&&$threads[$key]['supplier']==='')$threads[$key]['supplier']=$name;
+        if($name!==''){
+            if(!in_array($name,$threads[$key]['aliases'],true))$threads[$key]['aliases'][]=$name;
+            if(strlen($name)>strlen($threads[$key]['supplier']))$threads[$key]['supplier']=$name;
+        }
         $threads[$key]['sent_count']++;
         $append($key,[
             'kind'=>'sent','subject'=>(string)($message['subject']??''),
@@ -53,7 +56,10 @@ function aur_correspondence_threads(array $sent,array $attempts,array $inbound):
         $address=$emailOf($message['to']??'');
         $key=$ensure($address,'attempt-'.(string)$i);
         $name=trim((string)($message['supplier']??''));
-        if($name!==''&&$threads[$key]['supplier']==='')$threads[$key]['supplier']=$name;
+        if($name!==''){
+            if(!in_array($name,$threads[$key]['aliases'],true))$threads[$key]['aliases'][]=$name;
+            if(strlen($name)>strlen($threads[$key]['supplier']))$threads[$key]['supplier']=$name;
+        }
         $threads[$key]['unconfirmed_count']++;
         $append($key,[
             'kind'=>'attempt','subject'=>(string)($message['subject']??''),
@@ -69,7 +75,10 @@ function aur_correspondence_threads(array $sent,array $attempts,array $inbound):
         $fallback=(string)($event['key']??$event['uid']??'received-'.(string)$i);
         $key=$ensure($address,$fallback);
         $name=trim((string)($event['supplier']??''));
-        if($name!==''&&$threads[$key]['supplier']==='')$threads[$key]['supplier']=$name;
+        if($name!==''){
+            if(!in_array($name,$threads[$key]['aliases'],true))$threads[$key]['aliases'][]=$name;
+            if(strlen($name)>strlen($threads[$key]['supplier']))$threads[$key]['supplier']=$name;
+        }
         $classification=(string)($event['classification']??'UNCLASSIFIED');
         $deliveryIssue=$classification==='DELIVERY_FAILED';
         $trusted=!$deliveryIssue&&
