@@ -124,6 +124,26 @@ if(isset($_GET['command_export'])){
     aur_command_export($aurStore,(string)$_GET['command_export'],$_GET);
 }
 
+
+/* Original source uploads remain private. Authorised staff can retrieve the
+ * exact hash-verified CSV/XLSX bytes by canonical case reference. */
+if(isset($_GET['original_file'])){
+    if(!$isAdmin)aur_denied(401,'administrator login required');
+    if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET')aur_denied(405,'GET required');
+    try{
+        $file=aur_case_original_file($aurStore,(string)$_GET['original_file']);
+    }catch(Throwable $e){
+        error_log('AURENOEVA original upload read: '.get_class($e));
+        aur_denied(404,'Original source file unavailable');
+    }
+    header('Content-Type: '.$file['type']);
+    header('Content-Length: '.(int)$file['size']);
+    header('Content-Disposition: attachment; filename="original-enquiry.'.strtolower(pathinfo((string)$file['name'],PATHINFO_EXTENSION)).'"; filename*=UTF-8'.chr(39).chr(39).rawurlencode((string)$file['name']));
+    header('Cache-Control: private, no-store, max-age=0');
+    header('X-Content-Type-Options: nosniff');
+    readfile((string)$file['path']);exit;
+}
+
 /* Private brochure library: original website assets cannot be requested
  * directly (assets/.htaccess). Downloads require the signed admin cookie.
  */
@@ -1546,6 +1566,7 @@ Original case reference and equipment remain unchanged if the destination is cor
 Supplier outreach, pricing, shipment and any sanctions clearance are separate controlled actions.</p>
 <p style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
 <a class="button" href="?rfq=<?=rawurlencode((string)$result['reference'])?>">Download original enquiry</a>
+<a class="button ghost" href="?original_file=<?=rawurlencode((string)$result['reference'])?>">Download original uploaded file (CSV/XLSX)</a>
 <a href="#original-rfq-equipment">View all original requested parts ↓</a> · <a href="#supplier-workspace">Supplier contacts and RFQ selection ↓</a>
 </p>
 <?php
