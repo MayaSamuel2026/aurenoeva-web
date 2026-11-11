@@ -28,8 +28,26 @@ function aur_mail_events(string $store):array {
     return is_array($data['events']??null)?$data['events']:[];
 }
 function aur_mail_case_events(string $store,string $reference):array {
-    $events=array_values(array_filter(aur_mail_events($store),
-        static fn($e)=>is_array($e)&&($e['case_reference']??'')===$reference));
+    if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$reference))return [];
+    $events=[];
+    foreach(aur_mail_events($store) as $event){
+        if(!is_array($event))continue;
+        $savedReference=(string)($event['case_reference']??'');
+        if($savedReference===$reference){
+            $events[]=$event;
+        }elseif($savedReference==='' &&
+                str_contains((string)($event['subject']??''),$reference)){
+            // Historical inbox messages predating full batch matching stay
+            // source-immutable. Show a read-only case reference projection;
+            // sender, actual batch and quoted items remain unverified.
+            $view=$event;
+            $view['case_reference']=$reference;
+            $view['matched_to_sent_rfq']=false;
+            $view['requires_sender_review']=true;
+            $view['case_reference_projection_only']=true;
+            $events[]=$view;
+        }
+    }
     usort($events,static fn($a,$b)=>strcmp((string)($b['processed_at']??''),(string)($a['processed_at']??'')));
     return $events;
 }
@@ -45,7 +63,11 @@ function aur_mail_match(string $store,array $mail,array $classification):array {
     }
     $sender=strtolower(trim((string)($mail['from']??'')));
     $hits=[];$referencedCase='';
-    foreach(aur_case_list($store)['cases']??[] as $record){
+    // An explicit RFQ reference identifies exactly one original saved case.
+    // Avoid scanning unrelated cases or losing older cases in list pagination.
+    $records=$reference!==''?[['reference'=>$reference]]
+        :(aur_case_list($store)['cases']??[]);
+    foreach($records as $record){
         if($reference!==''&&($record['reference']??'')!==$reference)continue;
         try{$case=aur_case_read($store,(string)$record['reference']);}
         catch(Throwable $error){continue;}
