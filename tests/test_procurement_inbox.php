@@ -94,4 +94,23 @@ must_mail($ambiguousBatch['case_reference']===$ref
     && !$ambiguousBatch['matched_to_sent_rfq']
     && !$ambiguousBatch['quote_recorded'],
     'Ambiguous multiple-batch reply must not fabricate an item price');
+
+// Older archived mailbox events without a case match are NOT rewritten. Exact
+// original RFQ references can still be shown read-only in correspondence.
+$all=aur_mail_events($store);
+$all['historical-uid']=[
+    'case_reference'=>'','subject'=>'Re: '.$ref,'from'=>'old-supplier@example.org',
+    'supplier'=>'','supplier_email'=>'old-supplier@example.org',
+    'processed_at'=>'2026-10-27T09:00:00Z','classification'=>'OTHER',
+    'matched_to_sent_rfq'=>false,'quote_recorded'=>false
+];
+aur_mail_write_json(aur_mail_dir($store).'/events.json',
+    ['schema'=>'aurenoeva-mailbox-events/1','events'=>$all]);
+$historic=aur_mail_case_events($store,$ref);
+$projection=array_values(array_filter($historic,
+    static fn($row)=>($row['case_reference_projection_only']??false)===true));
+must_mail(count($projection)===1 && $projection[0]['requires_sender_review']===true,
+    'Existing RFQ-referenced historical correspondence was hidden');
+must_mail((aur_mail_events($store)['historical-uid']['case_reference']??null)==='',
+    'Read-only historical projection rewrote the original inbox evidence');
 echo "AURENOEVA_INCOMING_MAIL_RECONCILIATION=PASS\n";
