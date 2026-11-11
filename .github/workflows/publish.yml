@@ -14,6 +14,7 @@ on:
       - 'tests/test_procurement_urgent_supplier_leads.php'
       - 'tests/test_procurement_urgent_supplier_drafts.php'
       - 'tests/test_procurement_worldwide_php.php'
+      - 'tests/test_procurement_original_file.php'
       - 'tests/test_procurement_rfq_duplicates.php'
       - 'tests/test_procurement_price_reminders.php'
       - 'tests/test_supplier_matching.php'
@@ -394,6 +395,8 @@ jobs:
           php tests/test_procurement_quality.php
           php tests/test_procurement_inbox.php
           php tests/test_procurement_mail_center.php
+          php -l tests/test_procurement_original_file.php
+          php tests/test_procurement_original_file.php
           php tests/test_procurement_researched_round.php
           php tests/test_procurement_nov11_supplier_batch.php
           php tests/test_procurement_nov11_followups.php

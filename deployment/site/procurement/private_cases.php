@@ -271,6 +271,31 @@ function aur_case_read(string $store,string $reference): array {
     }
     return $case;
 }
+
+/** Read back the exact historical upload, never a generated substitute. */
+function aur_case_original_file(string $store,string $reference):array {
+    $case=aur_case_read($store,$reference);
+    $original=(string)($case['original_name']??'');
+    if($original===''||basename($original)!==$original||strlen($original)>255)
+        throw new RuntimeException('original_name_invalid');
+    $ext=strtolower(pathinfo($original,PATHINFO_EXTENSION));
+    if(!in_array($ext,['csv','xlsx'],true))
+        throw new RuntimeException('original_type_invalid');
+    $path=aur_private_directory($store,'uploads').'/'.$reference.'.'.$ext;
+    if(is_link($path)||!is_file($path)||!is_readable($path))
+        throw new RuntimeException('original_upload_unavailable');
+    $digest=(string)($case['source_sha256']??'');
+    if(!preg_match('/^[a-f0-9]{64}$/D',$digest)
+       ||!hash_equals($digest,(string)hash_file('sha256',$path)))
+        throw new RuntimeException('original_upload_hash_mismatch');
+    $size=filesize($path);
+    if($size===false||$size<1||$size>AUR_MAX_BYTES)
+        throw new RuntimeException('original_upload_size_invalid');
+    return ['path'=>$path,'name'=>$original,'size'=>$size,
+        'type'=>$ext==='csv'?'text/csv; charset=utf-8':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+}
+
 function aur_case_list(string $store): array {
     $dir=aur_private_directory($store,'cases');
     $files=glob($dir.'/AUR-??-*.json') ?: [];
