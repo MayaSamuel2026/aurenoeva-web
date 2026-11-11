@@ -30,7 +30,9 @@ function aur_procurement_legal_signature(string $language='en'):string {
             "Handelsregister\n".
             "Eingetragen beim Amtsgericht Koblenz\n".
             "HRA 23554\n\n".
-            "info@aurenoeva.com | https://aurenoeva.com";
+            "Telefon: +49 176 471 77751\n".
+            "Phone: +49 176 471 77751\n".
+        "info@aurenoeva.com | https://aurenoeva.com";
     }
     return "AURENOEVA Purchasing\n".
         "NOEVA Systems e.K.\n".
@@ -88,6 +90,12 @@ function aur_mailcenter_html_document(string $safeRichText,string $language='en'
         'info@aurenoeva.com | https://aurenoeva.com',
         '<a href="mailto:info@aurenoeva.com" style="color:#19493f">info@aurenoeva.com</a> | '.
         '<a href="https://aurenoeva.com" style="color:#19493f">aurenoeva.com</a>',
+        $signature);
+    // Keep both contact channels actionable in the HTML email signature.
+    $signature=str_replace(
+        ['Telefon: +49 176 471 77751','Phone: +49 176 471 77751'],
+        ['Telefon: <a href="tel:+4917647177751" style="color:#19493f">+49 176 471 77751</a>',
+         'Phone: <a href="tel:+4917647177751" style="color:#19493f">+49 176 471 77751</a>'],
         $signature);
     $logo='cid:aurenoeva-logo@aurenoeva.com';
     return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'.
