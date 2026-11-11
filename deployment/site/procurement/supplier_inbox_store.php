@@ -31,6 +31,23 @@ function aur_mail_case_events(string $store,string $reference):array {
     if(!preg_match('/^AUR-[A-Z]{2}-[A-F0-9]{16}$/D',$reference))return [];
     $events=[];
     $cache=[];
+    // Determine potential senders for THIS RFQ once. A typical mailbox
+    // contains many unrelated emails; do not rescan every case for each one.
+    $knownSenders=[];
+    try{
+        $target=aur_case_read($store,$reference);
+        foreach(aur_vendor_rfq_list($store,$target) as $version){
+            try{$batch=aur_vendor_rfq_read($store,$target,(string)$version['id']);}
+            catch(Throwable $e){continue;}
+            foreach(($batch['messages']??[]) as $message){
+                if(!is_array($message))continue;
+                if(!in_array((string)($message['status']??''),
+                    ['ACCEPTED_BY_MAIL_TRANSPORT','TRANSPORT_FAILED_OR_UNCONFIRMED','IN_FLIGHT'],true))continue;
+                $address=strtolower(trim((string)($message['to']??'')));
+                if(filter_var($address,FILTER_VALIDATE_EMAIL))$knownSenders[$address]=true;
+            }
+        }
+    }catch(Throwable $e){ /* Original RFQ read failure is handled by caller. */ }
     foreach(aur_mail_events($store) as $event){
         if(!is_array($event))continue;
         $savedReference=(string)($event['case_reference']??'');
@@ -42,7 +59,9 @@ function aur_mail_case_events(string $store,string $reference):array {
             // An RFQ-less subject can only be linked by an independently
             // unique SENT recipient address, never a guessed company name.
             $sender=strtolower(trim((string)($event['from']??'')));
-            if($sender!==''&&filter_var($sender,FILTER_VALIDATE_EMAIL)){
+            if($sender!==''&&isset($knownSenders[$sender]) &&
+                (strtotime((string)($event['received_at']??''))>0 ||
+                 str_contains((string)($event['subject']??''),$reference))){
                 $date=(string)($event['received_at']??'');
                 $subject=(string)($event['subject']??'');
                 $kind=(string)($event['classification']??'OTHER');
