@@ -35,29 +35,47 @@ function aur_mail_case_events(string $store,string $reference):array {
 }
 function aur_mail_match(string $store,array $mail,array $classification):array {
     $reference='';
-    if(preg_match('/AUR-[A-Z]{2}-[A-F0-9]{16}/',(string)$mail['subject'],$m))$reference=$m[0];
+    if(preg_match('/AUR-[A-Z]{2}-[A-F0-9]{16}/',(string)($mail['subject']??''),$m))
+        $reference=$m[0];
     $failedEmail='';
-    if($classification['status']==='DELIVERY_FAILED'){
-        if(preg_match('/<?([a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,})>?\s*:\s*(?:host|delivery|[0-9]{3})/i',(string)$mail['text'],$m))
+    if(($classification['status']??'')==='DELIVERY_FAILED'){
+        if(preg_match('/<?([a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,})>?\\s*:\\s*(?:host|delivery|[0-9]{3})/i',
+            (string)($mail['text']??''),$m))
             $failedEmail=strtolower($m[1]);
     }
+    $sender=strtolower(trim((string)($mail['from']??'')));
+    $hits=[];$referencedCase='';
     foreach(aur_case_list($store)['cases']??[] as $record){
-        if($reference!==''&&$record['reference']!==$reference)continue;
-        $case=aur_case_read($store,(string)$record['reference']);
-        $primary=aur_vendor_rfq_primary($store,$case);
-        if($primary===null)continue;
-        $draft=aur_vendor_rfq_read($store,$case,(string)$primary['id']);
-        foreach($draft['messages']??[] as $message){
-            if(!in_array(($message['status']??''),['ACCEPTED_BY_MAIL_TRANSPORT','TRANSPORT_FAILED_OR_UNCONFIRMED','IN_FLIGHT'],true))continue;
-            $recipient=strtolower((string)($message['to']??''));
-            $match=$classification['status']==='DELIVERY_FAILED'
-                ?($failedEmail!==''&&$failedEmail===$recipient):($mail['from']===$recipient);
-            if($match)return ['matched'=>true,'case'=>$case,'draft'=>$draft,
-                'message'=>$message,'email'=>$recipient];
+        if($reference!==''&&($record['reference']??'')!==$reference)continue;
+        try{$case=aur_case_read($store,(string)$record['reference']);}
+        catch(Throwable $error){continue;}
+        if($reference!==''&&$case['reference']===$reference)
+            $referencedCase=$reference;
+        // All saved batches belong to ONE original RFQ. The previous matcher
+        // read only the preferred batch, losing replies to later suppliers.
+        foreach(aur_vendor_rfq_list($store,$case) as $version){
+            try{$draft=aur_vendor_rfq_read($store,$case,(string)$version['id']);}
+            catch(Throwable $error){continue;}
+            foreach($draft['messages']??[] as $message){
+                if(!is_array($message)||!in_array(($message['status']??''),
+                    ['ACCEPTED_BY_MAIL_TRANSPORT','TRANSPORT_FAILED_OR_UNCONFIRMED','IN_FLIGHT'],true))continue;
+                $recipient=strtolower(trim((string)($message['to']??'')));
+                $matched=($classification['status']??'')==='DELIVERY_FAILED'
+                    ?($failedEmail!==''&&$failedEmail===$recipient)
+                    :($sender!==''&&$sender===$recipient);
+                if($matched)$hits[]=['matched'=>true,'case'=>$case,'draft'=>$draft,
+                    'message'=>$message,'email'=>$recipient];
+            }
         }
     }
-    return ['matched'=>false,'email'=>$failedEmail];
+    // No arbitrary first match: two saved batches for the same sender can
+    // carry different items. Leave quote attribution to owner review.
+    if(count($hits)===1)return $hits[0];
+    return ['matched'=>false,'case_reference'=>$referencedCase,
+            'email'=>$failedEmail!==''?$failedEmail:$sender,
+            'ambiguous'=>count($hits)>1];
 }
+
 function aur_mail_save_offer(string $store,array $match,array $cls,array $event):bool {
     if(!in_array($cls['status'],['QUOTE_RECEIVED','NOT_AVAILABLE','ALTERNATIVE_OFFERED'],true)
        ||count($cls['items'])!==1)return false;
@@ -109,7 +127,8 @@ function aur_mail_import(string $store,int $uid,int $uidvalidity,string $raw):ar
     $cls=$raw!==''?aur_mail_classify($mail):
         ['status'=>'TOO_LARGE','body'=>'','items'=>[],'price'=>'','currency'=>'','lead_time'=>''];
     $match=aur_mail_match($store,$mail,$cls);
-    $ref=$match['matched']?(string)$match['case']['reference']:'';
+    $ref=$match['matched']?(string)$match['case']['reference']
+        :(string)($match['case_reference']??'');
     $event=['key'=>$key,'uid'=>$uid,'uidvalidity'=>$uidvalidity,
         'case_reference'=>$ref,'draft_id'=>$match['matched']?(string)$match['draft']['draft_id']:'',
         'from'=>$mail['from'],'subject'=>$mail['subject'],
@@ -120,7 +139,9 @@ function aur_mail_import(string $store,int $uid,int $uidvalidity,string $raw):ar
         'unit_price'=>$cls['price'],'currency'=>$cls['currency'],
         'lead_time'=>$cls['lead_time'],
         'preview'=>substr(preg_replace('/\s+/u',' ',(string)$cls['body'])??(string)$cls['body'],0,450),
-        'matched_to_sent_rfq'=>$match['matched'],'quote_recorded'=>false,
+        'matched_to_sent_rfq'=>$match['matched'],
+        'requires_sender_review'=>!$match['matched']&&$ref!=='',
+        'quote_recorded'=>false,
         'evidence_file'=>$raw!==''?$key.'.eml':''];
     if($raw!==''){
         $evidence=aur_mail_dir($store).'/'.$key.'.eml';

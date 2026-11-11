@@ -54,4 +54,44 @@ $alt="From: info@humanova.ae\r\nSubject: Re: ".$ref."\r\n\r\n"
 $ambiguous=aur_mail_import($store,16,4242,$alt);
 must_mail(!$ambiguous['quote_recorded'],'Alternative item ambiguity must not be auto-quoted');
 must_mail(count(aur_reply_read($store,$case))===1,'Ambiguous quote contaminated supplier register');
+
+// Another supplier received a message from a DIFFERENT saved email batch
+// belonging to this same original RFQ. The old primary-only lookup missed it.
+$secondId=bin2hex(random_bytes(12));
+$second=['case_reference'=>$ref,'case_source_sha256'=>$case['source_sha256'],
+    'draft_id'=>$secondId,'status'=>'TRANSPORT_ACCEPTED','created_at'=>gmdate('c'),
+    'messages'=>[['to'=>'sales@secondary-example.com','vendor_name'=>'Second Example',
+        'status'=>'ACCEPTED_BY_MAIL_TRANSPORT',
+        'items'=>[['source_row'=>2,'description'=>'Model AX-200']]]]];
+aur_vendor_rfq_write(aur_vendor_rfq_path($store,$ref,$secondId),$second);
+$secondaryRaw="From: sales@secondary-example.com\\r\\n"
+    ."Subject: Re: ".$ref."\\r\\nContent-Type: text/plain\\r\\n\\r\\n"
+    ."Please confirm which exact model number is required.";
+$secondary=aur_mail_import($store,17,4242,$secondaryRaw);
+must_mail($secondary['case_reference']===$ref && $secondary['matched_to_sent_rfq']===true,
+    'Reply to secondary supplier batch was lost from original case');
+// A subject containing the original reference is visibly case-linked, but
+// an unknown sender is not proof of a valid supplier quote.
+$unknownRaw="From: unknown@example.net\\r\\n"
+    ."Subject: Re: ".$ref."\\r\\nContent-Type: text/plain\\r\\n\\r\\n"
+    ."Quotation for buyer item 1: unit price EUR 1.";
+$unknown=aur_mail_import($store,18,4242,$unknownRaw);
+must_mail($unknown['case_reference']===$ref && !$unknown['matched_to_sent_rfq']
+    && !$unknown['quote_recorded'] && $unknown['requires_sender_review'],
+    'Unverified supplier mail was silently accepted as a quote');
+// Duplicate sent contact across batches must never be attributed to the first
+// draft arbitrarily: it is saved under the case for manual clarification.
+$thirdId=bin2hex(random_bytes(12));
+$third=$second;
+$third['draft_id']=$thirdId;
+$third['messages'][0]['items']=[['source_row'=>3,'description'=>'MT5000S washer']];
+aur_vendor_rfq_write(aur_vendor_rfq_path($store,$ref,$thirdId),$third);
+$ambiguousBatchRaw="From: sales@secondary-example.com\\r\\n"
+    ."Subject: Re: ".$ref."\\r\\nContent-Type: text/plain\\r\\n\\r\\n"
+    ."Quotation for buyer item 6: unit price EUR 500.";
+$ambiguousBatch=aur_mail_import($store,19,4242,$ambiguousBatchRaw);
+must_mail($ambiguousBatch['case_reference']===$ref
+    && !$ambiguousBatch['matched_to_sent_rfq']
+    && !$ambiguousBatch['quote_recorded'],
+    'Ambiguous multiple-batch reply must not fabricate an item price');
 echo "AURENOEVA_INCOMING_MAIL_RECONCILIATION=PASS\n";
