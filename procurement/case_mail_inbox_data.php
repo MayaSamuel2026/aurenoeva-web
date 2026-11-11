@@ -72,7 +72,8 @@ function aur_correspondence_threads(array $sent,array $attempts,array $inbound):
         if($name!==''&&$threads[$key]['supplier']==='')$threads[$key]['supplier']=$name;
         $classification=(string)($event['classification']??'UNCLASSIFIED');
         $deliveryIssue=$classification==='DELIVERY_FAILED';
-        $trusted=!$deliveryIssue&&!empty($event['matched_to_sent_rfq'])
+        $trusted=!$deliveryIssue&&
+            (!empty($event['matched_to_sent_rfq']) || !empty($event['supplier_case_match']))
             && empty($event['requires_sender_review']);
         $kind=$deliveryIssue?'delivery_issue':($trusted?'received':'review');
         if($trusted)$threads[$key]['reply_count']++;
@@ -84,7 +85,10 @@ function aur_correspondence_threads(array $sent,array $attempts,array $inbound):
             'item_numbers'=>is_array($event['buyer_items']??null)
                 ?implode(', ',array_map('strval',$event['buyer_items'])):'',
             'label'=>$deliveryIssue?'Delivery failure — inspect before retrying':
-                ($trusted?'Received, case and sender matched':'Inbound case reference — sender/batch needs review'),
+                ($trusted?(!empty($event['requires_batch_review'])
+                    ?'Verified supplier reply for this RFQ — exact outbound batch still requires review'
+                    :'Received, case and sender matched'):
+                    'Inbound case reference — sender/batch needs review'),
             'classification'=>$classification,
             'preview_only'=>true
         ]);
