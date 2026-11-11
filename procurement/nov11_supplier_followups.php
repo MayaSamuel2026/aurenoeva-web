@@ -82,19 +82,18 @@ function aur_nov11_followup_compose(array $case,array $plan):array {
             ."Die vollständige Geräteliste fügen wir nochmals bei. Vielen Dank, dass Sie prüfen, welche weiteren Positionen Sie anbieten können; auch Teilangebote sind willkommen.\n\n"
             ."Für einen kurzen persönlichen Austausch können wir gern einen Telefontermin abstimmen. Die Ausstattungs- und Preisangaben würden wir für die Kundenübersicht zunächst gern schriftlich festhalten.\n\n"
             ."AURENOEVA vermittelt die Anfrage; ein möglicher Kauf erfolgt direkt zwischen Kunde und Anbieter. Es handelt sich nicht um eine Bestellung.\n\n"
-            ."Herzliche Grüße\n\n"
             .aur_procurement_signed_closing('de',(string)$lead['email'])."\n";
     }else{
         $subject='Samsung HERA Z20 / V8 – Preisanfrage direkt an Herrn Müller | AUR-1A04A7909185FACD';
         $body="Guten Tag Herr Müller,\n\n"
-            ."wir interessieren uns für zwei Samsung-Ultraschallsysteme und wurden auf Sie als Ansprechpartner für Ultraschall bei Meditron aufmerksam. Unsere gestrige Anfrage an die allgemeine Adresse info@meditron.ch wurde vom Mailsystem leider nicht angenommen. Deshalb wenden wir uns direkt an Sie.\n\n"
+            ."wir interessieren uns für zwei Samsung-Ultraschallsysteme und wurden auf Sie als Ansprechpartner für Ultraschall bei Meditron aufmerksam. Unsere Anfrage an die allgemeine Adresse info@meditron.ch wurde vom Mailsystem leider nicht angenommen. Deshalb wenden wir uns direkt an Sie.\n\n"
             ."Für ein Krankenhausprojekt benötigen wir unverbindliche Preis- und Lieferangaben zu folgenden RFQ-Positionen:\n\n"
             ."• Position 3: 1 × Samsung HERA Z20, gemäß Kundenangabe mit den Optionen/Sonden CA1-7S, LA2-14A, EA2-11AR und CMV1-10 (weitere Optionsangaben im beigefügten RFQ).\n"
             ."• Position 4: 1 × Samsung V8 mit vier Schallköpfen, Scherwellen-Elastografie, EKG-Funktion, Heart Assist und den angefragten Softwareoptionen.\n\n"
             ."Können Sie diese Konfigurationen anbieten oder uns an den hierfür zuständigen Samsung-Vertriebspartner vermitteln? Hilfreich wären ein schriftlicher Richtpreis je System in der jeweiligen Währung, Lieferumfang und eventuelle Abweichungen von der Kundenanforderung, Verfügbarkeit, Lieferzeit sowie Garantie- und Exportbedingungen.\n\n"
             ."Unsere Firmenvorstellung und die vollständige länderneutrale RFQ-Liste fügen wir bei; falls Sie weitere der Positionen liefern können, nehmen wir gern auch dazu Informationen entgegen.\n\n"
             ."AURENOEVA vermittelt die Anfrage; eine spätere Bestellung würde ausschließlich direkt zwischen Käufer und Anbieter erfolgen.\n\n"
-            ."Vielen Dank im Voraus und herzliche Grüße\n\n"
+            ."Vielen Dank im Voraus!\n\n"
             .aur_procurement_signed_closing('de',(string)$lead['email'])."\n";
     }
     if(preg_match('/Uzbekistan|Usbekistan|Tashkent|AUR-UZ-/ui',$subject.' '.$body))
