@@ -72,7 +72,7 @@ catch(Throwable $error){$workbenchError=true;error_log('AURENOEVA mail evidence 
 <p class="muted">Every recorded sending-server acceptance and case-matched supplier response. Unmatched emails can be checked in the live inbox below. An SMTP acceptance is not an inbox delivery confirmation.</p>
 <p class="aur-workbench-totals">
 <span class="pill"><b><?=count($workbenchEmails['smtp_accepted'])?></b> SMTP accepted</span>
-<span class="pill"><b><?=count($workbenchReceived)?></b> inbound matched</span>
+<span class="pill"><b><?=count($workbenchReceived)?></b> inbound RFQ-referenced</span>
 <span class="pill"><b><?=count($workbenchEmails['unconfirmed'])?></b> unconfirmed attempts</span></p>
 <?php if($workbenchError):?><p role="alert">Some source records could not be read. They have not been removed; inspect the original mail ledger.</p><?php endif;?>
 <div class="aur-workbench-mail-columns">
@@ -86,11 +86,12 @@ catch(Throwable $error){$workbenchError=true;error_log('AURENOEVA mail evidence 
 <pre><?=aur_escape($message['body'])?></pre>
 </details>
 <?php endforeach;?></div>
-<div><h3>Received correspondence · case matched</h3>
-<?php if(!$workbenchReceived):?><p class="muted">No incoming messages matched to this RFQ yet. Open the Inbox below to check unmatched mail.</p><?php endif;?>
+<div><h3>Received correspondence · same RFQ reference</h3>
+<?php if(!$workbenchReceived):?><p class="muted">No incoming messages linked to this RFQ yet. Open the Inbox below to check unmatched mail.</p><?php endif;?>
 <?php foreach($workbenchReceived as $event):if(!is_array($event))continue;?>
 <div class="aur-mail-evidence-item"><b><?=aur_escape((string)($event['supplier']??$event['supplier_email']??'Unknown supplier'))?></b>
 <small><?=aur_escape((string)($event['received_at']??$event['processed_at']??''))?> · <?=aur_escape(str_replace('_',' ',(string)($event['classification']??'UNCLASSIFIED')))?></small>
+<?php if(empty($event['matched_to_sent_rfq'])):?><small>Sender or batch unverified · review before attributing a quotation</small><?php endif;?>
 </div><?php endforeach;?></div></div>
 <?php if($workbenchEmails['unconfirmed']):?>
 <details class="aur-tool-drawer"><summary><?=count($workbenchEmails['unconfirmed'])?> messages need transport-status review</summary>
