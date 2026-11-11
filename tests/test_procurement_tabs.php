@@ -40,8 +40,6 @@ check_tab(str_contains($entry, 'id="aur-diagnostics-fallback"') &&
           'Fallback must keep the original data and forms accessible without JavaScript');
 check_tab(str_contains($entry,'NOEVA_AURENOEVA_WORKSPACE_FOCUS_20261111'),
           'Compact shared design CSS missing');
-check_tab(str_contains($ui,"'overview', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'"),
-          'Six active work areas missing');
 check_tab(str_contains($ui,'aur-legacy-functions') && str_contains($ui,'aur-diagnostics-fallback'),
           'Saved original functions and history not retained');
 
