@@ -26,6 +26,81 @@ document.addEventListener('DOMContentLoaded', () => {
    if(d.children.length>1)panel.append(d);
    return d;
  };
+
+ // Focused item research — the complete saved item and supplier evidence
+ // remains in the original DOM. Only one item is opened at a time.
+ const setupSourceNavigator=(sourceRoot)=>{
+   const sourceItems=Array.from(sourceRoot.children).filter(node=>node.tagName==='DETAILS');
+   if(!sourceItems.length)return;
+   const navigator=document.createElement('div');navigator.className='aur-source-explorer';
+   const side=document.createElement('div');side.className='aur-source-side';
+   const finder=document.createElement('input');
+   finder.type='search';finder.placeholder='Search item number, model or supplier';
+   finder.className='aur-source-filter';finder.setAttribute('aria-label','Find RFQ item or saved source');
+   const count=document.createElement('p');count.className='aur-source-count';count.setAttribute('role','status');
+   const items=document.createElement('div');items.className='aur-source-items';
+   const pager=document.createElement('div');pager.className='aur-source-pagination';
+   const previous=document.createElement('button');previous.type='button';previous.textContent='Previous';
+   const next=document.createElement('button');next.type='button';next.textContent='Next';
+   const pageLabel=document.createElement('span');pageLabel.className='aur-source-page-label';
+   pager.append(previous,pageLabel,next);
+   side.append(finder,count,items,pager);
+   const detail=document.createElement('div');detail.className='aur-source-detail';
+   detail.setAttribute('aria-label','Selected RFQ item and its source evidence');
+   const help=document.createElement('p');help.textContent='Select a requested item to inspect its sources.';
+   const stash=document.createElement('div');stash.hidden=true;stash.className='aur-source-hidden';
+   sourceItems.forEach(node=>{node.open=false;stash.append(node);});
+   navigator.append(side,detail,stash);sourceRoot.append(navigator);
+   const labels=sourceItems.map(node=>node.querySelector('summary')?.textContent.trim()||'RFQ item');
+   const searchText=sourceItems.map((node,i)=>(labels[i]+' '+node.textContent).toLocaleLowerCase());
+   const pageSize=9;
+   let filter='',page=0,selected=-1;
+   const matches=()=>sourceItems.map((_,i)=>i).filter(i=>!filter||searchText[i].includes(filter));
+   const choose=i=>{
+     if(i===selected)return;
+     if(selected!==-1){sourceItems[selected].open=false;stash.append(sourceItems[selected]);}
+     selected=i;
+     detail.replaceChildren();
+     if(i<0){detail.append(help);return;}
+     const title=document.createElement('div');title.className='aur-source-detail-label';
+     title.textContent='RFQ ITEM · SOURCE EVIDENCE';
+     detail.append(title,sourceItems[i]);
+     sourceItems[i].open=true;
+     draw();
+   };
+   const draw=()=>{
+     const found=matches();
+     const pages=Math.max(1,Math.ceil(found.length/pageSize));
+     page=Math.min(page,pages-1);
+     const start=page*pageSize;
+     items.replaceChildren();
+     for(const i of found.slice(start,start+pageSize)){
+       const button=document.createElement('button');button.type='button';
+       button.className='aur-source-choice';
+       button.setAttribute('aria-pressed',String(selected===i));
+       const strong=document.createElement('span');strong.textContent=labels[i];
+       button.append(strong);
+       button.addEventListener('click',()=>choose(i));
+       items.append(button);
+     }
+     if(!found.length){
+       const empty=document.createElement('p');empty.textContent='No matching RFQ items. Try another model, supplier or item number.';
+       items.append(empty);
+     }
+     count.textContent=found.length+' matching item(s) of '+sourceItems.length+' original lines';
+     pageLabel.textContent=found.length?('Items '+(start+1)+'–'+Math.min(start+pageSize,found.length)+' of '+found.length):'No matches';
+     previous.disabled=page===0;next.disabled=page>=pages-1;
+   };
+   finder.addEventListener('input',()=>{
+     filter=finder.value.trim().toLocaleLowerCase();page=0;
+     const found=matches();
+     if(!found.includes(selected))choose(found[0]??-1);
+     draw();
+   });
+   previous.addEventListener('click',()=>{page=Math.max(0,page-1);const found=matches();choose(found[page*pageSize]??-1);draw();});
+   next.addEventListener('click',()=>{page+=1;const found=matches();choose(found[page*pageSize]??-1);draw();});
+   choose(0);draw();
+ };
  const intro=(panel,title,help)=>{
    const div=document.createElement('div');div.className='aur-area-heading';
    const h=document.createElement('h2');h.textContent=title;
@@ -52,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
    // Existing line->vendor research is the source of truth; show per-item matches.
    intro(panels.sources,'Potential suppliers by item','Open any buyer item to see its documented potential sources, contact details and links to original evidence.');
    const itemSource=move('item-sources',panels.sources);
-   if(itemSource)itemSource.open=true;
+   if(itemSource){itemSource.open=true;setupSourceNavigator(itemSource);}
    drawer(panels.sources,'Search more sources for this RFQ',['supplier-search-controls']);
    const selectSuppliers=get('supplier-dashboard');
    // Selecting suppliers prepares draft email records but does not send.

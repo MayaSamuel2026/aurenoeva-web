@@ -11,7 +11,7 @@ foreach(['rfq','sources','mail','drafts','more'] as $panel) {
  check_tab(str_contains($entry,'data-aur-tab="'.$panel.'"'),'Missing accessible tab '.$panel);
  check_tab(str_contains($ui,"'".$panel."'"),'Tab not wired '.$panel);
 }
-check_tab(str_contains($entry,'workspace-tabs.js?v=6'),'UI script not installed');
+check_tab(str_contains($entry,'workspace-tabs.js?v=7'),'UI script not installed');
 foreach(['aur-upload','saved-cases','destination-screen','supplier-workspace','aur-rfq-approval','supplier-replies','aur-mail-settings'] as $target) {
  check_tab(str_contains($ui,"'".$target."'"),'Existing workflow target not retained: '.$target);
 }
@@ -48,3 +48,8 @@ check_tab(str_contains($portal,'$itemSuggestions=$rankedByRow'), 'Supplier leads
 check_tab(str_contains($entry,'case_mail_workbench.php'),'Case mail evidence view not included');
 check_tab(str_contains($ui,"'aur-mail-trail'")&&str_contains($ui,"'aur-email-review-queue'"),
           'Sent/received mail and prepared emails must be direct working areas');
+
+check_tab(str_contains($ui,'setupSourceNavigator(itemSource)') && str_contains($ui,'sourceItems.forEach') && str_contains($ui,'pageSize=9'), 'All RFQ sources must be searchable and paginated without deletion');
+check_tab(str_contains($entry,'AURENOEVA_COMPACT_ITEM_MAIL_20261111'), 'Compact single-item and mail layout absent');
+$inbox=file_get_contents($root.'/deployment/site/procurement/mail-center.js');
+check_tab(str_contains($inbox,'pageRows = 9') && str_contains($inbox,'visible.slice(start, start + pageRows)'), 'Mail inbox must be paginated without truncating saved messages');

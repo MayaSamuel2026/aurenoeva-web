@@ -1233,6 +1233,36 @@ button,select,input,textarea{max-width:100%}
 #aur-mail-trail h2,#aur-email-review-queue h2{font:400 25px Georgia,serif;margin:0 0 7px}
 #aur-mail-trail h3{font-size:15px}
 @media(max-width:700px){.aur-workbench-mail-columns{grid-template-columns:1fr}}
+
+/* AURENOEVA_COMPACT_ITEM_MAIL_20261111 — 9 at a time, no data truncation. */
+#aur-panel-sources #item-sources>summary{font-size:13px;margin-bottom:4px}
+#aur-panel-sources #item-sources>p.muted{font-size:12px;max-width:800px;margin:4px 0 12px}
+.aur-source-explorer{display:grid;grid-template-columns:minmax(260px,37%) minmax(0,1fr);gap:14px;align-items:start;margin-top:12px}
+.aur-source-side,.aur-source-detail{background:#fff;border:1px solid #dce5ea;border-radius:12px;padding:14px;min-width:0}
+.aur-source-side{position:sticky;top:75px}
+.aur-source-filter{width:100%;font:inherit;font-size:13px;padding:11px 12px;border:1px solid #cbd9e0;border-radius:9px;background:#fff;color:#233746}
+.aur-source-count{font-size:11px;color:#667989;margin:10px 0}
+.aur-source-items{display:grid;gap:5px}
+.aur-source-choice{display:block;width:100%;text-align:left!important;white-space:normal;overflow-wrap:anywhere;font:600 12px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding:10px 11px;border:1px solid #dde6ea;border-radius:8px;background:#f8fafb;color:#233746;cursor:pointer}
+.aur-source-choice:hover{background:#edf3f7}
+.aur-source-choice[aria-pressed=true]{background:#e5eef4;border-color:#62829a;color:#1e465d;box-shadow:inset 3px 0 0 #375a70}
+.aur-source-pagination{display:flex;gap:7px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap}
+.aur-source-pagination button,.aur-mail-local-pages button{font-size:11px;padding:8px 10px;border:1px solid #cddbe2;background:#fff;color:#375a70;border-radius:8px}
+.aur-source-pagination button:disabled,.aur-mail-local-pages button:disabled{opacity:.4;cursor:default}
+.aur-source-page-label{font-size:11px;color:#667989}
+.aur-source-detail-label{color:#667989;font-size:10px;letter-spacing:.12em;font-weight:800;margin:0 0 11px}
+#aur-panel-sources .aur-source-detail>details{display:block;margin:0;padding:0;border:0;background:none}
+#aur-panel-sources .aur-source-detail>details>summary{display:none}
+.aur-source-detail a{overflow-wrap:anywhere}
+.aur-source-hidden{display:none!important}
+.aur-mail-local-pages{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 1px;border-top:1px solid #dce5ea}
+.aur-mail-local-pages span{font-size:11px;color:#667989}
+#aur-mail-list .aur-mail-row{min-height:0;padding:9px 12px;gap:3px}
+#aur-mail-list .aur-mail-row b{font-size:12px}
+#aur-mail-list .aur-mail-row time{font-size:10px}
+#aur-panel-mail .aur-mail-shell{max-width:100%}
+@media(max-width:850px){.aur-source-explorer{grid-template-columns:1fr}.aur-source-side{position:static}.aur-source-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.aur-source-items{grid-template-columns:1fr}.aur-mail-local-pages{align-items:stretch}.aur-mail-local-pages span{width:100%;order:-1}}
 </style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
@@ -1999,4 +2029,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=12"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=6"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=7"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>

@@ -52,6 +52,10 @@
 
     const csrf = document.querySelector('input[name="csrf"]')?.value;
     let folder = 'INBOX', page = 1, current = null, messages = [], more = false;
+    // Presentation-only paging within the existing server-owned inbox page.
+    // No mail is discarded or hidden from search; server Next/Previous remains.
+    const pageRows = 9;
+    let localPage = 0;
 
     const label = name => ({
       'INBOX': 'Inbox', 'INBOX.Sent': 'Sent',
@@ -160,7 +164,10 @@
         empty.className = 'muted';
         list.appendChild(empty);
       }
-      for (const mail of visible) {
+      const totalPages = Math.max(1, Math.ceil(visible.length / pageRows));
+      localPage = Math.min(localPage, totalPages - 1);
+      const start = localPage * pageRows;
+      for (const mail of visible.slice(start, start + pageRows)) {
         const row = document.createElement('button');
         row.type = 'button';
         row.className = 'aur-mail-row' + (mail.unread ? ' unread' : '');
@@ -195,14 +202,27 @@
             ? 'aur-mail-warning' : 'aur-mail-reference';
           row.appendChild(badge);
         }
-        const preview = text('small', mail.preview || '');
-        row.appendChild(preview);
+        // Preview stays in the actual message detail, not every inbox row.
+        // Keeps the mailbox compact and makes the sender/subject scannable.
         if (mail.reference) {
           const tag = text('span', mail.reference);
           tag.className = 'aur-mail-reference'; row.appendChild(tag);
         }
         row.addEventListener('click', () => open(mail.uid));
         list.appendChild(row);
+      }
+      if(visible.length > pageRows){
+        const footer=document.createElement('div');footer.className='aur-mail-local-pages';
+        const back=text('button','← Earlier in this page');
+        const forward=text('button','More messages →');
+        const info=text('span','Showing '+(start+1)+'–'+Math.min(start+pageRows,visible.length)+' of '+visible.length+' loaded messages');
+        back.type='button';forward.type='button';
+        back.className='ghost';forward.className='ghost';
+        back.disabled=localPage===0;
+        forward.disabled=localPage>=totalPages-1;
+        back.addEventListener('click',()=>{localPage--;renderList();});
+        forward.addEventListener('click',()=>{localPage++;renderList();});
+        footer.append(back,info,forward);list.append(footer);
       }
       previous.disabled = page <= 1;
       next.disabled = !more;
@@ -214,6 +234,7 @@
         const payload = await api({mail_action: 'list', folder, page});
         messages = payload.items || [];
         more = !!payload.more;
+        localPage = 0;
         renderList();
         showList();
         notice(payload.warning
@@ -342,7 +363,7 @@
     root.querySelector('#aur-mail-cancel').addEventListener('click', showList);
     previous.addEventListener('click', () => {page = Math.max(1, page-1);refresh();});
     next.addEventListener('click', () => {page++;refresh();});
-    search.addEventListener('input', renderList);
+    search.addEventListener('input', () => {localPage=0;renderList();});
     attachmentsInput.addEventListener('change', () => {
       const files = [...attachmentsInput.files];
       const size = files.reduce((total, file) => total + file.size, 0);
