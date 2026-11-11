@@ -371,6 +371,8 @@ jobs:
           node --check "$RUNNER_TEMP/source/site/procurement/worldwide.js"
           node --check "$RUNNER_TEMP/source/site/procurement/workspace-tabs.js"
           node --check "$RUNNER_TEMP/source/site/procurement/mail-center.js"
+          node --check "$RUNNER_TEMP/source/site/procurement/case-mail-inbox.js"
+          php -l "$RUNNER_TEMP/source/site/procurement/case_mail_inbox_data.php"
           php tests/test_commercial_intelligence.php
           node --check "$RUNNER_TEMP/source/site/procurement/commercial-intelligence.js"
           grep -q 'data-aur-tab="sources"' "$RUNNER_TEMP/source/site/procurement/index.php"
