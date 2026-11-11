@@ -62,6 +62,7 @@ function aur_supplier_full_rfq_pdf(array $case):string {
     }
     $lines[]='';
     $lines[]='Please reply to info@aurenoeva.com with the item numbers you can quote.';
+    $lines[]='Telephone: +49 176 471 77751  |  Email: info@aurenoeva.com';
     $lines[]='This enquiry is non-binding. No supplier authorization or stock is presumed.';
     // Prefer a legible two-page A4 schedule; never silently truncate an item.
     $step=count($lines)<=142?10:8.5;
