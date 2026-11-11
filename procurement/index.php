@@ -950,7 +950,12 @@ if ($isAdmin) {
     } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $ref=trim((string)($_GET['case'] ?? ''));
         try {
-            $result=$ref!==''?aur_case_read($aurStore,$ref):aur_case_list($aurStore);
+            if($ref!=='')$result=aur_case_read($aurStore,$ref);
+            else {
+                $list=aur_case_list($aurStore);
+                $ref=(string)($list['cases'][0]['reference']??'');
+                $result=$ref!==''?aur_case_read($aurStore,$ref):$list;
+            }
         } catch (Throwable $e) {
             aur_denied(404,'case not found');
         }
@@ -996,31 +1001,10 @@ if ($isAdmin && is_array($result) && isset($result['reference'])) {
             $supplierResearchMode='Shared supplier catalogue temporarily unavailable; this case and its local supplier contacts remain accessible.';
         }
     }
-    // Open the latest unsent sourcing review queue (never send on page load).
-    // Preserve explicit draft links and previous batches if the new data is unavailable.
+    // A customer case is the ONE RFQ. Never generate supplier email versions
+    // merely by opening the page. Draft preparation requires an explicit action.
     $aurDraftToOpen=isset($_GET['draft']) && is_string($_GET['draft'])
         ? (string)$_GET['draft'] : '';
-    if($aurDraftToOpen==='' && ($result['reference']??'')===AUR_URGENT_RFQ_REF) {
-        try {
-            $nextSourcing=aur_researched_next_20261106_prepare($aurStore,$result);
-            $aurDraftToOpen=(string)($nextSourcing['draft_id']??'');
-        } catch(Throwable $nextError) {
-            error_log('AURENOEVA new sourcing queue: '.get_class($nextError));
-            try {
-                $followupBatch=aur_researched_20261105_followup_prepare($aurStore,$result);
-                $aurDraftToOpen=(string)($followupBatch['draft_id']??'');
-            }catch(Throwable $followError) {
-                error_log('AURENOEVA earlier sourced queue: '.get_class($followError));
-                try {
-                    $newBatch=aur_next_stock_prepare($aurStore,$result);
-                    $aurDraftToOpen=(string)($newBatch['draft_id']??'');
-                } catch(Throwable $priorError) {
-                    error_log('AURENOEVA previous supplier draft preparation: '.get_class($priorError));
-                    $supplierResearchMode='New supplier drafts are unavailable; original case and previous correspondence are preserved.';
-                }
-            }
-        }
-    }
     if($aurDraftToOpen==='') {
         try {
             $primary=aur_vendor_rfq_primary($aurStore,$result);
@@ -1216,6 +1200,26 @@ button,select,input,textarea{max-width:100%}
 .aur-panel table{width:100%}.aur-panel .table-wrap{overflow-x:auto}
 @media(max-width:860px){.aur-tabs-enabled .aur-guide .aur-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.aur-tabs-enabled .aur-quick-actions{grid-template-columns:1fr 1fr}}
 @media(max-width:590px){.wrap{padding:12px}.aur-switcher{flex-wrap:nowrap}.aur-switcher button{font-size:12px;padding:9px 12px}.aur-tabs-enabled .aur-quick-actions{grid-template-columns:1fr}.aur-tabs-enabled .aur-guide .aur-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.aur-tabs-enabled .aur-panel .card{padding:14px}}
+
+/* AURENOEVA_ONE_RFQ_20261111 — task-first interface, existing evidence unchanged. */
+#aur-one-rfq{padding:23px;border:1px solid #dce5ea;border-radius:15px;background:#fff;margin:13px 0}
+.aur-one-rfq-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.aur-one-rfq-head h2{font:400 29px Georgia,serif;color:#233746;margin:5px 0}
+.aur-one-rfq-head p{margin:0 0 12px;font-size:12px}
+.aur-primary-link{display:inline-flex;background:#375a70;color:#fff!important;text-decoration:none;padding:10px 14px;border-radius:9px;font-size:12px;font-weight:700}
+.aur-panel .aur-area-heading{padding:9px 0 14px}
+.aur-area-heading h2{font:400 28px Georgia,serif;margin:0 0 6px}
+.aur-area-heading p{font-size:13px;max-width:780px;color:#667989;margin:0}
+.aur-panel details.aur-tool-drawer{border:1px solid #dce5ea;border-radius:12px;background:#fff;padding:14px 18px;margin:12px 0}
+.aur-panel details.aur-tool-drawer>summary{cursor:pointer;color:#375a70;font-size:13px;font-weight:750}
+.aur-panel details.aur-tool-drawer[open]>summary{border-bottom:1px solid #dce5ea;padding:0 0 12px;margin-bottom:13px}
+#aur-panel-sources #item-sources{display:block;background:#fff;border:1px solid #dce5ea;border-radius:14px;padding:15px 20px}
+#aur-panel-sources #item-sources>summary{font-weight:700;color:#375a70}
+#aur-panel-sources #item-sources>details{padding:9px;border-radius:8px}
+#aur-panel-sources #item-sources>details[open]{background:#f8fafb}
+.aur-tabs-enabled .aur-guide,.aur-tabs-enabled .aur-quick-actions{display:none}
+.aur-switcher button{font-size:13px;padding:11px 15px}
+.aur-switcher button[aria-selected="true"]{background:#375a70;color:#fff}
 </style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
@@ -1466,14 +1470,24 @@ try {
 <?php endif; ?>
 </section>
 </details>
-<nav id="aur-tabs" class="aur-switcher" role="tablist" data-default-panel="<?=$aurHasCase?'overview':'enquiry'?>" aria-label="Procurement areas">
-<button type="button" role="tab" data-aur-tab="overview" id="aur-tab-overview" aria-controls="aur-panel-overview">Today</button>
-<button type="button" role="tab" data-aur-tab="enquiry" id="aur-tab-enquiry" aria-controls="aur-panel-enquiry">Enquiries</button>
-<button type="button" role="tab" data-aur-tab="suppliers" id="aur-tab-suppliers" aria-controls="aur-panel-suppliers">Find suppliers</button>
-<button type="button" role="tab" data-aur-tab="rfq" id="aur-tab-rfq" aria-controls="aur-panel-rfq">RFQs &amp; replies</button>
-<button type="button" role="tab" data-aur-tab="mail" id="aur-tab-mail" aria-controls="aur-panel-mail">Mail Centre</button>
-<button type="button" role="tab" data-aur-tab="settings" id="aur-tab-settings" aria-controls="aur-panel-settings">More</button>
+<nav id="aur-tabs" class="aur-switcher" role="tablist" data-default-panel="rfq" aria-label="Single customer RFQ workspace">
+<button type="button" role="tab" data-aur-tab="rfq" id="aur-tab-rfq" aria-controls="aur-panel-rfq">The RFQ</button>
+<button type="button" role="tab" data-aur-tab="sources" id="aur-tab-sources" aria-controls="aur-panel-sources">Sources by item</button>
+<button type="button" role="tab" data-aur-tab="mail" id="aur-tab-mail" aria-controls="aur-panel-mail">Sent &amp; received</button>
+<button type="button" role="tab" data-aur-tab="drafts" id="aur-tab-drafts" aria-controls="aur-panel-drafts">Prepared emails</button>
+<button type="button" role="tab" data-aur-tab="more" id="aur-tab-more" aria-controls="aur-panel-more">More</button>
 </nav>
+<?php if($aurHasCase): ?>
+<section class="card" id="aur-one-rfq"><div class="aur-one-rfq-head">
+<div><span class="aur-step-label">ONE ORIGINAL CUSTOMER RFQ</span>
+<h2><?=aur_escape((string)$result['reference'])?></h2>
+<p class="muted"><?=(int)($result['line_count']??0)?> original item lines · <?=aur_escape((string)($result['created_at']??''))?></p></div>
+<a class="aur-primary-link" href="?original_file=<?=rawurlencode((string)$result['reference'])?>">Download original RFQ</a></div>
+<p class="muted">Supplier sources, drafted emails, sent messages and replies belong to this one case. Earlier email batches remain historical correspondence—not additional RFQs.</p></section>
+<?php else: ?>
+<section class="card" id="aur-one-rfq"><h2>No original RFQ selected</h2><p>Upload a customer sourcing file below.</p></section>
+<?php endif; ?>
+
 <nav id="aur-workflow" class="aur-guide" aria-label="RFQ status overview">
 <div class="aur-guide-head"><div><h2>Enquiry workflow</h2><p class="muted"><?= $aurHasCase?'Current case: '.aur_escape((string)$result['reference']):'Start with a customer file' ?> · Select any step to jump to its controls</p></div>
 <?php if($aurHasDraft): ?><a href="?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$rfqPreview['draft_id'])?>#aur-send-status">Refresh actual mail status ↻</a><?php endif; ?>
@@ -1971,4 +1985,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=12"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=4"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=6"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>

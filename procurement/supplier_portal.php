@@ -192,14 +192,15 @@ try {
 <p><?php foreach($regionsToSearch as $regionName=>$link):?>
 <a href="<?=aur_escape($link)?>" target="_blank" rel="noopener noreferrer"><?=aur_escape($regionName)?> ↗</a> &nbsp; 
 <?php endforeach;?></p>
-<?php $itemSuggestions=array_slice($rankedByRow[(string)($row['source_row']??'')]??[],0,4); ?>
+<?php $itemSuggestions=$rankedByRow[(string)($row['source_row']??'')]??[]; ?>
 <?php if($itemSuggestions):?>
-<div style="margin:10px 0"><strong>Ranked sourcing suggestions</strong>
+<div style="margin:10px 0"><strong>Potential sources documented against this item · <?=count($itemSuggestions)?></strong>
 <?php foreach($itemSuggestions as $suggestion):?>
 <div style="padding:8px 0;border-bottom:1px solid #e2e9e3">
 <b><?=aur_escape((string)$suggestion['name'])?></b>
 · <?= (int)$suggestion['score']?> / 100 evidence fit
 · <?=aur_escape((string)$suggestion['country'])?>
+<?php if(!empty($suggestion['contactable'])&&!empty($suggestion['email'])):?><div class="muted">Published email: <?=aur_escape((string)$suggestion['email'])?></div><?php endif;?>
 <div class="muted"><?=aur_escape((string)$suggestion['reason'])?> · Stock and authorization not verified</div>
 <a href="<?=aur_escape((string)$suggestion['evidence_url'])?>" target="_blank" rel="noopener noreferrer">Check source ↗</a>
 </div>

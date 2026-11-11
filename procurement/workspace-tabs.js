@@ -1,301 +1,163 @@
-/* Compact procurement workspace — presentation only.
- * Existing PHP case and mail-ledger writers are unchanged. No network calls.
+/* AURENOEVA_SINGLE_RFQ_WORKBENCH_20261111
+ * One original case. All forms and mail/supplier writers are original source.
+ * This script only relocates live DOM sections; it neither creates RFQs nor
+ * sends, approves, or edits messages.
  */
 (() => {
-  'use strict';
-  document.addEventListener('DOMContentLoaded', () => {
-    try {
-    const tabs = document.getElementById('aur-tabs');
-    const guide = document.getElementById('aur-workflow');
-    if (!tabs || !guide) return;
-    const keys = ['overview', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'];
-    const panels = {};
-    for (const key of keys) {
-      const panel = document.createElement('section');
-      panel.id = 'aur-panel-' + key;
-      panel.className = 'aur-panel';
-      panel.dataset.aurPanel = key;
-      panel.setAttribute('role', 'tabpanel');
-      panel.setAttribute('aria-labelledby', 'aur-tab-' + key);
-      panels[key] = panel;
-      tabs.parentNode.insertBefore(panel, guide);
-    }
-    const move = (element, panel, asCard = false) => {
-      if (!element || !panel) return false;
-      if (asCard) element.classList.add('card');
-      panel.appendChild(element);
-      return true;
-    };
-    const cardWithTitle = title => Array.from(document.querySelectorAll('section.card'))
-      .find(card => {
-        const heading = card.querySelector('h2');
-        return heading && heading.textContent.trim() === title;
-      });
-    move(guide, panels.overview);
-    // Global verification and crawler diagnostics must not precede the tabs
-    // or obscure the active RFQ working area on every screen.
-    const settingsGroup = document.createElement('details');
-    settingsGroup.className = 'aur-workgroup';
-    settingsGroup.innerHTML = '<summary>System status, source validation and background processes</summary>';
-    const researchGroup = document.createElement('details');
-    researchGroup.className = 'aur-workgroup';
-    researchGroup.innerHTML = '<summary>Research intelligence, source data and crawler observations</summary>';
-    const researchIntro = document.createElement('p');
-    researchIntro.className = 'muted';
-    researchIntro.textContent = 'Source observations are research candidates, not verified stock or price quotations. Open when investigation is needed.';
-    panels.suppliers.append(researchIntro);
-    move(document.getElementById('aur-wp09-verification'), settingsGroup);
-    move(document.getElementById('aur-automation-health'), settingsGroup);
-    move(document.getElementById('aur-deepfetcher'), researchGroup);
-    move(document.getElementById('aur-deepfetcher-inbox'), researchGroup);
-    move(document.getElementById('aur-commercial-intelligence'), researchGroup);
-    move(document.getElementById('aur-upload'), panels.enquiry);
-    move(document.getElementById('saved-cases'), panels.enquiry);
+'use strict';
+document.addEventListener('DOMContentLoaded', () => {
+ const tabs=document.getElementById('aur-tabs');
+ const rfq=document.getElementById('aur-one-rfq');
+ if(!tabs||!rfq)return;
+ const keys=['rfq','sources','mail','drafts','more'];
+ const panels={};
+ const get=id=>document.getElementById(id);
+ const move=(id,parent)=>{
+   const node=typeof id==='string'?get(id):id;
+   if(node&&parent)parent.append(node);
+   return node;
+ };
+ const drawer=(panel,label,items)=>{
+   const d=document.createElement('details');
+   d.className='aur-tool-drawer';
+   const summary=document.createElement('summary');summary.textContent=label;
+   d.append(summary);
+   for(const id of items)move(id,d);
+   if(d.children.length>1)panel.append(d);
+   return d;
+ };
+ const intro=(panel,title,help)=>{
+   const div=document.createElement('div');div.className='aur-area-heading';
+   const h=document.createElement('h2');h.textContent=title;
+   const p=document.createElement('p');p.textContent=help;
+   div.append(h,p);panel.append(div);
+ };
+ try{
+   for(const key of keys){
+     const panel=document.createElement('section');panel.id='aur-panel-'+key;
+     panel.className='aur-panel';panel.dataset.aurPanel=key;
+     panel.setAttribute('role','tabpanel');
+     panel.setAttribute('aria-labelledby','aur-tab-'+key);
+     tabs.parentNode.insertBefore(panel,rfq);
+     panels[key]=panel;
+   }
+   // The single original RFQ; no supplier-campaign "versions" on the landing.
+   intro(panels.rfq,'The RFQ','The original buyer document and its original item list. All other work remains attached to this case.');
+   move(rfq,panels.rfq);
+   const caseCard=get('destination-screen')?.closest('.card');
+   move('original-rfq-equipment',panels.rfq);
+   drawer(panels.rfq,'Country checks and commercial information',[caseCard]);
+   drawer(panels.rfq,'Open another saved RFQ or import a new one',['saved-cases','aur-upload']);
 
-    // Keep the original requested equipment and destination review together.
-    const caseCard = document.getElementById('destination-screen')?.closest('.card');
-    const researchControls = document.getElementById('supplier-search-controls');
-    if (researchControls) {
-      researchControls.classList.add('aux-disclosure');
-      researchGroup.appendChild(researchControls);
-    }
-    move(caseCard, panels.enquiry);
-    move(cardWithTitle('Existing enquiries'), panels.enquiry);
+   // Existing line->vendor research is the source of truth; show per-item matches.
+   intro(panels.sources,'Potential suppliers by item','Open any buyer item to see its documented potential sources, contact details and links to original evidence.');
+   const itemSource=move('item-sources',panels.sources);
+   if(itemSource)itemSource.open=true;
+   drawer(panels.sources,'Search more sources for this RFQ',['supplier-search-controls']);
+   const selectSuppliers=get('supplier-dashboard');
+   // Selecting suppliers prepares draft email records but does not send.
+   drawer(panels.drafts,'Prepare additional supplier emails',[selectSuppliers]);
+   drawer(panels.sources,'Additional supplier intelligence and saved evidence',['supplier-workspace']);
 
-    // Split the old long supplier card into two short working areas.
-    const suppliers = document.getElementById('supplier-workspace');
-    const oldSupplierCard = suppliers?.closest('.card');
-    if (suppliers) {
-      suppliers.style.removeProperty('margin-top');
-      suppliers.style.removeProperty('border-top');
-      suppliers.style.removeProperty('padding-top');
-      const supplierMatches = document.createElement('details');
-      supplierMatches.className = 'aur-workgroup';
-      supplierMatches.innerHTML = '<summary>Supplier matches and saved sourcing list</summary>';
-      move(suppliers, supplierMatches, true);
-      panels.suppliers.append(supplierMatches);
-    }
-    // Put the actual work first. The six recently researched suppliers were
-    // previously nested deep in the Suppliers tab while a 27-message
-    // historical reminder table dominated RFQ & replies.
-    const replyFollowups = document.getElementById('aur-nov11-reply-followups');
-    const nov11Round = document.getElementById('aur-nov11-source-round');
-    const nextSourcingRound = document.getElementById('aur-next-sourcing-round');
-    const followupRound = document.getElementById('aur-latest-supplier-rfq');
-    const latestRound = document.getElementById('aur-nov05-researched-rfq');
-    const previousRound = document.getElementById('aur-next-stock-rfq');
-    const newRound = replyFollowups || nov11Round || nextSourcingRound || followupRound || latestRound || previousRound;
-    const approvals = document.getElementById('aur-rfq-approval');
-    const reminders = document.getElementById('aur-price-reminders');
-    const replies = document.getElementById('supplier-replies');
-    const newHeader = document.createElement('div');
-    newHeader.className = 'card aur-rfq-priority';
-    newHeader.style.cssText = 'padding:20px 24px;margin:0 0 16px;border:1px solid #b9cfc5;background:#f8fbfa';
-    const heading = document.createElement('h2');
-    heading.textContent = 'New supplier enquiries — review & send';
-    heading.style.cssText = 'margin:0 0 8px;font-size:22px';
-    const help = document.createElement('p');
-    help.textContent = newRound
-      ? (replyFollowups
-          ? 'Two timely follow-ups: Duo Med configuration details and Meditron Samsung ultrasound reroute. Preview each email, save for review, then explicitly select recipients. Neither message is sent automatically.'
-          : nov11Round
-          ? 'New source-first research: 29 suppliers for 34 unpriced items. Preview recipient-specific enquiries, save without sending, then tick up to three recipients. Suppliers without verified emails remain research-only.'
-          : nextSourcingRound
-          ? 'Latest round: written-price follow-ups and specialist first enquiries. Review the exact RFQ items, then tick up to three recipients. No email is sent automatically.'
-          : followupRound
-            ? 'Seven new supplier emails and two marketplace contact routes. Save for review, then send up to three at a time.'
-          : latestRound
-            ? 'Nine product-specific enquiries with source evidence. Save for review, then send up to three at a time.'
-            : 'Six product-specific suppliers. Review emails and attachments, then tick up to three recipients.')
-      : 'Open an enquiry to prepare and review its supplier emails.';
-    help.style.margin = '0';
-    newHeader.append(heading, help);
-    panels.rfq.appendChild(newHeader);
-    if (newRound) {
-      if (!replyFollowups && !nov11Round && !nextSourcingRound && !followupRound && !latestRound) {
-        const roundTitle = newRound.querySelector('h2');
-        if (roundTitle) roundTitle.textContent = 'Six new suppliers · Prepared for review';
-      }
-      newRound.style.marginTop = '0';
-      move(newRound, panels.rfq);
-    }
-    if (approvals) {
-      approvals.style.padding = '18px 22px';
-      approvals.style.borderTop = 'none';
-      move(approvals, panels.rfq, true);
-    }
-    const historical = document.createElement('details');
-    historical.className = 'card aur-rfq-history';
-    historical.style.cssText = 'padding:14px 22px;margin-top:14px';
-    const historicalTitle = document.createElement('summary');
-    historicalTitle.textContent = 'Earlier supplier campaigns · View only when needed';
-    historicalTitle.style.cssText = 'cursor:pointer;font-weight:700;padding:7px 0';
-    historical.appendChild(historicalTitle);
-    for (const id of ['aur-stock-supplier-rfqs','aur-nov-short-supplier-rfqs','aur-urgent-supplier-rfqs']) {
-      const section = document.getElementById(id);
-      if (section) historical.appendChild(section);
-    }
-    if (newRound !== nov11Round && nov11Round) historical.appendChild(nov11Round);
-    if (newRound !== nextSourcingRound && nextSourcingRound) historical.appendChild(nextSourcingRound);
-    if (newRound !== followupRound && followupRound) historical.appendChild(followupRound);
-    if (newRound !== latestRound && latestRound) historical.appendChild(latestRound);
-    if (newRound !== previousRound && previousRound) historical.appendChild(previousRound);
-    if (historical.children.length > 1) panels.rfq.appendChild(historical);
-    const extra = (node, label, id) => {
-      if (!node) return;
-      const box = document.createElement('details');
-      box.className = 'card aur-rfq-secondary';
-      box.id = id;
-      box.style.cssText = 'padding:14px 22px;margin-top:14px';
-      const title = document.createElement('summary');
-      title.textContent = label;
-      title.style.cssText = 'cursor:pointer;font-weight:700;padding:7px 0';
-      box.appendChild(title);
-      box.appendChild(node);
-      panels.rfq.appendChild(box);
-    };
-    extra(reminders, 'Supplier reminders · Earlier recipients and follow-ups', 'aur-reminders-archive');
-    extra(replies, 'Received supplier quotations and mailbox history', 'aur-replies-archive');
-    if (oldSupplierCard) {
-      if (oldSupplierCard.children.length === 0) oldSupplierCard.remove();
-      else move(oldSupplierCard, researchGroup);
-    }
-    move(cardWithTitle('Supplier research'), researchGroup);
-    if (researchGroup.children.length > 1) panels.suppliers.append(researchGroup);
-    if (!suppliers && panels.suppliers.childElementCount === 0)
-      panels.suppliers.innerHTML = '<div class="card"><h2>Suppliers</h2><p>Open a saved enquiry to review supplier research.</p></div>';
-    if (!newRound && !approvals && !reminders && !replies) {
-      const empty = document.createElement('p');
-      empty.textContent = 'No supplier RFQ is available for this enquiry yet.';
-      panels.rfq.appendChild(empty);
-    }
+   // Sent records and replies stay tied to the existing signed mail ledgers.
+   intro(panels.mail,'Sent and received emails','The RFQ correspondence ledger and the live Hostinger inbox and sent folder.');
+   move('supplier-replies',panels.mail);
+   move('aur-mail-center',panels.mail);
+   if(!get('supplier-replies')&&!get('aur-mail-center')){
+     const p=document.createElement('p');p.textContent='No correspondence recorded yet.';
+     panels.mail.append(p);
+   }
 
-    // Diagnostics, catalogue administration and historical counts stay separate.
-    move(document.getElementById('aur-mail-center'), panels.mail);
-    move(document.getElementById('aur-brand-brochure'), settingsGroup);
-    move(document.getElementById('aur-mail-settings')?.closest('.card'), settingsGroup);
-    move(cardWithTitle('Live product catalogue'), settingsGroup);
-    move(document.getElementById('supplier-history-counts'), settingsGroup);
-    // Historical sections not explicitly listed above remain in the original
-    // DOM until this point. Move them to a closed More group, never discard.
-    const otherTools = document.createElement('details');
-    otherTools.className = 'aur-workgroup';
-    otherTools.innerHTML = '<summary>Additional historical tools and records</summary>';
-    for (const id of ['aur-diagnostics-fallback','aur-legacy-functions']) {
-      const wrapper = document.getElementById(id);
-      if (!wrapper) continue;
-      for (const child of Array.from(wrapper.children)) {
-        if (child.tagName !== 'SUMMARY') otherTools.appendChild(child);
-      }
-      wrapper.remove();
-    }
-    if (otherTools.children.length > 1) panels.settings.append(otherTools);
-    if (settingsGroup.children.length > 1) panels.settings.append(settingsGroup);
+   intro(panels.drafts,'Prepared emails — review and send','Review the recipient, message and attachments. Use the original authorization controls to send only approved emails.');
+   // A saved current batch is the review/action surface. Historical campaigns
+   // remain available in More, not as separate buyer RFQs.
+   const approved=get('aur-rfq-approval');
+   const recentIds=['aur-nov11-reply-followups','aur-nov11-source-round',
+     'aur-next-sourcing-round','aur-latest-supplier-rfq',
+     'aur-nov05-researched-rfq','aur-next-stock-rfq'];
+   const current=recentIds.map(get).find(Boolean);
+   if(current)move(current,panels.drafts);
+   move(approved,panels.drafts);
+   if(!current&&!approved){
+     const p=document.createElement('p');
+     p.textContent='No prepared emails in the selected case. Open Prepare additional supplier emails above to create drafts for review.';
+     panels.drafts.append(p);
+   }
 
-    // Only read-only shortcuts; they never approve or dispatch emails.
-    const actions = document.createElement('div');
-    actions.className = 'aur-quick-actions';
-    actions.setAttribute('aria-label', 'Common procurement tasks');
-    const links = newRound
-      ? [[replyFollowups ? 'Review Duo Med & Meditron replies' : nov11Round ? 'Review 11 November sourcing' : nextSourcingRound ? 'Review next sourcing round' : followupRound ? 'Review 7 supplier emails' : latestRound ? 'Review 9 researched enquiries' : 'Review 6 supplier enquiries', '#' + newRound.id],
-         ['Select up to 3 recipients', '#aur-vendor-send-form'],
-         ['Review incoming quotations', '#supplier-replies'],
-         ['View original equipment', '#original-rfq-equipment']]
-      : document.getElementById('aur-send-status')
-        ? [['Review supplier RFQ', '#aur-rfq-approval'],
-           ['Supplier replies', '#supplier-replies'],
-           ['Supplier selection', '#supplier-dashboard']]
-        : [['Upload an enquiry', '#aur-upload'], ['Select suppliers', '#supplier-dashboard']];
-    for (const [label, href] of links) {
-      if (!document.getElementById(href.slice(1))) continue;
-      const a = document.createElement('a');
-      a.href = href; a.textContent = label + ' →';
-      actions.appendChild(a);
-    }
-    panels.overview.appendChild(actions);
-
-    const activate = (key, pushHash = false) => {
-      if (!panels[key]) key = 'overview';
-      for (const name of keys) {
-        panels[name].classList.toggle('is-active', name === key);
-        const tab = tabs.querySelector('[data-aur-tab="' + name + '"]');
-        if (tab) {
-          tab.setAttribute('aria-selected', String(name === key));
-          tab.tabIndex = name === key ? 0 : -1;
-        }
-      }
-      if (pushHash) {
-        history.replaceState(null, '', location.pathname + location.search + '#tab-' + key);
-        tabs.scrollIntoView({block: 'start', behavior: 'smooth'});
-      }
-    };
-    const openDeepLink = () => {
-      const hash = decodeURIComponent(location.hash.slice(1));
-      const tabKey = hash.startsWith('tab-') ? hash.slice(4) : '';
-      if (panels[tabKey]) { activate(tabKey); return; }
-      const target = hash ? document.getElementById(hash) : null;
-      const parentPanel = target?.closest('[data-aur-panel]');
-      if (!parentPanel) { activate(tabs.dataset.defaultPanel || 'overview'); return; }
-      activate(parentPanel.dataset.aurPanel);
-      // Deep links from existing saved RFQs may point inside collapsed details.
-      let details = target.closest('details');
-      while (details) {
-        details.open = true;
-        details = details.parentElement?.closest('details') || null;
-      }
-      requestAnimationFrame(() => target.scrollIntoView({block:'start'}));
-    };
-    tabs.addEventListener('click', event => {
-      const button = event.target.closest('button[data-aur-tab]');
-      if (button) activate(button.dataset.aurTab, true);
-    });
-    tabs.addEventListener('keydown', event => {
-      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-      const current = keys.findIndex(key => tabs.querySelector('[data-aur-tab="' + key + '"]')?.getAttribute('aria-selected') === 'true');
-      const next = (current + (event.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length;
-      event.preventDefault();
-      activate(keys[next], true);
-      tabs.querySelector('[data-aur-tab="' + keys[next] + '"]')?.focus();
-    });
-    document.addEventListener('click', event => {
-      const link = event.target.closest('a[href^="#"]');
-      if (!link) return;
-      const target = document.getElementById(decodeURIComponent(link.hash.slice(1)));
-      const panel = target?.closest('[data-aur-panel]');
-      if (!panel) return;
-      activate(panel.dataset.aurPanel);
-      let details = target.closest('details');
-      while (details) {
-        details.open = true;
-        details = details.parentElement?.closest('details') || null;
-      }
-      requestAnimationFrame(() => target.scrollIntoView({block:'start', behavior:'smooth'}));
-    });
-    window.addEventListener('hashchange', openDeepLink);
-    // Give every work area an immediate purpose; no extra dashboards.
-    const descriptions = {
-      enquiry: ['Enquiries', 'Choose a customer request, inspect its original documents or add a new RFQ.'],
-      suppliers: ['Find suppliers', 'Review current suppliers first. Open research details only when you need them.'],
-      rfq: ['RFQs & replies', 'Prepare and approve messages explicitly; past campaigns and reminders stay in collapsible history.'],
-      mail: ['Mail Centre', 'Read incoming correspondence, inspect attachments and reply from the existing mailbox.'],
-      settings: ['More & history', 'Original catalogues, diagnostics, archives and connection settings.']
-    };
-    for (const [key, info] of Object.entries(descriptions)) {
-      const heading = document.createElement('div');
-      heading.className = 'aur-area-heading';
-      const title = document.createElement('h2');title.textContent = info[0];
-      const note = document.createElement('p');note.textContent = info[1];
-      heading.append(title,note);
-      panels[key].insertBefore(heading,panels[key].firstChild);
-    }
-    document.documentElement.classList.add('aur-tabs-enabled');
-    openDeepLink();
-    } catch (error) {
-      // Source files, forms and saved records remain reachable if a client
-      // extension or partial deployment interrupts the optional organizer.
-      console.error('AURENOEVA workspace organizer could not initialize', error);
-      document.documentElement.classList.remove('aur-tabs-enabled');
-      document.querySelectorAll('.aur-fallback-group').forEach(group => { group.open = true; });
-    }
-  });
+   intro(panels.more,'History and other tools','System diagnostics, earlier supplier campaigns, administration and research history.');
+   drawer(panels.more,'Original step-by-step status',['aur-workflow']);
+   const oldHistory=get('aur-legacy-functions'),diagnostics=get('aur-diagnostics-fallback');
+   if(oldHistory){oldHistory.open=false;move(oldHistory,panels.more);}
+   if(diagnostics){diagnostics.open=false;move(diagnostics,panels.more);}
+   for(const id of ['aur-commercial-intelligence','aur-automation-health','aur-deepfetcher',
+     'aur-wp09-verification','aur-deepfetcher-inbox','aur-brand-brochure','supplier-history-counts']){
+     const node=get(id);
+     if(node&&!node.closest('#aur-panel-more'))
+       drawer(panels.more,'Additional '+id.replace(/^aur-/,'').replaceAll('-',' '),[node]);
+   }
+   const setting=get('aur-mail-settings')?.closest('.card');
+   if(setting&&!setting.closest('#aur-panel-more'))drawer(panels.more,'Mail account settings',[setting]);
+   const active=(key,push=false)=>{
+     if(!panels[key])key='rfq';
+     for(const name of keys){
+       panels[name].classList.toggle('is-active',name===key);
+       const btn=tabs.querySelector('[data-aur-tab="'+name+'"]');
+       if(btn){btn.setAttribute('aria-selected',String(name===key));btn.tabIndex=name===key?0:-1;}
+     }
+     if(push){
+       history.replaceState(null,'',location.pathname+location.search+'#tab-'+key);
+       tabs.scrollIntoView({behavior:'smooth',block:'start'});
+     }
+   };
+   // Legacy deep links remain routable after consolidation.
+   const aliases={overview:'rfq',enquiry:'rfq',suppliers:'sources',
+       intelligence:'sources',settings:'more',messages:'mail'};
+   const openHash=()=>{
+     const hash=decodeURIComponent(location.hash.slice(1));
+     const requested=hash.startsWith('tab-')?hash.slice(4):'';
+     if(requested){active(aliases[requested]||requested);return;}
+     const target=hash?get(hash):null;
+     const panel=target?.closest('[data-aur-panel]');
+     active(panel?.dataset.aurPanel||'rfq');
+     if(target&&panel){
+       let d=target.closest('details');
+       while(d){d.open=true;d=d.parentElement?.closest('details')||null;}
+       requestAnimationFrame(()=>target.scrollIntoView({block:'start'}));
+     }
+   };
+   tabs.addEventListener('click',e=>{
+     const b=e.target.closest('button[data-aur-tab]');
+     if(b)active(b.dataset.aurTab,true);
+   });
+   tabs.addEventListener('keydown',e=>{
+     if(!['ArrowLeft','ArrowRight'].includes(e.key))return;
+     const current=keys.findIndex(k=>tabs.querySelector('[data-aur-tab="'+k+'"]')?.getAttribute('aria-selected')==='true');
+     const next=(current+(e.key==='ArrowRight'?1:-1)+keys.length)%keys.length;
+     e.preventDefault();active(keys[next],true);
+     tabs.querySelector('[data-aur-tab="'+keys[next]+'"]')?.focus();
+   });
+   document.addEventListener('click',e=>{
+     const link=e.target.closest('a[href^="#"]');
+     if(!link)return;
+     const id=decodeURIComponent(link.hash.slice(1));
+     const target=get(id),panel=target?.closest('[data-aur-panel]');
+     if(!panel)return;
+     active(panel.dataset.aurPanel);
+     let d=target.closest('details');
+     while(d){d.open=true;d=d.parentElement?.closest('details')||null;}
+     requestAnimationFrame(()=>target.scrollIntoView({block:'start',behavior:'smooth'}));
+   });
+   document.documentElement.classList.add('aur-tabs-enabled');
+   window.addEventListener('hashchange',openHash);
+   openHash();
+ }catch(error){
+   // Original forms and immutable evidence remain accessible if the optional
+   // layout cannot initialize; no records are dropped or moved to a new store.
+   console.error('AURENOEVA workbench presentation unavailable',error);
+   document.documentElement.classList.remove('aur-tabs-enabled');
+   for(const id of ['aur-legacy-functions','aur-diagnostics-fallback']){
+     const d=get(id);if(d)d.open=true;
+   }
+ }
+});
 })();
