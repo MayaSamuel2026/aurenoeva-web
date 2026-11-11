@@ -31,8 +31,7 @@ function aur_procurement_legal_signature(string $language='en'):string {
             "Eingetragen beim Amtsgericht Koblenz\n".
             "HRA 23554\n\n".
             "Telefon: +49 176 471 77751\n".
-            "Phone: +49 176 471 77751\n".
-        "info@aurenoeva.com | https://aurenoeva.com";
+            "info@aurenoeva.com | https://aurenoeva.com";
     }
     return "AURENOEVA Purchasing\n".
         "NOEVA Systems e.K.\n".
@@ -42,6 +41,7 @@ function aur_procurement_legal_signature(string $language='en'):string {
         "Commercial register\n".
         "Registered with Amtsgericht Koblenz\n".
         "HRA 23554\n\n".
+        "Phone: +49 176 471 77751\n".
         "info@aurenoeva.com | https://aurenoeva.com";
 }
 function aur_procurement_signed_closing(string $language='en',string $recipientEmail=''):string {
