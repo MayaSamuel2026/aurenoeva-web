@@ -137,8 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
    // Sent records and replies stay tied to the existing signed mail ledgers.
    intro(panels.mail,'Sent and received emails','The RFQ correspondence ledger and the live Hostinger inbox and sent folder.');
    move('aur-mail-trail',panels.mail);
-   move('supplier-replies',panels.mail);
-   move('aur-mail-center',panels.mail);
+   drawer(panels.mail,'Original item-level reply records',['supplier-replies']);
+   drawer(panels.mail,'Open full Mail Centre, read attachments or compose',['aur-mail-center']);
    if(!get('supplier-replies')&&!get('aur-mail-center')){
      const p=document.createElement('p');p.textContent='No correspondence recorded yet.';
      panels.mail.append(p);

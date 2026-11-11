@@ -1263,6 +1263,62 @@ button,select,input,textarea{max-width:100%}
 #aur-panel-mail .aur-mail-shell{max-width:100%}
 @media(max-width:850px){.aur-source-explorer{grid-template-columns:1fr}.aur-source-side{position:static}.aur-source-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.aur-source-items{grid-template-columns:1fr}.aur-mail-local-pages{align-items:stretch}.aur-mail-local-pages span{width:100%;order:-1}}
+
+/* AURENOEVA_COMPACT_CORRESPONDENCE_20261111 — one supplier = one row. */
+#aur-mail-trail.aur-case-correspondence{padding:18px 20px;margin:10px 0;min-height:0}
+.aur-correspondence-head{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.aur-correspondence-head h2{font:400 25px/1.2 Georgia,serif;color:#233746;margin:3px 0 6px}
+.aur-correspondence-head p{margin:0 0 12px;max-width:800px;font-size:12px;line-height:1.5}
+.aur-correspondence-open-mail{display:inline-flex;padding:9px 12px;border:1px solid #cbd9e0;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700;color:#375a70;background:#fff;white-space:nowrap}
+.aur-correspondence-stats{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 13px}
+.aur-correspondence-metric{min-width:93px;display:flex;gap:7px;align-items:baseline;background:#f3f6f8;border:1px solid #dce5ea;border-radius:9px;padding:8px 11px}
+.aur-correspondence-metric strong{font-size:17px;color:#233746}
+.aur-correspondence-metric small{font-size:10px;color:#667989}
+.aur-correspondence-controls{display:grid;grid-template-columns:minmax(175px,1fr) auto auto;gap:11px;align-items:end;margin-bottom:10px}
+.aur-correspondence-controls label{font-size:10px;color:#667989;font-weight:700}
+.aur-correspondence-controls input,.aur-correspondence-controls select{display:block;margin-top:5px;padding:10px 11px;border:1px solid #cbd9e0;border-radius:9px;background:#fff;color:#233746;font:12px system-ui;width:100%}
+.aur-correspondence-filters{display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:660px}
+.aur-correspondence-filters button{font-size:11px;white-space:nowrap;border-radius:8px;padding:9px 10px;border:1px solid #dce5ea;background:#fff;color:#375a70}
+.aur-correspondence-filters button[aria-pressed="true"]{background:#375a70;color:#fff;border-color:#375a70}
+.aur-correspondence-grid{display:grid;grid-template-columns:minmax(265px,37%) minmax(0,1fr);gap:12px;align-items:start}
+.aur-correspondence-list-side,.aur-correspondence-preview{min-width:0;background:#fff;border:1px solid #dce5ea;border-radius:11px;padding:9px}
+.aur-correspondence-list-info{font-size:11px;font-weight:700;color:#667989;padding:7px 8px 10px}
+.aur-correspondence-rows{max-height:min(63vh,650px);overflow-y:auto;overscroll-behavior:contain}
+.aur-conversation-row{width:100%;min-height:50px!important;display:block;text-align:left!important;white-space:normal!important;padding:9px 10px!important;border:1px solid transparent!important;border-bottom-color:#e5ecf0!important;border-radius:7px!important;background:#fff!important;color:#233746!important;cursor:pointer}
+.aur-conversation-row:hover{background:#f3f7fa!important}
+.aur-conversation-row[aria-pressed="true"]{background:#e9f0f5!important;box-shadow:inset 3px 0 0 #375a70}
+.aur-conversation-row-top,.aur-conversation-row-bottom{display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0}
+.aur-conversation-row-top strong{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aur-conversation-row time{font-size:10px;font-weight:400;color:#667989;white-space:nowrap}
+.aur-conversation-row-bottom{margin-top:4px}
+.aur-conversation-row-bottom small{font-size:10px;color:#667989;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aur-correspondence-state{display:inline-flex;align-items:center;flex:0 0 auto;padding:3px 6px;border-radius:6px;font-size:10px;font-weight:700;background:#e9eff3;color:#36566b;white-space:nowrap}
+.aur-correspondence-state.state-review,.aur-correspondence-state.state-unconfirmed{background:#f5ece5;color:#85533c}
+.aur-correspondence-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 5px 4px;font-size:11px;color:#667989}
+.aur-correspondence-pagination button{font-size:11px;padding:7px 10px}
+.aur-correspondence-preview{max-height:min(71vh,735px);overflow-y:auto;overscroll-behavior:contain;padding:16px 17px;min-height:290px}
+.aur-correspondence-detail-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
+.aur-correspondence-detail-head h3{font:400 21px Georgia,serif;margin:0 0 4px;color:#233746}
+.aur-correspondence-detail-head p{font-size:11px;margin:0;overflow-wrap:anywhere}
+.aur-conversation-facts{font-size:11px;color:#667989;margin:12px 0}
+.aur-correspondence-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 15px}
+.aur-correspondence-actions button{border:1px solid #cbd9e0;border-radius:8px;background:#fff;color:#375a70;font-size:12px;font-weight:700;padding:9px 11px}
+.aur-correspondence-actions button.aur-followup-action{background:#375a70;color:#fff;border-color:#375a70}
+.aur-correspondence-thread h4{font-size:13px;font-weight:750;color:#233746;margin:12px 0}
+.aur-correspondence-message{border:1px solid #dce5ea;border-radius:8px;margin:7px 0;padding:9px 12px}
+.aur-correspondence-message summary{display:flex;gap:7px;flex-wrap:wrap;align-items:baseline;cursor:pointer;font-size:11px;color:#375a70}
+.aur-correspondence-message summary time{margin-left:auto;font-size:10px;color:#667989}
+.aur-correspondence-message summary small{width:100%;color:#667989;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aur-correspondence-message-body pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow-y:auto;padding:12px;border:1px solid #e3ebef;border-radius:7px;background:#f8fafb;color:#233746;font:12px/1.55 system-ui}
+.aur-correspondence-message-body p{font-size:11px}
+.aur-correspondence-empty{font-size:12px;color:#667989;padding:15px}
+.aur-correspondence-caution{font-size:12px;background:#fbf4ed;border-left:3px solid #a77a5b;padding:10px 12px}
+.aur-correspondence-hint{font-size:12px;color:#667989}
+.aur-correspondence-footnote{font-size:10px;margin:12px 0 0;line-height:1.5}
+.aur-correspondence-rows button:focus-visible,.aur-correspondence-controls button:focus-visible{outline:3px solid #86a7bd;outline-offset:1px}
+@media(max-width:1100px){.aur-correspondence-controls{grid-template-columns:1fr auto}.aur-correspondence-filters{grid-column:1/-1;grid-row:2}}
+@media(max-width:800px){.aur-correspondence-grid{grid-template-columns:1fr}.aur-correspondence-preview{max-height:57vh}.aur-correspondence-rows{max-height:38vh}.aur-correspondence-controls{grid-template-columns:1fr}}
+@media(max-width:560px){.aur-correspondence-filters{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.aur-correspondence-controls{display:block}.aur-correspondence-controls>label{display:block;margin-bottom:9px}.aur-correspondence-metric{min-width:79px}}
 </style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
@@ -2029,4 +2085,4 @@ info@aurenoeva.com | https://aurenoeva.com
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=12"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=7"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=6"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=7"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=7"></script><?php endif; ?></body></html>
