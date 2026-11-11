@@ -1,0 +1,14 @@
+[Unit]
+Description=AURENOEVA verified public catalogue publication schedule
+
+[Timer]
+# Run separately so slow website transfers never block discovery runs.
+OnBootSec=6min
+OnCalendar=*:10
+Persistent=true
+AccuracySec=1min
+RandomizedDelaySec=15
+Unit=aurenoeva-catalogue-publish.service
+
+[Install]
+WantedBy=timers.target
