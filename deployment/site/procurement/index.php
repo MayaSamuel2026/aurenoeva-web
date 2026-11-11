@@ -1319,6 +1319,13 @@ button,select,input,textarea{max-width:100%}
 @media(max-width:1100px){.aur-correspondence-controls{grid-template-columns:1fr auto}.aur-correspondence-filters{grid-column:1/-1;grid-row:2}}
 @media(max-width:800px){.aur-correspondence-grid{grid-template-columns:1fr}.aur-correspondence-preview{max-height:57vh}.aur-correspondence-rows{max-height:38vh}.aur-correspondence-controls{grid-template-columns:1fr}}
 @media(max-width:560px){.aur-correspondence-filters{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.aur-correspondence-controls{display:block}.aur-correspondence-controls>label{display:block;margin-bottom:9px}.aur-correspondence-metric{min-width:79px}}
+
+/* Refreshed inbox, source-backed status; not a separate mail synchronizer. */
+.aur-case-mail-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button.aur-correspondence-open-mail{cursor:pointer}
+button.aur-correspondence-open-mail:disabled{opacity:.5;cursor:wait}
+.aur-case-mail-refresh-status{font-size:11px;color:#496779;min-height:0}
+.aur-case-mail-refresh-status:not(:empty){padding:8px 10px;background:#edf4f7;border:1px solid #dce5ea;border-radius:8px;margin:0 0 9px}
 </style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>

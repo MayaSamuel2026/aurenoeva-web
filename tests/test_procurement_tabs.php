@@ -65,3 +65,9 @@ check_tab(str_contains($ui,'Open full Mail Centre, read attachments or compose')
     'Full mailbox must remain accessible without full-page scrolling');
 check_tab(str_contains($inbox,'aurenoeva:compose-supplier-followup') && str_contains($inbox,'openCompose()'),
     'Follow-up must open the existing manual Mail Centre draft');
+
+check_tab(str_contains($board,'aur-case-mail-refresh') &&
+          str_contains($board,'case-mail-inbox.js?v=2'), 'Manual refresh and new inbox script not published');
+check_tab(str_contains($threadUi,'sync_supplier_inbox') &&
+          str_contains($threadUi,'more_pending') &&
+          str_contains($threadUi,'location.reload()'), 'Existing private mailbox sync not connected to supplier inbox refresh');
