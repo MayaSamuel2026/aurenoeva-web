@@ -456,6 +456,72 @@ try {
 <?php endif;?>
 
 <?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
+$aurNov11Leads=aur_nov11_supplier_leads();
+$aurNov11Saved=null;$aurNov11Messages=[];$aurNov11Error='';
+try {
+    $aurNov11Saved=aur_nov11_supplier_saved($aurStore,$result);
+    if(is_array($aurNov11Saved))$aurNov11Messages=$aurNov11Saved['messages']??[];
+    else foreach(aur_nov11_supplier_plans($result) as $plan)
+        $aurNov11Messages[]=aur_nov11_supplier_compose($result,$plan);
+}catch(Throwable $e){
+    error_log('AURENOEVA Nov11 targeted supplier preview: '.get_class($e).' '.substr($e->getMessage(),0,110));
+    $aurNov11Error='Could not map the new source research to the saved original RFQ; please inspect the original equipment lines.';
+}
+$aurNov11Manual=array_values(array_filter($aurNov11Leads,static fn($lead)=>($lead['email']??'')===''));
+?>
+<section class="card" id="aur-nov11-source-round" style="margin-top:12px;border-color:#9dbbae">
+<h2>New specialist supplier sources · 11 November 2026</h2>
+<p><b><?=count($aurNov11Leads)?> source-specific suppliers for 34 still-unpriced RFQ items.</b>
+<?=count($aurNov11Messages)?> recipient-addressed emails, plus <?=count($aurNov11Manual)?> suppliers requiring a contact form or contact verification. Product listings are not confirmed inventory or written quotations.</p>
+<?php if($aurNov11Error!==''):?>
+<p role="alert"><?=aur_escape($aurNov11Error)?> No emails were sent.</p>
+<?php elseif(!is_array($aurNov11Saved)):?>
+<p role="status">The complete emails are displayed below for verification. Click once to save only unsent, not-previously-contacted recipients to the existing private RFQ outbox. Preparing never sends mail.</p>
+<form method="post" action="/procurement/">
+<input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
+<input type="hidden" name="case_ref" value="<?=aur_escape((string)$result['reference'])?>">
+<button type="submit" name="prepare_nov11_source_rfqs" value="1">Save November 11 enquiries for review · Do not send</button>
+</form>
+<?php else:?>
+<p role="status"><b><?=count($aurNov11Messages)?> saved RFQ messages</b> · <?=aur_escape((string)$aurNov11Saved['status'])?>.
+<a href="/procurement/?case=<?=rawurlencode((string)$result['reference'])?>&amp;draft=<?=rawurlencode((string)$aurNov11Saved['draft_id'])?>#aur-rfq-approval"><b>Review each recipient, select up to three and send →</b></a></p>
+<?php if(!empty($aurNov11Saved['skipped_existing_recipients'])):?>
+<p class="muted"><b>Excluded to avoid duplicate outreach:</b> <?=aur_escape(implode(', ',$aurNov11Saved['skipped_existing_recipients']))?></p>
+<?php endif;?>
+<?php endif;?>
+<?php if($aurNov11Messages):?>
+<details class="aux-disclosure" open>
+<summary>Preview <?=count($aurNov11Messages)?> recipient-specific email drafts · original item numbers</summary>
+<?php foreach($aurNov11Messages as $mail):?>
+<details class="aur-mail-preview">
+<summary><?=aur_escape((string)($mail['vendor_name']??''))?> · <?=aur_escape((string)($mail['to']??''))?>
+· <?php foreach(($mail['items']??[]) as $item):?>#<?=(int)($item['customer_item_number']??0)?> <?php endforeach;?></summary>
+<p><b>Model-specific evidence:</b> <a href="<?=aur_escape((string)($mail['listing_evidence_url']??''))?>" rel="noopener noreferrer" target="_blank">Open source ↗</a></p>
+<p class="muted"><?=aur_escape((string)($mail['listing_claim']??''))?></p>
+<?php if(($mail['supplier_country']??'')==='RU'):?><p class="muted"><strong>Trade/export feasibility unverified.</strong> Check legal and supply conditions before selecting this seller.</p><?php endif;?>
+<p><b>Subject:</b> <?=aur_escape((string)($mail['subject']??''))?></p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;padding:12px;background:#f2f5f3"><?=aur_escape((string)($mail['body']??''))?></pre>
+</details>
+<?php endforeach;?>
+</details>
+<?php endif;?>
+<details class="aux-disclosure">
+<summary>Research-only / contact-form suppliers · <?=count($aurNov11Manual)?> leads</summary>
+<p class="muted">These sources have no verified direct email for this equipment. They do not enter the SMTP queue. Links are for manual review, supplier identification and contact verification; do not invent email addresses.</p>
+<?php foreach($aurNov11Manual as $lead):?>
+<div style="padding:10px 0;border-bottom:1px solid #e3e9e5">
+<strong><?=aur_escape((string)$lead['name'])?></strong> · RFQ
+<?php foreach($lead['items'] as $n):?> #<?=(int)$n?><?php endforeach;?>
+<div class="muted"><?=aur_escape((string)$lead['model'])?> · <?=aur_escape((string)$lead['note'])?></div>
+<a href="<?=aur_escape((string)$lead['url'])?>" target="_blank" rel="noopener noreferrer">Open manufacturer or product source ↗</a>
+</div>
+<?php endforeach;?>
+</details>
+<p class="muted">Existing AURENOEVA rules remain unchanged: no automatic dispatch; manual selection of up to three; prior recipients deduplicated; original item numbers and amounts preserved. The approved company brochure and country-neutral full equipment list are attached through the established sending workflow. Confirm all medical-device and cross-border trading requirements before any transaction.</p>
+</section>
+<?php endif;?>
+
+<?php if(($result['reference']??'')===AUR_URGENT_RFQ_REF):
 $aurNextSaved=null;$aurNextMessages=[];$aurNextError='';
 try {
     $aurNextSaved=aur_researched_next_20261106_saved($aurStore,$result);
