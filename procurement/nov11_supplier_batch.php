@@ -75,14 +75,14 @@ function aur_nov11_supplier_compose(array $case,array $plan):array {
     $lead=$plan['lead'];$de=$lead['lang']==='de';
     $vendor=['id'=>'nov11-'.$lead['id'],'name'=>$lead['name'],'email'=>$lead['email'],'evidence_url'=>$lead['url']];
     $message=aur_vendor_rfq_compose($case,$vendor,$plan['rows']);
-    $body=$de?"Guten Tag,\n\nwir haben Ihr Angebot bzw. Ihre Produktinformationen zu ".$lead['model']." gefunden und würden uns über ein konkretes schriftliches Angebot freuen.\n\n":
+    $body=$de?"Guten Tag,\n\nwir interessieren uns für ein konkretes schriftliches Angebot zu ".$lead['model']." gefunden und würden uns über ein konkretes schriftliches Angebot freuen.\n\n":
       "Dear Sales Team,\n\nWe found your product information for ".$lead['model']." and would appreciate a specific written quotation.\n\n";
     foreach($plan['rows'] as $row) {
         $body.=($de?'RFQ-Position ':'RFQ item ').'#'.$row['customer_item_number'].' — '.$row['description']
             .' | '.($de?'Menge: ':'Quantity: ').($row['quantity']===null?'TBC':(string)$row['quantity'])."\n";
     }
     $body.=$de
-      ?"\nBitte bestätigen Sie die genaue Ausführung (oder Abweichungen), Netto-Stückpreis und Währung, Lieferbarkeit, Zustand, Lieferzeit, Gewährleistung sowie Versand- und Exportmöglichkeiten. Auch technische Unterlagen wären hilfreich.\n\nDie AURENOEVA-Firmenvorstellung und die vollständige produktneutrale RFQ-Liste fügen wir bei: Bitte nennen Sie gern weitere Positionen, die Sie liefern können.\n\nAURENOEVA vermittelt die Anfrage. Ein möglicher Kaufvertrag wird unmittelbar zwischen Kunde und Lieferant geschlossen; diese Anfrage ist keine Bestellung.\n\nwir interessieren uns für ein unverbindliches schriftliches Angebot.\n\n"
+      ?"\nBitte bestätigen Sie die genaue Ausführung (oder Abweichungen), Netto-Stückpreis und Währung, Lieferbarkeit, Zustand, Lieferzeit, Gewährleistung sowie Versand- und Exportmöglichkeiten. Auch technische Unterlagen wären hilfreich.\n\nDie AURENOEVA-Firmenvorstellung und die vollständige produktneutrale RFQ-Liste fügen wir bei: Bitte nennen Sie gern weitere Positionen, die Sie liefern können.\n\nAURENOEVA vermittelt die Anfrage. Ein möglicher Kaufvertrag wird unmittelbar zwischen Kunde und Lieferant geschlossen; diese Anfrage ist keine Bestellung.\n\n"
       :"\nPlease confirm the exact configuration (or deviations), net unit price and currency, genuine stock/condition, dispatch time, warranty, technical documents and possible international supply or freight terms.\n\nWe also attach the AURENOEVA company introduction and the full country-neutral RFQ schedule in case you can supply further items. AURENOEVA introduces the parties; any purchase is contracted directly between buyer and supplier. This enquiry is not a purchase order.\n\n";
     $body.=aur_procurement_signed_closing($de?'de':'en',(string)$lead['email'])."\n";
     $subject=($de?'Preisanfrage – ':'Price and availability enquiry – ').$lead['model'].' | AUR-1A04A7909185FACD';
