@@ -33,10 +33,12 @@
         ? ['AURENOEVA Einkauf','NOEVA Systems e.K.','Marienburger Straße 16',
            '56112 Lahnstein','Deutschland','','Handelsregister',
            'Eingetragen beim Amtsgericht Koblenz','HRA 23554','',
+           'Telefon: +49 176 471 77751',
            'info@aurenoeva.com | https://aurenoeva.com']
         : ['AURENOEVA Purchasing','NOEVA Systems e.K.','Marienburger Straße 16',
            '56112 Lahnstein','Germany','','Commercial register',
            'Registered with Amtsgericht Koblenz','HRA 23554','',
+           'Phone: +49 176 471 77751',
            'info@aurenoeva.com | https://aurenoeva.com'];
       signaturePreview.replaceChildren();
       lines.forEach((line, index) => {
