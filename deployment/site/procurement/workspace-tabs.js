@@ -63,12 +63,13 @@
     // Put the actual work first. The six recently researched suppliers were
     // previously nested deep in the Suppliers tab while a 27-message
     // historical reminder table dominated RFQ & replies.
+    const replyFollowups = document.getElementById('aur-nov11-reply-followups');
     const nov11Round = document.getElementById('aur-nov11-source-round');
     const nextSourcingRound = document.getElementById('aur-next-sourcing-round');
     const followupRound = document.getElementById('aur-latest-supplier-rfq');
     const latestRound = document.getElementById('aur-nov05-researched-rfq');
     const previousRound = document.getElementById('aur-next-stock-rfq');
-    const newRound = nov11Round || nextSourcingRound || followupRound || latestRound || previousRound;
+    const newRound = replyFollowups || nov11Round || nextSourcingRound || followupRound || latestRound || previousRound;
     const approvals = document.getElementById('aur-rfq-approval');
     const reminders = document.getElementById('aur-price-reminders');
     const replies = document.getElementById('supplier-replies');
@@ -80,7 +81,9 @@
     heading.style.cssText = 'margin:0 0 8px;font-size:22px';
     const help = document.createElement('p');
     help.textContent = newRound
-      ? (nov11Round
+      ? (replyFollowups
+          ? 'Two timely follow-ups: Duo Med configuration details and Meditron Samsung ultrasound reroute. Preview each email, save for review, then explicitly select recipients. Neither message is sent automatically.'
+          : nov11Round
           ? 'New source-first research: 29 suppliers for 34 unpriced items. Preview recipient-specific enquiries, save without sending, then tick up to three recipients. Suppliers without verified emails remain research-only.'
           : nextSourcingRound
           ? 'Latest round: written-price follow-ups and specialist first enquiries. Review the exact RFQ items, then tick up to three recipients. No email is sent automatically.'
@@ -94,7 +97,7 @@
     newHeader.append(heading, help);
     panels.rfq.appendChild(newHeader);
     if (newRound) {
-      if (!nov11Round && !nextSourcingRound && !followupRound && !latestRound) newRound.querySelector('h2').textContent = 'Six new suppliers · Prepared for review';
+      if (!replyFollowups && !nov11Round && !nextSourcingRound && !followupRound && !latestRound) newRound.querySelector('h2').textContent = 'Six new suppliers · Prepared for review';
       newRound.style.marginTop = '0';
       move(newRound, panels.rfq);
     }
@@ -114,6 +117,7 @@
       const section = document.getElementById(id);
       if (section) historical.appendChild(section);
     }
+    if (newRound !== nov11Round && nov11Round) historical.appendChild(nov11Round);
     if (newRound !== nextSourcingRound && nextSourcingRound) historical.appendChild(nextSourcingRound);
     if (newRound !== followupRound && followupRound) historical.appendChild(followupRound);
     if (newRound !== latestRound && latestRound) historical.appendChild(latestRound);
@@ -159,7 +163,7 @@
     actions.className = 'aur-quick-actions';
     actions.setAttribute('aria-label', 'Common procurement tasks');
     const links = newRound
-      ? [[nov11Round ? 'Review 11 November sourcing' : nextSourcingRound ? 'Review next sourcing round' : followupRound ? 'Review 7 supplier emails' : latestRound ? 'Review 9 researched enquiries' : 'Review 6 supplier enquiries', '#' + newRound.id],
+      ? [[replyFollowups ? 'Review Duo Med & Meditron replies' : nov11Round ? 'Review 11 November sourcing' : nextSourcingRound ? 'Review next sourcing round' : followupRound ? 'Review 7 supplier emails' : latestRound ? 'Review 9 researched enquiries' : 'Review 6 supplier enquiries', '#' + newRound.id],
          ['Select up to 3 recipients', '#aur-vendor-send-form'],
          ['Review incoming quotations', '#supplier-replies'],
          ['View original equipment', '#original-rfq-equipment']]
