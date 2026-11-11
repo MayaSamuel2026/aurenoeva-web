@@ -419,9 +419,29 @@
     });
 
     let loaded = false;
+    let initialLoad = null;
     const boot = () => {
-      if (!loaded) {loaded = true;refresh();}
+      if (!loaded) {loaded = true;initialLoad=refresh();}
+      return initialLoad || Promise.resolve();
     };
+    // Opening this draft is NOT a sending action. Keep SMTP safeguards intact.
+    document.addEventListener('aurenoeva:compose-supplier-followup',async event=>{
+      const to=String(event.detail?.to||'').trim();
+      if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to)){
+        notice('Supplier address is unavailable. Open Mail Centre to investigate.',true);
+        return;
+      }
+      const container=root.closest('details');
+      if(container)container.open=true;
+      await boot();
+      openCompose();
+      compose.elements.to.value=to;
+      const subject=String(event.detail?.subject||'').slice(0,230);
+      compose.elements.subject.value=subject?( /^Re:/i.test(subject)?subject:'Re: '+subject):'';
+      root.scrollIntoView({behavior:'smooth',block:'start'});
+      notice('Follow-up opened as a new UNSENT draft. Inspect recipient, content and attachments before sending.');
+      richEditor.focus();
+    });
     folderButtons[0]?.setAttribute('aria-pressed','true');
     root.addEventListener('click', boot, {once:true});
     // Load only when mail tab is chosen, rather than fetching private email

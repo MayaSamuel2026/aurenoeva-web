@@ -53,3 +53,15 @@ check_tab(str_contains($ui,'setupSourceNavigator(itemSource)') && str_contains($
 check_tab(str_contains($entry,'AURENOEVA_COMPACT_ITEM_MAIL_20261111'), 'Compact single-item and mail layout absent');
 $inbox=file_get_contents($root.'/deployment/site/procurement/mail-center.js');
 check_tab(str_contains($inbox,'pageRows = 9') && str_contains($inbox,'visible.slice(start, start + pageRows)'), 'Mail inbox must be paginated without truncating saved messages');
+
+check_tab(str_contains($entry,'AURENOEVA_COMPACT_CORRESPONDENCE_20261111'), 'Compact supplier conversation styling missing');
+$threadUi=file_get_contents($root.'/deployment/site/procurement/case-mail-inbox.js');
+$board=file_get_contents($root.'/deployment/site/procurement/case_mail_workbench.php');
+check_tab(str_contains($threadUi,'pageSize=20') && str_contains($threadUi,'aurenoeva:compose-supplier-followup'),
+    'Supplier inbox paging and reviewed follow-up action disconnected');
+check_tab(str_contains($board,'case_mail_inbox_data.php') && str_contains($board,'aur_correspondence_threads(')
+    && str_contains($board,'JSON_HEX_TAG'), 'Original evidence not delivered safely to compact inbox');
+check_tab(str_contains($ui,'Open full Mail Centre, read attachments or compose'),
+    'Full mailbox must remain accessible without full-page scrolling');
+check_tab(str_contains($inbox,'aurenoeva:compose-supplier-followup') && str_contains($inbox,'openCompose()'),
+    'Follow-up must open the existing manual Mail Centre draft');
