@@ -7,6 +7,7 @@ declare(strict_types=1);
  * No parallel RFQ, customer, outbox or mail store. No automatic sending.
  */
 require_once __DIR__.'/supplier_inbox_store.php';
+require_once __DIR__.'/case_mail_inbox_data.php';
 function aur_case_workbench_mail_rows(array $batches):array {
     $drafts=[];$accepted=[];$uncertain=[];
     foreach($batches as $batch) {
@@ -66,38 +67,65 @@ $workbenchEmails=aur_case_workbench_mail_rows($workbenchBatches);
 $workbenchReceived=[];
 try{$workbenchReceived=aur_mail_case_events($aurStore,(string)$result['reference']);}
 catch(Throwable $error){$workbenchError=true;error_log('AURENOEVA mail evidence read unavailable: '.get_class($error));}
+foreach(['smtp_accepted','unconfirmed'] as $kind){
+    foreach($workbenchEmails[$kind] as &$row){
+        $row['item_numbers']=aur_case_workbench_original_lines($result,$row);
+    }
+    unset($row);
+}
+$inbox=aur_correspondence_threads(
+    $workbenchEmails['smtp_accepted'],
+    $workbenchEmails['unconfirmed'],
+    $workbenchReceived
+);
+$inboxJson=json_encode($inbox,
+    JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|
+    JSON_INVALID_UTF8_SUBSTITUTE|JSON_THROW_ON_ERROR);
+
 ?>
-<section id="aur-mail-trail" class="card" aria-label="RFQ sent and received mail evidence">
-<h2>Emails for RFQ <?=aur_escape((string)$result['reference'])?></h2>
-<p class="muted">Every recorded sending-server acceptance and case-matched supplier response. Unmatched emails can be checked in the live inbox below. An SMTP acceptance is not an inbox delivery confirmation.</p>
-<p class="aur-workbench-totals">
-<span class="pill"><b><?=count($workbenchEmails['smtp_accepted'])?></b> SMTP accepted</span>
-<span class="pill"><b><?=count($workbenchReceived)?></b> inbound RFQ-referenced</span>
-<span class="pill"><b><?=count($workbenchEmails['unconfirmed'])?></b> unconfirmed attempts</span></p>
-<?php if($workbenchError):?><p role="alert">Some source records could not be read. They have not been removed; inspect the original mail ledger.</p><?php endif;?>
-<div class="aur-workbench-mail-columns">
-<div><h3>Sent emails · saved SMTP evidence</h3>
-<?php if(!$workbenchEmails['smtp_accepted']):?><p class="muted">No accepted outgoing emails are recorded for this RFQ.</p><?php endif;?>
-<?php foreach($workbenchEmails['smtp_accepted'] as $message):?>
-<details class="aur-mail-evidence-item">
-<summary><?=aur_escape($message['supplier'])?><small><?=aur_escape($message['to'])?> · <?=aur_escape($message['sent_at']?:$message['attempted_at'])?></small></summary>
-<p><b>Subject:</b> <?=aur_escape($message['subject'])?></p>
-<p class="muted">Buyer item(s): <?=aur_escape(aur_case_workbench_original_lines($result,$message))?></p>
-<pre><?=aur_escape($message['body'])?></pre>
-</details>
-<?php endforeach;?></div>
-<div><h3>Received correspondence · same RFQ reference</h3>
-<?php if(!$workbenchReceived):?><p class="muted">No incoming messages linked to this RFQ yet. Open the Inbox below to check unmatched mail.</p><?php endif;?>
-<?php foreach($workbenchReceived as $event):if(!is_array($event))continue;?>
-<div class="aur-mail-evidence-item"><b><?=aur_escape(trim((string)($event['supplier']??''))!==''?(string)$event['supplier']:(string)($event['supplier_email']??$event['from']??'Unknown supplier'))?></b>
-<small><?=aur_escape((string)($event['received_at']??$event['processed_at']??''))?> · <?=aur_escape(str_replace('_',' ',(string)($event['classification']??'UNCLASSIFIED')))?></small>
-<?php if(empty($event['matched_to_sent_rfq'])):?><small>Sender or batch unverified · review before attributing a quotation</small><?php endif;?>
-</div><?php endforeach;?></div></div>
-<?php if($workbenchEmails['unconfirmed']):?>
-<details class="aur-tool-drawer"><summary><?=count($workbenchEmails['unconfirmed'])?> messages need transport-status review</summary>
-<?php foreach($workbenchEmails['unconfirmed'] as $message):?>
-<p><?=aur_escape($message['supplier'])?> · <?=aur_escape($message['status'])?> · <?=aur_escape($message['subject'])?></p>
-<?php endforeach;?></details><?php endif;?>
+<section id="aur-mail-trail" class="card aur-case-correspondence" aria-label="RFQ supplier correspondence inbox">
+<div class="aur-correspondence-head">
+  <div><span class="aur-workflow-kicker">RFQ CORRESPONDENCE</span>
+  <h2>Supplier conversations</h2>
+  <p class="muted">One row per supplier for RFQ <?=aur_escape((string)$result['reference'])?>.
+  Only saved SMTP acceptances count as sent; unverified messages are flagged separately.</p></div>
+  <a href="#aur-mail-center" class="aur-correspondence-open-mail">Open full mailbox</a>
+</div>
+<div class="aur-correspondence-stats" id="aur-case-mail-stats" role="group" aria-label="Correspondence status">
+  <span>Loading supplier correspondence…</span>
+</div>
+<?php if($workbenchError):?><p role="alert">Some source records were unavailable. Existing mail was not altered. Verify the original mailbox before making a sending decision.</p><?php endif;?>
+<div class="aur-correspondence-controls">
+  <label class="aur-correspondence-search-label" for="aur-case-mail-search">Find supplier or email
+  <input type="search" id="aur-case-mail-search" placeholder="Supplier, email address or subject" autocomplete="off"></label>
+  <div class="aur-correspondence-filters" role="group" aria-label="Conversation filter">
+    <button type="button" data-aur-mail-filter="awaiting" aria-pressed="true">Awaiting reply</button>
+    <button type="button" data-aur-mail-filter="replied" aria-pressed="false">Replies received</button>
+    <button type="button" data-aur-mail-filter="review" aria-pressed="false">Needs review</button>
+    <button type="button" data-aur-mail-filter="unconfirmed" aria-pressed="false">Send unconfirmed</button>
+    <button type="button" data-aur-mail-filter="all" aria-pressed="false">All</button>
+  </div>
+  <label class="aur-correspondence-sort-label" for="aur-case-mail-sort">Order
+    <select id="aur-case-mail-sort">
+      <option value="recent">Most recent</option>
+      <option value="oldest">Oldest</option>
+      <option value="supplier">Supplier A–Z</option>
+    </select>
+  </label>
+</div>
+<div class="aur-correspondence-grid">
+  <div class="aur-correspondence-list-side">
+    <div class="aur-correspondence-list-info" id="aur-case-mail-list-info" role="status"></div>
+    <div id="aur-case-mail-list" class="aur-correspondence-rows" aria-label="Supplier conversation list"></div>
+    <div id="aur-case-mail-pagination" class="aur-correspondence-pagination"></div>
+  </div>
+  <article id="aur-case-mail-preview" class="aur-correspondence-preview" aria-label="Selected supplier conversation">
+    <p class="muted">Choose a supplier to view the original sent messages and recorded replies.</p>
+  </article>
+</div>
+<p class="muted aur-correspondence-footnote">An SMTP acceptance is not proof of delivery. A case-referenced but unmatched reply needs verification before being counted as a supplier response. Live mailbox unread states are not inferred here.</p>
+<script id="aur-case-mail-data" type="application/json"><?=$inboxJson?></script>
+<script defer src="/procurement/case-mail-inbox.js?v=1"></script>
 </section>
 <section id="aur-email-review-queue" class="card" aria-label="Saved emails requiring owner review">
 <h2>Prepared emails awaiting your review</h2>
