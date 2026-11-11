@@ -74,7 +74,7 @@ function aur_nov11_followup_compose(array $case,array $plan):array {
         $subject='AW: Ihre Anfrage – Castellini Skema 6 / Skema 8 | AUR-1A04A7909185FACD';
         $body="Sehr geehrte Frau von Wangenheim,\n\n"
             ."herzlichen Dank für Ihre schnelle und freundliche Rückmeldung. Wir freuen uns sehr, dass Sie sich auch die weiteren Positionen unserer Geräteliste ansehen.\n\n"
-            ."Gern konkretisieren wir zunächst die beiden Behandlungseinheiten:\n\n"
+            ."Gern konkretisieren wir unsere Anfrage: wir interessieren uns für folgende Behandlungseinheiten:\n\n"
             ."• RFQ-Position 32: 1 × Castellini Skema 6 (Referenz des Kunden: SD-9099)\n"
             ."• RFQ-Position 33: 2 × Castellini Skema 8 (Referenz des Kunden: 6X-9056)\n\n"
             ."Die Referenzen stammen aus der Kundenanfrage; ob sie einer konkreten Castellini-Werkskonfiguration entsprechen, ist noch offen. Eine verbindliche Auswahl aller Ausstattungsoptionen liegt uns derzeit nicht vor.\n\n"
