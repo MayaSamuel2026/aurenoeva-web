@@ -158,4 +158,103 @@ must_mail(count($unverified)===1 && $unverified[0]['status']==='review'
     'Unverified inbound mail was incorrectly shown as a verified reply');
 must_mail(count($sentExamples)===3&&count($incomingExamples)===2,
     'Read-only conversation projection unexpectedly altered the source');
+
+// Duo Med example: the same supplier has multiple SENT batches under ONE RFQ.
+// Her reply says "Ihre Anfrage", with no RFQ reference in the subject.
+$duoFirst=bin2hex(random_bytes(12));$duoSecond=bin2hex(random_bytes(12));
+foreach([[$duoFirst,'2026-11-06T08:00:00Z'],[$duoSecond,'2026-11-10T08:00:00Z']] as [$id,$sentDate]){
+    aur_vendor_rfq_write(aur_vendor_rfq_path($store,$ref,$id),[
+        'case_reference'=>$ref,'case_source_sha256'=>$case['source_sha256'],
+        'draft_id'=>$id,'created_at'=>$sentDate,'status'=>'TRANSPORT_ACCEPTED',
+        'messages'=>[['to'=>'info@duo-med.de',
+            'vendor_name'=>'Duo Med GmbH — Nelly von Wangenheim',
+            'status'=>'ACCEPTED_BY_MAIL_TRANSPORT','sent_at'=>$sentDate,
+            'items'=>[['source_row'=>2,'description'=>'Model AX-200']]]]
+    ]);
+}
+$duoRaw="From: Duo Med GmbH <info@duo-med.de>\r\n"
+    ."To: info@aurenoeva.com\r\n"
+    ."Date: Wed, 11 Nov 2026 07:37:14 +0000\r\n"
+    ."Subject: Ihre Anfrage\r\n"
+    ."Message-ID: <duo-med-unique@example.de>\r\n"
+    ."Content-Type: text/plain; charset=UTF-8\r\n\r\n"
+    ."Bitte senden Sie uns noch Ihre Ausstattungswünsche zu.\r\n"
+    ."Mit freundlichen Grüßen, Nelly von Wangenheim";
+$duoMatch=aur_mail_import($store,26,4242,$duoRaw);
+must_mail($duoMatch['case_reference']===$ref,
+    'Supplier reply without RFQ in subject not linked to the one original case');
+must_mail($duoMatch['supplier_case_match']===true
+    && $duoMatch['matched_to_sent_rfq']===false,
+    'Multiple outgoing batches should confirm supplier case, not exact batch');
+must_mail($duoMatch['quote_recorded']===false
+    && empty($duoMatch['requires_sender_review'])
+    && !empty($duoMatch['requires_batch_review']),
+    'Supplier-level reply must remain distinct from unverified item quotation');
+$duoView=aur_mail_case_events($store,$ref);
+must_mail(count(array_filter($duoView,
+    static fn($item)=>($item['uid']??null)===26))===1,
+    'Duo Med reply not present in RFQ correspondence list');
+$duoThreads=aur_correspondence_threads(
+    [['supplier'=>'Duo Med GmbH','to'=>'info@duo-med.de',
+      'subject'=>'Request','body'=>'Model details',
+      'sent_at'=>'2026-11-06T08:00:00Z']],
+    [],$duoView);
+$duoRows=array_values(array_filter($duoThreads['threads'],
+    static fn($item)=>($item['email']??'')==='info@duo-med.de'));
+must_mail(count($duoRows)===1 && $duoRows[0]['reply_count']===1
+    && $duoRows[0]['status']==='replied',
+    'Duo Med was not counted as one confirmed supplier reply');
+
+// Simulate a historically IMPORTED email that was never assigned to an RFQ,
+// without changing its stored original message or durable attribution.
+$historicalEvents=aur_mail_events($store);
+$oldKey='duomed-historical-unmatched';
+$historicalEvents[$oldKey]=[
+    'uid'=>27,'key'=>$oldKey,'case_reference'=>'',
+    'from'=>'info@duo-med.de','supplier_email'=>'info@duo-med.de',
+    'subject'=>'Ihre Anfrage','classification'=>'OTHER',
+    'received_at'=>'Wed, 11 Nov 2026 07:38:14 +0000',
+    'processed_at'=>'2026-11-11T07:38:15Z',
+    'preview'=>'Wir prüfen die Ausstattung.','matched_to_sent_rfq'=>false,
+    'quote_recorded'=>false
+];
+aur_mail_write_json(aur_mail_dir($store).'/events.json',
+    ['schema'=>'aurenoeva-mailbox-events/1','events'=>$historicalEvents]);
+$projected=aur_mail_case_events($store,$ref);
+$duoOld=array_values(array_filter($projected,
+    static fn($event)=>($event['key']??'')==='duomed-historical-unmatched'));
+must_mail(count($duoOld)===1 &&
+    !empty($duoOld[0]['supplier_case_match']) &&
+    !empty($duoOld[0]['case_reference_projection_only']),
+    'Historical RFQ-less acknowledgement not recovered read-only');
+must_mail(aur_mail_events($store)[$oldKey]['case_reference']==='',
+    'Historical inbox evidence must never be silently rewritten');
+
+// Same email used for ANOTHER original RFQ must not be guessed into either
+// case when no reference appears in the subject.
+$otherRef='AUR-DE-0123456789ABCDEF';
+$otherCase=$case;
+$otherCase['reference']=$otherRef;
+aur_mail_write_json(aur_private_directory($store,'cases').'/'.$otherRef.'.json',$otherCase);
+$otherDraft=bin2hex(random_bytes(12));
+aur_vendor_rfq_write(aur_vendor_rfq_path($store,$otherRef,$otherDraft),[
+    'case_reference'=>$otherRef,
+    'case_source_sha256'=>$otherCase['source_sha256'],
+    'draft_id'=>$otherDraft,'status'=>'TRANSPORT_ACCEPTED',
+    'created_at'=>'2026-11-08T08:00:00Z',
+    'messages'=>[['to'=>'info@duo-med.de','vendor_name'=>'Duo Med GmbH',
+      'status'=>'ACCEPTED_BY_MAIL_TRANSPORT',
+      'sent_at'=>'2026-11-08T08:00:00Z',
+      'items'=>[['source_row'=>2,'description'=>'Model AX-200']]]]
+]);
+$multiCase=aur_mail_match($store,[
+    'from'=>'info@duo-med.de','subject'=>'Ihre Anfrage',
+    'received_at'=>'Wed, 11 Nov 2026 08:00:00 +0000','text'=>'Acknowledged'
+],['status'=>'ACKNOWLEDGED']);
+must_mail(empty($multiCase['supplier_case_match']) &&
+    ($multiCase['case_reference']??'')==='',
+    'Supplier reused across multiple RFQs must not be assigned arbitrarily');
+$alreadyStored=aur_mail_events($store);
+must_mail($alreadyStored[$oldKey]['case_reference']==='',
+    'Previous source envelope was modified by correspondence projection');
 echo "AURENOEVA_INCOMING_MAIL_RECONCILIATION=PASS\n";
