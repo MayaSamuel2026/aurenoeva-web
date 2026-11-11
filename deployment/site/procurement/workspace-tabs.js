@@ -4,10 +4,11 @@
 (() => {
   'use strict';
   document.addEventListener('DOMContentLoaded', () => {
+    try {
     const tabs = document.getElementById('aur-tabs');
     const guide = document.getElementById('aur-workflow');
     if (!tabs || !guide) return;
-    const keys = ['overview', 'intelligence', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'];
+    const keys = ['overview', 'enquiry', 'suppliers', 'rfq', 'mail', 'settings'];
     const panels = {};
     for (const key of keys) {
       const panel = document.createElement('section');
@@ -33,11 +34,21 @@
     move(guide, panels.overview);
     // Global verification and crawler diagnostics must not precede the tabs
     // or obscure the active RFQ working area on every screen.
-    move(document.getElementById('aur-wp09-verification'), panels.overview);
-    move(document.getElementById('aur-automation-health'), panels.settings);
-    move(document.getElementById('aur-deepfetcher'), panels.suppliers);
-    move(document.getElementById('aur-deepfetcher-inbox'), panels.intelligence);
-    move(document.getElementById('aur-commercial-intelligence'), panels.intelligence);
+    const settingsGroup = document.createElement('details');
+    settingsGroup.className = 'aur-workgroup';
+    settingsGroup.innerHTML = '<summary>System status, source validation and background processes</summary>';
+    const researchGroup = document.createElement('details');
+    researchGroup.className = 'aur-workgroup';
+    researchGroup.innerHTML = '<summary>Research intelligence, source data and crawler observations</summary>';
+    const researchIntro = document.createElement('p');
+    researchIntro.className = 'muted';
+    researchIntro.textContent = 'Source observations are research candidates, not verified stock or price quotations. Open when investigation is needed.';
+    panels.suppliers.append(researchIntro);
+    move(document.getElementById('aur-wp09-verification'), settingsGroup);
+    move(document.getElementById('aur-automation-health'), settingsGroup);
+    move(document.getElementById('aur-deepfetcher'), researchGroup);
+    move(document.getElementById('aur-deepfetcher-inbox'), researchGroup);
+    move(document.getElementById('aur-commercial-intelligence'), researchGroup);
     move(document.getElementById('aur-upload'), panels.enquiry);
     move(document.getElementById('saved-cases'), panels.enquiry);
 
@@ -46,7 +57,7 @@
     const researchControls = document.getElementById('supplier-search-controls');
     if (researchControls) {
       researchControls.classList.add('aux-disclosure');
-      panels.suppliers.appendChild(researchControls);
+      researchGroup.appendChild(researchControls);
     }
     move(caseCard, panels.enquiry);
     move(cardWithTitle('Existing enquiries'), panels.enquiry);
@@ -58,7 +69,11 @@
       suppliers.style.removeProperty('margin-top');
       suppliers.style.removeProperty('border-top');
       suppliers.style.removeProperty('padding-top');
-      move(suppliers, panels.suppliers, true);
+      const supplierMatches = document.createElement('details');
+      supplierMatches.className = 'aur-workgroup';
+      supplierMatches.innerHTML = '<summary>Supplier matches and saved sourcing list</summary>';
+      move(suppliers, supplierMatches, true);
+      panels.suppliers.append(supplierMatches);
     }
     // Put the actual work first. The six recently researched suppliers were
     // previously nested deep in the Suppliers tab while a 27-message
@@ -97,7 +112,10 @@
     newHeader.append(heading, help);
     panels.rfq.appendChild(newHeader);
     if (newRound) {
-      if (!replyFollowups && !nov11Round && !nextSourcingRound && !followupRound && !latestRound) newRound.querySelector('h2').textContent = 'Six new suppliers · Prepared for review';
+      if (!replyFollowups && !nov11Round && !nextSourcingRound && !followupRound && !latestRound) {
+        const roundTitle = newRound.querySelector('h2');
+        if (roundTitle) roundTitle.textContent = 'Six new suppliers · Prepared for review';
+      }
       newRound.style.marginTop = '0';
       move(newRound, panels.rfq);
     }
@@ -140,9 +158,10 @@
     extra(replies, 'Received supplier quotations and mailbox history', 'aur-replies-archive');
     if (oldSupplierCard) {
       if (oldSupplierCard.children.length === 0) oldSupplierCard.remove();
-      else move(oldSupplierCard, panels.suppliers);
+      else move(oldSupplierCard, researchGroup);
     }
-    move(cardWithTitle('Supplier research'), panels.suppliers);
+    move(cardWithTitle('Supplier research'), researchGroup);
+    if (researchGroup.children.length > 1) panels.suppliers.append(researchGroup);
     if (!suppliers && panels.suppliers.childElementCount === 0)
       panels.suppliers.innerHTML = '<div class="card"><h2>Suppliers</h2><p>Open a saved enquiry to review supplier research.</p></div>';
     if (!newRound && !approvals && !reminders && !replies) {
@@ -153,10 +172,25 @@
 
     // Diagnostics, catalogue administration and historical counts stay separate.
     move(document.getElementById('aur-mail-center'), panels.mail);
-    move(document.getElementById('aur-brand-brochure'), panels.settings);
-    move(document.getElementById('aur-mail-settings')?.closest('.card'), panels.settings);
-    move(cardWithTitle('Live product catalogue'), panels.settings);
-    move(document.getElementById('supplier-history-counts'), panels.settings);
+    move(document.getElementById('aur-brand-brochure'), settingsGroup);
+    move(document.getElementById('aur-mail-settings')?.closest('.card'), settingsGroup);
+    move(cardWithTitle('Live product catalogue'), settingsGroup);
+    move(document.getElementById('supplier-history-counts'), settingsGroup);
+    // Historical sections not explicitly listed above remain in the original
+    // DOM until this point. Move them to a closed More group, never discard.
+    const otherTools = document.createElement('details');
+    otherTools.className = 'aur-workgroup';
+    otherTools.innerHTML = '<summary>Additional historical tools and records</summary>';
+    for (const id of ['aur-diagnostics-fallback','aur-legacy-functions']) {
+      const wrapper = document.getElementById(id);
+      if (!wrapper) continue;
+      for (const child of Array.from(wrapper.children)) {
+        if (child.tagName !== 'SUMMARY') otherTools.appendChild(child);
+      }
+      wrapper.remove();
+    }
+    if (otherTools.children.length > 1) panels.settings.append(otherTools);
+    if (settingsGroup.children.length > 1) panels.settings.append(settingsGroup);
 
     // Only read-only shortcuts; they never approve or dispatch emails.
     const actions = document.createElement('div');
@@ -238,7 +272,30 @@
       requestAnimationFrame(() => target.scrollIntoView({block:'start', behavior:'smooth'}));
     });
     window.addEventListener('hashchange', openDeepLink);
+    // Give every work area an immediate purpose; no extra dashboards.
+    const descriptions = {
+      enquiry: ['Enquiries', 'Choose a customer request, inspect its original documents or add a new RFQ.'],
+      suppliers: ['Find suppliers', 'Review current suppliers first. Open research details only when you need them.'],
+      rfq: ['RFQs & replies', 'Prepare and approve messages explicitly; past campaigns and reminders stay in collapsible history.'],
+      mail: ['Mail Centre', 'Read incoming correspondence, inspect attachments and reply from the existing mailbox.'],
+      settings: ['More & history', 'Original catalogues, diagnostics, archives and connection settings.']
+    };
+    for (const [key, info] of Object.entries(descriptions)) {
+      const heading = document.createElement('div');
+      heading.className = 'aur-area-heading';
+      const title = document.createElement('h2');title.textContent = info[0];
+      const note = document.createElement('p');note.textContent = info[1];
+      heading.append(title,note);
+      panels[key].insertBefore(heading,panels[key].firstChild);
+    }
     document.documentElement.classList.add('aur-tabs-enabled');
     openDeepLink();
+    } catch (error) {
+      // Source files, forms and saved records remain reachable if a client
+      // extension or partial deployment interrupts the optional organizer.
+      console.error('AURENOEVA workspace organizer could not initialize', error);
+      document.documentElement.classList.remove('aur-tabs-enabled');
+      document.querySelectorAll('.aur-fallback-group').forEach(group => { group.open = true; });
+    }
   });
 })();
