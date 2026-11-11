@@ -1179,6 +1179,43 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 #aur-mail-feedback.is-error{color:#a0442d}
 .aur-mail-pagination{display:flex;align-items:center;gap:9px;margin-top:14px}
 @media(max-width:700px){.aur-mail-shell{grid-template-columns:1fr;gap:12px}.aur-mail-folders{flex-direction:row;overflow-x:auto}.aur-mail-folders button{width:auto;white-space:nowrap}.aur-mail-toolbar input{max-width:none;order:5}}
+
+/* NOEVA_AURENOEVA_WORKSPACE_FOCUS_20261111: present one task at a time, never hide saved records. */
+:root{--noeva-graphite:#233746;--noeva-blue:#375a70;--noeva-stroke:#dce5ea;--noeva-surface:#f2f5f7}
+body{background:var(--noeva-surface);color:var(--noeva-graphite)}
+.wrap{max-width:1360px;padding-top:15px}
+.top{padding-bottom:15px;margin-bottom:19px;border-bottom:1px solid var(--noeva-stroke)}
+.aur-page-intro{font-size:14px;line-height:1.6;color:#667989;margin:5px 0 14px;max-width:780px}
+.aur-command-breadcrumb{display:flex;gap:12px;color:#667989;font-size:10px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;padding:10px 0;border-top:1px solid var(--noeva-stroke)}
+.aur-switcher{display:none;gap:5px;flex-wrap:wrap;overflow-x:auto;position:sticky;top:0;z-index:30;padding:11px 0;background:var(--noeva-surface);border-bottom:1px solid var(--noeva-stroke)}
+.aur-switcher button{flex:0 0 auto;min-width:auto;background:#fff;color:#375a70;border:1px solid #cbd9e0;padding:11px 15px;border-radius:10px;font-size:13px}
+.aur-switcher button[aria-selected="true"]{background:#375a70;color:#fff;border-color:#375a70}
+.aur-switcher button:focus-visible{outline:3px solid #86a7bd;outline-offset:2px}
+.aur-panel{scroll-margin-top:85px;min-width:0}
+.aur-tabs-enabled .aur-panel:not(.is-active){display:none}
+.aur-tabs-enabled .aur-panel .card{border:1px solid var(--noeva-stroke);border-radius:15px;background:#fff;padding:20px 23px;margin:13px 0;box-shadow:0 4px 18px #23374608}
+.aur-tabs-enabled .aur-guide{border:1px solid var(--noeva-stroke);border-radius:15px;background:#fff;margin:14px 0;padding:19px}
+.aur-tabs-enabled .aur-guide .aur-steps{display:none}
+.aur-tabs-enabled .aur-guide h2{font:400 25px/1.2 Georgia,serif;color:var(--noeva-graphite)}
+.aur-tabs-enabled .aur-guide .aur-next{border-radius:10px}
+.aur-tabs-enabled .aur-guide .aur-metrics{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.aur-tabs-enabled .aur-quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 20px}
+.aur-tabs-enabled .aur-quick-actions a{background:#fff;color:#375a70;border:1px solid var(--noeva-stroke);border-radius:12px;padding:17px;text-decoration:none;font-size:13px;font-weight:700}
+.aur-tabs-enabled .aur-quick-actions a:hover{background:#eaf0f3}
+.aur-panel > .aur-area-heading{padding:21px 1px 7px}
+.aur-area-heading h2{font:400 clamp(24px,3vw,32px)/1.2 Georgia,serif;margin:0 0 7px;color:var(--noeva-graphite)}
+.aur-area-heading p{max-width:760px;color:#667989;font-size:13px;line-height:1.6;margin:0}
+.aur-panel details.aur-workgroup{border:1px solid var(--noeva-stroke);border-radius:13px;background:#fff;margin-top:14px;padding:14px 20px}
+.aur-panel details.aur-workgroup>summary{font-size:13px;font-weight:750;color:#375a70;cursor:pointer;padding:6px 0}
+.aur-panel details.aur-workgroup[open]>summary{border-bottom:1px solid var(--noeva-stroke);padding-bottom:13px;margin-bottom:14px}
+.aur-panel .aur-rfq-priority{border-left:3px solid #375a70}
+.aur-fallback-group{border:1px solid var(--noeva-stroke);border-radius:10px;background:#fff;margin:13px 0;padding:13px 17px}
+.aur-fallback-group>summary{font-size:12px;color:#375a70;font-weight:750;cursor:pointer}
+.aur-tabs-enabled .aur-fallback-group{display:none}
+button,select,input,textarea{max-width:100%}
+.aur-panel table{width:100%}.aur-panel .table-wrap{overflow-x:auto}
+@media(max-width:860px){.aur-tabs-enabled .aur-guide .aur-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.aur-tabs-enabled .aur-quick-actions{grid-template-columns:1fr 1fr}}
+@media(max-width:590px){.wrap{padding:12px}.aur-switcher{flex-wrap:nowrap}.aur-switcher button{font-size:12px;padding:9px 12px}.aur-tabs-enabled .aur-quick-actions{grid-template-columns:1fr}.aur-tabs-enabled .aur-guide .aur-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.aur-tabs-enabled .aur-panel .card{padding:14px}}
 </style><link rel="stylesheet" href="/procurement/commercial-intelligence.css?v=20261027"></head><body><div class="wrap"><header class="top"><div><div class="brand">AURENOEVA</div><div class="sub">Private sourcing administration</div></div>
 <div class="aur-header-actions"><a class="aur-home-link" href="/" aria-label="Back to Aurenoeva homepage">← Back to homepage</a>
 <?php if ($isAdmin): ?><form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><button class="ghost" type="submit" name="logout" value="1">Sign out</button></form><?php endif; ?></div>
@@ -1191,7 +1228,13 @@ th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e
 <form method="post"><input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>"><label>Administrator password<input type="password" name="password" autocomplete="current-password" required></label>
 <p><button type="submit">Open procurement workspace</button></p></form></div>
 <?php else: ?>
-<h1>Procurement workspace</h1><p>Manage enquiries, suppliers and responses from one compact workspace.</p>
+<h1>Procurement workspace</h1>
+<p class="aur-page-intro">One clear action at a time. Review enquiries, source suppliers, prepare RFQs and handle replies without losing the original records.</p>
+<div class="aur-command-breadcrumb" aria-label="Procurement workspace">
+<span>NOEVA / AURENOEVA</span><span>Procurement operations</span>
+</div>
+<details class="aur-fallback-group" id="aur-diagnostics-fallback">
+<summary>System diagnostics and source intelligence (open if the compact workspace is unavailable)</summary>
 <?php
 $aurDfConfigured=false;
 $aurDfInbox=['total'=>0,'items'=>[]];
@@ -1422,14 +1465,14 @@ try {
 <?php endif; ?>
 <?php endif; ?>
 </section>
+</details>
 <nav id="aur-tabs" class="aur-switcher" role="tablist" data-default-panel="<?=$aurHasCase?'overview':'enquiry'?>" aria-label="Procurement areas">
-<button type="button" role="tab" data-aur-tab="overview" id="aur-tab-overview" aria-controls="aur-panel-overview">Overview</button>
-<button type="button" role="tab" data-aur-tab="intelligence" id="aur-tab-intelligence" aria-controls="aur-panel-intelligence">Intelligence</button>
-<button type="button" role="tab" data-aur-tab="enquiry" id="aur-tab-enquiry" aria-controls="aur-panel-enquiry">Enquiry</button>
-<button type="button" role="tab" data-aur-tab="suppliers" id="aur-tab-suppliers" aria-controls="aur-panel-suppliers">Suppliers</button>
-<button type="button" role="tab" data-aur-tab="rfq" id="aur-tab-rfq" aria-controls="aur-panel-rfq">RFQ &amp; replies</button>
-<button type="button" role="tab" data-aur-tab="mail" id="aur-tab-mail" aria-controls="aur-panel-mail">Mail Center</button>
-<button type="button" role="tab" data-aur-tab="settings" id="aur-tab-settings" aria-controls="aur-panel-settings">Administration</button>
+<button type="button" role="tab" data-aur-tab="overview" id="aur-tab-overview" aria-controls="aur-panel-overview">Today</button>
+<button type="button" role="tab" data-aur-tab="enquiry" id="aur-tab-enquiry" aria-controls="aur-panel-enquiry">Enquiries</button>
+<button type="button" role="tab" data-aur-tab="suppliers" id="aur-tab-suppliers" aria-controls="aur-panel-suppliers">Find suppliers</button>
+<button type="button" role="tab" data-aur-tab="rfq" id="aur-tab-rfq" aria-controls="aur-panel-rfq">RFQs &amp; replies</button>
+<button type="button" role="tab" data-aur-tab="mail" id="aur-tab-mail" aria-controls="aur-panel-mail">Mail Centre</button>
+<button type="button" role="tab" data-aur-tab="settings" id="aur-tab-settings" aria-controls="aur-panel-settings">More</button>
 </nav>
 <nav id="aur-workflow" class="aur-guide" aria-label="RFQ status overview">
 <div class="aur-guide-head"><div><h2>Enquiry workflow</h2><p class="muted"><?= $aurHasCase?'Current case: '.aur_escape((string)$result['reference']):'Start with a customer file' ?> · Select any step to jump to its controls</p></div>
@@ -1450,6 +1493,8 @@ try {
 <div class="aur-next"><p><b>Next action:</b> <?=aur_escape($aurNext)?><?=($aurEnhancedReview?' · Supplier sending remains on hold.':'')?></p><a href="<?=aur_escape($aurNextLink)?>">Go to step →</a></div>
 <p class="muted" style="margin:10px 0 0">Mail figures come from the saved recipient ledger. SMTP acceptance confirms handoff to the mail server, not inbox delivery or a reply. The copy to info@aurenoeva.com is archived privately.</p>
 </nav>
+<details class="aur-fallback-group aur-legacy-functions" id="aur-legacy-functions">
+<summary>Original procurement functions (open if the compact workspace is unavailable)</summary>
 <section class="card" id="aur-upload"><span class="aur-step-label">Step 1 of 5 · Capture</span><h2>Customer enquiries and file uploads</h2>
 <p class="muted">Customer RFQs from the AURENOEVA website now enter this same private procurement workspace automatically, including individually requested quantities. For external customer lists, you can also import Excel or CSV below.</p><form method="post" enctype="multipart/form-data" class="inline">
 <input type="hidden" name="csrf" value="<?=aur_escape($csrf)?>">
@@ -1921,8 +1966,9 @@ info@aurenoeva.com | https://aurenoeva.com
 <button type="submit" name="generate_catalogue_sync" value="1">Generate / rotate catalogue sync key</button></form>
 <?php endif; ?>
 </section>
+</details>
 <?php endif; // authenticated procurement workspace ?>
 <footer style="margin-top:35px"><a href="/">← AURENOEVA website</a><span class="muted"> · Private staff workspace</span></footer>
 </div><?php if ($isAdmin && is_array($result) && isset($result['reference'])): ?>
 <script defer src="/procurement/worldwide.js?v=12"></script>
-<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=3"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
+<?php endif; ?><?php if($isAdmin): ?><script defer src="/procurement/workspace-tabs.js?v=4"></script><script defer src="/procurement/commercial-intelligence.js?v=20261103-1"></script><script defer src="/procurement/inbox-sync.js?v=1"></script><script defer src="/procurement/mail-center.js?v=5"></script><?php endif; ?></body></html>
