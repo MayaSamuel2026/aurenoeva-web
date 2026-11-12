@@ -319,74 +319,93 @@ def summarize_crawler_execution(db: sqlite3.Connection) -> dict | None:
 
 
 def make_full_database_export(db_path: Path, dest: Path) -> dict:
-    """Read all existing SQLite product identities; never mutate the database.
+    """Stream the canonical catalogue without materializing all products in RAM.
 
-    The products table is authoritative. This bypasses stale or incomplete
-    sidecar exports while preserving exact historical IDs and their evidence.
+    Every product and source-backed public offer is exported; batches only
+    bound peak memory, never the number of records published. The database is
+    immutable from this reader and the caller owns its temporary export path.
     """
     if not db_path.is_file():
         raise RuntimeError("canonical_catalogue_database_missing")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    total = 0
+    withdrawn = 0
+    unverified = 0
+    last30 = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     try:
-        with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True,
-                             timeout=15) as conn:
-            conn.row_factory = sqlite3.Row
-            product_columns = {col[1] for col in conn.execute("PRAGMA table_info(products)")}
-            # Old canonical databases predate lifecycle tracking. Export them
-            # without schema mutation, treating their records as unverified.
+        with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True, timeout=15) as db:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA query_only=ON")
+            product_columns = {col[1] for col in db.execute("PRAGMA table_info(products)")}
             lifecycle_field = ("lifecycle_status" if "lifecycle_status" in product_columns
                                else "'UNVERIFIED' AS lifecycle_status")
-            rows = [dict(row) for row in conn.execute(
-                f"""SELECT product_id AS canonical_id,manufacturer,model,description,
-                          source_url AS source_ref,sector,category,last_seen,{lifecycle_field}
-                   FROM products ORDER BY manufacturer,model""")]
-    except sqlite3.Error as exc:
-        raise RuntimeError("canonical_catalogue_database_unreadable") from exc
-    if not rows:
-        raise RuntimeError("canonical_catalogue_database_empty")
-    health = None
-    with sqlite3.connect("file:" + str(db_path) + "?mode=ro", uri=True, timeout=15) as db:
-        db.row_factory = sqlite3.Row
-        attach_offers(db, rows)
-        crawler_status = summarize_crawler_execution(db)
-        columns = {col[1] for col in db.execute("PRAGMA table_info(vendor_product_evidence)")}
-        if {"listing_status", "last_checked_at"}.issubset(columns):
-            limit14 = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
-            limit30 = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-            source = db.execute("""SELECT COUNT(*) AS n,
+            crawler_status = summarize_crawler_execution(db)
+            health = None
+            columns = {col[1] for col in db.execute("PRAGMA table_info(vendor_product_evidence)")}
+            if {"listing_status", "last_checked_at"}.issubset(columns):
+                last14 = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+                source = db.execute("""SELECT COUNT(*) AS n,
                     SUM(CASE WHEN listing_status='WITHDRAWN' THEN 1 ELSE 0 END) AS withdrawn,
                     SUM(CASE WHEN listing_status='RECHECK_REQUIRED' THEN 1 ELSE 0 END) AS review,
                     SUM(CASE WHEN last_seen < ? AND listing_status!='WITHDRAWN' THEN 1 ELSE 0 END) AS overdue,
                     MAX(last_checked_at) AS latest
-                    FROM vendor_product_evidence""", (limit14,)).fetchone()
-            health = {
-                "lifecycle_version": 1,
-                "source_links": int(source["n"] or 0),
-                "confirmed_withdrawn_links": int(source["withdrawn"] or 0),
-                "recheck_required_links": int(source["review"] or 0),
-                "overdue_14d_links": int(source["overdue"] or 0),
-                "latest_check_at": source["latest"] or "",
-                "confirmed_withdrawn_products": sum(r["lifecycle_status"] == "WITHDRAWN" for r in rows),
-                "unverified_30d_products": sum((not r["last_seen"]) or r["last_seen"] < limit30 for r in rows
-                                                    if r["lifecycle_status"] != "WITHDRAWN")
-            }
-    # The public normalizer classifies each eligible record exactly once.
-    # This pre-normalization pass was thrown away and doubled CPU work on
-    # every full publication of the six-figure catalogue.
-    data = {"schema": SCHEMA, "items": rows,
-            "source_catalogue_stats": {"db_products": len(rows)}}
-    if health is not None:
-        data["catalogue_health"] = health
-    if crawler_status is not None:
-        data["source_catalogue_stats"]["crawler"] = crawler_status
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    with dest.open("w", encoding="utf-8") as fp:
-        json.dump(data, fp, ensure_ascii=False, separators=(",", ":"))
-        fp.flush()
-        os.fsync(fp.fileno())
+                    FROM vendor_product_evidence""", (last14,)).fetchone()
+                health = {
+                    "lifecycle_version": 1,
+                    "source_links": int(source["n"] or 0),
+                    "confirmed_withdrawn_links": int(source["withdrawn"] or 0),
+                    "recheck_required_links": int(source["review"] or 0),
+                    "overdue_14d_links": int(source["overdue"] or 0),
+                    "latest_check_at": source["latest"] or "",
+                }
+            cursor = db.execute(f"""SELECT product_id AS canonical_id,manufacturer,model,description,
+                      source_url AS source_ref,sector,category,last_seen,{lifecycle_field}
+                      FROM products ORDER BY manufacturer,model""")
+            with dest.open("w", encoding="utf-8") as out:
+                out.write('{"schema":')
+                out.write(json.dumps(SCHEMA))
+                out.write(',"items":[')
+                first = True
+                while True:
+                    fetched = cursor.fetchmany(400)
+                    if not fetched:
+                        break
+                    rows = [dict(record) for record in fetched]
+                    attach_offers(db, rows)
+                    enrich_rows(rows)
+                    for row in rows:
+                        if not first:
+                            out.write(",")
+                        out.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
+                        first = False
+                        total += 1
+                        if row["lifecycle_status"] == "WITHDRAWN":
+                            withdrawn += 1
+                        elif not row["last_seen"] or row["last_seen"] < last30:
+                            unverified += 1
+                if total == 0:
+                    raise RuntimeError("canonical_catalogue_database_empty")
+                stats = {"db_products": total}
+                if crawler_status is not None:
+                    stats["crawler"] = crawler_status
+                out.write('],"source_catalogue_stats":')
+                out.write(json.dumps(stats, ensure_ascii=False, separators=(",", ":")))
+                if health is not None:
+                    health["confirmed_withdrawn_products"] = withdrawn
+                    health["unverified_30d_products"] = unverified
+                    out.write(',"catalogue_health":')
+                    out.write(json.dumps(health, ensure_ascii=False, separators=(",", ":")))
+                out.write("}")
+                out.flush()
+                os.fsync(out.fileno())
+    except sqlite3.Error as exc:
+        dest.unlink(missing_ok=True)
+        raise RuntimeError("canonical_catalogue_database_unreadable") from exc
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
     os.chmod(dest, 0o600)
-    return {"db_products": len(rows), "exported_products": len(rows)}
-
-
+    return {"db_products": total, "exported_products": total}
 
 
 def product_batches(payload: bytes, max_records: int = 600,
