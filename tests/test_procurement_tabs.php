@@ -57,25 +57,21 @@ check_tab(str_contains($inbox,'pageRows = 9') && str_contains($inbox,'visible.sl
 check_tab(str_contains($entry,'AURENOEVA_COMPACT_CORRESPONDENCE_20261111'), 'Compact supplier conversation styling missing');
 $threadUi=file_get_contents($root.'/deployment/site/procurement/case-mail-inbox.js');
 $board=file_get_contents($root.'/deployment/site/procurement/case_mail_workbench.php');
-check_tab(str_contains($threadUi,'pageSize=20') && str_contains($threadUi,'aurenoeva:compose-supplier-followup'),
-    'Supplier inbox paging and reviewed follow-up action disconnected');
-check_tab(str_contains($board,'case_mail_inbox_data.php') && str_contains($board,'aur_correspondence_threads(')
-    && str_contains($board,'JSON_HEX_TAG'), 'Original evidence not delivered safely to compact inbox');
+check_tab(str_contains($threadUi,'pageSize=20') &&
+          str_contains($threadUi,'aurenoeva:compose-supplier-followup') &&
+          str_contains($threadUi,"mail_action:'conversation'"),
+    'Mailbox conversations must load originals, paginate and permit manual replies');
+check_tab(str_contains($board,'case_mail_inbox_data.php') &&
+          str_contains($board,'aur_correspondence_threads(') &&
+          str_contains($board,'JSON_HEX_TAG'), 'Existing case evidence must still identify suppliers');
 check_tab(str_contains($ui,'Open full Mail Centre, read attachments or compose'),
-    'Full mailbox must remain accessible without full-page scrolling');
-check_tab(str_contains($inbox,'aurenoeva:compose-supplier-followup') && str_contains($inbox,'openCompose()'),
-    'Follow-up must open the existing manual Mail Centre draft');
-
-check_tab(str_contains($board,'aur-case-mail-refresh') &&
-          str_contains($board,'case-mail-inbox.js?v=3'), 'Manual refresh and new inbox script not published');
-check_tab(str_contains($threadUi,'sync_supplier_inbox') &&
-          str_contains($threadUi,'more_pending') &&
-          str_contains($threadUi,'location.reload()'), 'Existing private mailbox sync not connected to supplier inbox refresh');
-
-check_tab(str_contains($threadUi,"let filter='all'") &&
-          str_contains($board,'data-aur-mail-filter="all" aria-pressed="true"'),
-    'All supplier conversations must be visible by default');
-check_tab(str_contains($threadUi,'a.aur-correspondence-open-mail[href="#aur-mail-center"]') &&
-          str_contains($threadUi,'...(thread.aliases||[])') &&
-          str_contains($threadUi,'m.subject,m.body'),
-    'Refresh must not open mailbox; sender aliases and message text must be searchable');
+    'Full mailbox must remain accessible');
+check_tab(str_contains($board,'case-mail-inbox.js?v=4') &&
+          str_contains($board,'Original sent enquiry') &&
+          str_contains($board,'Refresh mailbox') &&
+          !str_contains($board,'data-aur-mail-filter='),
+    'Compact conversation view must not expose competing status-filter panels');
+check_tab(str_contains($threadUi,"mail_action:'download'") &&
+          str_contains($threadUi,"mail_action:'download_attachment'") &&
+          !str_contains($threadUi,'sync_supplier_inbox'),
+    'Original mail and attachments must be accessible without separate inbox reconciliation');

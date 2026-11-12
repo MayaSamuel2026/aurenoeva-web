@@ -86,29 +86,18 @@ $inboxJson=json_encode($inbox,
 <section id="aur-mail-trail" class="card aur-case-correspondence" aria-label="RFQ supplier correspondence inbox">
 <div class="aur-correspondence-head">
   <div><span class="aur-workflow-kicker">RFQ CORRESPONDENCE</span>
-  <h2>Supplier conversations</h2>
-  <p class="muted">One row per supplier for RFQ <?=aur_escape((string)$result['reference'])?>.
-  Only saved SMTP acceptances count as sent; unverified messages are flagged separately.</p></div>
+  <h2>Supplier email conversations</h2>
+  <p class="muted">Original sent enquiry → supplier response → our reply, in chronological order. Select a supplier to read the actual mailbox history.</p></div>
   <div class="aur-case-mail-actions">
-    <button type="button" id="aur-case-mail-refresh" class="aur-correspondence-open-mail">Refresh supplier replies</button>
+    <button type="button" id="aur-case-mail-refresh" class="aur-correspondence-open-mail">Refresh mailbox</button>
     <a href="#aur-mail-center" class="aur-correspondence-open-mail">Open full mailbox</a>
   </div>
 </div>
 <div id="aur-case-mail-refresh-status" class="aur-case-mail-refresh-status" role="status" aria-live="polite"></div>
-<div class="aur-correspondence-stats" id="aur-case-mail-stats" role="group" aria-label="Correspondence status">
-  <span>Loading supplier correspondence…</span>
-</div>
 <?php if($workbenchError):?><p role="alert">Some source records were unavailable. Existing mail was not altered. Verify the original mailbox before making a sending decision.</p><?php endif;?>
 <div class="aur-correspondence-controls">
   <label class="aur-correspondence-search-label" for="aur-case-mail-search">Find supplier or email
   <input type="search" id="aur-case-mail-search" placeholder="Supplier, email address or subject" autocomplete="off"></label>
-  <div class="aur-correspondence-filters" role="group" aria-label="Conversation filter">
-    <button type="button" data-aur-mail-filter="all" aria-pressed="true">All suppliers</button>
-    <button type="button" data-aur-mail-filter="awaiting" aria-pressed="false">Awaiting reply</button>
-    <button type="button" data-aur-mail-filter="replied" aria-pressed="false">Replies received</button>
-    <button type="button" data-aur-mail-filter="review" aria-pressed="false">Needs review</button>
-    <button type="button" data-aur-mail-filter="unconfirmed" aria-pressed="false">Send unconfirmed</button>
-  </div>
   <label class="aur-correspondence-sort-label" for="aur-case-mail-sort">Order
     <select id="aur-case-mail-sort">
       <option value="recent">Most recent</option>
@@ -127,9 +116,9 @@ $inboxJson=json_encode($inbox,
     <p class="muted">Choose a supplier to view the original sent messages and recorded replies.</p>
   </article>
 </div>
-<p class="muted aur-correspondence-footnote">An SMTP acceptance is not proof of delivery. A case-referenced but unmatched reply needs verification before being counted as a supplier response. Live mailbox unread states are not inferred here.</p>
+<p class="muted aur-correspondence-footnote">Original Hostinger Sent and Inbox messages are displayed first. Earlier approved RFQ sending records are retained where no mailbox copy is present; SMTP acceptance alone does not prove delivery.</p>
 <script id="aur-case-mail-data" type="application/json"><?=$inboxJson?></script>
-<script defer src="/procurement/case-mail-inbox.js?v=3"></script>
+<script defer src="/procurement/case-mail-inbox.js?v=4"></script>
 </section>
 <section id="aur-email-review-queue" class="card" aria-label="Saved emails requiring owner review">
 <h2>Prepared emails awaiting your review</h2>

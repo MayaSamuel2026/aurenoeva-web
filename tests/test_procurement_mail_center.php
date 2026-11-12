@@ -304,3 +304,42 @@ mailcenter_assert(str_contains($ui,'id="aur-mail-rich-editor"') &&
     'Branding composer controls or plain-paste normalization missing');
 
 echo "AURENOEVA_MAIL_CENTER=PASS\n";
+
+
+/* Actual Sent / Inbox chronology, and only Message-ID-based deduplication. */
+$live=[
+ ['uid'=>'89','folder'=>'INBOX.Sent','kind'=>'sent',
+  'date'=>'2026-11-06T16:19:14Z','message_id'=>'<first@aurenoeva.com>',
+  'subject'=>'Freundliche Preisanfrage'],
+ ['uid'=>'92','folder'=>'INBOX','kind'=>'received',
+  'date'=>'2026-11-11T07:37:14Z','message_id'=>'<nelly@duo-med.de>',
+  'subject'=>'Ihre Anfrage'],
+ ['uid'=>'105','folder'=>'INBOX.Sent','kind'=>'sent',
+  'date'=>'2026-11-11T12:06:46Z','message_id'=>'<reply@aurenoeva.com>',
+  'subject'=>'AW: Ihre Anfrage'],
+];
+$recorded=[
+ ['uid'=>'rfq-old','folder'=>'INBOX.Sent','kind'=>'sent',
+  'date'=>'2026-11-06T16:19:14Z','message_id'=>'<first@aurenoeva.com>'],
+ ['uid'=>'local-reply','folder'=>'INBOX.Sent','kind'=>'sent',
+  'date'=>'2026-11-11T12:06:46Z','message_id'=>'<reply@aurenoeva.com>'],
+];
+$conversation=aur_mailcenter_conversation_merge(array_reverse($live),$recorded);
+mailcenter_assert(count($conversation)===3 &&
+    array_column($conversation,'kind')===['sent','received','sent'] &&
+    array_column($conversation,'uid')===['89','92','105'],
+    'Original Sent / reply / response timeline must remain complete, ordered and deduplicated');
+$repeat=aur_mailcenter_conversation_merge([
+ ['uid'=>'2','folder'=>'INBOX.Sent','date'=>'2026-11-11T12:10:00Z',
+  'message_id'=>'<new@aurenoeva.com>'],
+ ['uid'=>'3','folder'=>'INBOX.Sent','date'=>'2026-11-11T12:11:00Z',
+  'message_id'=>'<another@aurenoeva.com>']
+],[]);
+mailcenter_assert(count($repeat)===2,'Distinct follow-up messages must not be collapsed by similar subjects');
+foreach(['other@example.com'."\r\nX-Header: exploit", 'invalid',''] as $bad){
+    try{aur_mailcenter_conversation('', $bad);throw new RuntimeException('Unsafe address accepted');}
+    catch(InvalidArgumentException $e){}
+}
+mailcenter_assert(str_contains($ui,"$". "action==='conversation'") &&
+    str_contains($ui,'aur_mailcenter_conversation($aurStore'),
+    'Authenticated read-only conversation route missing');
