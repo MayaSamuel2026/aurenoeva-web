@@ -8,12 +8,17 @@ Type=oneshot
 User=aurenoeva
 Group=aurenoeva
 WorkingDirectory=/opt/aurenoeva
-ExecStart=/usr/bin/python3 /opt/aurenoeva/tools/catalogue_publish.py
+ExecStart=/usr/bin/python3 /opt/aurenoeva/tools/catalogue_publish_selective.py
 # Existing publisher locks and verified SHA snapshot prevent overlapping writes.
 # The 120 MB website upload may outlast a crawler cycle without killing it.
 TimeoutStartSec=5400
-CPUWeight=100
-IOWeight=100
+# Background publication cannot monopolize the shared VPS.
+CPUQuota=40%
+CPUWeight=30
+IOWeight=80
+Nice=10
+MemoryAccounting=yes
+MemoryHigh=1800M
 UMask=0077
 NoNewPrivileges=true
 ProtectSystem=strict
