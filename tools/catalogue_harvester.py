@@ -843,7 +843,7 @@ def import_deepfetcher_source_evidence(
         if isinstance(candidate, dict) and isinstance(candidate.get("url"), str):
             added += enqueue(db, candidate["url"], "page")
     cursor = payload.get("next_before") or ""
-    if cursor and not re.fullmatch(r"[0-9T:+.Z-]{19,35}\\|web-[a-f0-9]{16}", cursor):
+    if cursor and not re.fullmatch(r"[0-9T:+.Z-]{19,35}\|web-[a-f0-9]{16}", cursor):
         raise ValueError("invalid_deepfetcher_feed_cursor")
     db.execute("""INSERT INTO harvest_source_cursor(host,last_url) VALUES(?,?)
         ON CONFLICT(host) DO UPDATE SET last_url=excluded.last_url""", (key,cursor))
