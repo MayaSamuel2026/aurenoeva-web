@@ -14,8 +14,13 @@ ExecStartPre=-+/usr/bin/python3 /opt/aurenoeva/tools/catalogue_auto_update.py
 ExecStart=/usr/bin/python3 /opt/aurenoeva/tools/catalogue_harvester.py --db /var/lib/aurenoeva/catalogue.sqlite3 --sources /opt/aurenoeva/config/catalogue_harvester.json --export /var/lib/aurenoeva/catalogue-public.json --max-pages 2500 --max-seconds 1500 --workers 4
 # Website publication runs in its own existing-VPS timer; a slow 120 MB upload
 # must not terminate a productive crawl or hold the half-hourly schedule.
-CPUWeight=700
-IOWeight=250
+# Shared 2-vCPU host: protect foreground CRM and website processes.
+CPUQuota=60%
+CPUWeight=30
+IOWeight=100
+Nice=10
+MemoryAccounting=yes
+MemoryHigh=2500M
 TimeoutStartSec=3300
 UMask=0077
 NoNewPrivileges=true
