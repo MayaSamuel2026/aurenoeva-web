@@ -134,11 +134,20 @@ def run(db: Path = DB, state: Path = STATE, publisher: Path = PUBLISHER,
         print(json.dumps({"event": "CATALOGUE_PUBLICATION_DEFERRED",
                           "reasons": reasons}), flush=True)
         return 0  # Existing timer retries; no data or publication receipt is changed.
+    started_at = time.time()
     completed = subprocess.run([sys.executable, str(publisher)], check=False)
     if completed.returncode != 0:
         print(json.dumps({"event": "CATALOGUE_PUBLICATION_FAILED",
                           "exit_code": completed.returncode}), flush=True)
         return completed.returncode
+    # The publisher may exit successfully with SKIPPED_UNCONFIGURED.
+    # A fresh verified SHA receipt is essential before suppressing future work.
+    receipt = state / "catalogue-products-pushed.sha256"
+    if (not receipt.is_file() or receipt.stat().st_mtime < started_at - 2
+            or len(receipt.read_text(encoding="ascii").strip()) != 64):
+        print(json.dumps({"event": "CATALOGUE_PUBLICATION_UNVERIFIED",
+                          "reason": "verified_products_receipt_not_refreshed"}), flush=True)
+        return 1
     # Never checkpoint a newer catalogue than the snapshot actually published.
     after = fingerprint(db)
     if after == before:
