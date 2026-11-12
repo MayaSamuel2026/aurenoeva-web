@@ -79,6 +79,32 @@ try{
     aur_df_commit($store,$conflict,'aurenoeva');
     throw new RuntimeException('conflicting delivery reused existing record');
 }catch(RuntimeException $e){df_must($e->getMessage()==='delivery_id_conflict','replay conflict not rejected');}
+// A second valid signature for a changed claim must not rewrite the original
+// committed record or trigger supplier-intelligence side effects on replay.
+foreach(['quotation','verification'] as $attribute){
+    $changed=$parsed;
+    $changed['evidence'][$attribute]=$attribute==='quotation'
+        ? 'Different supplier quoted under the same delivery'
+        : 'independently_verified';
+    try{
+        aur_df_commit($store,$changed,'aurenoeva');
+        throw new RuntimeException('altered '.$attribute.' replay accepted');
+    }catch(RuntimeException $e){
+        df_must($e->getMessage()==='delivery_id_conflict',
+            'changed '.$attribute.' must not reuse an existing committed receipt');
+    }
+}
+$changedCase=$parsed;
+$changedCase['client_reference']='UNRELATED-CASE';
+try{
+    aur_df_commit($store,$changedCase,'aurenoeva');
+    throw new RuntimeException('changed client case replay accepted');
+}catch(RuntimeException $e){
+    df_must($e->getMessage()==='delivery_id_conflict',
+        'changed client case must not reuse an existing receipt');
+}
+df_must(file_get_contents($path)===$bytes,
+    'altered signed replay modified original source write');
 df_must(count(glob(aur_private_directory($store,'deepfetcher-inbox').'/delivery-*.json'))===1,'inbox duplicate');
 
 $vendor=$record;

@@ -55,7 +55,14 @@ function aur_df_commit(string $store,array $data,string $expectedWorkspace):stri
                 || ($existing['evidence']['source_hash']??null)!==$data['evidence']['source_hash']
                 || ($existing['evidence']['source_url']??null)!==$data['evidence']['source_url']
                 || ($existing['evidence']['field']??null)!==$data['evidence']['field']
-                || ($existing['evidence']['value']??null)!==$data['evidence']['value'])
+                || ($existing['evidence']['value']??null)!==$data['evidence']['value']
+                || ($existing['evidence']['quotation']??null)!==$data['evidence']['quotation']
+                || ($existing['evidence']['verification']??null)!==$data['evidence']['verification']
+                || ($existing['workspace_id']??null)!==($data['workspace_id']??null)
+                || ($existing['client_reference']??null)!==($data['client_reference']??null))
+                // A previously committed source claim is immutable. Never
+                // project an altered signed replay into supplier intelligence,
+                // and never send an acknowledgement for it.
                 throw new RuntimeException('delivery_id_conflict');
             aur_df_supplier_observe($store,$data); // Recover an interrupted projection before acknowledgement.
             return $ref; // Existing receipt is byte-stable.
