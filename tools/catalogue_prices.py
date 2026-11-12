@@ -218,21 +218,36 @@ def sanitize_offers(value, canonical_id, now=None):
 
 
 def attach_offers(db, rows):
-    """Populate the existing export; retain product count and canonical IDs unchanged."""
+    """Attach only the offers for these product IDs, not the full offers table.
+
+    Works for whole-catalogue and streamed export batches. Avoids scanning
+    all historical offers for every chunk while keeping the same evidence
+    rules, ordering, output fields and product IDs.
+    """
+    if not rows:
+        return
     by_id = {r["canonical_id"]: r for r in rows}
-    for r in rows:
-        r["public_offers"] = []
-        r["price_status"] = PRICE_STATUS
+    for row in rows:
+        row["public_offers"] = []
+        row["price_status"] = PRICE_STATUS
     if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='public_offers'").fetchone():
         return
-    for offer in db.execute("""SELECT product_id,seller_website,seller_name,source_url,
-                                      currency,amount,observed_at
-                               FROM public_offers WHERE active=1 ORDER BY amount ASC"""):
-        data = dict(zip(("product_id","seller_website","seller_name","source_url",
-                         "currency","amount","observed_at"), offer))
-        row = by_id.get(data["product_id"])
-        if row is not None and len(row["public_offers"]) < 30:
-            row["public_offers"].append(data)
+    keys = list(by_id)
+    # Stay below older SQLite 999-variable limits. Product IDs are never
+    # concatenated into SQL, only supplied as bound parameters.
+    for offset in range(0, len(keys), 400):
+        group = keys[offset:offset + 400]
+        placeholders = ",".join("?" for _ in group)
+        query = ("""SELECT product_id,seller_website,seller_name,source_url,
+                           currency,amount,observed_at
+                    FROM public_offers WHERE active=1 AND product_id IN ("""
+                 + placeholders + ") ORDER BY amount ASC")
+        for offer in db.execute(query, group):
+            data = dict(zip(("product_id","seller_website","seller_name","source_url",
+                             "currency","amount","observed_at"), offer))
+            row = by_id.get(data["product_id"])
+            if row is not None and len(row["public_offers"]) < 30:
+                row["public_offers"].append(data)
     for row in rows:
         row["public_offers"] = sanitize_offers(row["public_offers"], row["canonical_id"])
         if row["public_offers"]:
