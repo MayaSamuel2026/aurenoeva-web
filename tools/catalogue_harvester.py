@@ -1263,6 +1263,22 @@ def export(db,path):
         out.flush();os.fsync(out.fileno())
     os.replace(temp,path);os.chmod(path,0o600)
     return {"products":len(rows),"vendor_product_links":len(vendors),"vendor_leads":len(leads)}
+def sidecar_export_due(path, interval_seconds=6 * 3600, now=None):
+    """Avoid rebuilding millions of vendor evidence links on every crawl.
+
+    The independent public publisher already reads canonical products directly
+    from SQLite. The full private supplier-evidence sidecar remains available
+    for periodic/manual RFQ synchronisation, without holding back harvesting.
+    """
+    at = time.time() if now is None else now
+    try:
+        info = path.stat()
+    except FileNotFoundError:
+        return True
+    age = at - info.st_mtime
+    return not info.st_size or age < 0 or age >= interval_seconds
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--db",type=Path,required=True)
@@ -1272,6 +1288,8 @@ def main():
     ap.add_argument("--max-seconds",type=int,default=2700)
     ap.add_argument("--workers",type=int,default=4)
     ap.add_argument("--status",action="store_true")
+    ap.add_argument("--force-export",action="store_true",
+                    help="Refresh the private vendor-evidence sidecar immediately")
     a=ap.parse_args()
     cfg=json.loads(a.sources.read_text())
     a.db.parent.mkdir(parents=True,exist_ok=True)
@@ -1321,7 +1339,12 @@ def main():
             # website is temporarily slow or unavailable.
             result=run(db,cfg,a.max_pages,a.max_seconds,a.workers)
             result["rfq_reuse"]=prior
-            result["export"]=export(db,a.export)
+            # Public product publishing independently reads SQLite each hour.
+            # Avoid rewriting the large private vendor sidecar every 30 minutes.
+            if a.force_export or sidecar_export_due(a.export):
+                result["export"]=export(db,a.export)
+            else:
+                result["export"]={"status":"REUSED_RECENT_PRIVATE_SIDECAR"}
             result["total_products"]=db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
             result["total_vendor_websites"]=db.execute("SELECT COUNT(DISTINCT website) FROM vendor_leads").fetchone()[0]
             print(json.dumps(result))
