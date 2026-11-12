@@ -197,6 +197,8 @@ if(isset($_GET['mail_action'])||isset($_POST['mail_action'])){
             $response=aur_mailcenter_send($aurStore,$_POST,(array)($_FILES['attachments']??[]));
         }elseif($action==='list'&&$_SERVER['REQUEST_METHOD']==='GET'){
             $response=aur_mailcenter_list($aurStore,$folder,(int)($_GET['page']??1));
+        }elseif($action==='conversation'&&$_SERVER['REQUEST_METHOD']==='GET'){
+            $response=aur_mailcenter_conversation($aurStore,(string)($_GET['email']??''));
         }elseif($action==='read'&&$_SERVER['REQUEST_METHOD']==='GET'){
             $response=aur_mailcenter_read($aurStore,$folder,$uid);
         }else{throw new InvalidArgumentException('invalid_mail_action');}

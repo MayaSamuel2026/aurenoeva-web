@@ -408,3 +408,88 @@ function aur_mailcenter_send(string $store,array $input,array $files=[]):array {
         flock($lock,LOCK_UN);fclose($lock);
     }
 }
+
+
+/**
+ * Display-only mailbox reconstruction for one correspondent. The original
+ * Hostinger Sent/Inbox entries take precedence over the original approved RFQ
+ * and Mail Centre SMTP ledgers. Never delete, mutate, or infer delivery.
+ */
+function aur_mailcenter_conversation_merge(array $server,array $recorded):array {
+    $seen=[];$all=[];
+    foreach(array_merge($server,$recorded) as $entry){
+        if(!is_array($entry))continue;
+        $mid=strtolower(trim((string)($entry['message_id']??''),"<> \t\r\n"));
+        $key=$mid!==''?'mid:'.$mid:'uid:'.(string)($entry['folder']??'').':'.(string)($entry['uid']??'');
+        if(isset($seen[$key]))continue;
+        $seen[$key]=true;
+        $all[]=$entry;
+    }
+    usort($all,static function(array $a,array $b):int {
+        $at=strtotime((string)($a['date']??''))?:0;
+        $bt=strtotime((string)($b['date']??''))?:0;
+        return ($at<=>$bt) ?: strcmp((string)($a['uid']??''),(string)($b['uid']??''));
+    });
+    return $all;
+}
+function aur_mailcenter_conversation(string $store,string $email):array {
+    $email=strtolower(trim($email));
+    if(!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($email)>254)
+        throw new InvalidArgumentException('invalid_supplier_email');
+    $server=[];$warnings=[];
+    foreach(['INBOX','INBOX.Sent'] as $folder){
+        $uids=[];
+        // Provider-side mailbox searches: no arbitrary first-page cutoff.
+        foreach(['UID SEARCH OR FROM "'.$email.'" TO "'.$email.'"',
+                 'UID SEARCH CC "'.$email.'"'] as $command){
+            try{
+                $matches=aur_mailcenter_uids(aur_mailcenter_imap($folder,$command,200000));
+                foreach($matches as $uid)$uids[$uid]=true;
+            }catch(Throwable $e){
+                error_log('AURENOEVA conversation IMAP search '. $folder.': '.get_class($e));
+                $warnings[$folder]='Some '.$folder.' messages could not be checked.';
+            }
+        }
+        ksort($uids,SORT_NUMERIC);
+        foreach(array_keys($uids) as $uid){
+            try{
+                $message=aur_mailcenter_read($store,$folder,(string)$uid)['message'];
+                // Search is substring-based; do not display another correspondent.
+                $participants=(string)($message['from']??'').' '.(string)($message['to']??'');
+                if(stripos($participants,$email)===false)continue;
+                $message['kind']=$folder==='INBOX.Sent'?'sent':'received';
+                $message['origin']='HOSTINGER';
+                $server[]=$message;
+            }catch(Throwable $e){
+                error_log('AURENOEVA conversation IMAP read '.$folder.': '.get_class($e));
+                $warnings[$folder]='Some '.$folder.' messages could not be opened.';
+                $server[]=['uid'=>(string)$uid,'folder'=>$folder,'kind'=>$folder==='INBOX.Sent'?'sent':'received',
+                    'date'=>'','subject'=>'Original message could not be opened','body'=>'',
+                    'origin'=>'HOSTINGER_UNAVAILABLE','message_id'=>'',
+                    'from'=>'','to'=>'','download'=>false];
+            }
+        }
+    }
+    $recorded=[];
+    foreach(aur_mailcenter_local($store) as $entry){
+        if(!is_array($entry)||($entry['status']??'')!=='SMTP_ACCEPTED')continue;
+        if(strtolower(trim((string)($entry['to']??'')))!==$email)continue;
+        $message=aur_mailcenter_local_summary($entry);
+        $message['body']=(string)($entry['body']??'');
+        $message['kind']='sent';$message['origin']='MAIL_CENTER';
+        $message['download']=false;
+        $message['attachments']=is_array($entry['attachments']??null)?$entry['attachments']:[];
+        $recorded[]=$message;
+    }
+    // Original approved RFQ emails can precede Mail Centre installation.
+    foreach(aur_mailcenter_rfq_sent($store) as $message){
+        if(($message['status']??'')!=='SMTP_ACCEPTED')continue;
+        if(strtolower(trim((string)($message['to']??'')))!==$email)continue;
+        $message['kind']='sent';$message['origin']='APPROVED_RFQ_LEDGER';
+        $message['download']=false;
+        $recorded[]=$message;
+    }
+    return ['ok'=>true,'email'=>$email,
+        'messages'=>aur_mailcenter_conversation_merge($server,$recorded),
+        'warnings'=>array_values($warnings)];
+}
