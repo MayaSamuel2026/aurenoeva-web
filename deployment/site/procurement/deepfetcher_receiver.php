@@ -30,8 +30,17 @@ try{
 }catch(InvalidArgumentException|JsonException $e){
     http_response_code(422);
     echo '{"status":"rejected_invalid_source_delivery"}';
+}catch(RuntimeException $e){
+    if($e->getMessage()==='delivery_id_conflict'){
+        http_response_code(409);
+        echo '{"status":"conflicting_committed_source_delivery"}';
+        exit;
+    }
+    error_log('AURENOEVA DeepFetcher intake: '.get_class($e));
+    http_response_code(503);
+    echo '{"status":"receiver_unavailable"}';
 }catch(Throwable $e){
-    error_log('AURENOEVA DeepFetcher intake: '.get_class($e).' '.$e->getMessage());
+    error_log('AURENOEVA DeepFetcher intake: '.get_class($e));
     http_response_code(503);
     echo '{"status":"receiver_unavailable"}';
 }
