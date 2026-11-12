@@ -806,6 +806,54 @@ def import_existing_rfq_vendors(db, token_path=Path("/var/lib/aurenoeva/catalogu
     return {"status":"IMPORTED","seeded":added,"sources_seen":len(payload.get("seeds",[]))}
 
 
+def import_deepfetcher_source_evidence(
+        db, token_path=Path("/var/lib/aurenoeva/catalogue-sync-token")):
+    """Resume private, paged DeepFetcher candidate URLs into the existing frontier.
+
+    No new product, manufacturer or seller is inferred from a candidate.
+    The original harvester must fetch and verify the public source page.
+    The cursor is stored in the existing SQLite source-cursor table; each
+    run advances one page and eventually cycles through the complete feed.
+    """
+    if not token_path.is_file():
+        return {"status": "NO_EXISTING_SYNC_TOKEN", "seeded": 0}
+    if token_path.stat().st_mode & 0o077:
+        raise ValueError("insecure_sync_token_permissions")
+    token = token_path.read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"[a-f0-9]{64}", token):
+        raise ValueError("invalid_sync_token")
+    key = "__deepfetcher_candidate_feed_v1__"
+    prior = db.execute("SELECT last_url FROM harvest_source_cursor WHERE host=?", (key,)).fetchone()
+    before = prior[0] if prior else ""
+    url = "https://aurenoeva.com/catalogue-sync.php?" + urlencode({
+        "deepfetcher_source_seeds": "1", "before": before})
+    request = Request(url, headers={
+        "User-Agent": AGENT, "X-Aurenoeva-Sync-Token": token})
+    with urlopen(request, timeout=35) as response:
+        body = response.read(5_000_001)
+    if len(body) > 5_000_000:
+        raise ValueError("deepfetcher_source_page_oversized")
+    payload = json.loads(body)
+    if (payload.get("ok") is not True
+        or payload.get("source") != "DEEPFETCHER_SOURCE_CANDIDATES"
+        or not isinstance(payload.get("seeds"), list)):
+        raise ValueError("unrecognized_deepfetcher_candidate_feed")
+    added = 0
+    for candidate in payload["seeds"]:
+        if isinstance(candidate, dict) and isinstance(candidate.get("url"), str):
+            added += enqueue(db, candidate["url"], "page")
+    cursor = payload.get("next_before") or ""
+    if cursor and not re.fullmatch(r"[0-9T:+.Z-]{19,35}\\|web-[a-f0-9]{16}", cursor):
+        raise ValueError("invalid_deepfetcher_feed_cursor")
+    db.execute("""INSERT INTO harvest_source_cursor(host,last_url) VALUES(?,?)
+        ON CONFLICT(host) DO UPDATE SET last_url=excluded.last_url""", (key,cursor))
+    db.commit()
+    return {"status": "IMPORTED", "seeded": added,
+            "page_candidates": len(payload["seeds"]),
+            "has_more": bool(cursor)}
+
+
+
 def seeds(db,config):
     # Every website category receives independent discovery through two providers.
     for sector,categories in config["categories"].items():
@@ -1332,6 +1380,11 @@ def main():
                 prior=import_existing_rfq_vendors(db)
             except Exception as e:
                 prior={"status":"TEMPORARILY_UNAVAILABLE","detail":type(e).__name__,"seeded":0}
+            try:
+                deepfetcher_source_reuse=import_deepfetcher_source_evidence(db)
+            except Exception as e:
+                deepfetcher_source_reuse={"status":"TEMPORARILY_UNAVAILABLE",
+                                          "detail":type(e).__name__,"seeded":0}
             # Crawl must never spend its time budget waiting for website HTTP
             # uploads. The existing systemd ExecStartPost publisher owns the
             # one authenticated, resumable publication attempt after each run.
@@ -1339,6 +1392,7 @@ def main():
             # website is temporarily slow or unavailable.
             result=run(db,cfg,a.max_pages,a.max_seconds,a.workers)
             result["rfq_reuse"]=prior
+            result["deepfetcher_source_reuse"]=deepfetcher_source_reuse
             # Public product publishing independently reads SQLite each hour.
             # Avoid rewriting the large private vendor sidecar every 30 minutes.
             if a.force_export or sidecar_export_due(a.export):
