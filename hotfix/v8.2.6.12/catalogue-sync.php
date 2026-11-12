@@ -579,6 +579,37 @@ if (!preg_match('/^[a-f0-9]{64}$/D', $expected)
     http_response_code(401); echo '{"ok":false,"error":"unauthorized"}'; exit;
 }
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    // DeepFetcher supplies SOURCE CANDIDATES only. Every URL is revisited by
+    // the canonical catalogue admission rules before any product is published.
+    // Cursor pagination retains every eligible observation without a global cap.
+    if (($_GET['deepfetcher_source_seeds'] ?? '') === '1') {
+        try {
+            require_once __DIR__ . '/procurement/deepfetcher_supplier_intel.php';
+            $before=(string)($_GET['before'] ?? '');
+            $page=aur_df_supplier_recent($private,100,$before);
+            $seeds=[];
+            foreach (($page['items'] ?? []) as $item) {
+                foreach (($item['source_urls'] ?? []) as $candidate) {
+                    $url=(string)$candidate;
+                    if(strlen($url)>1400 ||
+                       !preg_match('~^https://[a-z0-9.-]+\\.[a-z]{2,}/~i',$url))
+                        continue;
+                    $seeds[$url]=['url'=>$url,'manufacturer'=>'',
+                        'sector'=>'','category'=>'','source'=>'DEEPFETCHER_SOURCE_CANDIDATE'];
+                }
+            }
+            header('Cache-Control: private, no-store');
+            echo json_encode(['ok'=>true,'source'=>'DEEPFETCHER_SOURCE_CANDIDATES',
+                'seeds'=>array_values($seeds),
+                'next_before'=>$page['next_before'] ?? null],
+                JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        } catch (Throwable $e) {
+            error_log('AURENOEVA DeepFetcher seed read unavailable: '.get_class($e));
+            http_response_code(503);
+            echo '{"ok":false,"error":"deepfetcher_seeds_unavailable"}';
+        }
+        exit;
+    }
     // Reuse the existing private worldwide vendor master as harvester seeds.
     // Never expose case details, customers, quotes or supplier contact emails.
     try {
