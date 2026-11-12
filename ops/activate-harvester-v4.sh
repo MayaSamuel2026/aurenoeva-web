@@ -19,14 +19,14 @@ mkdir -p "$WORK/tools" "$WORK/config" "$WORK/tests" "$WORK/ops"
 BASE=https://raw.githubusercontent.com/MayaSamuel2026/aurenoeva-web/main
 for file in \
   tools/catalogue_harvester.py tools/catalogue_publish.py tools/catalogue_classification.py tools/catalogue_prices.py \
-  tools/catalogue_auto_update.py config/catalogue_harvester.json \
-  ops/aurenoeva-catalogue.service ops/aurenoeva-catalogue.timer \
+  tools/catalogue_auto_update.py tools/catalogue_publish_selective.py config/catalogue_harvester.json \
+  ops/aurenoeva-catalogue.service ops/aurenoeva-catalogue.timer ops/aurenoeva-catalogue-publish.service \
   tests/test_catalogue_harvester.py tests/test_catalogue_publish.py tests/test_catalogue_classification.py \
   tests/test_catalogue_auto_update.py tests/test_catalogue_prices.py tests/test_catalogue_lifecycle.py tests/test_catalogue_onergys_coverage.py; do
   curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 60 \
     "$BASE/$file" -o "$WORK/$file"
 done
-python3 -m py_compile "$WORK/tools/catalogue_harvester.py" "$WORK/tools/catalogue_publish.py" "$WORK/tools/catalogue_classification.py" "$WORK/tools/catalogue_prices.py" "$WORK/tools/catalogue_auto_update.py"
+python3 -m py_compile "$WORK/tools/catalogue_harvester.py" "$WORK/tools/catalogue_publish.py" "$WORK/tools/catalogue_publish_selective.py" "$WORK/tools/catalogue_classification.py" "$WORK/tools/catalogue_prices.py" "$WORK/tools/catalogue_auto_update.py"
 python3 -m json.tool "$WORK/config/catalogue_harvester.json" >/dev/null
 (cd "$WORK" && python3 -m unittest discover -s tests -p 'test_catalogue_*.py' -v)
 echo "=== STOP AND RETIRE ORIGINAL CRAWLER ==="
@@ -53,10 +53,17 @@ install -m 0644 "$WORK/tools/catalogue_prices.py" "$APP/tools/catalogue_prices.p
 install -m 0644 "$WORK/tools/catalogue_classification.py" "$APP/tools/catalogue_classification.py"
 install -m 0644 "$WORK/tools/catalogue_harvester.py" "$APP/tools/catalogue_harvester.py"
 install -m 0644 "$WORK/tools/catalogue_publish.py" "$APP/tools/catalogue_publish.py"
+install -m 0644 "$WORK/tools/catalogue_publish_selective.py" "$APP/tools/catalogue_publish_selective.py"
 install -m 0644 "$WORK/tools/catalogue_auto_update.py" "$APP/tools/catalogue_auto_update.py"
 install -m 0644 "$WORK/config/catalogue_harvester.json" "$APP/config/catalogue_harvester.json"
 install -m 0644 "$WORK/ops/aurenoeva-catalogue.service" "$UNIT"
 install -m 0644 "$WORK/ops/aurenoeva-catalogue.timer" "/etc/systemd/system/$TIMER"
+# Preserve the independent publisher timer and its original public delivery
+# semantics. Only upgrade its unit if already installed.
+if [[ -f /etc/systemd/system/aurenoeva-catalogue-publish.service ]]; then
+  cp -a /etc/systemd/system/aurenoeva-catalogue-publish.service /etc/systemd/system/aurenoeva-catalogue-publish.service.before-selective-"$TS"
+  install -m 0644 "$WORK/ops/aurenoeva-catalogue-publish.service" /etc/systemd/system/aurenoeva-catalogue-publish.service
+fi
 # The already paired private HTTPS token is not rotated or exposed.
 if [[ -s "$STATE/catalogue-sync-token" ]];then
   mkdir -p "/etc/systemd/system/$SERVICE.d"
