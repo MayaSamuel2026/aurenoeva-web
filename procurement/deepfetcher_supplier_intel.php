@@ -8,6 +8,14 @@ require_once __DIR__.'/private_cases.php';
 function aur_df_supplier_observe(string $store, array $delivery): bool {
     $e=$delivery['evidence']??[];
     if(!is_array($e) || ($e['verification']??'')!=='source_backed')return false;
+    // A private projection must not convert a known failed original-source
+    // replay into a supplier candidate, even if invoked without HTTP intake.
+    $replay=$e['source_quotation_replay']??'unavailable';
+    $replayConfirmed=$e['source_quotation_confirmed_in_original']??false;
+    if(!in_array($replay,['present','unavailable','unsupported'],true)
+       ||!is_bool($replayConfirmed)
+       ||$replayConfirmed!==($replay==='present')
+       ||($e['independently_verified_fact']??false)!==false)return false;
     $field=(string)($e['field']??'');
     if(!in_array($field,['supplier.name','supplier.email','product.model','product.manufacturer','product.sku'],true))return false;
     $value=trim((string)($e['value']??''));
@@ -43,6 +51,9 @@ function aur_df_supplier_observe(string $store, array $delivery): bool {
             'client_reference'=>(string)($delivery['client_reference']??''),
             'field'=>$field,'value'=>$value,'quotation'=>$quote,
             'source_url'=>$url,'source_hash'=>$e['source_hash'],
+            'source_quotation_replay'=>$replay,
+            'source_quotation_confirmed_in_original'=>$replayConfirmed,
+            'independently_verified_fact'=>false,
             'source_last_seen_at'=>(string)($e['last_seen_at']??''),
         ];
         if(isset($record['observations'][$evidenceId])){
@@ -149,6 +160,11 @@ function aur_df_supplier_recent(string $store,int $pageSize=20,string $before=''
                     'quotation'=>(string)($obs['quotation']??''),
                     'source_url'=>(string)($obs['source_url']??''),
                     'source_hash'=>(string)($obs['source_hash']??''),
+                    'source_quotation_replay'=>(string)(
+                        $obs['source_quotation_replay']??'unavailable'),
+                    'source_quotation_confirmed_in_original'=>(
+                        $obs['source_quotation_confirmed_in_original']??false)===true,
+                    'independently_verified_fact'=>false,
                     'evidence_id'=>(string)($obs['evidence_id']??''),
                     'client_reference'=>(string)($obs['client_reference']??'')
                 ];
