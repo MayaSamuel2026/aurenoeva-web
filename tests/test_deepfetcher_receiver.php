@@ -177,3 +177,56 @@ df_must($filtered['items'][0]['evidence_quotes'][0]['source_hash']===str_repeat(
 df_must(aur_df_supplier_recent($store,20,'','DOES-NOT-EXIST')['matching_vendors']===0,
     'source search invented results');
 echo "AURENOEVA_DEEPFETCHER_PRODUCT_CASE_WORKFLOW=PASS\n";
+
+$replayed=$product;
+$replayed['delivery_id']=451;
+$replayed['evidence']['id']='ev-product-replay-451';
+$replayed['evidence']['source_quotation_replay']='present';
+$replayed['evidence']['source_quotation_confirmed_in_original']=true;
+$replayed['evidence']['independently_verified_fact']=false;
+$original=json_encode($replayed,JSON_THROW_ON_ERROR);
+$signature='v1='.hash_hmac('sha256',$stamp.'.'.$original,$secret);
+$validated=aur_df_validate($original,$stamp,$signature,$secret);
+df_must(aur_df_commit($store,$validated,'aurenoeva')==='source-inbox-451',
+    'Replayed and quoted supplier source could not be durably received');
+$dossier=aur_df_supplier_recent($store,20,'','S260S');
+$foundReplay=false;
+foreach($dossier['items'] as $vendorRow){
+    foreach(($vendorRow['evidence_quotes']??[]) as $evidenceRow){
+        if(($evidenceRow['evidence_id']??'')!=='ev-product-replay-451')continue;
+        df_must(($evidenceRow['source_quotation_replay']??null)==='present'
+            &&($evidenceRow['source_quotation_confirmed_in_original']??null)===true
+            &&($evidenceRow['independently_verified_fact']??null)===false,
+            'Source archive replay proof was lost in the procurement dossier');
+        $foundReplay=true;
+    }
+}
+df_must($foundReplay,'Accepted source replay not visible to the sourcing team');
+$corrupt=$replayed;
+$corrupt['delivery_id']=452;
+$corrupt['evidence']['source_quotation_replay']='integrity_failed';
+$corrupt['evidence']['source_quotation_confirmed_in_original']=false;
+$badBytes=json_encode($corrupt,JSON_THROW_ON_ERROR);
+$badSignature='v1='.hash_hmac('sha256',$stamp.'.'.$badBytes,$secret);
+try{
+    aur_df_validate($badBytes,$stamp,$badSignature,$secret);
+    throw new RuntimeException('A corrupted original-source quote was accepted');
+}catch(InvalidArgumentException $e){
+    df_must($e->getMessage()==='source_provenance_not_supported',
+        'Known archive corruption was not rejected');
+}
+$corrupt['evidence']['source_quotation_replay']='present';
+$corrupt['evidence']['source_quotation_confirmed_in_original']=true;
+$corrupt['evidence']['independently_verified_fact']=true;
+$badBytes=json_encode($corrupt,JSON_THROW_ON_ERROR);
+$badSignature='v1='.hash_hmac('sha256',$stamp.'.'.$badBytes,$secret);
+try{
+    aur_df_validate($badBytes,$stamp,$badSignature,$secret);
+    throw new RuntimeException('Fabricated independent factual verification was accepted');
+}catch(InvalidArgumentException $e){
+    df_must($e->getMessage()==='source_provenance_not_supported',
+        'Unsupported factual status was not rejected');
+}
+df_must(!is_file(aur_private_directory($store,'deepfetcher-inbox').'/delivery-452.json'),
+    'Rejected source replay reached the private procurement store');
+echo "AURENOEVA_DEEPFETCHER_ORIGINAL_REPLAY_CONTRACT=PASS\n";
