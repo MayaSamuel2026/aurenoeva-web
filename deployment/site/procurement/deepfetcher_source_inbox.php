@@ -34,6 +34,16 @@ function aur_df_validate(string $raw, string $timestamp, string $signature, stri
         throw new InvalidArgumentException('invalid_source_url');
     if(!is_string($data['mission_id']??null)||$data['mission_id']==='')
         throw new InvalidArgumentException('missing_mission');
+    // Source-byte quotation replay is distinct from a binding manufacturer
+    // offer or independent fact validation. Keep old v1 deliveries compatible;
+    // reject known corrupt, internally inconsistent, or fabricated authority.
+    $replay=$e['source_quotation_replay']??'unavailable';
+    $confirmed=$e['source_quotation_confirmed_in_original']??false;
+    if(!is_string($replay)
+       ||!in_array($replay,['present','unavailable','unsupported'],true)
+       ||!is_bool($confirmed)||$confirmed!==($replay==='present')
+       ||($e['independently_verified_fact']??false)!==false)
+        throw new InvalidArgumentException('source_provenance_not_supported');
     return $data;
 }
 
