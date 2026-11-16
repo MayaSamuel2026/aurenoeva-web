@@ -68,6 +68,28 @@ mailcenter_assert($summary['reference']==='AUR-UZ-1A04A7909185FACD'&&
 mailcenter_assert(!array_key_exists('body',$summary)&&strlen($summary['preview'])<=180,
     'Mailbox overview must expose a short preview, not a full body field');
 
+// The provider inbox can contain large videos/PDFs; listing must never
+// download them in full or silently discard failed preview UIDs.
+$serverSource=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail_center.php');
+$browserSource=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/mail-center.js');
+$tabsSource=file_get_contents(dirname(__DIR__).'/deployment/site/procurement/workspace-tabs.js');
+mailcenter_assert(str_contains($serverSource,"';PARTIAL=0.32768'")===false
+    && str_contains($serverSource,"/;PARTIAL=0.32768"),
+    'Inbox listing no longer uses bounded IMAP preview URLs');
+mailcenter_assert(str_contains($serverSource,'aur_mailcenter_list_source($folder,(string)$uid)')
+    && !str_contains($serverSource,'aur_mailcenter_source($folder,(string)$uid),in_array($uid,$unread,true)'),
+    'Inbox listing fell back to downloading full messages');
+mailcenter_assert(str_contains($serverSource,'Message preview unavailable — open to read')
+    && str_contains($serverSource,'mail_preview_partially_unavailable'),
+    'A single bad message must not silently disappear from inbox');
+mailcenter_assert(str_contains($browserSource,'setInterval(refreshWhenVisible,60000)')
+    && str_contains($browserSource,"'aurenoeva:mail-tab-active'")
+    && str_contains($browserSource,"previously loaded emails remain visible"),
+    'Browser mailbox no longer refreshes or preserves last known items on failure');
+mailcenter_assert(str_contains($tabsSource,"if(key==='mail')document.dispatchEvent"),
+    'Mail tab changes do not notify the mailbox');
+
+
 $example=aur_vendor_rfq_smtp_payload('buyer@example.com','Simple','Hello','abc@aurenoeva.com');
 mailcenter_assert(!str_contains($example,'multipart/mixed')&&
     str_contains($example,'Content-Type: text/plain; charset=UTF-8')&&
