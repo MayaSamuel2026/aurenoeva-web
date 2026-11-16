@@ -344,11 +344,8 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
         return ['ok'=>$error===null||count($local)>0,'folder'=>$folder,'page'=>$page,
             'items'=>$merged['items'],'more'=>$merged['more'],'warning'=>$error??($failedSummaries?'mail_preview_partially_unavailable':null)];
     }
-    usort($server,static function(array $a,array $b):int {
-        $ad=strtotime((string)($a['date']??''))?:0;
-        $bd=strtotime((string)($b['date']??''))?:0;
-        return ($bd<=>$ad) ?: ((int)$b['uid']<=>(int)$a['uid']);
-    });
+    // UIDs arrive newest-first from the provider. Preserve this order even
+    // when a malformed or oversized message has no parseable Date header.
     return ['ok'=>$error===null,'folder'=>$folder,'page'=>$page,
         'items'=>$server,'more'=>count($uids)>$offset+$pageSize,
         'warning'=>$error??($failedSummaries?'mail_preview_partially_unavailable':null)];
