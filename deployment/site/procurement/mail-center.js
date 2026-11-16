@@ -228,22 +228,30 @@
       next.disabled = !more;
       heading.textContent = label(folder) + ' · newest first';
     }
+    let refreshToken = 0, lastRefreshAt = 0;
     async function refresh() {
-      notice('Loading mail…');
+      const token = ++refreshToken;
+      const requestedFolder = folder, requestedPage = page;
+      lastRefreshAt = Date.now();
+      notice('Checking Hostinger mailbox…');
       try {
-        const payload = await api({mail_action: 'list', folder, page});
+        const payload = await api({mail_action: 'list', folder: requestedFolder, page: requestedPage});
+        if (token !== refreshToken || folder !== requestedFolder || page !== requestedPage) return;
         messages = payload.items || [];
         more = !!payload.more;
         localPage = 0;
         renderList();
         showList();
-        notice(payload.warning
-          ? 'Mail connection is temporarily unavailable; showing available sent history.'
-          : 'Messages synchronized with Hostinger.');
+        const checked = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        notice(payload.warning === 'mail_preview_partially_unavailable'
+          ? 'Mailbox checked at '+checked+'. Some previews could not load; the messages remain listed.'
+          : payload.warning
+            ? 'Mailbox checked at '+checked+'. Hostinger connection is temporarily unavailable.'
+            : 'Hostinger mailbox updated · '+checked+'.', !!payload.warning);
       } catch (error) {
-        messages = [];
-        renderList();
-        notice('Mailbox unavailable. Check the Hostinger mailbox connection in Administration.', true);
+        if (token !== refreshToken) return;
+        // Never replace a previously loaded real inbox with a misleading empty list.
+        notice('Mailbox refresh failed; previously loaded emails remain visible. Try Refresh again.',true);
       }
     }
     function openCompose(reply = null) {
@@ -424,6 +432,24 @@
       if (!loaded) {loaded = true;initialLoad=refresh();}
       return initialLoad || Promise.resolve();
     };
+    const mailTabActive = () =>
+      document.querySelector('[data-aur-tab="mail"]')?.getAttribute('aria-selected') === 'true';
+    const refreshWhenVisible = () => {
+      if (!loaded || document.hidden || !mailTabActive() || list.hidden) return;
+      if (Date.now()-lastRefreshAt < 15000) return;
+      refresh();
+    };
+    // Re-entering Mail must fetch the provider again, even in a long-lived tab.
+    // While visible, refresh every minute; never interrupt a reply/composition.
+    document.addEventListener('aurenoeva:mail-tab-active',() => {
+      if (!loaded) boot();
+      else if (!document.hidden && list.hidden === false) refresh();
+    });
+    document.addEventListener('visibilitychange',() => {
+      if (!document.hidden) refreshWhenVisible();
+    });
+    window.addEventListener('focus',refreshWhenVisible);
+    setInterval(refreshWhenVisible,60000);
     // Opening this draft is NOT a sending action. Keep SMTP safeguards intact.
     document.addEventListener('aurenoeva:compose-supplier-followup',async event=>{
       const to=String(event.detail?.to||'').trim();
@@ -446,7 +472,7 @@
     root.addEventListener('click', boot, {once:true});
     // Load only when mail tab is chosen, rather than fetching private email
     // each time a staff member opens the procurement workflow.
-    document.getElementById('aur-tab-mail')?.addEventListener('click', boot);
+    // Tab activation is emitted by the existing workspace navigator.
     if (location.hash === '#tab-mail') boot();
   });
 })();
