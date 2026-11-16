@@ -22,6 +22,7 @@ on:
       - 'tests/test_procurement_housekeeping.php'
       - 'tests/test_procurement_quality.php'
       - 'tests/test_procurement_inbox.php'
+      - 'tests/test_procurement_mail_center.php'
       - 'tests/test_procurement_tabs.php'
       - 'tests/test_procurement_researched_round.php'
       - 'tests/test_procurement_nov11_supplier_batch.php'
