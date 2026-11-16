@@ -242,6 +242,11 @@
         localPage = 0;
         renderList();
         showList();
+        if(requestedFolder === 'INBOX' && requestedPage === 1) {
+          document.dispatchEvent(new CustomEvent('aurenoeva:mail-inbox-snapshot',{
+            detail:{items:messages,more}
+          }));
+        }
         const checked = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
         notice(payload.warning === 'mail_preview_partially_unavailable'
           ? 'Mailbox checked at '+checked+'. Some previews could not load; the messages remain listed.'
