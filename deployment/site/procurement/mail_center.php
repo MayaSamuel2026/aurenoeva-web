@@ -183,6 +183,20 @@ function aur_mailcenter_source(string $folder,string $uid):string {
     $cfg=aur_vendor_rfq_smtp_config();
     return aur_mail_curl_request($cfg,'imaps://imap.hostinger.com/'.$folder.'/;UID='.$uid);
 }
+/**
+ * Inbox listing needs headers and a short text preview, never full attachments.
+ * A 32 KiB IMAP partial fetch keeps even 25 MB supplier replies in the list.
+ * Direct message reads remain independent of this lightweight listing path.
+ * libcurl's supported URL PARTIAL extension avoids unreliable custom FETCH parsing.
+ */
+function aur_mailcenter_list_source(string $folder,string $uid):string {
+    $folder=aur_mailcenter_folder($folder);
+    if(!preg_match('/^[1-9][0-9]{0,11}$/D',$uid))throw new InvalidArgumentException('invalid_mail_uid');
+    $cfg=aur_vendor_rfq_smtp_config();
+    return aur_mail_curl_request($cfg,
+        'imaps://imap.hostinger.com/'.$folder.'/;UID='.$uid.'/;PARTIAL=0.32768',
+        null,40000);
+}
 function aur_mailcenter_summary(string $folder,string $uid,string $raw,bool $unread=false):array {
     $headers=aur_mail_headers($raw);
     $mail=aur_mail_parse($raw);
@@ -296,7 +310,7 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
             if(is_array($entry))$local[]=aur_mailcenter_local_summary($entry);
         foreach(aur_mailcenter_rfq_sent($store) as $entry)$local[]=$entry;
     }
-    $error=null;$server=[];$uids=[];
+    $error=null;$server=[];$uids=[];$failedSummaries=0;
     try{
         $uids=aur_mailcenter_uids(aur_mailcenter_imap($folder,'UID SEARCH ALL',200000));
         $unread=aur_mailcenter_uids(aur_mailcenter_imap($folder,'UID SEARCH UNSEEN',200000));
@@ -306,9 +320,19 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
             ?array_slice($uids,0,$page*$pageSize)
             :array_slice($uids,$offset,$pageSize);
         foreach($remoteUids as $uid) {
-            try {$server[]=aur_mailcenter_summary($folder,(string)$uid,
-                aur_mailcenter_source($folder,(string)$uid),in_array($uid,$unread,true));}
-            catch(Throwable $e){error_log('AURENOEVA mail header read: '.get_class($e));}
+            try {
+                $server[]=aur_mailcenter_summary($folder,(string)$uid,
+                    aur_mailcenter_list_source($folder,(string)$uid),in_array($uid,$unread,true));
+            } catch(Throwable $e) {
+                ++$failedSummaries;
+                error_log('AURENOEVA mail list preview UID '.$uid.': '.get_class($e));
+                // Preserve the actual provider UID instead of silently hiding mail.
+                $server[]=['uid'=>(string)$uid,'folder'=>$folder,
+                    'from'=>'Hostinger mailbox','to'=>'','date'=>'',
+                    'subject'=>'Message preview unavailable — open to read',
+                    'preview'=>'','unread'=>in_array($uid,$unread,true),
+                    'has_attachments'=>false,'message_id'=>'','reference'=>null];
+            }
         }
     }catch(Throwable $e){
         error_log('AURENOEVA mail list: '.get_class($e));
@@ -318,7 +342,7 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
         $merged=aur_mailcenter_sent_page($local,$server,$page,$pageSize,
             count($uids)>$page*$pageSize);
         return ['ok'=>$error===null||count($local)>0,'folder'=>$folder,'page'=>$page,
-            'items'=>$merged['items'],'more'=>$merged['more'],'warning'=>$error];
+            'items'=>$merged['items'],'more'=>$merged['more'],'warning'=>$error??($failedSummaries?'mail_preview_partially_unavailable':null)];
     }
     usort($server,static function(array $a,array $b):int {
         $ad=strtotime((string)($a['date']??''))?:0;
@@ -326,7 +350,8 @@ function aur_mailcenter_list(string $store,string $folder,int $page):array {
         return ($bd<=>$ad) ?: ((int)$b['uid']<=>(int)$a['uid']);
     });
     return ['ok'=>$error===null,'folder'=>$folder,'page'=>$page,
-        'items'=>$server,'more'=>count($uids)>$offset+$pageSize,'warning'=>$error];
+        'items'=>$server,'more'=>count($uids)>$offset+$pageSize,
+        'warning'=>$error??($failedSummaries?'mail_preview_partially_unavailable':null)];
 }
 function aur_mailcenter_read(string $store,string $folder,string $uid):array {
     $folder=aur_mailcenter_folder($folder);$uid=aur_mailcenter_uid($uid);
