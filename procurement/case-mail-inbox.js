@@ -21,6 +21,19 @@
     catch(error){preview.textContent='Mailbox list unavailable. Open the full Mail Centre.';return;}
     const threads=Array.isArray(data.threads)?data.threads:[];
     const pageSize=20;
+    // This view starts with durable case evidence but must also include the live
+    // Hostinger inbox: a new supplier may reply from an address not yet matched
+    // to any saved RFQ (e.g. a manufacturer's local distribution partner).
+    const fromAddress=value=>{
+      const match=String(value||'').match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i);
+      return match?match[0].toLowerCase():'';
+    };
+    const fromName=(raw,address)=>{
+      const name=String(raw||'').replace(/<[^>]+>/g,'').replace(/^["'\s]+|["'\s]+$/g,'').trim();
+      return name && name.toLowerCase()!==address?name:address;
+    };
+    let firstLiveInbox=true;
+
     let page=0,selectedId=null,query='',requestNumber=0;
     const node=(tag,value,className)=>{
       const el=document.createElement(tag);
@@ -36,7 +49,7 @@
     };
     const matched=()=>{
       const shown=threads.filter(thread=>[thread.supplier,thread.email,
-        ...(thread.aliases||[]),...(thread.messages||[]).map(m=>m.subject)]
+        ...(thread.aliases||[]),...(thread.live_subjects||[]),...(thread.messages||[]).map(m=>m.subject)]
         .join(' ').toLocaleLowerCase().includes(query));
       const sort=ordering.value;
       shown.sort((a,b)=>sort==='supplier'
@@ -163,7 +176,7 @@
         upper.append(node('strong',thread.supplier),node('time',date(thread.last_at)));
         const lower=node('span',undefined,'aur-conversation-row-bottom');
         lower.append(node('small',thread.email||'Email not verified'),
-          node('span',thread.reply_count>0?'Reply received':'See conversation','aur-correspondence-state'));
+          node('span',thread.live_only?'New inbox sender · review':thread.reply_count>0?'Reply received':'See conversation','aur-correspondence-state'));
         button.append(upper,lower);
         button.addEventListener('click',()=>{
           if(selectedId!==thread.id){
@@ -194,11 +207,56 @@
     search.addEventListener('input',()=>{query=search.value.trim().toLocaleLowerCase();
       page=0;selectedId=null;render();});
     ordering.addEventListener('change',()=>{page=0;selectedId=null;render();});
-    find('aur-case-mail-refresh')?.addEventListener('click',()=>{
-      const thread=threads.find(x=>x.id===selectedId);
-      refreshStatus.textContent='Reading original mailbox again…';
-      if(thread)open(thread).finally(()=>{refreshStatus.textContent='Mailbox conversation refreshed.';});
-      else refreshStatus.textContent='Choose a supplier to refresh.';
+    function mergeProviderInbox(items) {
+      const byAddress=new Map(threads.filter(t=>t.email).map(t=>[t.email.toLowerCase(),t]));
+      let added=0,matched=0;
+      for (const mail of items) {
+        const address=fromAddress(mail.from);
+        if(!address)continue;
+        let thread=byAddress.get(address);
+        if(!thread){
+          thread={id:'inbox:'+address,supplier:fromName(mail.from,address),
+            email:address,aliases:[],messages:[],live_subjects:[],
+            sent_count:0,reply_count:1,review_count:1,status:'review',
+            last_at:mail.date||'',live_only:true};
+          threads.push(thread);byAddress.set(address,thread);added++;
+        }else{
+          matched++;
+          if((Date.parse(mail.date)||0)>(Date.parse(thread.last_at)||0))
+            thread.last_at=mail.date;
+        }
+        if(!Array.isArray(thread.live_subjects))thread.live_subjects=[];
+        if(mail.subject && !thread.live_subjects.includes(mail.subject))
+          thread.live_subjects.push(mail.subject);
+      }
+      if(firstLiveInbox && !query && ordering.value==='recent'){
+        page=0;selectedId=null;
+      }
+      firstLiveInbox=false;
+      render();
+      refreshStatus.textContent='Live Hostinger inbox checked · '+new Date().toLocaleTimeString([],{
+        hour:'2-digit',minute:'2-digit'
+      })+'. '+added+' new correspondent(s) added; original messages preserved.';
+    }
+    // Reuse the full Mail Center's authenticated Hostinger readback;
+    // no new worker, mailbox copy, or second source of truth.
+    document.addEventListener('aurenoeva:mail-inbox-snapshot',event=>{
+      if(Array.isArray(event.detail?.items))mergeProviderInbox(event.detail.items);
+    });
+    find('aur-case-mail-refresh')?.addEventListener('click',async()=>{
+      refreshStatus.textContent='Checking Hostinger Inbox for new correspondents…';
+      try{
+        const response=await fetch('/procurement/?'+new URLSearchParams({
+          mail_action:'list',folder:'INBOX',page:1
+        }),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        const payload=await response.json();
+        if(!response.ok||!payload.ok)throw Error('mailbox_unavailable');
+        mergeProviderInbox(Array.isArray(payload.items)?payload.items:[]);
+        const current=threads.find(x=>x.id===selectedId);
+        if(current)open(current);
+      }catch(error){
+        refreshStatus.textContent='Live mailbox check failed. Earlier messages remain visible; retry or open the full Mail Center.';
+      }
     });
     render();
   });
