@@ -181,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
        const btn=tabs.querySelector('[data-aur-tab="'+name+'"]');
        if(btn){btn.setAttribute('aria-selected',String(name===key));btn.tabIndex=name===key?0:-1;}
      }
+     if(key==='mail')document.dispatchEvent(new Event('aurenoeva:mail-tab-active'));
      if(push){
        history.replaceState(null,'',location.pathname+location.search+'#tab-'+key);
        tabs.scrollIntoView({behavior:'smooth',block:'start'});
