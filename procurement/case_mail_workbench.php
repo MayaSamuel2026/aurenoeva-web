@@ -118,7 +118,7 @@ $inboxJson=json_encode($inbox,
 </div>
 <p class="muted aur-correspondence-footnote">Original Hostinger Sent and Inbox messages are displayed first. Earlier approved RFQ sending records are retained where no mailbox copy is present; SMTP acceptance alone does not prove delivery.</p>
 <script id="aur-case-mail-data" type="application/json"><?=$inboxJson?></script>
-<script defer src="/procurement/case-mail-inbox.js?v=4"></script>
+<script defer src="/procurement/case-mail-inbox.js?v=5"></script>
 </section>
 <section id="aur-email-review-queue" class="card" aria-label="Saved emails requiring owner review">
 <h2>Prepared emails awaiting your review</h2>
