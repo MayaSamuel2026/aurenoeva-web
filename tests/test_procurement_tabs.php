@@ -11,7 +11,7 @@ foreach(['rfq','sources','mail','drafts','more'] as $panel) {
  check_tab(str_contains($entry,'data-aur-tab="'.$panel.'"'),'Missing accessible tab '.$panel);
  check_tab(str_contains($ui,"'".$panel."'"),'Tab not wired '.$panel);
 }
-check_tab(str_contains($entry,'workspace-tabs.js?v=7'),'UI script not installed');
+check_tab(str_contains($entry,'workspace-tabs.js?v=8'),'UI script not installed');
 foreach(['aur-upload','saved-cases','destination-screen','supplier-workspace','aur-rfq-approval','supplier-replies','aur-mail-settings'] as $target) {
  check_tab(str_contains($ui,"'".$target."'"),'Existing workflow target not retained: '.$target);
 }
@@ -66,7 +66,7 @@ check_tab(str_contains($board,'case_mail_inbox_data.php') &&
           str_contains($board,'JSON_HEX_TAG'), 'Existing case evidence must still identify suppliers');
 check_tab(str_contains($ui,'Open full Mail Centre, read attachments or compose'),
     'Full mailbox must remain accessible');
-check_tab(str_contains($board,'case-mail-inbox.js?v=4') &&
+check_tab(str_contains($board,'case-mail-inbox.js?v=5') &&
           str_contains($board,'Original sent enquiry') &&
           str_contains($board,'Refresh mailbox') &&
           !str_contains($board,'data-aur-mail-filter='),
